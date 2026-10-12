@@ -83,38 +83,40 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
 #offlineStatus { color: var(--chalk-dim); }
 #offlineStatus.ready { color: #9fe0a8; }
 .site-version { margin: 14px 0 0; font-size: 13px; color: var(--chalk-dim); text-align: right; font-family: system-ui, -apple-system, sans-serif; }
-/* Wide landscape screens (iPad landscape, desktop): a wider slate with the games in rows of three (icon beside the words), filling the screen without scrolling. */
+/* Wide landscape screens (iPad landscape, desktop): a wider slate with the games in rows of four (icon beside the name), filling the screen without scrolling. */
 @media (orientation: landscape) and (min-width: 1000px) and (min-height: 680px) {
   body { min-height: 100dvh; display: flex; flex-direction: column; justify-content: center; padding-inline: max(24px, env(safe-area-inset-left, 0px)) max(24px, env(safe-area-inset-right, 0px)); }
   .frame { width: 100%; max-width: 1400px; }
-  .board { padding: 32px 40px 24px; }
+  .board { padding: 26px 38px 18px; }
   .head { display: flex; align-items: baseline; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
   h1 { font-size: 64px; }
   .lede { margin: 0; font-size: 19px; }
-  hr { margin: 22px 0 24px; }
-  .games { grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  hr { margin: 18px 0 20px; }
+  .games { grid-template-columns: repeat(4, 1fr); gap: 18px; }
   .game { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto 1fr auto; column-gap: 18px; row-gap: 8px; padding: 22px 22px 18px; }
-  .game svg { width: 88px; height: 88px; grid-row: 1 / 4; }
+  .game svg { width: 64px; height: 64px; }
+  .game h2 { align-self: center; }
+  .game p, .game .play { grid-column: 1 / -1; }
   .game h2 { font-size: 29px; line-height: 1.1; }
   .game p { font-size: 16px; line-height: 1.42; }
   .play { font-size: 20px; }
-  .offline { margin-top: 24px; padding-top: 16px; flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: 18px; }
+  .offline { margin-top: 20px; padding-top: 14px; flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: 18px; }
   .offline p:last-child { flex-basis: 100%; }
   .site-version { margin-top: 8px; }
 }
 /* Shorter landscape tablets (iPad Air, iPad mini): tighten so it still fits. */
 @media (orientation: landscape) and (min-width: 1000px) and (min-height: 680px) and (max-height: 900px) {
   body { padding-block: max(14px, var(--safe-top, env(safe-area-inset-top, 0px))) max(14px, env(safe-area-inset-bottom, 0px)); }
-  .board { padding: 22px 32px 16px; }
+  .board { padding: 18px 30px 12px; }
   h1 { font-size: 52px; }
-  hr { margin: 16px 0 18px; }
+  hr { margin: 12px 0 14px; }
   .game { padding: 16px 18px 14px; row-gap: 6px; }
-  .game svg { width: 56px; height: 56px; }
+  .game svg { width: 48px; height: 48px; }
   .game h2 { font-size: 25px; }
-  .game p { font-size: 15px; line-height: 1.35; }
+  .game p { font-size: 14.5px; line-height: 1.32; }
   .play { font-size: 18px; }
   .lede { font-size: 17px; }
-  .offline { margin-top: 18px; padding-top: 12px; }
+  .offline { margin-top: 14px; padding-top: 10px; }
 }
 </style>
 </head>
@@ -160,6 +162,15 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
         <p>Guide Poncho the black cat through 14 floors of Lolo-style puzzle rooms, with lives, boss fights and a brutal Summit. Collect the hearts, dodge Medusa's stare and carry out the jewel.</p>
         <span class="play">Play &rarr;</span>
       </a>
+      <a class="game" href="ponchos-adventure-3d/">
+        <svg viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M8 52 36 66l28-14L36 38z"/><path d="M8 52v-8l28-14 28 14v8"/>
+          <path d="M28 40V30l-4-8 7 4h10l7-4-4 8v10"/><path d="M32 34h.5M40 34h.5"/>
+        </svg>
+        <h2>Poncho’s Adventure 3D</h2>
+        <p>A first draft of Poncho in 3D: the same 70 rooms and controls, built as little lit dioramas with shadows, flowing rivers and a 3D Poncho.</p>
+        <span class="play">Play &rarr;</span>
+      </a>
       <a class="game" href="flip-five/">
         <svg viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="5" y="12" width="18" height="20" rx="2"/><rect x="27" y="12" width="18" height="20" rx="2" fill="currentColor"/><rect x="49" y="12" width="18" height="20" rx="2"/>
@@ -201,7 +212,7 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
   </main>
 </div>
 <script>
-const SITE_VERSION = "v1.7";
+const SITE_VERSION = "v1.8";
 // Lock the screen: no rubber-band bounce or drag when swiping, unless the page really needs to scroll (phones)
 document.documentElement.style.overscrollBehavior = "none"; document.body.style.overscrollBehavior = "none";
 document.addEventListener("touchmove", e => {
@@ -228,7 +239,7 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").then(() => navigator.serviceWorker.ready).then(async () => {
     const keys = await caches.keys();
     const cache = keys.length ? await caches.open(keys[0]) : null;
-    const ok = cache && (await Promise.all(["hangman/", "scareisdale/", "ponchos-adventure/", "flip-five/", "flip-five-3d/", "follow-chestnut/"].map(p => cache.match(p)))).every(Boolean);
+    const ok = cache && (await Promise.all(["hangman/", "scareisdale/", "ponchos-adventure/", "ponchos-adventure-3d/", "flip-five/", "flip-five-3d/", "follow-chestnut/"].map(p => cache.match(p)))).every(Boolean);
     status.textContent = ok ? "Ready to play offline: all games are saved on this device." : "Open this page once more while online to finish saving the games.";
     status.classList.toggle("ready", !!ok);
   }).catch(() => { status.textContent = "This browser can't save the games for offline play."; });
