@@ -225,8 +225,8 @@ kbd { font-family: var(--font-hand); border: 1px solid var(--chalk-dim); border-
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
-@media (max-width: 720px) {
-  /* fill the phone's visible screen: the board stretches and the extra height goes to bigger letter keys */
+@media (max-width: 720px), (pointer: coarse) and (orientation: portrait) {
+  /* fill the phone's (or a portrait tablet's) visible screen: the board stretches and the extra height goes to bigger letter keys */
   body {
     padding-block: 10px;
     min-height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
@@ -364,7 +364,7 @@ kbd { font-family: var(--font-hand); border: 1px solid var(--chalk-dim); border-
 
 <script>
 (() => {
-const VERSION = "v1.4";
+const VERSION = "v1.5";
 document.getElementById("version").textContent = "Hangman " + VERSION;
 const WORDS = {
   "Animals": ["platypus", "armadillo", "chameleon", "flamingo", "hedgehog", "narwhal", "porcupine", "salamander", "wolverine", "jellyfish", "kangaroo", "octopus", "pelican", "raccoon", "walrus", "axolotl", "alligator", "antelope", "baboon", "badger", "beaver", "bison", "buffalo", "butterfly", "camel", "caterpillar", "cheetah", "chimpanzee", "chinchilla", "chipmunk", "cobra", "coyote", "crocodile", "dolphin", "donkey", "dragonfly", "eagle", "elephant", "falcon", "ferret", "gazelle", "gecko", "giraffe", "gorilla", "grasshopper", "hamster", "hippopotamus", "hummingbird", "hyena", "iguana", "jaguar", "koala", "ladybug", "lemur", "leopard", "lobster", "meerkat", "mongoose", "moose", "mosquito", "ostrich", "otter", "panther", "parrot", "peacock", "penguin", "pheasant", "piranha", "porpoise", "python", "rattlesnake", "reindeer", "rhinoceros", "scorpion", "seahorse", "squirrel", "starfish", "stingray", "tarantula", "tortoise", "toucan", "turtle", "vulture", "warthog", "weasel", "woodpecker", "yak", "zebra", "anteater", "bumblebee", "cockatoo", "cuttlefish", "manatee", "mandrill", "ocelot", "orangutan", "pangolin", "puffin", "quokka", "sloth", "tapir", "wombat"],
@@ -516,8 +516,10 @@ function render(fresh, justGuessed) {
 const cv = $("gallows"), ctx = cv.getContext("2d");
 const W = 300, H = 260;
 function fitCanvas(c, cx) {
-  const dpr = Math.min(window.devicePixelRatio || 1, 3);
-  c.width = W * dpr; c.height = H * dpr;
+  // sharp at any size: account for the board's zoom on big screens and the canvas's displayed width
+  const zoom = parseFloat(document.querySelector(".frame").style.zoom) || 1;
+  const dpr = Math.min(window.devicePixelRatio || 1, 3) * zoom * Math.max(1, c.clientWidth / W);
+  c.width = Math.round(W * dpr); c.height = Math.round(H * dpr);
   cx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 fitCanvas(cv, ctx);
@@ -626,6 +628,23 @@ function frame(ts) {
 /* ---------- chalk dust particles ---------- */
 const dc = $("dust"), dctx = dc.getContext("2d");
 fitCanvas(dc, dctx);
+
+/* ---------- big screens (iPad, desktop): scale the whole chalkboard up to fill the screen ---------- */
+const frameEl = document.querySelector(".frame");
+function fitBoard() {
+  frameEl.style.zoom = "";
+  if (!matchMedia("(max-width: 720px), (pointer: coarse) and (orientation: portrait)").matches) {
+    const r = frameEl.getBoundingClientRect();
+    const padB = parseFloat(getComputedStyle(document.documentElement).paddingBottom) || 0;
+    const z = Math.min(2, (innerWidth - 32) / r.width, (innerHeight - r.top - padB - 16) / r.height);
+    if (z > 1.02) frameEl.style.zoom = z.toFixed(3);
+  }
+  fitCanvas(cv, ctx); fitCanvas(dc, dctx); kick();
+}
+addEventListener("resize", fitBoard);
+addEventListener("orientationchange", () => setTimeout(fitBoard, 300));
+if (document.fonts) document.fonts.ready.then(fitBoard);
+fitBoard();
 let motes = [];
 function puff(x, y, n, colors) {
   if (reduceMotion) return;
