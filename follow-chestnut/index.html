@@ -34,7 +34,7 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 
 #app { position: fixed; inset: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto;
-  padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
 .top { display: flex; align-items: center; gap: 12px; padding: 8px 12px; min-height: 52px; }
 .lvl { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.1; }
 .lvl small { color: var(--gold); font-weight: 600; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; }
@@ -48,6 +48,8 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .pill { height: 38px; padding: 0 14px; border-radius: 19px; background: var(--panel); font-weight: 600; font-size: 15px; white-space: nowrap; }
 .pill:active { background: var(--panel-hi); }
 
+/* This game sits its whole layout 10px lower, clear of Safari's blurred top edge, so the shared Games button moves down with it */
+#gamesPill.games-pill { top: calc(env(safe-area-inset-top, 0px) + 18px); }
 #stage { position: relative; min-width: 0; min-height: 0; }
 #cv { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
 #hint { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); max-width: min(560px, calc(100% - 24px));
@@ -235,7 +237,7 @@ h1 span { color: var(--gold); display: block; }
 <div class="overlay" id="menu">
   <div class="card">
     <div class="brand">
-      <canvas id="menuCat" width="300" height="300" aria-label="Chestnut the grey cat"></canvas>
+      <canvas id="menuCat" width="300" height="300" aria-label="Chestnut, an all-grey cat"></canvas>
       <div><h1>Follow <span>Chestnut</span></h1>
         <p class="tag">Chestnut the grey cat guides a marching crowd home. Place arrows, jumps and planks so they reach the light.</p></div>
     </div>
@@ -524,7 +526,7 @@ const LEVELS = [
 ];
 
 
-const VERSION = "v1.0";
+const VERSION = "v1.1";
 const KEY = "followchestnut.";
 const $ = id => document.getElementById(id);
 const store = {
@@ -1018,44 +1020,41 @@ function drawCat(c, x, y, s, t, cat, opts = {}) {
   c.save(); c.translate(x, y);
   c.fillStyle = "rgba(0,0,0,.22)"; c.beginPath(); c.ellipse(0, 0, s * .34, s * .08, 0, 0, 7); c.fill();
   c.translate(0, -hop); c.scale(face, 1);
-  const body = "#8f9199", dark = "#62646d", light = "#c9cbd1";
+  // Chestnut is grey all over: one grey, with a slightly deeper grey only for shading and the nose
+  const body = "#8b8e96", shade = "#6f727b", line = "#5c5f68";
   // tail
   const sw = Math.sin(t * 2.1) * .35;
   c.strokeStyle = body; c.lineWidth = s * .1; c.lineCap = "round";
   c.beginPath(); c.moveTo(s * .2, -s * .08); c.bezierCurveTo(s * .55, -s * .02, s * .5, -s * .45, s * (.42 + sw * .25), -s * .58); c.stroke();
-  c.strokeStyle = dark; c.lineWidth = s * .1; c.beginPath(); c.moveTo(s * (.43 + sw * .2), -s * .52); c.lineTo(s * (.42 + sw * .25), -s * .58); c.stroke();
   // body
   c.fillStyle = body; c.beginPath(); c.ellipse(0, -s * .26, s * .27, s * .28, 0, 0, 7); c.fill();
-  c.fillStyle = light; c.beginPath(); c.ellipse(-s * .02, -s * .22, s * .13, s * .19, 0, 0, 7); c.fill();
-  c.strokeStyle = dark; c.lineWidth = s * .035;
-  for (const a of [-.42, -.3]) { c.beginPath(); c.moveTo(s * .14, s * a); c.quadraticCurveTo(s * .24, s * (a + .04), s * .26, s * (a + .1)); c.stroke(); }
-  // front paws
-  c.fillStyle = light;
-  c.beginPath(); c.ellipse(-s * .1, -s * .02, s * .075, s * .05, 0, 0, 7); c.fill();
-  c.beginPath(); c.ellipse(s * .08, -s * .02, s * .075, s * .05, 0, 0, 7); c.fill();
+  // front paws, outlined so they read against the body
+  c.fillStyle = body; c.strokeStyle = shade; c.lineWidth = s * .02;
+  c.beginPath(); c.ellipse(-s * .1, -s * .02, s * .075, s * .05, 0, 0, 7); c.fill(); c.stroke();
+  c.beginPath(); c.ellipse(s * .08, -s * .02, s * .075, s * .05, 0, 0, 7); c.fill(); c.stroke();
   // head
   const hy = -s * .66;
   c.fillStyle = body;
   c.beginPath(); c.moveTo(-s * .23, hy - s * .08); c.lineTo(-s * .21, hy - s * .36); c.lineTo(-s * .04, hy - s * .19); c.closePath(); c.fill();
   c.beginPath(); c.moveTo(s * .23, hy - s * .08); c.lineTo(s * .21, hy - s * .36); c.lineTo(s * .04, hy - s * .19); c.closePath(); c.fill();
-  c.fillStyle = "#e8a3b0";
+  c.fillStyle = shade;   // inner ears: a darker grey, not pink
   c.beginPath(); c.moveTo(-s * .19, hy - s * .12); c.lineTo(-s * .19, hy - s * .28); c.lineTo(-s * .09, hy - s * .18); c.closePath(); c.fill();
   c.beginPath(); c.moveTo(s * .19, hy - s * .12); c.lineTo(s * .19, hy - s * .28); c.lineTo(s * .09, hy - s * .18); c.closePath(); c.fill();
   c.fillStyle = body; c.beginPath(); c.ellipse(0, hy, s * .25, s * .21, 0, 0, 7); c.fill();
-  // forehead stripes
-  c.strokeStyle = dark; c.lineWidth = s * .03;
-  for (const a of [-.06, 0, .06]) { c.beginPath(); c.moveTo(s * a, hy - s * .2); c.lineTo(s * a * .8, hy - s * .1); c.stroke(); }
-  // muzzle
-  c.fillStyle = light; c.beginPath(); c.ellipse(-s * .055, hy + s * .08, s * .075, s * .06, 0, 0, 7); c.ellipse(s * .055, hy + s * .08, s * .075, s * .06, 0, 0, 7); c.fill();
-  c.fillStyle = "#e58a9b"; c.beginPath(); c.moveTo(-s * .03, hy + s * .03); c.lineTo(s * .03, hy + s * .03); c.lineTo(0, hy + s * .065); c.closePath(); c.fill();
-  // eyes: green, with a blink every few seconds
+  // grey nose and a small mouth
+  c.fillStyle = line; c.beginPath(); c.moveTo(-s * .03, hy + s * .04); c.lineTo(s * .03, hy + s * .04); c.lineTo(0, hy + s * .075); c.closePath(); c.fill();
+  c.strokeStyle = line; c.lineWidth = s * .018; c.lineCap = "round";
+  c.beginPath(); c.moveTo(0, hy + s * .075); c.quadraticCurveTo(-s * .02, hy + s * .11, -s * .05, hy + s * .1);
+  c.moveTo(0, hy + s * .075); c.quadraticCurveTo(s * .02, hy + s * .11, s * .05, hy + s * .1); c.stroke();
+  // eyes: yellowy green, with a blink every few seconds
   const blink = (t % 4.3) < .14 || happy >= 0;
   if (blink) {
     c.strokeStyle = "#2b2b33"; c.lineWidth = s * .03;
     for (const ex of [-.1, .1]) { c.beginPath(); c.arc(s * ex, hy - s * .02, s * .045, Math.PI * .15, Math.PI * .85, happy < 0); c.stroke(); }
   } else {
     for (const ex of [-.1, .1]) {
-      c.fillStyle = "#a7d86b"; c.beginPath(); c.ellipse(s * ex, hy - s * .02, s * .05, s * .055, 0, 0, 7); c.fill();
+      c.fillStyle = "#c9d43a"; c.beginPath(); c.ellipse(s * ex, hy - s * .02, s * .05, s * .055, 0, 0, 7); c.fill();
+      c.strokeStyle = "#7f8a1e"; c.lineWidth = s * .01; c.stroke();
       c.fillStyle = "#1d1d22"; c.beginPath(); c.ellipse(s * ex + s * .008, hy - s * .02, s * .016, s * .045, 0, 0, 7); c.fill();
       c.fillStyle = "#fff"; c.beginPath(); c.arc(s * ex + s * .02, hy - s * .045, s * .012, 0, 7); c.fill();
     }
