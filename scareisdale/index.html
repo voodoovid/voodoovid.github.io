@@ -212,7 +212,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <script>
 (() => {
 'use strict';
-const VERSION = 'v1.12';
+const VERSION = 'v2.0';
 document.getElementById('verBar').textContent = VERSION;
 document.getElementById('verOverlay').textContent = VERSION;
 const TS = 16, VW = 384, VH = 240, ROWS = 15;
@@ -239,7 +239,11 @@ window.visualViewport?.addEventListener('resize', fitPhone);
 window.visualViewport?.addEventListener('scroll', fitPhone);
 fitPhone();
 const cv = document.getElementById('game');
-const ctx = cv.getContext('2d');
+const mainCtx = cv.getContext('2d');
+let ctx = mainCtx;
+// In 2.5D the sky and far scenery are painted here and shown behind the 3D blocks
+const bgCanvas = document.createElement('canvas'); bgCanvas.width = VW * 2; bgCanvas.height = VH * 2;
+const bgCtx = bgCanvas.getContext('2d');
 let S = 2;
 
 function resize() {
@@ -769,6 +773,9 @@ const ENTRIES = {
   vault: { 19: { main: 162 } },
 };
 const ROOM_NAMES = { mirrors: 'HALL OF MIRRORS', vault: 'THE PRIZE VAULT' };
+// For the 2.5D view (a three.js module at the end of the page): read-only access to the world
+window.__sc = { T, TS, VW, VH, ROWS, ENTRIES, get grid() { return grid; }, get COLS() { return COLS; }, get camX() { return camX; }, get bumps() { return bumps; },
+  get area() { return area; }, get roomKey() { return roomKey; }, get clock() { return clock; }, get state() { return state; }, resetSky() { skyGrad = null; } };
 const isHidden = (tx, ty) => ty >= 0 && ty < ROWS && (grid[ty][tx] === 'H' || grid[ty][tx] === 'h');
 let score = 0, coins = 0, lives = 3, night = 1, timeLeft = 400, checkpoint = 0, combo = 0, flagY = 0, fin = null, freezeT = 0, clock = 0, hurryDone = false, carryBig = false;
 
@@ -1521,12 +1528,17 @@ function render() {
     }
     return;
   }
-  area === 'main' ? drawBG() : drawRoomBG();
+  const v3 = !!(window.__sc3d && window.__sc3d.on);
+  if (v3) {
+    mainCtx.clearRect(0, 0, VW, VH);
+    ctx = bgCtx; ctx.setTransform(2, 0, 0, 2, 0, 0); area === 'main' ? drawBG() : drawRoomBG(); ctx = mainCtx;
+    window.__sc3d.draw(bgCanvas);
+  } else area === 'main' ? drawBG() : drawRoomBG();
   const cx = Math.round(camX);
   const x0 = Math.floor(cx / TS), x1 = Math.min(COLS - 1, x0 + VW / TS + 1);
   const qf = [0, 0, 1, 2, 1][Math.floor(clock * 6) % 5];
   for (let ty = 0; ty < ROWS; ty++) for (let tx = x0; tx <= x1; tx++) {
-    const c = grid[ty][tx]; if (c === '.') continue;
+    const c = grid[ty][tx]; if (c === '.' || (v3 && c !== 'o')) continue;
     let px = tx * TS - cx, py = ty * TS;
     const b = bumps.find(b => b.tx === tx && b.ty === ty); if (b) py -= Math.round(Math.sin(b.t / 0.18 * Math.PI) * 6);
     switch (c) {
@@ -1636,5 +1648,136 @@ window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.
 })();
 </script>
 <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});</script>
+<style>
+/* 2.5D: a WebGL canvas behind the game canvas draws the blocks in 3D and the sky behind them; the game canvas
+   on top keeps the pixel-art characters, tickets and score, with a see-through background. */
+.stage canvas.gl3d { position: absolute; background: #14072e; pointer-events: none; image-rendering: auto; }
+html.view3d #game { position: relative; background: transparent; }
+</style>
+<script type="module">
+// Scareisdale in 2.5D (three.js). The game is unchanged: each frame its render() hands over the painted sky and
+// calls draw(), which builds the visible blocks from window.__sc. One world unit is one game pixel; the blocks' front
+// faces sit exactly where the flat tiles were, and the camera looks slightly down so their tops and the ground show.
+import * as THREE from "../lib/three.module.min.js";
+(() => {
+  const SC = window.__sc, cv = document.getElementById("game"), root = document.documentElement;
+  if (!SC) return;
+  const { T, TS, VW, VH, ROWS } = SC;
+  let renderer;
+  try { renderer = new THREE.WebGLRenderer({ antialias: true }); } catch (e) { return; }   // no WebGL: flat only
+  const gl = renderer.domElement; gl.className = "gl3d"; cv.before(gl);
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+
+  // ---- view switch: 2.5D by default, saved on this device ----
+  let on = true;
+  try { on = localStorage.getItem("scareisdale.view") !== "2d"; } catch (e) {}
+  const btn = document.createElement("button"); btn.className = "tog"; btn.id = "viewBtn"; btn.type = "button";
+  const mute = document.getElementById("muteBtn"); mute.after(btn);
+  function setView(v) {
+    on = v; api.on = v; root.classList.toggle("view3d", v); gl.style.display = v ? "" : "none";
+    btn.textContent = "VIEW: " + (v ? "2.5D" : "2D"); btn.setAttribute("aria-pressed", String(v));
+    SC.resetSky();
+    try { localStorage.setItem("scareisdale.view", v ? "25d" : "2d"); } catch (e) {}
+  }
+  btn.addEventListener("click", () => { setView(!on); btn.blur(); });
+  addEventListener("keydown", e => { if (e.code === "KeyV" && !e.repeat) setView(!on); });
+
+  // ---- keep the 3D canvas exactly behind the game canvas ----
+  function place() {
+    Object.assign(gl.style, { left: cv.offsetLeft + "px", top: cv.offsetTop + "px", width: cv.offsetWidth + "px", height: cv.offsetHeight + "px", borderRadius: getComputedStyle(cv).borderRadius });
+    renderer.setSize(cv.offsetWidth || VW, cv.offsetHeight || VH, false);
+  }
+  new ResizeObserver(place).observe(cv); addEventListener("resize", () => setTimeout(place, 50));
+
+  // ---- scene ----
+  const scene = new THREE.Scene();
+  const sky = new THREE.CanvasTexture(document.createElement("canvas")); sky.colorSpace = THREE.SRGBColorSpace;
+  scene.add(new THREE.AmbientLight(0xb8a0ff, 1.55));
+  const moon = new THREE.DirectionalLight(0xffe2c4, 2.1); moon.position.set(-0.35, 1, 0.75); scene.add(moon);
+  const camera = new THREE.PerspectiveCamera();
+  const D = 430, LIFT = 95;   // camera distance and how far above the middle of the screen it sits (game pixels)
+
+  // textures from the game's own 16x16 tiles, kept crisp
+  const texCache = new Map();
+  const tex = src => {
+    let t = texCache.get(src);
+    if (!t) { t = new THREE.CanvasTexture(src); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; texCache.set(src, t); }
+    return t;
+  };
+  const tile = paint => { const c = document.createElement("canvas"); c.width = c.height = TS; paint(c.getContext("2d")); return c; };
+  const flat = (fill, edge, hi) => tile(g => { g.fillStyle = edge; g.fillRect(0, 0, 16, 16); g.fillStyle = fill; g.fillRect(1, 1, 14, 14); if (hi) { g.fillStyle = hi; g.fillRect(1, 1, 14, 1); } });
+  const soil = tile(g => {
+    g.fillStyle = "#3a1a63"; g.fillRect(0, 0, 16, 16);
+    g.fillStyle = "#4b2680"; [[2, 3], [9, 1], [12, 9], [5, 12], [14, 14]].forEach(([x, y]) => g.fillRect(x, y, 2, 1));
+    g.fillStyle = "#ff7a1a"; [[6, 5], [1, 10], [11, 13]].forEach(([x, y]) => g.fillRect(x, y, 1, 1));
+  });
+  const SIDES = {
+    "?": flat("#f0a51c", "#7a3a08", "#ffe07a"), P: flat("#f0a51c", "#7a3a08", "#ffe07a"), U: flat("#6e4030", "#2a120a"),
+    drumTop: tile(g => { g.fillStyle = "#a86a00"; g.fillRect(0, 0, 16, 16); g.fillStyle = "#ffd23f"; g.fillRect(1, 1, 14, 14); g.fillStyle = "#14072e"; g.fillRect(3, 3, 10, 10); g.fillStyle = "#2a0b4a"; g.fillRect(4, 4, 8, 8); }),
+  };
+  const mats = new Map();
+  const lam = src => { let m = mats.get(src); if (!m) { m = new THREE.MeshLambertMaterial({ map: tex(src) }); mats.set(src, m); } return m; };
+  // box faces: +x, -x, +y (top), -y, +z (front), -z
+  const look = (front, side, top) => [lam(side), lam(side), lam(top), lam(side), lam(front), lam(side)];
+  function faces(c, tx, ty, grid) {
+    switch (c) {
+      case "#": { const topRow = !(ty > 0 && grid[ty - 1][tx] === "#"); return look(topRow ? T.groundTop : T.ground, T.ground, soil); }
+      case "B": return look(T.brick, T.brick, T.brick);
+      case "?": case "P": { const q = T.q[[0, 0, 1, 2, 1][Math.floor(SC.clock * 6) % 5]]; return look(q, SIDES["?"], SIDES["?"]); }
+      case "U": return look(T.used, SIDES.U, SIDES.U);
+      case "=": return look(T.hard, T.hard, T.hard);
+      case "W": return look(T.wall, T.wall, T.wall);
+      case "D": {
+        const L = grid[ty][tx - 1] !== "D", top = grid[ty - 1][tx] !== "D";
+        const sec = top && SC.ENTRIES[SC.area === "main" ? "main" : SC.roomKey][L ? tx : tx - 1];
+        const front = top ? (L ? (sec ? T.dTLs : T.dTL) : (sec ? T.dTRs : T.dTR)) : (L ? T.dBL : T.dBR);
+        return look(front, T.dBL, top ? SIDES.drumTop : T.dBL);
+      }
+    }
+    return null;
+  }
+  // block depth: the ground runs well back like a stage; walls deeper still; floating blocks are cubes
+  const GEO = {
+    block: new THREE.BoxGeometry(TS, TS, TS).translate(TS / 2, -TS / 2, -TS / 2),
+    ground: new THREE.BoxGeometry(TS, TS, 72).translate(TS / 2, -TS / 2, -36),
+    wall: new THREE.BoxGeometry(TS, TS, 96).translate(TS / 2, -TS / 2, -48),
+    drum: new THREE.CylinderGeometry(1, 1, 1, 20),
+  };
+  const pools = { block: [], ground: [], wall: [] }, used = { block: 0, ground: 0, wall: 0 };
+  const take = kind => {
+    const p = pools[kind];
+    if (used[kind] >= p.length) { const m = new THREE.Mesh(GEO[kind]); scene.add(m); p.push(m); }
+    const m = p[used[kind]++]; m.visible = true; return m;
+  };
+
+  // ---- each frame, called from the game's render() ----
+  const api = { on, draw(bg) {
+    if (sky.image !== bg) { sky.image = bg; }
+    sky.needsUpdate = true; scene.background = sky;
+    const grid = SC.grid, COLS = SC.COLS, cx = Math.round(SC.camX);
+    for (const k in used) used[k] = 0;
+    const x0 = Math.max(0, Math.floor(cx / TS) - 2), x1 = Math.min(COLS - 1, Math.floor(cx / TS) + VW / TS + 2);
+    for (let ty = 0; ty < ROWS; ty++) for (let tx = x0; tx <= x1; tx++) {
+      const c = grid[ty][tx];
+      if (c === "." || c === "o" || c === "H" || c === "h") continue;
+      const f = faces(c, tx, ty, grid); if (!f) continue;
+      const kind = c === "#" ? "ground" : c === "W" ? "wall" : "block";
+      const m = take(kind); m.material = f;
+      let py = ty * TS; const b = SC.bumps.find(b => b.tx === tx && b.ty === ty);
+      if (b) py -= Math.round(Math.sin(b.t / 0.18 * Math.PI) * 6);
+      m.position.set(tx * TS, -py, 0);
+    }
+    for (const k in pools) for (let i = used[k]; i < pools[k].length; i++) pools[k][i].visible = false;
+    // an off-centre view: the front faces (z = 0) land exactly on the game's pixels, while the eye sits above the middle
+    const n = 10, ey = -VH / 2 + LIFT;
+    camera.position.set(cx + VW / 2, ey, D);
+    camera.projectionMatrix.makePerspective((-VW / 2) * n / D, (VW / 2) * n / D, (0 - ey) * n / D, (-VH - ey) * n / D, n, 2000);
+    camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
+    renderer.render(scene, camera);
+  } };
+  window.__sc3d = api;
+  place(); setView(on);
+})();
+</script>
 </body>
 </html>
