@@ -138,7 +138,7 @@ button { cursor: pointer; }
 .remarks { grid-area: remarks; width: var(--kbw); max-width: 100%; height: 100%; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 6px 12px; }
 .side .remarks { flex-wrap: wrap; align-content: center; }
 .side.roomy .stage {
-  grid-template: "board top" var(--top-h) "board remarks" var(--rem-h) "board panel" minmax(0, 1fr) "keys keys" auto / auto minmax(0, 1fr);
+  grid-template: "board top" var(--top-h) "board remarks" var(--rem-h) "board panel" auto "board result" minmax(0, 1fr) "keys keys" auto / auto minmax(0, 1fr);
 }
 .side.roomy .board { align-self: start; margin-top: var(--pill-room, 0px); }
 .side.roomy .top, .side.roomy .remarks, .side.roomy .panel { width: 100%; }
@@ -175,6 +175,18 @@ button { cursor: pointer; }
 .cta { flex: none; height: min(38px, var(--rem-h)); padding: 0 16px; background: var(--amber); color: #17191e; border: 0; border-radius: 6px;
   font: 700 17px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
 .cta:hover { background: #ffcc66; }
+/* ---- end of a game on wide screens: the word and a big New word button under the settings ---- */
+.result { display: none; }
+.side.roomy .result:not([hidden]) {
+  grid-area: result; align-self: stretch; width: 100%; min-height: 0; container-type: size;
+  display: grid; grid-template: "line line" auto "word new" minmax(0, 1fr) / minmax(0, 1fr) auto; align-items: center; gap: 2px 20px;
+}
+.res-line { grid-area: line; margin: 0; font: 600 clamp(15px, 14cqh, 24px)/1.1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+.res-word { grid-area: word; margin: 0; min-width: 0; font: 700 clamp(34px, min(62cqh, 13cqw), 120px)/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--amber); white-space: nowrap; }
+.result.won .res-word { color: var(--hit); }
+:root.contrast .result.won .res-word { color: var(--hit); }
+.res-new { grid-area: new; height: clamp(48px, 56cqh, 84px); padding: 0 clamp(24px, 5cqw, 48px); font-size: clamp(20px, 26cqh, 34px); border-radius: 10px; }
+.side.roomy.ended #status, .side.roomy #btnNew { display: none; }
 
 /* ---- keyboard ---- */
 .keys { grid-area: keys; width: var(--kbw); max-width: 100%; display: flex; flex-direction: column; gap: var(--kgap); }
@@ -299,6 +311,12 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 
     <section class="panel" id="panel" aria-label="Settings"><h3>Settings</h3></section>
 
+    <div class="result" id="result" hidden>
+      <p class="res-line" id="resLine">The word was</p>
+      <p class="res-word" id="resWord"></p>
+      <button class="cta res-new" id="btnNew2" type="button">New word</button>
+    </div>
+
     <div class="keys" id="keys" aria-label="Keyboard"></div>
   </div>
 </div>
@@ -394,7 +412,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v1.10";
+const VERSION = "v1.11";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
@@ -558,6 +576,12 @@ function paintStatus() {
   else if (G.won) s.textContent = "Solved in " + G.guesses.length + (G.guesses.length === 1 ? " guess" : " guesses");
   else s.textContent = "The word was " + G.answer.toUpperCase();
   $("btnNew").hidden = !shown;
+  // wide screens show the result big, under the settings
+  app.classList.toggle("ended", shown && !note);
+  $("result").hidden = !shown;
+  $("result").classList.toggle("won", !!G.won);
+  $("resLine").textContent = G.won ? "Solved in " + G.guesses.length + (G.guesses.length === 1 ? " guess" : " guesses") : "The word was";
+  $("resWord").textContent = G.answer.toUpperCase();
   $("btnGiveUp").disabled = G.over || busy;
   $("strict").hidden = shown;
 }
@@ -703,6 +727,7 @@ addEventListener("keydown", e => {
   }
 });
 $("btnNew").addEventListener("click", e => { e.currentTarget.blur(); newGame(); });
+$("btnNew2").addEventListener("click", e => { e.currentTarget.blur(); newGame(); });
 
 // ---------- Trip-hop background music and sound effects (synthesised in the browser, no sound files) ----------
 // Five tracks, a new one with each new word. Each has lazy, swung sixteenths, boom-bap drums, a warm sub bass,
