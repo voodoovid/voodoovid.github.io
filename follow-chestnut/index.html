@@ -34,7 +34,7 @@ button { font: inherit; color: inherit; border: 0; cursor: pointer; touch-action
 button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 
 #app { position: fixed; inset: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto;
-  padding: calc(var(--safe-top, env(safe-area-inset-top, 0px)) + 10px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
+  padding: calc(var(--safe-top, env(safe-area-inset-top, 0px)) + 26px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px); }
 .top { display: flex; align-items: center; gap: 12px; padding: 8px 12px; min-height: 52px; }
 .lvl { display: flex; flex-direction: column; min-width: 0; flex: 1; line-height: 1.1; }
 .lvl small { color: var(--gold); font-weight: 600; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; }
@@ -48,8 +48,8 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 .pill { height: 38px; padding: 0 14px; border-radius: 19px; background: var(--panel); font-weight: 600; font-size: 15px; white-space: nowrap; }
 .pill:active { background: var(--panel-hi); }
 
-/* This game sits its whole layout 10px lower, clear of Safari's blurred top edge, so the shared Games button moves down with it */
-#gamesPill.games-pill { top: calc(var(--safe-top, env(safe-area-inset-top, 0px)) + 18px); }
+/* This game sits its whole layout 26px lower, clear of Safari's blurred top edge, so the shared Games button moves down with it */
+#gamesPill.games-pill { top: calc(var(--safe-top, env(safe-area-inset-top, 0px)) + 34px); }
 #stage { position: relative; min-width: 0; min-height: 0; }
 #cv { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; }
 #hint { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); max-width: min(560px, calc(100% - 24px));
@@ -111,11 +111,12 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
 h1 { margin: 0; font-weight: 700; font-size: clamp(32px, 6vmin + 6px, 60px); line-height: 1; text-align: left; }
 h1 span { color: var(--gold); display: block; }
 .tag { margin: 8px 0 0; color: var(--dim); font-size: clamp(15px, 1.4vmin + 9px, 20px); text-align: left; }
-.levels { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 20px 0 6px; }
-.lv { position: relative; padding: 10px 6px 8px; border-radius: 16px; background: var(--panel-hi); display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; }
-.lv b { font-size: 24px; line-height: 1; }
-.lv .nm { font-size: 13px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-.lv .st { font-size: 15px; letter-spacing: 1px; color: var(--gold); }
+.levels { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; margin: 18px 0 6px; }
+.world { grid-column: 1 / -1; text-align: left; font-size: 13px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--gold); margin: 6px 0 -2px 4px; }
+.lv { position: relative; padding: 8px 2px 6px; border-radius: 14px; background: var(--panel-hi); display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 0; }
+.lv b { font-size: 21px; line-height: 1; }
+.lv .nm { display: none; font-size: 13px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.lv .st { font-size: 12px; letter-spacing: 0; color: var(--gold); }
 .lv .st i { font-style: normal; color: #4b5280; }
 .lv.cur { box-shadow: 0 0 0 3px var(--gold); }
 .lv:disabled { opacity: .4; cursor: default; }
@@ -148,8 +149,16 @@ h1 span { color: var(--gold); display: block; }
   #hint { font-size: 14px; padding: 6px 12px 6px 6px; bottom: 6px; }
   #hint canvas { width: 30px; height: 30px; }
 }
+@media (max-width: 620px) { .trk { display: none; } }
+/* Phones: keep the level picker clear of the Games button and short enough to fit */
 @media (max-width: 520px) {
-  .levels { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  #menu { padding-top: calc(var(--safe-top, env(safe-area-inset-top, 0px)) + 84px); }
+  #menu .tag { display: none; }
+  #menuCat { width: 84px; height: 84px; }
+  .world { margin-top: 2px; }
+  .levels { grid-template-columns: repeat(8, 1fr); gap: 5px; }
+  .lv b { font-size: 17px; }
+  .lv .st { font-size: 9px; }
   .lv .nm { display: none; }
   .brand { gap: 8px; }
 }
@@ -546,10 +555,231 @@ const LEVELS = [
     "          .###",
     "     ... ..   ",
     "              "] },
+  // ----- Levels 17 onward: made with a solver that checks each one needs every command it gives you -----
+  { name: "Hedge Hop", hint: "A hedge turns the crowd to its right, no arrow needed.",
+    dir: "R", total: 13, need: 10, tools: {turn: 4, jump: 1}, map: [
+    "       #     ",
+    " S.. . ...#E ",
+    "   f . . . . ",
+    "     . . . . ",
+    "   .....#... ",
+    "     #   #   "] },
+  { name: "Shortcut", hint: "Sometimes the quickest way is over the gap.",
+    dir: "R", total: 12, need: 9, tools: {turn: 4, jump: 1}, map: [
+    "            ",
+    "   ......#E ",
+    " S..# . . . ",
+    "      .   . ",
+    "       f...#",
+    "        #   "] },
+  { name: "Fish Pond Loop", hint: "Go round for the fish, then head for the light.",
+    dir: "R", total: 13, need: 10, tools: {turn: 5, jump: 1}, map: [
+    "           ",
+    "     .. .. ",
+    "     .   . ",
+    "     ..f . ",
+    " S....   . ",
+    "  #   E  . ",
+    "      .... ",
+    "           "] },
+  { name: "Skipping Stones", hint: "Jump, land, jump again.",
+    dir: "R", total: 12, need: 9, tools: {turn: 3, jump: 3}, map: [
+    "             ",
+    " S. . ... f  ",
+    "        . .  ",
+    "        .... ",
+    "           . ",
+    "        E... ",
+    "           # "] },
+  { name: "High Hedges", hint: "Jumps clear hedges as well as holes.",
+    dir: "R", total: 12, need: 9, tools: {turn: 3, jump: 3}, map: [
+    "             ",
+    "        E... ",
+    "     #     . ",
+    "     .. . f. ",
+    " S.. .  .  . ",
+    "   ...# ....#",
+    "   #    #    "] },
+  { name: "Twilight Maze", hint: "Seven commands and not one to spare.",
+    dir: "R", total: 13, need: 10, tools: {turn: 5, jump: 2}, map: [
+    "             ",
+    " S. ..# #  E ",
+    " #   .  ....#",
+    "   ... f.    ",
+    "   . #  .    ",
+    "  .......    ",
+    "             "] },
+  { name: "Blue Arrow Bend", hint: "Blue painted arrows can't be moved. Work with them.",
+    dir: "R", total: 13, need: 10, tools: {turn: 5, jump: 1, plank: 1}, map: [
+    "            # ",
+    "        E.... ",
+    " S..  #b    . ",
+    "   v  ...# .  ",
+    "   .  . . f . ",
+    "   ....#...G.#",
+    "        #     "] },
+  { name: "Leapfrog", hint: "The gate here is a decoy.",
+    dir: "R", total: 15, need: 12, tools: {turn: 3, jump: 3, plank: 1}, map: [
+    "        #   ",
+    " #      ...#",
+    " S. ...#. v ",
+    "    b . . . ",
+    "      G . . ",
+    "   f..... E ",
+    "            "] },
+  { name: "Up and Over", hint: "Fill one hole, jump another.",
+    dir: "R", total: 14, need: 11, tools: {turn: 5, jump: 1, plank: 1}, map: [
+    "              ",
+    "          ..E ",
+    "    #   ..^   ",
+    "  f..... #... ",
+    "    .  .    . ",
+    " S. .# ...... ",
+    "       #      "] },
+  { name: "Plate Detour", hint: "One trip to the plate opens the gate for everyone behind.",
+    dir: "R", total: 13, need: 10, tools: {turn: 5, jump: 2, plank: 1}, map: [
+    "            ",
+    " S....      ",
+    "     .f     ",
+    "   b#.      ",
+    "#. ...#E    ",
+    " .     .    ",
+    " ...G. .#   ",
+    " #          "] },
+  { name: "Long Way Home", hint: "Every tool counts. Try the path in your head first.",
+    dir: "R", total: 15, need: 12, tools: {turn: 5, jump: 2, plank: 1}, map: [
+    "            ",
+    "     .>.G.  ",
+    "    b .  .  ",
+    "  # .  f ..#",
+    " S...#. E#. ",
+    "   #...#... ",
+    "          # "] },
+  { name: "Around the Gate", hint: "You won't need the gate if you go round it.",
+    dir: "R", total: 16, need: 13, tools: {turn: 6, jump: 1, plank: 1}, map: [
+    " #           ",
+    " ......      ",
+    " G  f .      ",
+    " . b  ..E    ",
+    " .....#      ",
+    "     ^..     ",
+    " S.. .#      ",
+    "             "] },
+  { name: "Cracked Corner", hint: "Cracked tiles give way after four walkers. Don't let the crowd wear them out.",
+    dir: "R", total: 14, need: 12, tools: {turn: 3, jump: 2, plank: 1}, map: [
+    "             ",
+    "       # f E ",
+    "     # >.. . ",
+    " S.. .   . . ",
+    "     . . . . ",
+    "     . . . . ",
+    "     . . . . ",
+    "    #...#..x#",
+    "     #   #   "] },
+  { name: "Thin Ice", hint: "Jumping over a crack doesn't wear it down.",
+    dir: "R", total: 16, need: 14, tools: {turn: 4, jump: 1, plank: 1}, map: [
+    "           # ",
+    "       E.... ",
+    " S.....    x ",
+    "      .    . ",
+    "      ...f . ",
+    "           . ",
+    "      .x.... ",
+    "      #      "] },
+  { name: "Mind the Cracks", hint: "Find a route that keeps everyone off the cracked tiles.",
+    dir: "R", total: 15, need: 13, tools: {turn: 4, jump: 1, plank: 1}, map: [
+    "            ",
+    "      .x.   ",
+    "   f    x   ",
+    "   . .. . E ",
+    "   .  . . . ",
+    " S..# . . . ",
+    "   .... ... ",
+    "   #        "] },
+  { name: "Cracks and Gaps", hint: "Keep everyone off the cracks.",
+    dir: "R", total: 16, need: 14, tools: {turn: 3, jump: 2, plank: 1}, map: [
+    "              ",
+    " S..x..#E. #  ",
+    "    b .  ...  ",
+    "      .    .  ",
+    "      .. .G.# ",
+    "         f    ",
+    "              "] },
+  { name: "Arrow on the Edge", hint: "A painted arrow guards the cracks. Cross the gap before it.",
+    dir: "R", total: 16, need: 14, tools: {turn: 4, jump: 1, plank: 1}, map: [
+    "             ",
+    " S.... .. E. ",
+    "        .f . ",
+    "        .  < ",
+    "           x ",
+    "        ....#",
+    "             "] },
+  { name: "Brittle Bridges", hint: "Eight commands. The cracks decide where they go.",
+    dir: "R", total: 15, need: 13, tools: {turn: 5, jump: 2, plank: 1}, map: [
+    "              ",
+    "         ..xx ",
+    "         .  . ",
+    "       ...#f. ",
+    "   #   .      ",
+    " S.x.  .    . ",
+    "   #.  .    . ",
+    "    ....# E.. ",
+    "            # "] },
+  { name: "Moonlit Steps", hint: "Seven commands. Let the hedges do some of the turning.",
+    dir: "R", total: 13, need: 10, tools: {turn: 5, jump: 2}, map: [
+    "   #     #   ",
+    "   ...#...   ",
+    " S.. . E     ",
+    "         ..  ",
+    "   f......   ",
+    "     #       "] },
+  { name: "Lantern Walk", hint: "Three planks, one jump. Choose the holes carefully.",
+    dir: "R", total: 12, need: 9, tools: {turn: 4, jump: 1, plank: 3}, map: [
+    "            ",
+    " b....#..G.#",
+    "   . . .  . ",
+    " ..> .   f. ",
+    "   .   .    ",
+    " S..#>..#E. ",
+    "     #    # "] },
+  { name: "Owl's Hollow", hint: "Two islands, one long walk. Finish the top before you start the bottom.",
+    dir: "R", total: 18, need: 15, tools: {turn: 3, jump: 3, plank: 3}, map: [
+    "              ",
+    "    f....     ",
+    "      . . ..  ",
+    "    .#. . ..  ",
+    " S... . ....  ",
+    "           .  ",
+    "  #        .  ",
+    "  ...E   . .  ",
+    "  .      . .  ",
+    "  . f .  . .  ",
+    "  . . . #...  ",
+    " #... . ..    ",
+    "              "] },
+  { name: "Chestnut's Night Out", hint: "The last walk of the night. Nine commands, no spares.",
+    dir: "R", total: 18, need: 15, tools: {turn: 6, plank: 3}, map: [
+    "               ",
+    "            #  ",
+    "     .   ....  ",
+    "     .   .  .  ",
+    "     .  ..f .  ",
+    "   S..# ... .  ",
+    "     .. .....# ",
+    "         .     ",
+    " ...  .  .     ",
+    " . .E#. ..     ",
+    " .# # .        ",
+    "#........f     ",
+    "      #        ",
+    "               "] },
 ];
 
 
-const VERSION = "v1.8";
+// Level groups shown in the level picker: [first level index, name]
+const WORLDS = [[0, "Garden Paths"], [8, "Planks and Plates"], [16, "Twilight Hops"], [22, "Long Way Round"], [28, "Crumbling Isles"], [34, "Night Garden"]];
+
+const VERSION = "v1.9";
 const KEY = "followchestnut.";
 const $ = id => document.getElementById(id);
 const store = {
@@ -571,7 +801,7 @@ const G = {
   mode: "plan",          // plan | run | pause | done
   fast: false, acc: 0, alpha: 0, time: 0,
   progress: store.get("progress", { stars: {} }),
-  cat: { x: 0, y: 0, tx: 0, ty: 0, face: 1, hop: 0, happy: 0, blink: 0 },
+  cat: { x: 0, y: 0, tx: 0, ty: 0, face: 1, hop: 0, happy: 0, blink: 0, win: 0 },
   flashes: [], view: { s: 40, ox: 0, oy: 0, cw: 0, ch: 0, dpr: 1 }, stars: [],
 };
 const unlocked = n => n === 0 || (G.progress.stars[n - 1] || 0) > 0 || (G.progress.stars[n] || 0) > 0;
@@ -589,7 +819,7 @@ function loadLevel(n) {
   store.set("last", n);
   resetRun();
   const L = G.level;
-  $("lvlNum").textContent = "Level " + (n + 1) + " of " + LEVELS.length;
+  $("lvlNum").innerHTML = "Level " + (n + 1) + " of " + LEVELS.length + '<span class="trk">  ·  ♪ ' + Sound.trackName(n) + "</span>";
   $("lvlName").textContent = L.name;
   $("hintText").textContent = L.hint;
   $("hint").classList.remove("gone");
@@ -602,11 +832,12 @@ function loadLevel(n) {
   const st = G.W.start;
   G.cat.x = G.cat.tx = st.x + 0.82; G.cat.y = G.cat.ty = st.y + 0.78; G.cat.face = 1;
   G.cat.happy = 0;
+  Sound.setTrack(n);
   layout();
 }
 function resetRun() {
   G.W = makeWorld(G.level, [...G.cmds]);
-  G.mode = "plan"; G.acc = 0; G.alpha = 0;
+  G.mode = "plan"; G.acc = 0; G.alpha = 0; G.cat.win = 0; clearTimeout(G.resultTimer);
   $("result").hidden = true;
   updateUI();
 }
@@ -682,10 +913,11 @@ function finish() {
   const W = G.W, stars = starsFor(W);
   G.mode = "done";
   if (stars > (G.progress.stars[G.n] || 0)) { G.progress.stars[G.n] = stars; store.set("progress", G.progress); }
-  if (W.won) { G.cat.happy = G.time; setTimeout(() => Sound.meow(), 250); Sound.win(); }
+  if (W.won) { G.cat.win = G.time; Sound.win(); }
   else Sound.lose();
   updateUI();
-  setTimeout(() => showResult(stars), W.won ? 1100 : 700);
+  clearTimeout(G.resultTimer);
+  G.resultTimer = setTimeout(() => showResult(stars), W.won ? 2900 : 700);
 }
 function showResult(stars) {
   const W = G.W, L = G.level, last = G.n === LEVELS.length - 1;
@@ -761,6 +993,8 @@ function openMenu() {
   let total = 0;
   LEVELS.forEach((L, n) => {
     const s = G.progress.stars[n] || 0; total += s;
+    const wd = WORLDS.find(([at]) => at === n);
+    if (wd) { const h = document.createElement("div"); h.className = "world"; h.textContent = wd[1]; box.appendChild(h); }
     const b = document.createElement("button");
     b.className = "lv" + (n === G.n && G.level ? " cur" : "");
     b.disabled = !unlocked(n);
@@ -802,9 +1036,9 @@ function layout() {
   const W = G.W; let x0 = W.w, y0 = W.h, x1 = 0, y1 = 0;
   for (let i = 0; i < W.tiles.length; i++) if (W.tiles[i] !== " ") { const x = i % W.w, y = (i / W.w) | 0; x0 = Math.min(x0, x); x1 = Math.max(x1, x + 1); y0 = Math.min(y0, y); y1 = Math.max(y1, y + 1); }
   const bw = x1 - x0, bh = y1 - y0;
-  v.s = Math.max(16, Math.floor(Math.min((r.width - 16) / (bw + 0.5), (r.height - 16) / (bh + 0.9), 124)));
+  v.s = Math.max(16, Math.floor(Math.min((r.width - 16) / (bw + 0.5), (r.height * .94 - 16) / (bh + 0.9), 124)));
   v.ox = Math.round((r.width - v.s * bw) / 2 - x0 * v.s);
-  v.oy = Math.round((r.height - v.s * bh) / 2 - y0 * v.s + v.s * 0.12);
+  v.oy = Math.round((r.height - v.s * bh) / 2 - y0 * v.s + v.s * 0.12 + r.height * 0.03);
   // a few stars in the dusk sky behind the islands
   let seed = 7 + G.n * 13; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
   G.stars = Array.from({ length: Math.round(r.width * r.height / 5000) }, () => ({ x: rnd() * r.width, y: rnd() * r.height, r: 0.6 + rnd() * 1.4, p: rnd() * 6 }));
@@ -885,12 +1119,35 @@ function draw() {
     }
     for (const { k, p } of people) if (Math.max(0, Math.min(W.h - 1, Math.floor(p.y))) === y) drawWalker(c, k, p, X, Y, s, t);
     const cat = G.cat;
-    if (Math.max(0, Math.min(W.h - 1, Math.floor(cat.y))) === y) drawCat(c, X(cat.x), Y(cat.y), s * .52, t, cat);   // Chestnut is a small cat: about half a tile tall
+    if (catGrow() === 1 && Math.max(0, Math.min(W.h - 1, Math.floor(cat.y))) === y) drawCat(c, X(cat.x), Y(cat.y), s * .52, t, cat);   // Chestnut is a small cat: about half a tile tall
   }
   // exit light, added on top
   c.globalCompositeOperation = "lighter";
   for (let i = 0; i < W.tiles.length; i++) if (W.tiles[i] === "E") drawBeam(c, X(i % W.w), Y((i / W.w) | 0), s, t);
   c.globalCompositeOperation = "source-over";
+  // after a win Chestnut swells up, purring, then settles back down
+  const g = catGrow();
+  if (g > 1) {
+    const cs = s * .52, cx = X(G.cat.x), cy = Y(G.cat.y);
+    const room = Math.max(1, Math.min((cy - 8) / (cs * 1.08), Math.min(cx, v.cw - cx) / (cs * .62)));
+    const big = 1 + (g - 1) * Math.min(1, (room - 1) / (CAT_BIG - 1));
+    c.save(); c.globalAlpha = .35 * Math.min(1, (g - 1) * 2);
+    const glow = c.createRadialGradient(cx, cy - cs * big * .5, 1, cx, cy - cs * big * .5, cs * big * 1.1);
+    glow.addColorStop(0, "rgba(255,214,120,.9)"); glow.addColorStop(1, "rgba(255,214,120,0)");
+    c.fillStyle = glow; c.fillRect(cx - cs * big * 1.2, cy - cs * big * 1.7, cs * big * 2.4, cs * big * 2.2); c.restore();
+    drawCat(c, cx, cy, cs * big, t, G.cat);
+  }
+}
+const CAT_BIG = 3;
+// 1 normally; up to CAT_BIG for about 3 seconds after a win
+function catGrow() {
+  const w = G.cat.win; if (!w) return 1;
+  const e = G.time - w;
+  if (e < 0 || e > 3.4) return 1;
+  const up = Math.min(1, e / .45), down = e > 2.7 ? Math.min(1, (e - 2.7) / .6) : 0;
+  const ease = q => 1 + 2.2 * Math.pow(q - 1, 3) + 1.2 * Math.pow(q - 1, 2);   // a little overshoot on the way up
+  const k = (up < 1 ? ease(up) : 1) * (1 - down * down * (3 - 2 * down)) ;
+  return 1 + (CAT_BIG - 1) * Math.max(0, k) * (1 + .025 * Math.sin(e * 9));   // breathing while she purrs
 }
 function drawPlank(c, x, y, s) {
   c.fillStyle = "#c08a52"; rr(c, x + 1, y + s * .1, s - 2, s * .8, s * .08); c.fill();
@@ -1035,10 +1292,12 @@ function drawWalker(c, k, p, X, Y, s, t) {
 
 // Chestnut: a grey tabby who sits, blinks and swishes her tail. (x, y) is the point between her front paws.
 function drawCat(c, x, y, s, t, cat, opts = {}) {
-  const happy = cat && cat.happy && t - cat.happy < 2.2 ? t - cat.happy : -1;
+  let happy = cat && cat.happy && t - cat.happy < 2.2 ? t - cat.happy : -1;
+  const purring = cat && cat.win && t - cat.win < 3.4;
   let hop = 0;
   if (cat && Math.hypot(cat.tx - cat.x, cat.ty - cat.y) > .02) hop = Math.abs(Math.sin(t * 14)) * s * .12;
   if (happy >= 0) hop = Math.abs(Math.sin(happy * 7)) * s * .22 * (1 - happy / 2.2);
+  if (purring) { hop = 0; happy = 0; }
   const face = cat ? cat.face : 1;
   c.save(); c.translate(x, y);
   c.fillStyle = "rgba(0,0,0,.22)"; c.beginPath(); c.ellipse(0, 0, s * .26, s * .07, 0, 0, 7); c.fill();
@@ -1123,10 +1382,11 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 
-// ---------- Sound: small synthesized effects and a music-box loop ----------
+// ---------- Sound: synthesized effects, Chestnut's meows and purr, and eight music tracks (one per level, in turn) ----------
 const Sound = (() => {
-  let ac = null, master = null, sfx = null, mus = null, keepAlive = null, musicTimer = null, nextBar = 0, bar = 0, lastSaved = 0;
+  let ac = null, master = null, sfx = null, mus = null, keepAlive = null, musicTimer = null, lastSaved = 0;
   let mode = store.get("sound", "all");      // all | sfx | off
+  let track = 0, trackGain = null, nextBar = 0, bar = 0;
   function iosUnlock() {
     try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch (e) {}
     if (!keepAlive) {
@@ -1151,6 +1411,11 @@ const Sound = (() => {
       master = ac.createGain(); master.gain.value = .9; master.connect(comp);
       sfx = ac.createGain(); sfx.gain.value = .8; sfx.connect(master);
       mus = ac.createGain(); mus.gain.value = 0; mus.connect(master);
+      // a little room for the music
+      const verb = ac.createConvolver(), len = ac.sampleRate * 1.8, ir = ac.createBuffer(2, len, ac.sampleRate);
+      for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); }
+      verb.buffer = ir; const wet = ac.createGain(); wet.gain.value = .22;
+      mus.connect(verb); verb.connect(wet); wet.connect(master);
       iosUnlock();
     }
     if (ac.state !== "running") ac.resume().catch(() => {});
@@ -1162,9 +1427,9 @@ const Sound = (() => {
     $("btnSound").setAttribute("aria-label", "Sound: " + (mode === "all" ? "music and effects" : mode === "sfx" ? "effects only" : "off"));
     if (!ac) return;
     const now = ac.currentTime;
-    mus.gain.cancelScheduledValues(now); mus.gain.setTargetAtTime(mode === "all" ? .32 : 0, now, .3);
+    mus.gain.cancelScheduledValues(now); mus.gain.setTargetAtTime(mode === "all" ? .34 : 0, now, .3);
     sfx.gain.setTargetAtTime(mode === "off" ? 0 : .8, now, .05);
-    if (mode === "all" && !musicTimer) { nextBar = ac.currentTime + .2; musicTimer = setInterval(schedule, 200); schedule(); }
+    if (mode === "all" && !musicTimer) { startTrack(track); musicTimer = setInterval(schedule, 150); }
     if (mode !== "all" && musicTimer) { clearInterval(musicTimer); musicTimer = null; }
     if (mode === "off" && keepAlive) keepAlive.pause();
     else if (keepAlive && keepAlive.paused) keepAlive.play().catch(() => {});
@@ -1178,60 +1443,233 @@ const Sound = (() => {
     g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(vol, t0 + attack); g.gain.exponentialRampToValueAtTime(.0001, t0 + dur);
     o.connect(g); g.connect(dest || sfx); o.start(t0); o.stop(t0 + dur + .02);
   }
-  function noise(dur, { vol = .2, freq = 800, at = 0 } = {}) {
-    const t0 = ac.currentTime + at, len = Math.ceil(ac.sampleRate * dur), b = ac.createBuffer(1, len, ac.sampleRate), d = b.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
-    const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
-    src.buffer = b; f.type = "lowpass"; f.frequency.value = freq; g.gain.value = vol;
-    src.connect(f); f.connect(g); g.connect(sfx); src.start(t0);
+  let noiseBuf = null;
+  function noiseSrc() {
+    if (!noiseBuf) { noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+    const s = ac.createBufferSource(); s.buffer = noiseBuf; s.loop = true; return s;
   }
-  const PENTA = [523.25, 587.33, 659.25, 783.99, 880, 1046.5];
-  // music box: a gentle 8-bar loop in C major pentatonic
-  const MEL = [[0, 4], [2, 3], [4, 2], [6, 3], [8, 4], [10, 5], [12, 4], [14, 2], [16, 3], [18, 1], [20, 2], [22, 0], [24, 1], [26, 2], [28, 0],
-               [32, 4], [34, 3], [36, 4], [38, 5], [40, 4], [42, 2], [44, 3], [48, 2], [50, 1], [52, 0], [54, 1], [56, 2], [58, 1], [60, 0]];
-  const BASS = [130.81, 110, 87.31, 98, 130.81, 110, 87.31, 98];
+  function noise(dur, { vol = .2, freq = 800, at = 0, type = "lowpass", q = .7, dest = null } = {}) {
+    const t0 = ac.currentTime + at, src = noiseSrc(), f = ac.createBiquadFilter(), g = ac.createGain();
+    f.type = type; f.frequency.value = freq; f.Q.value = q;
+    g.gain.setValueAtTime(vol, t0); g.gain.exponentialRampToValueAtTime(.0001, t0 + dur);
+    src.connect(f); f.connect(g); g.connect(dest || sfx); src.start(t0, Math.random() * .5); src.stop(t0 + dur + .02);
+  }
+
+  // ----- Chestnut's voice -----
+  // A meow: a buzzy voice shaped by two moving "vowel" filters, m → i → ow, with a little vibrato. Each one is a bit different.
+  function meow({ vol = .32, short = false } = {}) {
+    if (!ok()) return;
+    const t0 = ac.currentTime + .005, r = (a, b) => a + Math.random() * (b - a);
+    const kind = short ? (Math.random() < .35 ? "mrrp" : "mew") : "meow";
+    const p = r(470, 640) * (kind === "mew" ? 1.18 : 1), dur = kind === "meow" ? r(.48, .62) : kind === "mew" ? r(.26, .34) : r(.3, .38);
+    const o = ac.createOscillator(); o.type = "sawtooth";
+    o.frequency.setValueAtTime(p * .85, t0);
+    o.frequency.linearRampToValueAtTime(p * r(1.25, 1.45), t0 + dur * .3);
+    o.frequency.exponentialRampToValueAtTime(p * r(.7, .85), t0 + dur);
+    const vib = ac.createOscillator(), vg = ac.createGain(); vib.frequency.value = r(5.5, 7.5); vg.gain.value = p * .02;
+    vib.connect(vg); vg.connect(o.frequency);
+    const mouth = ac.createBiquadFilter(); mouth.type = "lowpass"; mouth.Q.value = .5;
+    mouth.frequency.setValueAtTime(450, t0); mouth.frequency.exponentialRampToValueAtTime(4500, t0 + .07);   // closed lips opening: the "m"
+    const f1 = ac.createBiquadFilter(), f2 = ac.createBiquadFilter(), g1 = ac.createGain(), g2 = ac.createGain();
+    f1.type = f2.type = "bandpass"; f1.Q.value = 5; f2.Q.value = 7; g1.gain.value = 1.4; g2.gain.value = .7;
+    f1.frequency.setValueAtTime(650, t0); f1.frequency.linearRampToValueAtTime(1150, t0 + dur * .3); f1.frequency.linearRampToValueAtTime(700, t0 + dur);
+    f2.frequency.setValueAtTime(2300, t0); f2.frequency.linearRampToValueAtTime(2700, t0 + dur * .25); f2.frequency.linearRampToValueAtTime(1250, t0 + dur);
+    const env = ac.createGain();
+    env.gain.setValueAtTime(0, t0); env.gain.linearRampToValueAtTime(vol, t0 + .04); env.gain.setValueAtTime(vol, t0 + dur * .6);
+    env.gain.exponentialRampToValueAtTime(.001, t0 + dur);
+    if (kind === "mrrp") {   // a rolled "r" at the start of a chirp
+      const am = ac.createOscillator(), ag = ac.createGain(); am.frequency.value = 28; ag.gain.setValueAtTime(vol * .8, t0); ag.gain.linearRampToValueAtTime(0, t0 + .12);
+      am.connect(ag); ag.connect(env.gain); am.start(t0); am.stop(t0 + .13);
+    }
+    o.connect(mouth); mouth.connect(f1); mouth.connect(f2); f1.connect(g1); f2.connect(g2); g1.connect(env); g2.connect(env); env.connect(sfx);
+    o.start(t0); vib.start(t0); o.stop(t0 + dur + .05); vib.stop(t0 + dur + .05);
+  }
+  // A purr: soft breathy rumble at about 25 beats a second, louder on the out-breath. Built sample by sample.
+  function purr(seconds = 2.8, vol = .9) {
+    if (!ok()) return;
+    const sr = ac.sampleRate, n = Math.floor(sr * seconds), b = ac.createBuffer(1, n, sr), d = b.getChannelData(0);
+    let lp = 0, ph = 0;
+    for (let i = 0; i < n; i++) {
+      const t = i / sr, cyc = (t % 1.25) / 1.25, out = cyc >= .45;
+      const half = out ? (cyc - .45) / .55 : cyc / .45;
+      const breath = Math.sin(Math.PI * Math.min(1, half)) ** .7 * (out ? 1 : .55);
+      ph += 2 * Math.PI * (out ? 25 : 22.5) / sr;
+      const pulse = Math.pow(.5 + .5 * Math.sin(ph), 3);
+      lp += .09 * ((Math.random() * 2 - 1) - lp);
+      const fade = Math.min(1, t / .15, (seconds - t) / .3);
+      d[i] = (lp * 2.6 + .35 * Math.sin(ph * 2)) * pulse * breath * fade;
+    }
+    const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+    src.buffer = b; f.type = "lowpass"; f.frequency.value = 650; g.gain.value = vol;
+    src.connect(f); f.connect(g); g.connect(sfx); src.start(ac.currentTime + .02);
+  }
+
+  // ----- Music -----
+  const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+  // instruments: (midi, start time, length in seconds, volume, destination)
+  const INST = {
+    bell(m, t, len, v, out) { const f = mtof(m); osc("sine", f, t, 1.4, v, out, .004); osc("sine", f * 2.01, t, .5, v * .25, out, .004); },
+    celesta(m, t, len, v, out) { const f = mtof(m); osc("sine", f, t, 1.1, v, out, .003); osc("sine", f * 4, t, .18, v * .18, out, .002); osc("triangle", f * 2, t, .4, v * .15, out, .003); },
+    marimba(m, t, len, v, out) { const f = mtof(m); osc("sine", f, t, .45, v, out, .003); osc("sine", f * 3.93, t, .07, v * .35, out, .002); },
+    kalimba(m, t, len, v, out) { const f = mtof(m); osc("sine", f, t, .9, v, out, .003, f * 1.02); osc("sine", f * 5.95, t, .12, v * .22, out, .002); },
+    pluck(m, t, len, v, out) {   // harp-like: bright attack that mellows quickly
+      const f = mtof(m), o = ac.createOscillator(), lp = ac.createBiquadFilter(), g = ac.createGain();
+      o.type = "sawtooth"; o.frequency.value = f; lp.type = "lowpass"; lp.frequency.setValueAtTime(f * 8, t); lp.frequency.exponentialRampToValueAtTime(f * 1.5, t + .4);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v * .6, t + .004); g.gain.exponentialRampToValueAtTime(.0001, t + 1.1);
+      o.connect(lp); lp.connect(g); g.connect(out); o.start(t); o.stop(t + 1.15);
+    },
+    pizz(m, t, len, v, out) {
+      const f = mtof(m), o = ac.createOscillator(), lp = ac.createBiquadFilter(), g = ac.createGain();
+      o.type = "triangle"; o.frequency.value = f; lp.type = "lowpass"; lp.frequency.value = f * 4;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .004); g.gain.exponentialRampToValueAtTime(.0001, t + .22);
+      o.connect(lp); lp.connect(g); g.connect(out); o.start(t); o.stop(t + .25);
+    },
+    epiano(m, t, len, v, out) {  // two-operator FM, like a soft electric piano
+      const f = mtof(m), c = ac.createOscillator(), mo = ac.createOscillator(), mg = ac.createGain(), g = ac.createGain(), d = Math.max(.6, len * 1.4);
+      c.frequency.value = f; mo.frequency.value = f; mg.gain.setValueAtTime(f * 2.2, t); mg.gain.exponentialRampToValueAtTime(f * .2, t + .6);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .006); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+      mo.connect(mg); mg.connect(c.frequency); c.connect(g); g.connect(out); c.start(t); mo.start(t); c.stop(t + d + .02); mo.stop(t + d + .02);
+    },
+    flute(m, t, len, v, out) {
+      const f = mtof(m), o = ac.createOscillator(), lfo = ac.createOscillator(), lg = ac.createGain(), g = ac.createGain(), d = Math.max(.25, len);
+      o.type = "triangle"; o.frequency.value = f; lfo.frequency.value = 5; lg.gain.value = f * .006; lfo.connect(lg); lg.connect(o.frequency);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .07); g.gain.setValueAtTime(v * .85, t + d * .8); g.gain.linearRampToValueAtTime(0, t + d + .12);
+      o.connect(g); g.connect(out); o.start(t); lfo.start(t); o.stop(t + d + .15); lfo.stop(t + d + .15);
+    },
+    pad(m, t, len, v, out) {
+      const f = mtof(m), lp = ac.createBiquadFilter(), g = ac.createGain();
+      lp.type = "lowpass"; lp.frequency.value = 1100;
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + len * .35); g.gain.setValueAtTime(v, t + len * .7); g.gain.linearRampToValueAtTime(0, t + len + .4);
+      for (const det of [-7, 6]) { const o = ac.createOscillator(); o.type = "sawtooth"; o.frequency.value = f; o.detune.value = det; o.connect(lp); o.start(t); o.stop(t + len + .45); }
+      lp.connect(g); g.connect(out);
+    },
+    bass(m, t, len, v, out) { osc("triangle", mtof(m), t, Math.max(.2, len), v, out, .01); osc("sine", mtof(m), t, Math.max(.2, len), v * .6, out, .01); },
+    sub(m, t, len, v, out) { osc("sine", mtof(m), t, Math.max(.3, len), v, out, .04); },
+    kick(t, v, out) { const o = ac.createOscillator(), g = ac.createGain(); o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(48, t + .18);
+      g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + .25); o.connect(g); g.connect(out); o.start(t); o.stop(t + .27); },
+    hit(t, v, out, freq, dur, type) { const s = noiseSrc(), f = ac.createBiquadFilter(), g = ac.createGain();
+      f.type = type; f.frequency.value = freq; f.Q.value = 1; g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+      s.connect(f); f.connect(g); g.connect(out); s.start(t, Math.random() * .5); s.stop(t + dur + .02); },
+  };
+  function osc(type, f, t, d, v, out, att = .005, from = null) {
+    const o = ac.createOscillator(), g = ac.createGain(); o.type = type;
+    if (from) { o.frequency.setValueAtTime(from, t); o.frequency.exponentialRampToValueAtTime(f, t + .03); } else o.frequency.value = f;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + att); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+    o.connect(g); g.connect(out); o.start(t); o.stop(t + d + .02);
+  }
+  const MAJ = [0, 2, 4, 5, 7, 9, 11], PENT = [0, 2, 4, 7, 9], DOR = [0, 2, 3, 5, 7, 9, 10], AEO = [0, 2, 3, 5, 7, 8, 10], HMIN = [0, 2, 3, 5, 7, 8, 11];
+  // prog: chord root per bar, in semitones above the key. rhythm: steps in a bar where the tune plays.
+  const TRACKS = [
+    { name: "Music Box", bpm: 84, steps: 8, key: 72, scale: PENT, chordScale: MAJ, prog: [0, 9, 5, 7, 0, 9, 5, 7], lead: "bell", lv: .13, rhythm: [0, 2, 4, 6], bass: "bass", bassPat: [[0, 0, 7], [4, 7, 3]], bv: .11 },
+    { name: "Garden Waltz", bpm: 138, steps: 6, key: 65, scale: MAJ, prog: [0, 9, 5, 7, 0, 9, 2, 7], lead: "flute", lv: .09, rhythm: [0, 3, 4], arp: "pluck", arpPat: [2, 3, 4, 5], av: .06, bass: "bass", bassPat: [[0, 0, 2]], bv: .11 },
+    { name: "Firefly Swing", bpm: 100, steps: 8, swing: .3, key: 70, scale: MAJ, prog: [2, 7, 0, 9, 2, 7, 0, 0], sevenths: true, lead: "epiano", lv: .1, rhythm: [0, 3, 4, 6], comp: "epiano", compSteps: [3, 7], cv: .045, bass: "bass", walk: true, bv: .12,
+      drums: { brush: [2, 6], shaker: [1, 3, 5, 7] } },
+    { name: "Island Hop", bpm: 112, steps: 8, key: 67, scale: MAJ, prog: [0, 5, 7, 5, 0, 5, 7, 0], lead: "marimba", lv: .16, rhythm: [0, 3, 4, 6, 7], bass: "bass", bassPat: [[0, 0, 3], [3, 7, 3], [6, 12, 2]], bv: .12,
+      drums: { kick: [0, 4], rim: [3, 6], shaker: [0, 1, 2, 3, 4, 5, 6, 7] } },
+    { name: "Moon Pond", bpm: 64, steps: 8, key: 62, scale: DOR, prog: [0, 5, 0, 10, 0, 5, 3, 10], lead: "kalimba", lv: .15, rhythm: [0, 3, 6], padv: .035, bass: "sub", bassPat: [[0, 0, 8]], bv: .13 },
+    { name: "Cat Parade", bpm: 126, steps: 8, key: 69, scale: MAJ, prog: [0, 7, 0, 7, 5, 0, 7, 0], lead: "pizz", lv: .14, rhythm: [0, 1, 2, 4, 6], bass: "pizz", bassPat: [[0, 0, 1], [4, 7, 1]], bv: .2, oompah: true,
+      drums: { kick: [0, 4], rim: [2, 6] } },
+    { name: "Starlight", bpm: 76, steps: 8, key: 64, scale: AEO, prog: [0, 8, 3, 10, 0, 8, 5, 7], lead: "celesta", lv: .12, rhythm: [0, 3, 4, 6], arp: "pluck", arpPat: [0, 1, 2, 3, 4, 5, 6, 7], av: .03, padv: .025, bass: "sub", bassPat: [[0, 0, 8]], bv: .12 },
+    { name: "Hedge Maze", bpm: 104, steps: 8, key: 60, scale: HMIN, prog: [0, 0, 8, 7, 0, 5, 8, 7], lead: "flute", lv: .08, rhythm: [0, 4, 6], arp: "marimba", arpPat: [0, 1, 2, 3, 4, 5, 6, 7], av: .09, bass: "bass", bassPat: [[0, 0, 2], [3, 0, 2], [6, 7, 2]], bv: .12,
+      drums: { kick: [0], rim: [4], shaker: [1, 3, 5, 7] } },
+  ];
+  // Each track's tune is made once, from its own seed: four bars, an answering four bars, landing home at the end
+  function chordOf(T, bar) {
+    const cs = T.chordScale || (T.scale.length === 7 ? T.scale : MAJ), r = T.prog[bar % T.prog.length];
+    let i = cs.indexOf(r % 12); if (i < 0) i = 0;
+    const at = k => cs[(i + k) % 7] + 12 * Math.floor((i + k) / 7);
+    const ch = [at(0), at(2), at(4)]; if (T.sevenths) ch.push(at(6));
+    return ch.map(n => n + (r - cs[i]));
+  }
+  function makeTune(T, seed) {
+    let s = seed; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+    const sc = T.scale, deg2semi = d => sc[((d % sc.length) + sc.length) % sc.length] + 12 * Math.floor(d / sc.length);
+    const nearest = (target, deg) => { let best = deg, bd = 99; for (let d = deg - 4; d <= deg + 4; d++) { const pc = ((deg2semi(d) % 12) + 12) % 12; if (target.includes(pc) && Math.abs(d - deg) < bd) { bd = Math.abs(d - deg); best = d; } } return best; };
+    const notes = []; let deg = sc.length + 2;
+    const motif = [];
+    for (let b = 0; b < 8; b++) {
+      const chord = chordOf(T, b).map(n => ((n % 12) + 12) % 12);
+      const R = T.rhythm;
+      for (let k = 0; k < R.length; k++) {
+        const st = R[k], len = (R[k + 1] ?? T.steps) - st;
+        if (b >= 4 && b < 7 && motif[(b - 4) * R.length + k] != null && rnd() < .7) deg = nearest(chord, motif[(b - 4) * R.length + k]);
+        else if (k === 0 || st === T.steps / 2) deg = nearest(chord, deg + Math.round((rnd() - .5) * 3));
+        else deg += [-2, -1, -1, 1, 1, 2][Math.floor(rnd() * 6)];
+        deg = Math.max(sc.length - 2, Math.min(sc.length * 2 + 2, deg));
+        if ((b === 3 || b === 7) && k === R.length - 1) deg = nearest([((T.prog[b] % 12) + 12) % 12], deg);
+        if (b === 7 && k === R.length - 1) deg = nearest([0], deg);
+        if (b < 4) motif.push(deg);
+        if (rnd() < .12 && k > 0) continue;   // a breath now and then
+        notes.push([b, st, deg2semi(deg), len]);
+      }
+    }
+    return notes;
+  }
+  TRACKS.forEach((T, i) => T.tune = makeTune(T, 1234 + i * 977));
+
+  function startTrack(n) {
+    if (!ac) return;
+    if (trackGain) { const g = trackGain; g.gain.cancelScheduledValues(ac.currentTime); g.gain.setTargetAtTime(0, ac.currentTime, .25); setTimeout(() => g.disconnect(), 3000); }
+    trackGain = ac.createGain(); trackGain.gain.value = 0; trackGain.gain.setTargetAtTime(1, ac.currentTime + .3, .3); trackGain.connect(mus);
+    track = n; bar = 0; nextBar = ac.currentTime + .35;
+  }
+  function setTrack(n) {
+    n = ((n % TRACKS.length) + TRACKS.length) % TRACKS.length;
+    if (n === track && trackGain) return;
+    track = n;
+    if (ac && musicTimer) startTrack(n);
+  }
   function schedule() {
-    if (!ac || mode !== "all") return;
-    const beat = 60 / 84 / 2;     // eighth notes at 84 bpm
-    while (nextBar < ac.currentTime + 1.2) {
-      const b = bar % 8, t0 = nextBar - ac.currentTime;
-      for (const [st, n] of MEL) if ((st >> 3) === b) bell(PENTA[n], t0 + (st & 7) * beat, .14);
-      tone(BASS[b], beat * 7.5, { type: "triangle", vol: .12, at: t0, attack: .03, dest: mus });
-      tone(BASS[b] * 1.5, beat * 7.5, { type: "sine", vol: .05, at: t0 + beat * 2, attack: .05, dest: mus });
-      nextBar += beat * 8; bar++;
+    if (!ac || mode !== "all" || !trackGain) return;
+    const T = TRACKS[track], out = trackGain, step = 60 / T.bpm / 2;
+    const at = st => nextBar + st * step + (T.swing && st % 2 ? T.swing * step : 0);
+    while (nextBar < ac.currentTime + 1.0) {
+      const b = bar % 8, chord = chordOf(T, b), key = T.key, root = key + T.prog[b] - 12;
+      for (const [nb, st, semi, len] of T.tune) if (nb === b) INST[T.lead](key + semi, at(st), len * step, T.lv, out);
+      if (T.walk) {   // walking bass: root, third, fifth, a step towards the next chord
+        const next = key + T.prog[(b + 1) % 8] - 24, r = root - 12;
+        [r, r + chord[1] - chord[0], r + chord[2] - chord[0], next + (next > r ? -1 : 1)].forEach((m, k) => INST[T.bass](m, at(k * 2), step * 1.8, T.bv, out));
+      } else for (const [st, iv, len] of T.bassPat) INST[T.bass](root - 12 + iv, at(st), len * step, T.bv, out);
+      if (T.oompah) for (const st of [2, 6]) for (const n of chord) INST.pizz(key + n - 12, at(st), step, .05, out);
+      if (T.arp) T.arpPat.forEach((st, k) => INST[T.arp](key + chord[k % chord.length] + (k >= chord.length ? 12 : 0) - 12, at(st), step, T.av, out));
+      if (T.comp) for (const st of T.compSteps) for (const n of chord) INST[T.comp](key + n - 12, at(st), step * 1.5, T.cv, out);
+      if (T.padv) for (const n of chord.slice(0, 3)) INST.pad(key + n - 12, at(0), step * T.steps, T.padv, out);
+      const D = T.drums || {};
+      for (const st of D.kick || []) INST.kick(at(st), .32, out);
+      for (const st of D.rim || []) INST.hit(at(st), .1, out, 1900, .06, "bandpass");
+      for (const st of D.brush || []) INST.hit(at(st), .07, out, 3200, .22, "bandpass");
+      for (const st of D.shaker || []) INST.hit(at(st), st % 2 ? .035 : .05, out, 7000, .05, "highpass");
+      nextBar += step * T.steps; bar++;
     }
   }
-  function bell(f, at, vol) {
-    tone(f, 1.2, { type: "sine", vol, at, dest: mus });
-    tone(f * 2.01, .5, { type: "sine", vol: vol * .25, at, dest: mus });
-  }
+
   return {
-    unlock, cycle, applyMode,
+    unlock, cycle, applyMode, setTrack, trackName: n => TRACKS[((n % TRACKS.length) + TRACKS.length) % TRACKS.length].name, count: TRACKS.length,
     tick() { if (ok()) tone(900, .05, { vol: .08 }); },
-    place(t) { if (!ok()) return; t === "P" ? (noise(.08, { vol: .25, freq: 600 }), tone(220, .1, { type: "triangle", vol: .2 })) : tone(620, .12, { vol: .22, to: 940 }); },
-    remove() { if (ok()) tone(700, .12, { vol: .18, to: 380 }); },
+    place() { meow({ short: true, vol: .3 }); },
+    remove() { if (ok()) tone(700, .12, { vol: .16, to: 380 }); },
     no() { if (ok()) { tone(170, .14, { type: "square", vol: .08 }); tone(150, .14, { type: "square", vol: .06, at: .09 }); } },
     saved() {
       if (!ok() || ac.currentTime - lastSaved < .07) return; lastSaved = ac.currentTime;
-      const f = PENTA[(Math.random() * PENTA.length) | 0] * 2;
-      tone(f, .35, { type: "triangle", vol: .12 }); tone(f * 1.5, .25, { vol: .05, at: .03 });
+      const f = mtof([84, 86, 88, 91, 93, 96][(Math.random() * 6) | 0]);
+      tone(f, .35, { type: "triangle", vol: .1 }); tone(f * 1.5, .25, { vol: .04, at: .03 });
     },
     fall() { if (ok()) tone(760, .5, { vol: .1, to: 160 }); },
     jump() { if (ok()) tone(300, .16, { vol: .14, to: 680 }); },
     fish() { if (!ok()) return; tone(1318, .15, { type: "triangle", vol: .16 }); tone(1760, .25, { type: "triangle", vol: .14, at: .08 }); },
     gate() { if (!ok()) return; noise(.15, { vol: .3, freq: 400 }); tone(523, .3, { type: "triangle", vol: .14, at: .08 }); tone(784, .4, { type: "triangle", vol: .14, at: .18 }); },
     crumble() { if (!ok()) return; noise(.45, { vol: .35, freq: 500 }); tone(120, .3, { type: "triangle", vol: .2, to: 60 }); },
-    win() { if (!ok()) return; [523, 659, 784, 1046].forEach((f, i) => tone(f, .5, { type: "triangle", vol: .16, at: i * .11 })); },
-    lose() { if (!ok()) return; tone(392, .35, { type: "triangle", vol: .15 }); tone(311, .5, { type: "triangle", vol: .15, at: .25 }); },
-    meow() {
+    win() {
       if (!ok()) return;
-      // a little sawtooth "mew" shaped by a vowel-like band-pass filter
-      const t0 = ac.currentTime, o = ac.createOscillator(), f = ac.createBiquadFilter(), g = ac.createGain();
-      o.type = "sawtooth"; o.frequency.setValueAtTime(560, t0); o.frequency.linearRampToValueAtTime(820, t0 + .14); o.frequency.exponentialRampToValueAtTime(470, t0 + .5);
-      f.type = "bandpass"; f.Q.value = 3; f.frequency.setValueAtTime(900, t0); f.frequency.linearRampToValueAtTime(1700, t0 + .15); f.frequency.linearRampToValueAtTime(1000, t0 + .5);
-      g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(.35, t0 + .05); g.gain.setValueAtTime(.35, t0 + .3); g.gain.exponentialRampToValueAtTime(.001, t0 + .55);
-      o.connect(f); f.connect(g); g.connect(sfx); o.start(t0); o.stop(t0 + .6);
+      [523, 659, 784, 1046].forEach((f, i) => tone(f, .5, { type: "triangle", vol: .12, at: i * .1 }));
+      // duck the music while she purrs
+      mus.gain.cancelScheduledValues(ac.currentTime); mus.gain.setTargetAtTime(mode === "all" ? .1 : 0, ac.currentTime, .15);
+      mus.gain.setTargetAtTime(mode === "all" ? .34 : 0, ac.currentTime + 3.1, .5);
+      purr(2.9);
     },
+    lose() { if (!ok()) return; tone(392, .35, { type: "triangle", vol: .15 }); tone(311, .5, { type: "triangle", vol: .15, at: .25 }); },
+    meow() { meow(); },
+    purr,
   };
 })();
 $("btnSound").onclick = () => Sound.cycle();
