@@ -189,7 +189,13 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
   </main>
 </div>
 <script>
-const SITE_VERSION = "v1.4";
+const SITE_VERSION = "v1.5";
+// Lock the screen: no rubber-band bounce or drag when swiping, unless the page really needs to scroll (phones)
+document.documentElement.style.overscrollBehavior = "none"; document.body.style.overscrollBehavior = "none";
+document.addEventListener("touchmove", e => {
+  const d = document.documentElement;
+  if (e.touches.length === 1 && e.cancelable && d.scrollHeight <= innerHeight + 1 && d.scrollWidth <= innerWidth + 1) e.preventDefault();
+}, { passive: false });
 document.getElementById("siteVersion").textContent = "Games menu " + SITE_VERSION;
 // Hide the install tip inside the installed app
 if (window.navigator.standalone || matchMedia("(display-mode: standalone)").matches) {

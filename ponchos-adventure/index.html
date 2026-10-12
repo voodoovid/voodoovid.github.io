@@ -186,6 +186,18 @@ canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; 
   // Only on the games site, not when a page is opened on its own
   if (!/\/(hangman|scareisdale|ponchos-adventure|flip-five|follow-chestnut)\//.test(location.pathname)) return;
   pill.hidden = false;
+  // Lock the screen: no rubber-band bounce or drag when swiping, except inside something that really scrolls
+  document.documentElement.style.overscrollBehavior = "none"; document.body.style.overscrollBehavior = "none";
+  const canScroll = el => {
+    for (; el && el !== document.documentElement; el = el.parentElement) {
+      if (el.closest && el.closest("input, textarea, select")) return true;
+      const s = getComputedStyle(el);
+      if (/(auto|scroll)/.test(s.overflowY + s.overflowX) && (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1)) return true;
+    }
+    const d = document.documentElement;
+    return d.scrollHeight > innerHeight + 1 || d.scrollWidth > innerWidth + 1;
+  };
+  document.addEventListener("touchmove", e => { if (e.touches.length === 1 && e.cancelable && !canScroll(e.target)) e.preventDefault(); }, { passive: false });
   // Nudge the game's top row right so nothing sits under the button
   const fit = () => {
     for (const el of document.querySelectorAll("[data-pill-gap]")) {
@@ -1445,7 +1457,7 @@ const ETYPE = {
   B: { kind: "boss", shoot: true, speed: 0.45, dir: "right" },
 };
 
-const VERSION = "2.6";
+const VERSION = "2.7";
 // On the games site: link back to the menu and save everything for offline play
 if (location.pathname.includes("/ponchos-adventure/")) {
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});

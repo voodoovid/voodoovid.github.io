@@ -174,6 +174,18 @@ h1 span { color: var(--gold); display: block; }
   // Only on the games site, not when a page is opened on its own
   if (!/\/(hangman|scareisdale|ponchos-adventure|flip-five|follow-chestnut)\//.test(location.pathname)) return;
   pill.hidden = false;
+  // Lock the screen: no rubber-band bounce or drag when swiping, except inside something that really scrolls
+  document.documentElement.style.overscrollBehavior = "none"; document.body.style.overscrollBehavior = "none";
+  const canScroll = el => {
+    for (; el && el !== document.documentElement; el = el.parentElement) {
+      if (el.closest && el.closest("input, textarea, select")) return true;
+      const s = getComputedStyle(el);
+      if (/(auto|scroll)/.test(s.overflowY + s.overflowX) && (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1)) return true;
+    }
+    const d = document.documentElement;
+    return d.scrollHeight > innerHeight + 1 || d.scrollWidth > innerWidth + 1;
+  };
+  document.addEventListener("touchmove", e => { if (e.touches.length === 1 && e.cancelable && !canScroll(e.target)) e.preventDefault(); }, { passive: false });
   // Nudge the game's top row right so nothing sits under the button
   const fit = () => {
     for (const el of document.querySelectorAll("[data-pill-gap]")) {
@@ -526,7 +538,7 @@ const LEVELS = [
 ];
 
 
-const VERSION = "v1.3";
+const VERSION = "v1.4";
 const KEY = "followchestnut.";
 const $ = id => document.getElementById(id);
 const store = {
