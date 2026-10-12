@@ -224,7 +224,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <script>
 (() => {
 'use strict';
-const VERSION = 'v3.0';
+const VERSION = 'v3.1';
 document.getElementById('verBar').textContent = VERSION;
 document.getElementById('verOverlay').textContent = VERSION;
 const TS = 16, VW = 384, VH = 240, ROWS = 15;
@@ -600,20 +600,21 @@ T.wall = tile(p => {
 });
 T.dTL = drumTile(true, true); T.dTR = drumTile(false, true); T.dBL = drumTile(true, false); T.dBR = drumTile(false, false);
 // Stone (or wooden) pillars stand in for the drums outside the midway
-function pillarTile(left, top, c) {
+function pillarTile(left, top, c, secret) {
   return tile(p => {
     p(0, 0, c.mid, 16, 16);
     if (left) { p(0, 0, c.dark, 1, 16); p(1, 0, c.hi, 2, 16); } else { p(15, 0, c.dark, 1, 16); p(11, 0, c.lo, 4, 16); }
     for (const y of [5, 11]) p(0, y, c.lo, 16, 1);
     p(left ? 7 : 4, 0, c.lo, 1, 16);
-    if (top) { p(0, 0, c.cap, 16, 5); p(0, 0, c.hi, 16, 1); p(0, 4, c.dark, 16, 1); if (c.moss) { p(left ? 3 : 5, 4, c.moss, 3, 3); p(left ? 11 : 1, 4, c.moss, 2, 5); } }
+    if (top) { p(0, 0, c.cap, 16, 5); p(0, 0, c.hi, 16, 1); p(0, 4, c.dark, 16, 1); if (c.moss) { p(left ? 3 : 5, 4, c.moss, 3, 3); p(left ? 11 : 1, 4, c.moss, 2, 5); }
+      if (secret) { const gx = left ? 13 : 0; p(gx, 1, '#1e8a50', 3, 3); p(gx + 1, 1, '#3ddc84', 2, 2); p(gx + 1, 1, '#b8ffd6'); } }
   });
 }
 function themeSet(f) {
   const S2 = { ground: tile(f.ground), groundTop: tile(f.top), wall: f.wall ? tile(f.wall) : T.wall };
   const pc = f.pillar;
   S2.dTL = pillarTile(true, true, pc); S2.dTR = pillarTile(false, true, pc); S2.dBL = pillarTile(true, false, pc); S2.dBR = pillarTile(false, false, pc);
-  S2.dTLs = S2.dTL; S2.dTRs = S2.dTR;
+  S2.dTLs = pillarTile(true, true, pc, true); S2.dTRs = pillarTile(false, true, pc, true);
   return S2;
 }
 const soil = p => { p(0, 0, '#241a16', 16, 16); p(3, 4, '#2e221c', 3, 2); p(10, 9, '#2e221c', 4, 2); p(6, 12, '#1a120e', 5, 1); p(12, 2, '#cfc6b0', 2, 1); p(2, 10, '#1a120e', 1, 3); };
@@ -954,15 +955,18 @@ const ENTRIES = {
   main: { 28: { room: 'mirrors' }, 57: { room: 'vault' } },
   mirrors: { 19: { main: 38 } },
   vault: { 19: { main: 162 } },
+  tomb: { 19: { main: 76 } },
+  library: { 19: { main: 148 } },
+  treasury: { 19: { main: 137 } },
 };
-const ROOM_NAMES = { mirrors: 'HALL OF MIRRORS', vault: 'THE PRIZE VAULT' };
+const ROOM_NAMES = { mirrors: 'HALL OF MIRRORS', vault: 'THE PRIZE VAULT', tomb: 'THE FAMILY TOMB', library: 'THE SECRET LIBRARY', treasury: 'THE PIRATE TREASURY' };
 // The four courses of Pancake's Halloween dinner, played in order each night; after the crypt the next night starts again, faster.
 // pole: flagpole column (the exit stands just past it); mid: checkpoint column; ceiling: a solid roof over rows 0-1
 const LEVELS = [
   { name: 'THE MIDWAY', theme: 'midway', track: 'waltz', pole: 197, mid: 100, build: buildMidway, entries: ENTRIES.main, sign: 'FUNHOUSE', course: 'APPETIZER IS SERVED!' },
-  { name: 'THE GRAVEYARD', theme: 'graveyard', track: 'dirge', pole: 185, mid: 100, build: buildGraveyard, sign: 'MAUSOLEUM', course: 'THE SOUP IS SERVED!' },
-  { name: 'THE HAUNTED HOUSE', theme: 'house', track: 'house', pole: 180, mid: 100, build: buildHouse, ceiling: true, sign: 'DINING ROOM', course: 'MAIN COURSE IS SERVED!' },
-  { name: 'THE CRYPT', theme: 'crypt', track: 'crypt', pole: 185, mid: 100, build: buildCrypt, ceiling: true, sign: 'PANTRY', course: 'DESSERT IS SERVED!' },
+  { name: 'THE GRAVEYARD', theme: 'graveyard', track: 'dirge', pole: 185, mid: 100, build: buildGraveyard, entries: { 33: { room: 'tomb' } }, sign: 'MAUSOLEUM', course: 'THE SOUP IS SERVED!' },
+  { name: 'THE HAUNTED HOUSE', theme: 'house', track: 'house', pole: 180, mid: 100, build: buildHouse, entries: { 58: { room: 'library' } }, ceiling: true, sign: 'DINING ROOM', course: 'MAIN COURSE IS SERVED!' },
+  { name: 'THE CRYPT', theme: 'crypt', track: 'crypt', pole: 185, mid: 100, build: buildCrypt, entries: { 68: { room: 'treasury' } }, ceiling: true, sign: 'PANTRY', course: 'DESSERT IS SERVED!' },
 ];
 let levelIdx = 0, L = LEVELS[0];
 const entriesFor = () => area === 'main' ? (L.entries || {}) : ENTRIES[roomKey];
@@ -1024,10 +1028,11 @@ function buildMidway({ Sx, ground, col, drum, row, en }) {
   en('puppet', 75, 3); en('puppet', 110, 3); en('ghoul', 157, 12);
   en('ghost', 60, 8); en('ghost', 120, 6); en('ghost', 178, 5);
   en('spider', 43, 2); en('spider', 87, 2); en('spider', 139, 2); en('spider', 169, 2);
-  en('ghoul', 82, 12); en('ghoul', 113, 12); en('ghoul', 193, 12);
+  en('ghoul', 82, 12); en('ghoul', 113, 12);
   // hidden blocks: H = kibble, h = extra life (a golden mouse)
   Sx(33, 9, 'H'); Sx(74, 9, 'h'); Sx(104, 9, 'H'); Sx(159, 9, 'H'); Sx(138, 9, 'H');
   Sx(50, 9, 'H'); Sx(126, 9, 'H'); Sx(173, 9, 'h');
+  Sx(12, 9, 'H'); Sx(62, 9, 'H'); Sx(155, 9, 'H');
 }
 
 // Level 2: the graveyard, ending at the mausoleum. Zombies shamble, ghouls wait under the dirt, spiders hang over open graves.
@@ -1048,6 +1053,9 @@ function buildGraveyard({ Sx, ground, col, drum, row, en }) {
   row(120, 9, '??'); row(124, 6, 'BBBBB'); row(125, 4, 'ooo'); en('spider', 134, 2);
   row(138, 9, 'BPB'); Sx(145, 8, 'h'); row(151, 8, 'ooo');
   en('ghoul', 160, 12); en('zombie', 164, 12); en('ghost', 172, 3); row(158, 8, 'o o o');
+  // hidden blocks (the first pillar leads down to the family tomb)
+  for (const x of [7, 24, 37, 56, 88, 105, 163]) Sx(x, 9, 'H');
+  Sx(131, 9, 'h');
   for (let i = 0; i < 8; i++) col(170 + i, i + 1);
   col(178, 8);
 }
@@ -1067,6 +1075,9 @@ function buildHouse({ Sx, ground, col, drum, row, en, fire }) {
   row(131, 8, 'oo');
   en('jack', 140, 12); en('ghost', 145, 6); row(142, 9, 'B?B'); row(152, 9, 'P');
   en('puppet', 158, 3); en('zombie', 163, 12); en('ghost', 170, 4);
+  drum(148, 2);   // the secret library comes out here
+  for (const x of [5, 25, 46, 72, 108, 137, 160]) Sx(x, 9, 'H');
+  Sx(63, 9, 'h');
   for (let i = 0; i < 6; i++) col(168 + i, i + 1);
   col(174, 6);
 }
@@ -1083,6 +1094,9 @@ function buildCrypt({ Sx, ground, col, drum, row, en, fire }) {
   fire(104, 8); row(108, 8, 'BBBBBB'); row(109, 6, 'oooo'); en('zombie', 112, 12); en('zombie', 116, 12); en('ghoul', 121, 12); row(124, 9, '?'); en('spider', 127, 2);
   row(131, 8, 'ooo');
   en('ghoul', 140, 12); en('ghoul', 146, 12); row(144, 9, 'B?B'); fire(150, 8); en('zombie', 155, 12); en('spider', 158, 2); row(162, 9, 'P');
+  drum(137, 3);   // the pirate treasury comes out here
+  for (const x of [4, 16, 50, 73, 94, 118, 141, 158, 166]) Sx(x, 9, 'H');
+  Sx(57, 9, 'h');
   for (let i = 0; i < 8; i++) col(170 + i, i + 1);
   col(178, 8);
 }
@@ -1100,6 +1114,23 @@ function buildRoom(key) {
     row(3, 9, 'BBBBB  BBBBB');
     row(3, 11, 'oooooooooooo');
     Sx(11, 5, 'h'); Sx(16, 9, 'H'); Sx(17, 8, 'o');
+  } else if (key === 'tomb') {   // bump the hidden blocks to make steps up to the ledge
+    row(3, 11, 'oooooo');
+    Sx(4, 9, 'H'); Sx(8, 9, 'H'); Sx(12, 9, 'H');
+    row(10, 5, '=====');
+    row(10, 3, 'ooooo');
+    Sx(12, 2, 'h'); Sx(16, 9, 'G');
+  } else if (key === 'library') {
+    row(2, 11, 'ooo');
+    Sx(5, 9, 'H'); row(8, 9, 'B?B'); Sx(13, 9, 'H');
+    row(11, 5, '=====');
+    row(11, 3, 'ooooo');
+    Sx(13, 2, 'h'); Sx(16, 9, 'P');
+  } else if (key === 'treasury') {
+    row(3, 11, 'oooooooooooooo');
+    row(3, 8, 'BHBBHBB');
+    row(3, 6, 'ooooooo');
+    Sx(6, 4, 'h'); Sx(12, 9, 'H'); Sx(15, 9, 'S');
   } else {
     Sx(5, 10, 'H'); Sx(8, 7, 'H');
     row(11, 6, '=====');
@@ -1489,7 +1520,7 @@ function goTo(dest) {
     const topY = ty * TS;
     P.x = tx * TS + 16 - P.w / 2; P.y = topY + 2; P.vx = 0; P.vy = 0;
     camX = clamp(P.x - VW * 0.4, 0, COLS * TS - VW);
-    ents = ents.filter(e => !(e.type === 'clown' && Math.abs(e.x - P.x) < 48));
+    ents = ents.filter(e => !(['clown', 'zombie', 'ghoul', 'jack', 'horse'].includes(e.type) && !e.dead && Math.abs(e.x - P.x) < 72));
     pipe.clipY = topY; pipe.phase = 'fadeinUp'; pipe.t = 0;
   }
 }
@@ -1996,7 +2027,64 @@ function drawPeek(cx) {
   }
 }
 
+// a little candle with a soft glow, standing at (x, y)
+function candle(x, y) {
+  const fl = Math.sin(clock * 19 + x) * 0.5;
+  const g = ctx.createRadialGradient(x, y - 9, 1, x, y - 9, 18); g.addColorStop(0, 'rgba(255,200,90,.35)'); g.addColorStop(1, 'rgba(255,200,90,0)');
+  ctx.fillStyle = g; ctx.fillRect(x - 18, y - 27, 36, 36);
+  ctx.fillStyle = '#f0e6c8'; ctx.fillRect(x - 1.5, y - 7, 3, 7);
+  ctx.fillStyle = '#ffd23f'; ctx.beginPath(); ctx.ellipse(x + fl * 0.3, y - 9.5, 1.2, 2.2 + fl * 0.4, 0, 0, 7); ctx.fill();
+}
+// the secret rooms below the graveyard, the haunted house and the crypt
+const ROOM_BGS = {
+  tomb() {   // burial niches with coffins and skulls
+    ctx.fillStyle = '#100e1a'; ctx.fillRect(0, 0, VW, VH);
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 8; c++) {
+      const x = 14 + c * 48, y = 42 + r * 40, h = hash(c, r);
+      ctx.fillStyle = '#26222f'; ctx.fillRect(x - 3, y - 3, 42, 30);
+      ctx.fillStyle = '#07060b'; ctx.fillRect(x, y, 36, 24);
+      if (h < 0.5) { ctx.fillStyle = '#4a2a18'; ctx.beginPath(); ctx.moveTo(x + 12, y + 4); ctx.lineTo(x + 24, y + 4); ctx.lineTo(x + 28, y + 10); ctx.lineTo(x + 24, y + 24); ctx.lineTo(x + 12, y + 24); ctx.lineTo(x + 8, y + 10); ctx.fill(); ctx.fillStyle = '#c8a040'; ctx.fillRect(x + 17, y + 9, 2, 9); ctx.fillRect(x + 14, y + 12, 8, 2); }
+      else if (h < 0.8) { ctx.fillStyle = '#cfc6b0'; ctx.beginPath(); ctx.arc(x + 18, y + 14, 5, 0, 7); ctx.fill(); ctx.fillRect(x + 15, y + 17, 6, 4); ctx.fillStyle = '#07060b'; ctx.fillRect(x + 15, y + 12, 2.4, 2.4); ctx.fillRect(x + 19, y + 12, 2.4, 2.4); }
+      if (r === 3 && c % 3 === 1) candle(x + 34, y + 24);
+    }
+    ctx.strokeStyle = 'rgba(235,235,255,.18)'; ctx.lineWidth = 0.6; ctx.beginPath();
+    for (let i = 0; i < 6; i++) { ctx.moveTo(32 + i * 9, 32); ctx.lineTo(16, 32 + i * 9); } ctx.stroke();
+  },
+  library() {   // tall bookshelves, a ladder and candles
+    ctx.fillStyle = '#1e0f14'; ctx.fillRect(0, 0, VW, VH);
+    const books = ['#7a1a2a', '#2a4a7a', '#3a6a3a', '#8a6a1a', '#4a2a5a', '#6a3a1a'];
+    for (let x = 8; x < VW; x += 64) {
+      ctx.fillStyle = '#3e2416'; ctx.fillRect(x, 32, 56, 176);
+      for (let s = 0; s < 5; s++) {
+        const y = 38 + s * 34;
+        ctx.fillStyle = '#140a08'; ctx.fillRect(x + 4, y, 48, 28);
+        for (let bx = x + 5, i = 0; bx < x + 50; i++) {
+          const w = 3 + Math.floor(hash(bx, s) * 3), h = 18 + Math.floor(hash(s, bx) * 9);
+          if (hash(bx + s, 7) < 0.08) { bx += 6; continue; }
+          ctx.fillStyle = books[(i + s + x) % books.length]; ctx.fillRect(bx, y + 28 - h, w, h);
+          ctx.fillStyle = 'rgba(255,220,140,.35)'; ctx.fillRect(bx, y + 31 - h, w, 1);
+          bx += w + 0.5;
+        }
+        ctx.fillStyle = '#5a3420'; ctx.fillRect(x + 2, y + 28, 52, 3);
+      }
+    }
+    ctx.fillStyle = '#6a4a2a'; ctx.fillRect(250, 36, 2, 172); ctx.fillRect(266, 36, 2, 172);
+    for (let y = 44; y < 208; y += 14) ctx.fillRect(250, y, 18, 2);
+    for (const x of [44, 172, 300]) candle(x, 207);
+  },
+  treasury() {   // the crypt walls, heaped with gold
+    drawBGCrypt();
+    for (const [x, w] of [[60, 50], [190, 70], [330, 44]]) {
+      ctx.fillStyle = '#a8740e'; ctx.beginPath(); ctx.ellipse(x, 208, w, 18, 0, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = '#ffd23f'; ctx.beginPath(); ctx.ellipse(x, 208, w * 0.85, 13, 0, Math.PI, 0); ctx.fill();
+      for (let i = 0; i < 9; i++) { const a = hash(x, i); ctx.fillStyle = (Math.floor(clock * 3) + i) % 4 ? '#fff0a0' : '#ffffff'; ctx.fillRect(x - w * 0.7 + a * w * 1.4, 197 + hash(i, x) * 8, 2, 2); }
+    }
+    ctx.fillStyle = '#5a3018'; ctx.fillRect(176, 178, 30, 20); ctx.fillStyle = '#7a4a22'; ctx.beginPath(); ctx.ellipse(191, 178, 15, 7, 0, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#c8a040'; ctx.fillRect(176, 182, 30, 2); ctx.fillRect(189, 180, 4, 6);
+  },
+};
 function drawRoomBG() {
+  if (ROOM_BGS[roomKey]) { ROOM_BGS[roomKey](); return; }
   ctx.fillStyle = '#14061f'; ctx.fillRect(0, 0, VW, VH);
   for (let x = 0; x < VW; x += 12) {
     const sway = Math.sin(clock * 0.8 + x * 0.05) * 1.5;
@@ -2166,7 +2254,7 @@ function render() {
     return;
   }
   area === 'main' ? BGS[L.theme]() : drawRoomBG();
-  const tset = area === 'main' ? TT[L.theme] : T;
+  const tset = TT[L.theme];
   const cx = Math.round(camX);
   const x0 = Math.floor(cx / TS), x1 = Math.min(COLS - 1, x0 + VW / TS + 1);
   const qf = [0, 0, 1, 2, 1][Math.floor(clock * 6) % 5];
