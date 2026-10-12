@@ -137,6 +137,24 @@ button { cursor: pointer; }
 /* ---- remarks line: status on the left, the clue rule or New word on the right ---- */
 .remarks { grid-area: remarks; width: var(--kbw); max-width: 100%; height: 100%; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 6px 12px; }
 .side .remarks { flex-wrap: wrap; align-content: center; }
+.side.roomy .stage {
+  grid-template: "board top" var(--top-h) "board remarks" var(--rem-h) "board panel" minmax(0, 1fr) "board keys" auto / auto minmax(0, 1fr);
+}
+.side.roomy .remarks { flex-wrap: nowrap; }
+.side.roomy #btnOpts, .side.roomy #strict { display: none; }
+/* ---- settings panel: fills the spare space beside the board on wide screens ---- */
+.panel { display: none; }
+.side.roomy .panel {
+  grid-area: panel; display: flex; flex-direction: column; gap: 10px; align-self: stretch; width: var(--kbw); max-width: 100%; min-height: 0;
+  overflow: auto; overscroll-behavior: contain; padding: 12px 18px 14px;
+  background: var(--housing); border: 1px solid var(--flap-line); border-radius: 10px; font-size: 15px; line-height: 1.4;
+}
+.panel h3 { margin: 0; font: 600 15px/1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
+.panel .opt { padding-block: 8px; }
+.panel .fine { font-size: 13px; color: var(--dim); }
+.opts-body { display: flex; flex-direction: column; gap: 14px; }
+.panel .opts-body { gap: 10px; }
+.trk { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: 6px; }
 #status {
   margin: 0; min-width: 0; flex: 1 1 auto;
   font: 600 clamp(15px, calc(var(--rem-h) * 0.44), 22px)/1.1 var(--font-display);
@@ -263,6 +281,8 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
       <button class="cta" id="btnNew" type="button" hidden>New word</button>
     </div>
 
+    <section class="panel" id="panel" aria-label="Settings"><h3>Settings</h3></section>
+
     <div class="keys" id="keys" aria-label="Keyboard"></div>
   </div>
 </div>
@@ -279,6 +299,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
     <p>A letter can appear more than once. If you guess two Es and only one turns green or amber, the word has just one E.</p>
     <p>Green letters you have found are filled into the next row for you, outlined in green. If you type that same letter it goes in its spot; any other letter jumps ahead to the next open spot. You can switch this off in Settings.</p>
     <p>Tap any flap in the row you're typing to put the next letter there. It's outlined in amber; tap it again to let go. On a keyboard the arrow keys do the same.</p>
+    <p>The music changes track with each new word; pick a track in Settings. Solve the word for a cheer (bigger the fewer guesses you needed), miss it for a raspberry.</p>
     <h3>Must keep greens</h3>
     <p>Switch this on for a harder game. Every green letter must stay in its spot in every later guess. Amber letters can be left out.</p>
     <h3>Words</h3>
@@ -310,6 +331,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <dialog id="dlgOpts" aria-labelledby="hOpts">
   <div class="sheet">
     <header><h2 id="hOpts">Settings</h2><button class="ib" type="button" data-close>Close</button></header>
+    <div class="opts-home" id="optsHome"><div class="opts-body" id="optsBody">
     <div>
       <div class="opt">
         <b id="lblStrict">Must keep greens</b>
@@ -318,8 +340,21 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
       </div>
       <div class="opt">
         <b id="lblMusic">Music</b>
-        <span class="fine">Trip-hop beats in the background. They start with your first tap or key press.</span>
+        <span class="fine">Trip-hop beats in the background, a new track with each word. They start with your first tap or key press.</span>
         <button class="switch" id="optMusic" type="button" role="switch" aria-checked="true" aria-labelledby="lblMusic"><span class="track"></span></button>
+      </div>
+      <div class="opt">
+        <b id="lblTrack">Track</b>
+        <span class="fine" id="trackName">1 of 5: Late Platform</span>
+        <div class="trk" role="group" aria-labelledby="lblTrack">
+          <button class="ib" id="trkPrev" type="button" aria-label="Previous track"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <button class="ib" id="trkNext" type="button" aria-label="Next track"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+        </div>
+      </div>
+      <div class="opt">
+        <b id="lblSfx">Cheers and raspberries</b>
+        <span class="fine">A cheer when you solve the word, bigger the fewer guesses you needed. A raspberry when you miss.</span>
+        <button class="switch" id="optSfx" type="button" role="switch" aria-checked="true" aria-labelledby="lblSfx"><span class="track"></span></button>
       </div>
       <div class="opt">
         <b id="lblFill">Fill in green letters</b>
@@ -339,13 +374,14 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
       <button class="ghost" id="btnGiveNo" type="button">Keep playing</button>
     </div>
     <p class="fine" id="about"></p>
+    </div></div>
   </div>
 </dialog>
 
 <script>
 (() => {
 "use strict";
-const VERSION = "v1.6";
+const VERSION = "v1.7";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
@@ -376,7 +412,7 @@ $("about").textContent = "Flip Five " + VERSION + ". Your results and settings a
 const load = (k, d) => { try { const v = JSON.parse(localStorage.getItem("flipfive." + k)); return v ?? d; } catch (e) { return d; } };
 const save = (k, v) => { try { localStorage.setItem("flipfive." + k, JSON.stringify(v)); } catch (e) {} };
 const freshStats = () => ({ played: 0, wins: 0, streak: 0, best: 0, dist: [0, 0, 0, 0, 0, 0] });
-let opts = Object.assign({ strict: false, contrast: false, fill: true, music: true }, load("opts", {}));
+let opts = Object.assign({ strict: false, contrast: false, fill: true, music: true, sfx: true, track: 0 }, load("opts", {}));
 let stats = Object.assign(freshStats(), load("stats", {}));
 let recent = load("recent", []);
 let G = null;          // { answer, guesses: [], cur, over, won }
@@ -509,6 +545,7 @@ function paintStatus() {
   else if (G.won) s.textContent = "Solved in " + G.guesses.length + (G.guesses.length === 1 ? " guess" : " guesses");
   else s.textContent = "The word was " + G.answer.toUpperCase();
   $("btnNew").hidden = !shown;
+  $("btnGiveUp").disabled = G.over || busy;
   $("strict").hidden = shown;
 }
 function paint() {
@@ -526,6 +563,8 @@ function paintOpts() {
   $("optContrast").setAttribute("aria-checked", String(opts.contrast));
   $("optFill").setAttribute("aria-checked", String(opts.fill));
   $("optMusic").setAttribute("aria-checked", String(opts.music));
+  $("optSfx").setAttribute("aria-checked", String(opts.sfx));
+  $("trackName").textContent = (opts.track + 1) + " of " + TRACKS.length + ": " + TRACKS[opts.track].name;
   $("btnMusic").setAttribute("aria-pressed", String(opts.music));
   $("btnMusic").setAttribute("aria-label", opts.music ? "Music on" : "Music off");
 }
@@ -604,6 +643,7 @@ function submit() {
   save("game", G);
   const done = () => {
     busy = false; paintKeys(G.guesses.length); paintDraft(); paintStatus();
+    if (G.over && opts.sfx) G.won ? Music.cheer(G.guesses.length) : Music.raspberry();
     if (G.won && !calm) tiles[r].forEach((t, c) => setTimeout(() => t.classList.add("hop"), c * 80));
   };
   if (calm) { marks.forEach((m, c) => setTile(tiles[r][c], guess[c], m)); return done(); }
@@ -615,6 +655,7 @@ function submit() {
   setTimeout(done, 4 * 220 + 460);
 }
 function newGame() {
+  if (G) setTrack(opts.track + 1);   // a new track with each new word (not when the page first opens)
   G = { answer: pickAnswer(), guesses: [], cur: EMPTY, over: false, won: false };
   note = null; busy = false; sel = null;
   save("game", G); paint();
@@ -623,6 +664,7 @@ function giveUp() {
   if (G.over || busy) return;
   G.cur = EMPTY; G.over = true; G.won = false; sel = null;
   record(); save("game", G); note = null; paint();
+  if (opts.sfx) Music.raspberry();
 }
 function press(k) {
   if (k === "Enter") submit();
@@ -650,22 +692,46 @@ addEventListener("keydown", e => {
 });
 $("btnNew").addEventListener("click", e => { e.currentTarget.blur(); newGame(); });
 
-// ---------- Trip-hop background music (synthesised in the browser, no sound files) ----------
-// 82 bpm with lazy, swung sixteenths: boom-bap drums, a warm sub bass, electric-piano chords with tremolo and
-// dub echo, a slow lead melody every other time round, and vinyl crackle. D minor: Dm9, Bbmaj7, Gm9, A7(b9).
+// ---------- Trip-hop background music and sound effects (synthesised in the browser, no sound files) ----------
+// Five tracks, a new one with each new word. Each has lazy, swung sixteenths, boom-bap drums, a warm sub bass,
+// chords (electric piano, vibraphone or string pad), a slow lead melody every other time round, and vinyl crackle.
+const TRACKS = [
+  { name: "Late Platform", bpm: 82, swing: .13, inst: "rhodes", lead: "flute",
+    chords: [[50, 53, 57, 60, 64], [46, 50, 53, 57, 62], [43, 50, 53, 57, 58], [45, 49, 52, 55, 58]], roots: [38, 34, 31, 33],
+    kick: [1, 0, 0, 0, 0, 0, 0, .7, 0, 0, 1, 0, 0, 0, 0, 0], snare: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, .25],
+    hat: [.7, 0, .3, .15, .7, 0, .35, 0, .7, .15, .3, 0, .7, 0, .35, .2],
+    bass: { 0: [0, 5], 7: [0, 2], 10: [7, 2], 14: [12, 2] }, hits: [[0, 9], [10, 4, "mid"]],
+    melody: [[4, 0, 69, 6], [4, 8, 72, 2], [4, 10, 74, 6], [5, 2, 72, 4], [5, 8, 69, 8], [6, 0, 70, 6], [6, 8, 69, 2], [6, 10, 67, 6], [7, 0, 64, 4], [7, 6, 73, 2], [7, 8, 69, 8]] },
+  { name: "Night Bus", bpm: 74, swing: .16, inst: "vibes", lead: "theremin",
+    chords: [[48, 51, 55, 58, 62], [44, 48, 51, 55, 60], [41, 44, 48, 51, 55], [43, 47, 50, 53, 56]], roots: [36, 32, 29, 31],
+    kick: [1, 0, 0, 0, 0, 0, 0, 0, 0, .6, 1, 0, 0, 0, 0, 0], snare: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, .2, 0],
+    hat: [.6, 0, 0, .2, .6, 0, .3, 0, .6, 0, 0, .2, .6, .2, .3, 0],
+    bass: { 0: [0, 3], 3: [0, 1], 6: [7, 2], 10: [0, 4], 14: [10, 2] }, hits: [[0, 6], [6, 2, "top"], [12, 4]],
+    melody: [[4, 0, 67, 6], [4, 8, 70, 4], [4, 12, 72, 4], [5, 0, 75, 8], [5, 10, 72, 6], [6, 0, 68, 6], [6, 8, 67, 4], [6, 12, 65, 4], [7, 0, 62, 8], [7, 8, 67, 8]] },
+  { name: "Rain Delay", bpm: 86, swing: .1, inst: "pad", lead: "glass",
+    chords: [[57, 60, 64, 67, 71], [53, 57, 60, 64], [50, 53, 57, 60, 64], [52, 56, 59, 62]], roots: [33, 29, 38, 28],
+    kick: [1, 0, 0, 0, 0, 0, .6, 0, 1, 0, 0, 0, 0, 0, 0, 0], snare: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+    hat: [.6, .2, .4, .2, .6, .2, .4, .2, .6, .2, .4, .2, .6, .2, .4, .3],
+    bass: { 0: [0, 6], 8: [0, 3], 12: [7, 2], 14: [5, 2] }, hits: [[0, 16]],
+    melody: [[4, 0, 76, 4], [4, 4, 74, 4], [4, 8, 72, 8], [5, 0, 69, 6], [5, 8, 72, 8], [6, 0, 74, 4], [6, 4, 72, 4], [6, 8, 69, 8], [7, 0, 71, 6], [7, 8, 68, 8]] },
+  { name: "Last Train", bpm: 70, swing: .14, inst: "rhodes", lead: "theremin",
+    chords: [[52, 55, 59, 62, 66], [48, 52, 55, 59], [45, 48, 52, 55, 59], [47, 51, 54, 57]], roots: [40, 36, 33, 35],
+    kick: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, .8, 0, 0, 0, 0, 0], snare: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+    hat: [.5, 0, .25, 0, .5, 0, .25, .15, .5, 0, .25, 0, .5, 0, .25, 0],
+    bass: { 0: [0, 8], 10: [0, 2], 12: [-2, 4] }, hits: [[0, 12]],
+    melody: [[4, 0, 71, 8], [4, 8, 74, 4], [4, 12, 71, 4], [5, 0, 72, 8], [5, 8, 67, 8], [6, 0, 69, 6], [6, 6, 72, 2], [6, 8, 71, 8], [7, 0, 66, 8], [7, 8, 63, 8]] },
+  { name: "Platform Lights", bpm: 80, swing: .12, inst: "vibes", lead: "flute",
+    chords: [[53, 57, 60, 64, 67], [52, 55, 59, 62], [50, 53, 57, 60, 64], [46, 50, 53, 57, 64]], roots: [41, 40, 38, 34],
+    kick: [1, 0, 0, 0, 0, 0, 0, 0, 1, 0, .6, 0, 0, 0, 0, 0], snare: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, .2],
+    hat: [.6, 0, .3, .2, .6, 0, .3, 0, .6, 0, .3, .2, .6, .15, .3, 0],
+    bass: { 0: [0, 4], 6: [7, 2], 8: [0, 4], 14: [12, 2] }, hits: [[0, 8], [8, 8, "top"]],
+    melody: [[4, 0, 72, 4], [4, 4, 76, 4], [4, 8, 79, 8], [5, 0, 76, 6], [5, 8, 74, 8], [6, 0, 72, 4], [6, 4, 74, 4], [6, 8, 77, 8], [7, 0, 76, 8], [7, 8, 72, 8]] },
+];
 const Music = (() => {
-  let ac, master, verb, echo, trem, timer, keepAlive, noise, crackle, nextTime = 0, step = 0, bar = 0, on = false;
-  const SIX = 60 / 82 / 4, SWING = 0.13;
-  const CHORDS = [[50, 53, 57, 60, 64], [46, 50, 53, 57, 62], [43, 50, 53, 57, 58], [45, 49, 52, 55, 58]];
-  const ROOTS = [38, 34, 31, 33];
-  const KICK  = [1, 0, 0, 0, 0, 0, 0, .7, 0, 0, 1, 0, 0, 0, 0, 0];
-  const SNARE = [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, .25];
-  const HAT   = [.7, 0, .3, .15, .7, 0, .35, 0, .7, .15, .3, 0, .7, 0, .35, .2];
-  const BASS  = { 0: [0, 5], 7: [0, 2], 10: [7, 2], 14: [12, 2] };          // step: [semitones above root, length in steps]
-  const MELODY = [                                                         // bars 4-7 of each 8-bar round: [bar, step, note, steps]
-    [4, 0, 69, 6], [4, 8, 72, 2], [4, 10, 74, 6], [5, 2, 72, 4], [5, 8, 69, 8],
-    [6, 0, 70, 6], [6, 8, 69, 2], [6, 10, 67, 6], [7, 0, 64, 4], [7, 6, 73, 2], [7, 8, 69, 8]];
+  let ac, master, verb, echo, trem, fx, fxVerb, timer, keepAlive, noise, unlocked = false;
+  let T = TRACKS[0], SIX = 60 / T.bpm / 4, nextTime = 0, step = 0, bar = 0, on = false, lastLead = 0;
   const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+  const rnd = (a, b) => a + Math.random() * (b - a);
 
   // iPhone/iPad: play as media so the Silent switch doesn't mute it
   function iosUnlock() {
@@ -685,18 +751,19 @@ const Music = (() => {
     const b = ac.createBufferSource(); b.buffer = ac.createBuffer(1, 1, 22050);   // unlocks Safari inside the tap
     b.connect(ac.destination); b.start(0);
   }
+  function makeVerb(secs, decay) {
+    const c = ac.createConvolver(), len = ac.sampleRate * secs, ir = ac.createBuffer(2, len, ac.sampleRate);
+    for (let ch = 0; ch < 2; ch++) { const d = ir.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay); }
+    c.buffer = ir; return c;
+  }
   function init() {
     ac = new (window.AudioContext || window.webkitAudioContext)();
-    // master: gentle compression and a dusty top end
+    // music: gentle compression and a dusty top end
     const comp = ac.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 3;
     const tone = ac.createBiquadFilter(); tone.type = "lowpass"; tone.frequency.value = 4800; tone.Q.value = 0.4;
     master = ac.createGain(); master.gain.value = 0;
     master.connect(tone); tone.connect(comp); comp.connect(ac.destination);
-    // room reverb
-    verb = ac.createConvolver();
-    const len = ac.sampleRate * 2.4, ir = ac.createBuffer(2, len, ac.sampleRate);
-    for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
-    verb.buffer = ir;
+    verb = makeVerb(2.4, 2.6);
     const wet = ac.createGain(); wet.gain.value = 0.35; verb.connect(wet); wet.connect(master);
     // dub echo: dotted eighth with darkening repeats
     echo = ac.createDelay(2); echo.delayTime.value = SIX * 3;
@@ -704,29 +771,51 @@ const Music = (() => {
     const dark = ac.createBiquadFilter(); dark.type = "lowpass"; dark.frequency.value = 1800;
     echo.connect(dark); dark.connect(fb); fb.connect(echo);
     const echoOut = ac.createGain(); echoOut.gain.value = 0.5; dark.connect(echoOut); echoOut.connect(master);
-    // electric-piano tremolo
+    // tremolo for the electric piano and vibraphone
     trem = ac.createGain(); trem.gain.value = 0.8;
     const lfo = ac.createOscillator(), depth = ac.createGain();
     lfo.frequency.value = 4.2; depth.gain.value = 0.2; lfo.connect(depth); depth.connect(trem.gain); lfo.start();
     route(trem, 0.9, 0.35, 0.25);
-    // noise for drums, and a loop of vinyl crackle
+    // sound effects get their own path, so they play with the music off
+    const fxComp = ac.createDynamicsCompressor(); fxComp.threshold.value = -14; fxComp.ratio.value = 4;
+    fx = ac.createGain(); fx.gain.value = 0.9; fx.connect(fxComp); fxComp.connect(ac.destination);
+    fxVerb = makeVerb(2, 2.4); const fxWet = ac.createGain(); fxWet.gain.value = 0.3; fxVerb.connect(fxWet); fxWet.connect(fx);
+    // noise for drums, claps and crowd, and a loop of vinyl crackle
     noise = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
     const nd = noise.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
     const cr = ac.createBuffer(1, ac.sampleRate * 4, ac.sampleRate), cd = cr.getChannelData(0);
     for (let i = 0; i < cd.length; i++) {
       cd[i] = (Math.random() * 2 - 1) * 0.03;
-      if (Math.random() < 0.0004) { const a = (Math.random() * 0.8 + 0.2) * (Math.random() < 0.5 ? -1 : 1); for (let k = 0; k < 30 && i + k < cd.length; k++) cd[i + k] += a * Math.exp(-k / 5); }
+      if (Math.random() < 0.0004) { const a = rnd(.2, 1) * (Math.random() < 0.5 ? -1 : 1); for (let k = 0; k < 30 && i + k < cd.length; k++) cd[i + k] += a * Math.exp(-k / 5); }
     }
-    crackle = ac.createBufferSource(); crackle.buffer = cr; crackle.loop = true;
+    const crackle = ac.createBufferSource(); crackle.buffer = cr; crackle.loop = true;
     const cbp = ac.createBiquadFilter(); cbp.type = "bandpass"; cbp.frequency.value = 2500; cbp.Q.value = 0.5;
     const cg = ac.createGain(); cg.gain.value = 0.22;
     crackle.connect(cbp); cbp.connect(cg); cg.connect(master); crackle.start();
+  }
+  // a tap or key press: make sure sound can play (browsers only allow it from inside one)
+  function ensure() {
+    if (!ac) init();
+    if (!unlocked) { iosUnlock(); unlocked = true; }
+    if (ac.state !== "running") ac.resume();
   }
   function route(node, dry, toVerb, toEcho) {
     const g = ac.createGain(); g.gain.value = dry; node.connect(g); g.connect(master);
     if (toVerb) { const v = ac.createGain(); v.gain.value = toVerb; node.connect(v); v.connect(verb); }
     if (toEcho) { const e = ac.createGain(); e.gain.value = toEcho; node.connect(e); e.connect(echo); }
   }
+  function toFx(node, dry, wet) {
+    const g = ac.createGain(); g.gain.value = dry; node.connect(g); g.connect(fx);
+    if (wet) { const v = ac.createGain(); v.gain.value = wet; node.connect(v); v.connect(fxVerb); }
+  }
+  function burst(t, dur, type, freq, q, peak, out) {   // a shaped slice of noise
+    const src = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+    src.buffer = noise; f.type = type; f.frequency.value = freq; f.Q.value = q;
+    g.gain.setValueAtTime(peak, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    src.connect(f); f.connect(g); out(g); src.start(t, Math.random() * 0.5); src.stop(t + dur + 0.02);
+  }
+
+  // ---- drums and bass ----
   function kick(t, vel) {
     const o = ac.createOscillator(), g = ac.createGain();
     o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(42, t + 0.12);
@@ -734,20 +823,12 @@ const Music = (() => {
     o.connect(g); route(g, 1, 0, 0); o.start(t); o.stop(t + 0.55);
   }
   function snare(t, vel) {
-    const src = ac.createBufferSource(), bp = ac.createBiquadFilter(), g = ac.createGain();
-    src.buffer = noise; bp.type = "bandpass"; bp.frequency.value = 1700; bp.Q.value = 0.7;
-    g.gain.setValueAtTime(0.42 * vel, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.26);
-    src.connect(bp); bp.connect(g); route(g, 0.8, 0.6, vel > 0.5 ? 0.18 : 0); src.start(t); src.stop(t + 0.3);
+    burst(t, 0.26, "bandpass", 1700, 0.7, 0.42 * vel, g => route(g, 0.8, 0.6, vel > 0.5 ? 0.18 : 0));
     const o = ac.createOscillator(), og = ac.createGain(); o.type = "triangle"; o.frequency.value = 185;
     og.gain.setValueAtTime(0.3 * vel, t); og.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
     o.connect(og); route(og, 0.8, 0.2, 0); o.start(t); o.stop(t + 0.12);
   }
-  function hat(t, vel) {
-    const src = ac.createBufferSource(), hp = ac.createBiquadFilter(), g = ac.createGain();
-    src.buffer = noise; hp.type = "highpass"; hp.frequency.value = 7000;
-    g.gain.setValueAtTime(0.13 * vel, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.045);
-    src.connect(hp); hp.connect(g); route(g, 1, 0, 0); src.start(t, Math.random() * 0.5); src.stop(t + 0.06);
-  }
+  const hat = (t, vel) => burst(t, 0.045, "highpass", 7000, 0.7, 0.13 * vel, g => route(g, 1, 0, 0));
   function bass(n, t, dur) {
     const o = ac.createOscillator(), lp = ac.createBiquadFilter(), g = ac.createGain();
     o.type = "triangle"; o.frequency.value = mtof(n);
@@ -756,8 +837,10 @@ const Music = (() => {
     g.gain.setValueAtTime(0.42, t + dur * 0.8); g.gain.linearRampToValueAtTime(0, t + dur);
     o.connect(lp); lp.connect(g); route(g, 1, 0, 0); o.start(t); o.stop(t + dur + 0.05);
   }
+
+  // ---- chord instruments ----
   // electric piano: a sine with a fading FM "tine" for the bell-like attack
-  function keys(notes, t, dur, vel) {
+  function rhodes(notes, t, dur, vel, out = trem) {
     notes.forEach((n, i) => {
       const f = mtof(n), at = t + i * 0.012;
       const car = ac.createOscillator(), mod = ac.createOscillator(), mg = ac.createGain(), g = ac.createGain();
@@ -766,48 +849,90 @@ const Music = (() => {
       mod.connect(mg); mg.connect(car.frequency);
       g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(vel, at + 0.006);
       g.gain.exponentialRampToValueAtTime(vel * 0.35, at + 1.2); g.gain.linearRampToValueAtTime(0, at + dur + 0.4);
-      car.connect(g); g.connect(trem);
+      car.connect(g); g.connect(out);
       car.start(at); mod.start(at); car.stop(at + dur + 0.5); mod.stop(at + dur + 0.5);
     });
   }
+  // vibraphone: sine plus a quick fourth harmonic, rolled through the tremolo
+  function vibes(notes, t, dur, vel) {
+    notes.forEach((n, i) => {
+      const f = mtof(n + 12), at = t + i * 0.02, g = ac.createGain();
+      g.gain.setValueAtTime(0, at); g.gain.linearRampToValueAtTime(vel, at + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.001, at + Math.max(1.6, dur));
+      [[1, 1], [4, 0.12], [10, 0.03]].forEach(([m, a]) => {
+        const o = ac.createOscillator(), og = ac.createGain(); o.frequency.value = f * m; og.gain.value = a;
+        if (m > 1) og.gain.setTargetAtTime(0, at, 0.05);
+        o.connect(og); og.connect(g); o.start(at); o.stop(at + Math.max(1.6, dur) + 0.05);
+      });
+      g.connect(trem);
+    });
+  }
+  // string pad: detuned saws, slow swell, lots of room
+  function pad(notes, t, dur, vel) {
+    const lp = ac.createBiquadFilter(), g = ac.createGain();
+    lp.type = "lowpass"; lp.frequency.value = 900; lp.Q.value = 0.5;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vel * 0.5, t + 0.7);
+    g.gain.setValueAtTime(vel * 0.5, t + dur - 0.3); g.gain.linearRampToValueAtTime(0, t + dur + 0.8);
+    lp.connect(g); route(g, 0.7, 0.6, 0);
+    notes.forEach(n => [-7, 7].forEach(c => {
+      const o = ac.createOscillator(); o.type = "sawtooth"; o.frequency.value = mtof(n); o.detune.value = c;
+      o.connect(lp); o.start(t); o.stop(t + dur + 0.9);
+    }));
+  }
+  // ---- lead voices ----
   function lead(n, t, dur) {
-    const o = ac.createOscillator(), o2 = ac.createOscillator(), lp = ac.createBiquadFilter(), g = ac.createGain();
-    const vib = ac.createOscillator(), vg = ac.createGain();
-    o.type = "triangle"; o2.type = "sine"; o.frequency.value = mtof(n); o2.frequency.value = mtof(n) * 2;
-    vib.frequency.value = 5; vg.gain.setValueAtTime(0, t); vg.gain.linearRampToValueAtTime(mtof(n) * 0.006, t + 0.4);
+    const f = mtof(n), g = ac.createGain();
+    if (T.lead === "glass") {        // glassy bell, echoed
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.1, t + 0.005); g.gain.exponentialRampToValueAtTime(0.001, t + 1.8);
+      [[1, 1], [3, 0.25], [5.4, 0.08]].forEach(([m, a]) => { const o = ac.createOscillator(), og = ac.createGain(); o.frequency.value = f * m; og.gain.value = a; o.connect(og); og.connect(g); o.start(t); o.stop(t + 1.9); });
+      route(g, 0.8, 0.5, 0.45); return;
+    }
+    const o = ac.createOscillator(), o2 = ac.createOscillator(), lp = ac.createBiquadFilter(), vib = ac.createOscillator(), vg = ac.createGain();
+    const theremin = T.lead === "theremin";
+    o.type = theremin ? "sine" : "triangle"; o2.type = "sine";
+    if (theremin && lastLead) { o.frequency.setValueAtTime(lastLead, t); o.frequency.exponentialRampToValueAtTime(f, t + 0.12); }   // glide from the last note
+    else o.frequency.value = f;
+    o2.frequency.value = f * 2; lastLead = f;
+    vib.frequency.value = theremin ? 6 : 5;
+    vg.gain.setValueAtTime(0, t); vg.gain.linearRampToValueAtTime(f * (theremin ? 0.012 : 0.006), t + 0.4);
     vib.connect(vg); vg.connect(o.frequency); vg.connect(o2.frequency);
-    const o2g = ac.createGain(); o2g.gain.value = 0.25; o2.connect(o2g); o2g.connect(lp); o.connect(lp);
+    const o2g = ac.createGain(); o2g.gain.value = theremin ? 0.08 : 0.25; o2.connect(o2g); o2g.connect(lp); o.connect(lp);
     lp.type = "lowpass"; lp.frequency.value = 1500;
-    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.11, t + 0.08);
-    g.gain.setValueAtTime(0.11, t + dur * 0.75); g.gain.linearRampToValueAtTime(0, t + dur + 0.15);
+    const v = theremin ? 0.09 : 0.11;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + 0.08);
+    g.gain.setValueAtTime(v, t + dur * 0.75); g.gain.linearRampToValueAtTime(0, t + dur + 0.15);
     lp.connect(g); route(g, 0.8, 0.45, 0.35);
     [o, o2, vib].forEach(x => { x.start(t); x.stop(t + dur + 0.2); });
   }
   function schedule() {
     while (nextTime < ac.currentTime + 0.25) {
-      const s = step % 16, b = bar % 8, chord = CHORDS[b % 4], root = ROOTS[b % 4];
-      const t = nextTime + (s % 2 ? SWING * SIX : 0);
-      const drums = bar > 0;                                   // the first bar is just keys and crackle
-      if (drums && KICK[s]) kick(t, KICK[s]);
-      if (drums && SNARE[s]) snare(t, SNARE[s]);
-      if (drums && HAT[s]) hat(t, HAT[s] * (0.8 + Math.random() * 0.3));
-      if (drums && BASS[s]) bass(root + BASS[s][0], t, BASS[s][1] * SIX);
-      if (s === 0) keys(chord, t, 9 * SIX, 0.085);
-      if (s === 10) keys(chord.slice(1, 4), t, 4 * SIX, 0.05);
-      for (const [mb, ms, n, len] of MELODY) if (mb === b && ms === s && bar >= 8) lead(n, t, len * SIX);
+      const s = step % 16, b = bar % 8, chord = T.chords[b % 4], root = T.roots[b % 4];
+      const t = nextTime + (s % 2 ? T.swing * SIX : 0);
+      const drums = bar > 0;                                   // the first bar is just chords and crackle
+      if (drums && T.kick[s]) kick(t, T.kick[s]);
+      if (drums && T.snare[s]) snare(t, T.snare[s]);
+      if (drums && T.hat[s]) hat(t, T.hat[s] * rnd(.8, 1.1));
+      if (drums && T.bass[s]) bass(root + T.bass[s][0], t, T.bass[s][1] * SIX);
+      for (const [hs, len, part] of T.hits) if (hs === s) {
+        const notes = part === "top" ? chord.slice(-3) : part === "mid" ? chord.slice(1, 4) : chord;
+        const vel = part ? 0.05 : 0.085;
+        if (T.inst === "vibes") vibes(notes, t, len * SIX, vel * 0.8);
+        else if (T.inst === "pad") pad(notes, t, len * SIX, vel);
+        else rhodes(notes, t, len * SIX, vel);
+      }
+      if (bar >= 4) for (const [mb, ms, n, len] of T.melody) if (mb === b && ms === s) lead(n, t, len * SIX);
       nextTime += SIX;
       if (++step % 16 === 0) bar++;
     }
   }
+  function begin() { step = 0; bar = 0; lastLead = 0; nextTime = ac.currentTime + 0.12; echo.delayTime.setValueAtTime(SIX * 3, ac.currentTime); timer = setInterval(schedule, 50); schedule(); }
   function play() {
-    if (!ac) init();
-    iosUnlock();
-    if (ac.state !== "running") ac.resume();
+    ensure();
     if (on) return;
     on = true;
     master.gain.cancelScheduledValues(ac.currentTime);
     master.gain.setTargetAtTime(0.5, ac.currentTime, 0.6);
-    if (!timer) { step = 0; bar = 0; nextTime = ac.currentTime + 0.12; timer = setInterval(schedule, 50); schedule(); }
+    if (!timer) begin();
   }
   function pause() {
     on = false;
@@ -815,25 +940,126 @@ const Music = (() => {
     master.gain.cancelScheduledValues(ac.currentTime);
     master.gain.setTargetAtTime(0, ac.currentTime, 0.2);
     clearInterval(timer); timer = null;
-    setTimeout(() => { if (!on) { ac.suspend(); keepAlive && keepAlive.pause(); } }, 900);
+  }
+  // switch tracks: fade out, then start the new one from its first bar
+  function setTrack(i) {
+    T = TRACKS[(i % TRACKS.length + TRACKS.length) % TRACKS.length]; SIX = 60 / T.bpm / 4;
+    if (!ac || !on) return;
+    clearInterval(timer); timer = null;
+    master.gain.cancelScheduledValues(ac.currentTime);
+    master.gain.setTargetAtTime(0, ac.currentTime, 0.12);
+    setTimeout(() => {
+      if (!on || timer) return;
+      master.gain.cancelScheduledValues(ac.currentTime);
+      master.gain.setTargetAtTime(0.5, ac.currentTime, 0.3);
+      begin();
+    }, 500);
+  }
+  // let a sound effect through: the music dips underneath it for a while
+  function duck(secs) {
+    if (!on) return;
+    const t = ac.currentTime;
+    master.gain.cancelScheduledValues(t);
+    master.gain.setTargetAtTime(0.12, t, 0.08);
+    master.gain.setTargetAtTime(0.5, t + secs, 0.6);
+  }
+
+  // ---- a mellow cheer: the fewer guesses, the bigger it is (1 guess = biggest) ----
+  function cheer(guesses) {
+    try {
+      ensure();
+      const k = (7 - guesses) / 6, t0 = ac.currentTime + 0.05, len = 1.2 + k * 2;
+      duck(len + 0.8);
+      // a rising chime on a major chord
+      const chime = [60, 64, 67, 72, 76, 79, 84].slice(0, 3 + Math.round(k * 4));
+      const bus = ac.createGain(); bus.gain.value = 1; toFx(bus, 0.9, 0.6);
+      chime.forEach((n, i) => rhodes([n + 2], t0 + i * (0.16 - k * 0.06), 1.2, 0.09, bus));
+      // a crowd going "yeah": voices through vowel formants, swelling then settling
+      const voices = Math.round(2 + k * 12);
+      for (let v = 0; v < voices; v++) {
+        const t = t0 + rnd(0, 0.35), f0 = rnd(150, 320), hold = rnd(0.5, 0.9) + k * 1.4;
+        const o = ac.createOscillator(); o.type = "sawtooth";
+        o.frequency.setValueAtTime(f0 * 0.88, t); o.frequency.linearRampToValueAtTime(f0 * 1.12, t + 0.3);
+        o.frequency.linearRampToValueAtTime(f0 * 0.95, t + hold + 0.6);
+        const vib = ac.createOscillator(), vg = ac.createGain(); vib.frequency.value = rnd(4.5, 6.5); vg.gain.value = f0 * 0.02;
+        vib.connect(vg); vg.connect(o.frequency);
+        const g = ac.createGain(), a = (0.022 + k * 0.035) / Math.sqrt(voices / 4);
+        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(a, t + 0.25);
+        g.gain.setValueAtTime(a, t + hold); g.gain.linearRampToValueAtTime(0, t + hold + 0.8);
+        [[rnd(650, 800), 6, 1], [rnd(1100, 1300), 8, 0.6], [2500, 10, 0.25]].forEach(([fq, q, amp]) => {
+          const bp = ac.createBiquadFilter(), ga = ac.createGain(); bp.type = "bandpass"; bp.frequency.value = fq; bp.Q.value = q; ga.gain.value = amp;
+          o.connect(bp); bp.connect(ga); ga.connect(g);
+        });
+        const lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2600; g.connect(lp); toFx(lp, 1, 0.5);
+        [o, vib].forEach(x => { x.start(t); x.stop(t + hold + 0.9); });
+      }
+      // applause: a patter of claps that thins out
+      const claps = Math.round(8 + k * 70), clapLen = 0.9 + k * 2;
+      for (let c = 0; c < claps; c++) {
+        const t = t0 + 0.1 + Math.pow(Math.random(), 1.6) * clapLen;
+        burst(t, rnd(0.03, 0.06), "bandpass", rnd(1100, 2400), 1.2, rnd(0.06, 0.16) * (0.3 + k * 0.7), g => toFx(g, 1, 0.35));
+      }
+      // one or two guesses: a happy two-note whistle on top
+      if (guesses <= 2) [[0.25, 1800, 2600], [0.62, 2200, 3000]].forEach(([d, a, b]) => {
+        const o = ac.createOscillator(), g = ac.createGain(), t = t0 + d; o.frequency.setValueAtTime(a, t); o.frequency.exponentialRampToValueAtTime(b, t + 0.22);
+        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.05, t + 0.03); g.gain.linearRampToValueAtTime(0, t + 0.25);
+        o.connect(g); toFx(g, 1, 0.4); o.start(t); o.stop(t + 0.3);
+      });
+    } catch (e) {}
+  }
+  // ---- a raspberry for a lost word: buzzing lips, sagging in pitch ----
+  function raspberry() {
+    try {
+      ensure();
+      const t = ac.currentTime + 0.05, len = 1.1;
+      duck(len + 0.5);
+      const o = ac.createOscillator(); o.type = "sawtooth";
+      o.frequency.setValueAtTime(110, t); o.frequency.linearRampToValueAtTime(96, t + 0.3); o.frequency.exponentialRampToValueAtTime(68, t + len);
+      const jit = ac.createOscillator(), jg = ac.createGain(); jit.type = "square"; jit.frequency.value = 13; jg.gain.value = 6; jit.connect(jg); jg.connect(o.frequency);
+      // lips flapping: the sound chops on and off about 30 times a second
+      const flap = ac.createGain(); flap.gain.value = 0.55;
+      const lfo = ac.createOscillator(), lg = ac.createGain(); lfo.type = "square"; lfo.frequency.setValueAtTime(32, t); lfo.frequency.linearRampToValueAtTime(24, t + len);
+      lg.gain.value = 0.45; lfo.connect(lg); lg.connect(flap.gain);
+      const lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 1300;
+      const bp = ac.createBiquadFilter(); bp.type = "peaking"; bp.frequency.value = 600; bp.gain.value = 8; bp.Q.value = 1.5;
+      const g = ac.createGain();
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.26, t + 0.05);
+      g.gain.setValueAtTime(0.26, t + len - 0.25); g.gain.linearRampToValueAtTime(0, t + len);
+      o.connect(flap); flap.connect(lp); lp.connect(bp); bp.connect(g); toFx(g, 1, 0.15);
+      burst(t, len, "bandpass", 900, 0.8, 0.12, n => { n.connect(flap); });   // breathy buzz
+      [o, jit, lfo].forEach(x => { x.start(t); x.stop(t + len + 0.05); });
+    } catch (e) {}
   }
   // stop in the background, carry on when the game comes back
   document.addEventListener("visibilitychange", () => {
-    if (!ac || !on) return;
+    if (!ac) return;
     if (document.hidden) { ac.suspend(); keepAlive && keepAlive.pause(); }
-    else { ac.resume(); keepAlive && keepAlive.play().catch(() => {}); nextTime = Math.max(nextTime, ac.currentTime + 0.05); }
+    else if (unlocked) { ac.resume(); keepAlive && keepAlive.play().catch(() => {}); if (on) nextTime = Math.max(nextTime, ac.currentTime + 0.05); }
   });
-  return { play, pause, get on() { return on; } };
+  return { play, pause, setTrack, cheer, raspberry, ensure, get on() { return on; } };
 })();
 function setMusic(play) {
   try { play ? Music.play() : Music.pause(); } catch (e) {}
   opts.music = play; save("opts", opts); paintOpts();
 }
+function setTrack(i) {
+  opts.track = (i % TRACKS.length + TRACKS.length) % TRACKS.length; save("opts", opts);
+  try { Music.setTrack(opts.track); } catch (e) {}
+  paintOpts();
+}
+if (!(Number.isInteger(opts.track) && opts.track >= 0 && opts.track < TRACKS.length)) opts.track = 0;
+Music.setTrack(opts.track);
 $("btnMusic").addEventListener("click", e => { e.currentTarget.blur(); setMusic(!Music.on); });   // not playing yet counts as off
 $("optMusic").addEventListener("click", () => setMusic(!opts.music));
+$("optSfx").addEventListener("click", () => setOpt("sfx", !opts.sfx));
+// buttons clicked with a mouse or finger let go of focus, so Enter on a keyboard still submits the guess
+$("optsBody").addEventListener("click", e => { const btn = e.target.closest("button"); if (btn && e.detail) btn.blur(); });
+$("trkPrev").addEventListener("click", () => setTrack(opts.track - 1));
+$("trkNext").addEventListener("click", () => setTrack(opts.track + 1));
 // Music is on unless the player switched it off. Browsers only allow sound after a tap or key press, so it starts then.
 const startMusic = e => {
   ["pointerup", "touchend", "keydown"].forEach(t => removeEventListener(t, startMusic, true));
+  try { if (opts.music || opts.sfx) Music.ensure(); } catch (err) {}
   if (e.target && e.target.closest && e.target.closest("#btnMusic, #optMusic")) return;   // those buttons decide for themselves
   if (opts.music && !Music.on) setMusic(true);
 };
@@ -912,6 +1138,11 @@ function fit() {
   const set = (k, v) => root.style.setProperty(k, v + "px");
   app.classList.toggle("side", side);
   app.classList.toggle("tight", kbw < 470);
+  const spare = sh - topH - remH - (3 * kh + 2 * kg) - 3 * rowGap;
+  const roomy = side && spare >= 200;
+  app.classList.toggle("roomy", roomy);
+  const home = roomy ? $("panel") : $("optsHome"), body = $("optsBody");
+  if (body.parentNode !== home) { home.appendChild(body); if (roomy && $("dlgOpts").open) $("dlgOpts").close(); }
   set("--title", Math.round(clamp(Math.min(kbw * 0.06, topH * 0.62), 19, 34)));
   set("--tile", tile); set("--gap", g); set("--kh", kh); set("--kgap", kg); set("--kbw", kbw);
   set("--kf", Math.round(clamp(Math.min(kh * 0.44, keyW * 0.62), 13, 30)));
