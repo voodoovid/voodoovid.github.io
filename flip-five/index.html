@@ -94,6 +94,7 @@ button { cursor: pointer; }
 
 /* ---- board of split flaps ---- */
 .board { grid-area: board; display: grid; grid-template-rows: repeat(6, var(--tile)); gap: var(--gap); }
+.side .board { margin-top: var(--pill-room, 0px); align-self: start; }
 .row { display: grid; grid-template-columns: repeat(5, var(--tile)); gap: var(--gap); }
 .tile {
   position: relative; width: var(--tile); height: var(--tile);
@@ -202,10 +203,42 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 </style>
 </head>
 <body>
+<!-- Shared "back to the games menu" button: identical in every game on the site -->
+<a class="games-pill" id="gamesPill" href="../" hidden aria-label="Back to the games menu">&lsaquo; Games</a>
+<style>
+.games-pill { position: fixed; z-index: 9999; top: calc(env(safe-area-inset-top, 0px) + 8px); left: calc(env(safe-area-inset-left, 0px) + 8px);
+  display: inline-flex; align-items: center; gap: 3px; height: 34px; padding: 0 14px 0 11px; box-sizing: border-box; border-radius: 17px;
+  background: #ffd166; color: #241a05; border: 2px solid #fff3c4; box-shadow: 0 2px 10px rgba(0,0,0,.5);
+  font: 700 15px/1 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: .01em; text-decoration: none; -webkit-tap-highlight-color: transparent; }
+.games-pill:active { transform: scale(.95); }
+.games-pill:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.games-pill[hidden] { display: none !important; }
+</style>
+<script>
+(() => {
+  const pill = document.getElementById("gamesPill");
+  // Only on the games site, not when a page is opened on its own
+  if (!/\/(hangman|scareisdale|ponchos-adventure|flip-five)\//.test(location.pathname)) return;
+  pill.hidden = false;
+  // Nudge the game's top row right so nothing sits under the button
+  const fit = () => {
+    for (const el of document.querySelectorAll("[data-pill-gap]")) {
+      el.style.paddingLeft = "";
+      const p = pill.getBoundingClientRect(), r = el.getBoundingClientRect();
+      if (r.height && r.top < p.bottom + 4 && r.bottom > p.top) {
+        const need = Math.ceil(p.right + 10 - r.left);
+        if (need > 0) { el.style.boxSizing = "border-box"; el.style.paddingLeft = need + "px"; }
+      }
+    }
+  };
+  addEventListener("DOMContentLoaded", fit); addEventListener("load", fit); addEventListener("resize", fit);
+  addEventListener("orientationchange", () => setTimeout(fit, 250));
+  if (document.fonts) document.fonts.ready.then(fit);
+})();
+</script>
 <div class="app" id="app">
   <div class="stage">
-    <header class="top">
-      <a class="ib" id="btnGames" href="../" hidden aria-label="Back to the games menu">&lsaquo; Games</a>
+    <header class="top" data-pill-gap>
       <h1><span>Flip <b>Five</b></span> <span class="ver" id="version"></span></h1>
       <div class="tools">
         <button class="ib" id="btnHelp" type="button" aria-label="How to play"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-.9.5-1.5 1.2-1.5 2.4"/><path d="M12 18h.01"/></svg></button>
@@ -298,7 +331,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v1.3";
+const VERSION = "v1.4";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
@@ -318,7 +351,6 @@ const MARK = { hit: "right spot", near: "wrong spot", miss: "not in the word" };
 
 // On the games site: link back to the menu and save everything for offline play
 if (location.pathname.includes("/flip-five/")) {
-  $("btnGames").hidden = false;
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
 }
 $("version").textContent = VERSION;
@@ -604,12 +636,14 @@ function fit() {
   A.kg = kgap(A.kbw);
   A.kh = Math.floor(clamp(Math.min(ch * 0.08, (A.kbw - 9 * A.kg) / 10 * 1.6), 36, 72));
   A.tile = Math.floor(Math.min((cw - 4 * g) / 5, (ch - topH - remH - (3 * A.kh + 2 * A.kg) - 3 * rowGap - 5 * g) / 6, 150));
-  // side by side: keyboard to the right of the board
-  const B = { tile: Math.floor(Math.min((ch - 5 * g) / 6, 150, (cw * 0.5 - 4 * g) / 5)), colGap: clamp(Math.round(cw * 0.03), 16, 56) };
+  // side by side: keyboard to the right of the board, which starts below the Games button in the corner
+  const pill = document.getElementById("gamesPill");
+  const pillRoom = pill && !pill.hidden ? Math.max(0, Math.ceil(pill.getBoundingClientRect().bottom + 6 - app.getBoundingClientRect().top - parseFloat(cs.paddingTop))) : 0;
+  const B = { tile: Math.floor(Math.min((ch - pillRoom - 5 * g) / 6, 150, (cw * 0.5 - 4 * g) / 5)), colGap: clamp(Math.round(cw * 0.03), 16, 56) };
   const bw = 5 * B.tile + 4 * g;
   B.kbw = Math.floor(Math.min(cw - bw - B.colGap, 760));
   B.kg = kgap(B.kbw);
-  B.sh = 6 * B.tile + 5 * g; B.sw = bw + B.colGap + B.kbw;
+  B.sh = 6 * B.tile + 5 * g + pillRoom; B.sw = bw + B.colGap + B.kbw;
   B.kh = Math.floor(clamp(Math.min((B.sh - topH - 64 - 2 * rowGap - 2 * B.kg) / 3, (B.kbw - 9 * B.kg) / 10 * 1.5, 72), 28, 72));
   const side = cw >= 520 && B.kbw >= 300 && B.tile > A.tile * 1.05;
   let { tile, kbw, kg, kh, sw, sh, colGap } = side ? B : A;
@@ -622,6 +656,7 @@ function fit() {
   set("--tile", tile); set("--gap", g); set("--kh", kh); set("--kgap", kg); set("--kbw", kbw);
   set("--kf", Math.round(clamp(Math.min(kh * 0.44, keyW * 0.62), 13, 30)));
   set("--sw", Math.floor(sw)); set("--sh", Math.floor(sh));
+  set("--pill-room", side ? pillRoom : 0);
   set("--top-h", topH); set("--rem-h", remH); set("--row-gap", rowGap); set("--col-gap", colGap);
 }
 addEventListener("resize", fit);
