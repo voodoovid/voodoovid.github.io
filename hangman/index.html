@@ -328,7 +328,7 @@ kbd { font-family: var(--font-hand); border: 1px solid var(--chalk-dim); border-
 (() => {
   const pill = document.getElementById("gamesPill");
   // Only on the games site, not when a page is opened on its own
-  if (!/\/(hangman|scareisdale|ponchos-adventure|flip-five)\//.test(location.pathname)) return;
+  if (!/\/(hangman|scareisdale|ponchos-adventure|flip-five|follow-chestnut)\//.test(location.pathname)) return;
   pill.hidden = false;
   // Nudge the game's top row right so nothing sits under the button
   const fit = () => {
@@ -406,7 +406,7 @@ kbd { font-family: var(--font-hand); border: 1px solid var(--chalk-dim); border-
 
 <script>
 (() => {
-const VERSION = "v1.6";
+const VERSION = "v1.7";
 document.getElementById("version").textContent = "Hangman " + VERSION;
 const WORDS = {
   "Animals": ["platypus", "armadillo", "chameleon", "flamingo", "hedgehog", "narwhal", "porcupine", "salamander", "wolverine", "jellyfish", "kangaroo", "octopus", "pelican", "raccoon", "walrus", "axolotl", "alligator", "antelope", "baboon", "badger", "beaver", "bison", "buffalo", "butterfly", "camel", "caterpillar", "cheetah", "chimpanzee", "chinchilla", "chipmunk", "cobra", "coyote", "crocodile", "dolphin", "donkey", "dragonfly", "eagle", "elephant", "falcon", "ferret", "gazelle", "gecko", "giraffe", "gorilla", "grasshopper", "hamster", "hippopotamus", "hummingbird", "hyena", "iguana", "jaguar", "koala", "ladybug", "lemur", "leopard", "lobster", "meerkat", "mongoose", "moose", "mosquito", "ostrich", "otter", "panther", "parrot", "peacock", "penguin", "pheasant", "piranha", "porpoise", "python", "rattlesnake", "reindeer", "rhinoceros", "scorpion", "seahorse", "squirrel", "starfish", "stingray", "tarantula", "tortoise", "toucan", "turtle", "vulture", "warthog", "weasel", "woodpecker", "yak", "zebra", "anteater", "bumblebee", "cockatoo", "cuttlefish", "manatee", "mandrill", "ocelot", "orangutan", "pangolin", "puffin", "quokka", "sloth", "tapir", "wombat"],

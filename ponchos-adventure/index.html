@@ -184,7 +184,7 @@ canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; 
 (() => {
   const pill = document.getElementById("gamesPill");
   // Only on the games site, not when a page is opened on its own
-  if (!/\/(hangman|scareisdale|ponchos-adventure|flip-five)\//.test(location.pathname)) return;
+  if (!/\/(hangman|scareisdale|ponchos-adventure|flip-five|follow-chestnut)\//.test(location.pathname)) return;
   pill.hidden = false;
   // Nudge the game's top row right so nothing sits under the button
   const fit = () => {
@@ -1445,7 +1445,7 @@ const ETYPE = {
   B: { kind: "boss", shoot: true, speed: 0.45, dir: "right" },
 };
 
-const VERSION = "2.5";
+const VERSION = "2.6";
 // On the games site: link back to the menu and save everything for offline play
 if (location.pathname.includes("/ponchos-adventure/")) {
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});

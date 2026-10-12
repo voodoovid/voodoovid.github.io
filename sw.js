@@ -1,9 +1,9 @@
 // Offline support for every game on the site. Bump CACHE whenever this file changes.
 // Pages load from the network when online (so updates arrive) and from this cache when offline.
-const CACHE = "voodoovid-games-v3";
+const CACHE = "voodoovid-games-v4";
 const PAGES = [
   "./", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png",
-  "hangman/", "ponchos-adventure/", "flip-five/",
+  "hangman/", "ponchos-adventure/", "flip-five/", "follow-chestnut/",
   "scareisdale/", "scareisdale/manifest.webmanifest", "scareisdale/icon-192.png", "scareisdale/icon-512.png", "scareisdale/apple-touch-icon.png",
 ];
 const FONT_CSS = [
@@ -12,6 +12,7 @@ const FONT_CSS = [
   "https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Rye&display=swap",
   "https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Pixelify+Sans:wght@400;600&display=swap",
   "https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap",
+  "https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap",
 ];
 
 async function cacheFonts(cache) {

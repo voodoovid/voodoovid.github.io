@@ -127,7 +127,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 (() => {
   const pill = document.getElementById("gamesPill");
   // Only on the games site, not when a page is opened on its own
-  if (!/\/(hangman|scareisdale|ponchos-adventure|flip-five)\//.test(location.pathname)) return;
+  if (!/\/(hangman|scareisdale|ponchos-adventure|flip-five|follow-chestnut)\//.test(location.pathname)) return;
   pill.hidden = false;
   // Nudge the game's top row right so nothing sits under the button
   const fit = () => {
@@ -189,7 +189,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <script>
 (() => {
 'use strict';
-const VERSION = 'v1.6';
+const VERSION = 'v1.7';
 document.getElementById('verBar').textContent = VERSION;
 document.getElementById('verOverlay').textContent = VERSION;
 const TS = 16, VW = 384, VH = 240, ROWS = 15;
