@@ -337,7 +337,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 
     <div class="remarks">
       <p id="status" role="status" aria-live="polite">Guess 1 of 6</p>
-      <button class="switch" id="strict" type="button" role="switch" aria-checked="false"><span class="track"></span>Must keep greens</button>
+      <button class="switch" id="strict" type="button" role="switch" aria-checked="true"><span class="track"></span>Must keep greens</button>
       <button class="cta" id="btnNew" type="button" hidden>New word</button>
     </div>
 
@@ -404,7 +404,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
       <div class="opt">
         <b id="lblStrict">Must keep greens</b>
         <span class="fine">Green letters you find are filled in for you and stay in their spots in every later guess. Amber letters can be left out.</span>
-        <button class="switch" id="optStrict" type="button" role="switch" aria-checked="false" aria-labelledby="lblStrict"><span class="track"></span></button>
+        <button class="switch" id="optStrict" type="button" role="switch" aria-checked="true" aria-labelledby="lblStrict"><span class="track"></span></button>
       </div>
       <div class="opt">
         <b id="lblMusic">Music</b>
@@ -452,7 +452,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.4";
+const VERSION = "v2.5";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
@@ -483,7 +483,8 @@ $("about").textContent = "Flip Five " + VERSION + ". Your results and settings a
 const load = (k, d) => { try { const v = JSON.parse(localStorage.getItem("flipfive." + k)); return v ?? d; } catch (e) { return d; } };
 const save = (k, v) => { try { localStorage.setItem("flipfive." + k, JSON.stringify(v)); } catch (e) {} };
 const freshStats = () => ({ played: 0, wins: 0, streak: 0, best: 0, dist: [0, 0, 0, 0, 0, 0] });
-let opts = Object.assign({ strict: false, contrast: false, music: true, sfx: true, track: 0, view3d: true }, load("opts", {}));
+let opts = Object.assign({ strict: true, contrast: false, music: true, sfx: true, track: 0, view3d: true }, load("opts", {}));
+opts.strict = true;   // "Must keep greens" is switched on every time the game opens; switching it off lasts until you leave
 let stats = Object.assign(freshStats(), load("stats", {}));
 let recent = load("recent", []);
 let G = null;          // { answer, guesses: [], cur, over, won }
