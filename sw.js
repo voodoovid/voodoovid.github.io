@@ -1,6 +1,6 @@
 // Offline support for every game on the site. Bump CACHE whenever this file changes.
 // Pages load from the network when online (so updates arrive) and from this cache when offline.
-const CACHE = "voodoovid-games-v2";
+const CACHE = "voodoovid-games-v3";
 const PAGES = [
   "./", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png",
   "hangman/", "ponchos-adventure/", "flip-five/",
@@ -61,11 +61,12 @@ self.addEventListener("fetch", event => {
     return;
   }
   if (url.origin !== location.origin) return;
-  // Site files: network first so new versions arrive, cached copy when offline
+  // Site files: network first so new versions arrive, cached copy when offline.
+  // "no-cache" asks GitHub every time instead of reusing the browser's copy, which can be up to 10 minutes old.
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
     try {
-      const res = await fetch(req);
+      const res = await fetch(req.url, { cache: "no-cache" });   // by URL: a page request can't be re-sent with new options
       if (res.ok) cache.put(req, res.clone());
       return res;
     } catch (e) {

@@ -298,7 +298,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v1.2";
+const VERSION = "v1.3";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
@@ -639,6 +639,20 @@ function start(data) {
   else newGame();
   fit();
 }
+// Pick up a newer version: whenever the game opens or comes back on screen, ask the site for the latest page and
+// reload if its version is different. The game in progress is saved on the device, so nothing is lost.
+async function checkForUpdate() {
+  if (!location.pathname.includes("/flip-five/") || !navigator.onLine) return;
+  try {
+    const res = await fetch(location.pathname, { cache: "no-cache" });
+    const m = res.ok && (await res.text()).match(/const VERSION = "([^"]+)"/);
+    if (!m || m[1] === VERSION || sessionStorage.getItem("flipfive.tried") === m[1]) return;
+    sessionStorage.setItem("flipfive.tried", m[1]);
+    setTimeout(() => location.reload(), busy ? 1600 : 0);
+  } catch (e) {}
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") checkForUpdate(); });
+setTimeout(checkForUpdate, 1500);
 window.claude?.hot?.snapshot?.(() => ({ G }));
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 })();
