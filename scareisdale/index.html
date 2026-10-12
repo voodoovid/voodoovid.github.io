@@ -172,13 +172,13 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <div class="wrap">
   <h1 data-pill-gap>Welcome to Scareisdale</h1>
   <p class="rotate-hint">TURN YOUR PHONE SIDEWAYS FOR A BIGGER SCREEN</p>
-  <p class="tag">IT'S HALLOWEEN ON THE MIDWAY. REACH THE FUNHOUSE BEFORE DAWN.</p>
+  <p class="tag">IT'S HALLOWEEN ON THE MIDWAY, AND DINNER IS AT THE FUNHOUSE. CHESTNUT IS ON HER WAY.</p>
 
   <div class="stage" id="stage">
     <canvas id="game" width="768" height="480" tabindex="0" aria-label="Welcome to Scareisdale game screen"></canvas>
     <div class="overlay" id="overlay">
-      <h2>Step right up</h2>
-      <p>Run the midway, bonk the prize blocks for tickets, stomp zombies, ghouls, spiders and clowns (ghosts only creep up when your back is turned), grab cotton candy to grow, and slide down the pole at the Funhouse.</p>
+      <h2>Dinner at the Funhouse</h2>
+      <p>Chestnut, a big grey cat, can smell dinner at the Funhouse on the far side of the midway. Help her get there: bonk the prize blocks for tickets, stomp zombies, ghouls, spiders and clowns (ghosts only creep up when her back is turned), grab cotton candy to grow even bigger, and slide down the pole at the Funhouse in time to eat.</p>
       <button class="ticket" id="startBtn">ADMIT ONE &#9656; START</button>
       <p class="homehint">For true full screen: tap Share &rarr; Add to Home Screen, then play from the icon.</p>
       <span class="ver" id="verOverlay"></span>
@@ -212,7 +212,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <script>
 (() => {
 'use strict';
-const VERSION = 'v2.0';
+const VERSION = 'v2.1';
 document.getElementById('verBar').textContent = VERSION;
 document.getElementById('verOverlay').textContent = VERSION;
 const TS = 16, VW = 384, VH = 240, ROWS = 15;
@@ -239,11 +239,7 @@ window.visualViewport?.addEventListener('resize', fitPhone);
 window.visualViewport?.addEventListener('scroll', fitPhone);
 fitPhone();
 const cv = document.getElementById('game');
-const mainCtx = cv.getContext('2d');
-let ctx = mainCtx;
-// In 2.5D the sky and far scenery are painted here and shown behind the 3D blocks
-const bgCanvas = document.createElement('canvas'); bgCanvas.width = VW * 2; bgCanvas.height = VH * 2;
-const bgCtx = bgCanvas.getContext('2d');
+const ctx = cv.getContext('2d');
 let S = 2;
 
 function resize() {
@@ -273,43 +269,49 @@ function xEye(x, y, r) { ctx.strokeStyle = INK; ctx.lineWidth = 0.8; ctx.beginPa
 function dot(col, x, y, r) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
 
 // The ringmaster hero. Local coords: feet at (0,0), facing +x.
+// Chestnut: a big, all-grey cat with yellow-green eyes, drawn side-on facing right with her feet at (0, 0)
 function drawHero(pose, big, a, vy = 0) {
-  ctx.lineJoin = 'round';
-  const hip = big ? -6 : -3.2, bodyH = big ? 9 : 4.6, sw = pose === 'walk' ? Math.sin(a) : 0;
-  for (const s of [-1, 1]) {
-    let fx = s * 2, fy = 0;
-    if (pose === 'walk') { fx += sw * s * 3; fy = -Math.max(0, Math.cos(a) * s) * 1.8; }
-    else if (pose === 'jump' || pose === 'dead') { fx = s * 2.6; fy = s > 0 ? -2.5 : -0.8; }
-    else if (pose === 'skid') fx += -1.5 + s * 0.5;
-    limb(s * 1.6, hip, fx, fy - 1.6, '#3a4fd8', 1.8);
-    blob('#7a4020', E(fx + 1, fy - 1.3, 2.5, 1.5));
-  }
-  const shoulder = hip - bodyH, armUp = pose === 'jump' || pose === 'dead';
-  const hand = s => armUp ? [s * 4.8, shoulder - (s > 0 ? 3.4 : 1.2)] : pose === 'skid' ? [s * 3.6 - 2, shoulder + bodyH * 0.4] : [s * 4.4 - sw * s * 1.6, shoulder + bodyH * 0.5];
-  const hb = hand(-1); limb(-2.4, shoulder + 1, hb[0], hb[1], '#c81e3a', 1.6); blob('#ffffff', C(hb[0], hb[1], 1.3), 0.7);
-  blob('#e8304a', E(0, hip - bodyH / 2 + 0.6, 4.5, bodyH / 2 + 1.3));
-  blob('#ffffff', poly([-1.2, shoulder - 0.6, 1.8, shoulder - 0.6, 0.3, shoulder + 2]), 0.6);
-  for (let i = 0; i < (big ? 3 : 2); i++) dot('#ffd23f', 1.4, shoulder + 2.4 + i * 2.2, 0.6);
-  const hf = hand(1); limb(2.4, shoulder + 1, hf[0], hf[1], '#c81e3a', 1.6); blob('#ffffff', C(hf[0], hf[1], 1.3), 0.7);
-  const hy = shoulder - 4.3, r = 4.9;
-  blob('#f6c39a', C(0.6, hy, r));
-  ctx.globalAlpha = 0.55; dot('#ff7a9a', 3.2, hy + 1.7, 1.2); ctx.globalAlpha = 1;
+  ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  const FUR = '#9a99a6', DARK = '#74737f', LIGHT = '#bdbcc8', k = big ? 1.5 : 1;
+  ctx.save(); ctx.scale(big ? 1.4 : 1, k);
+  const air = pose === 'jump' || pose === 'dead', walk = pose === 'walk';
+  // legs: far pair first (darker), near pair after the body
+  const leg = (hx, phase, near) => {
+    let fx = hx, fy = 0;
+    if (walk) { fx += Math.sin(a + phase) * 2.2; fy = -Math.max(0, Math.cos(a + phase)) * 1.4; }
+    else if (air) { fx = hx + (hx > 0 ? 2.2 : -2.2); fy = hx > 0 ? -1.6 : -0.6; }
+    else if (pose === 'skid') fx = hx + (hx > 0 ? 1.8 : 0.6);
+    limb(hx, -4.2, fx, fy - 1, near ? FUR : DARK, 2.3);
+    blob(near ? LIGHT : FUR, E(fx + 0.5, fy - 0.8, 1.6, 1), 0.6);
+  };
+  leg(-3.6, Math.PI, false); leg(3.2, 0, false);
+  // tail curls up behind and sways
+  const sway = Math.sin(clock * 3) * 1.2 + (air ? -1.5 : 0);
+  const tail = () => { ctx.beginPath(); ctx.moveTo(-5.5, -6.5); ctx.quadraticCurveTo(-10, -7.5, -9 + sway, -14); };
+  tail(); ctx.strokeStyle = INK; ctx.lineWidth = 3.4; ctx.stroke();
+  tail(); ctx.strokeStyle = FUR; ctx.lineWidth = 2.2; ctx.stroke();
+  // a round, well-fed body
+  const lean = air ? -0.12 : 0;
+  blob(FUR, E(-0.4, -6.6, 6.4, 4.4, lean));
+  blob(LIGHT, E(0.4, -4.4, 4, 1.5, lean), 0);
+  leg(-2.2, 0, true); leg(4.4, Math.PI, true);
+  // head
+  const hx = 5.2, hy = -11.4 - (air ? 0.6 : 0);
+  blob(FUR, poly([hx - 3.4, hy - 1.6, hx - 2.6, hy - 6.4, hx - 0.4, hy - 3.4]));
+  blob(FUR, poly([hx + 0.8, hy - 3.6, hx + 3, hy - 6.2, hx + 3.6, hy - 1.4]));
+  dot('#e58fa6', hx - 2.4, hy - 3.6, 0.6); dot('#e58fa6', hx + 2.6, hy - 3.6, 0.6);
+  blob(FUR, C(hx, hy, 4.4));
+  blob(LIGHT, E(hx + 2.4, hy + 1.8, 2.2, 1.5), 0);
   const blink = (clock % 3.7) < 0.12;
-  for (const ex of [1.8, 4.3]) {
-    if (pose === 'dead') xEye(ex, hy - 1, 1);
-    else if (blink) { ctx.strokeStyle = INK; ctx.lineWidth = 0.7; ctx.beginPath(); ctx.moveTo(ex - 1.2, hy - 1); ctx.lineTo(ex + 1.2, hy - 1); ctx.stroke(); }
-    else { blob('#ffffff', E(ex, hy - 1.2, 1.25, 1.8), 0.6); dot(INK, ex + 0.5, hy - 0.9, 0.7); dot('#ffffff', ex + 0.75, hy - 1.3, 0.25); }
+  for (const ex of [hx - 0.2, hx + 2.4]) {
+    if (pose === 'dead') xEye(ex, hy - 0.6, 0.9);
+    else if (blink) { ctx.strokeStyle = INK; ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(ex - 1, hy - 0.6); ctx.lineTo(ex + 1, hy - 0.6); ctx.stroke(); }
+    else { blob('#c6f24e', E(ex, hy - 0.7, 1.15, 1.45), 0.5); dot('#0b0b0f', ex + 0.25, hy - 0.6, 0.45); dot('#ffffff', ex - 0.25, hy - 1.3, 0.25); }
   }
-  blob('#ff9a80', C(6, hy + 0.5, 1.4), 0.8);
-  ctx.fillStyle = INK; ctx.beginPath(); ctx.ellipse(3.9, hy + 2.3, 2.1, 0.85, -0.35, 0, 7); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(6.8, hy + 2.3, 1.7, 0.8, 0.35, 0, 7); ctx.fill();
-  if (pose === 'jump' || pose === 'dead') blob('#8a0f2a', E(5, hy + 3.7, 0.8, 0.9), 0.5);
-  const lift = pose === 'dead' ? 3 : pose === 'jump' ? clamp(-vy * 0.004, -1, 1.6) : 0;
-  ctx.save(); ctx.translate(0.2, hy - r + 1.2 - lift); ctx.rotate(-0.15);
-  blob('#24123a', () => ctx.rect(-3.3, -5, 6.6, 5));
-  ctx.fillStyle = '#e8304a'; ctx.fillRect(-3.3, -1.9, 6.6, 1.4);
-  ctx.fillStyle = 'rgba(255,255,255,.25)'; ctx.fillRect(-2.5, -4.4, 0.9, 2.2);
-  blob('#24123a', E(0, 0, 5.8, 1.2));
+  blob('#e58fa6', poly([hx + 3.6, hy + 0.9, hx + 4.8, hy + 0.9, hx + 4.2, hy + 1.7]), 0.4);
+  if (air) blob('#8a0f2a', E(hx + 3.6, hy + 2.8, 0.6, 0.7), 0.4);
+  ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 0.35;
+  for (const d of [-0.5, 0.6]) { ctx.beginPath(); ctx.moveTo(hx + 3.8, hy + 2 + d * 0.4); ctx.lineTo(hx + 7.4, hy + 1.4 + d * 1.6); ctx.stroke(); }
   ctx.restore();
 }
 
@@ -773,9 +775,6 @@ const ENTRIES = {
   vault: { 19: { main: 162 } },
 };
 const ROOM_NAMES = { mirrors: 'HALL OF MIRRORS', vault: 'THE PRIZE VAULT' };
-// For the 2.5D view (a three.js module at the end of the page): read-only access to the world
-window.__sc = { T, TS, VW, VH, ROWS, ENTRIES, get grid() { return grid; }, get COLS() { return COLS; }, get camX() { return camX; }, get bumps() { return bumps; },
-  get area() { return area; }, get roomKey() { return roomKey; }, get clock() { return clock; }, get state() { return state; }, resetSky() { skyGrad = null; } };
 const isHidden = (tx, ty) => ty >= 0 && ty < ROWS && (grid[ty][tx] === 'H' || grid[ty][tx] === 'h');
 let score = 0, coins = 0, lives = 3, night = 1, timeLeft = 400, checkpoint = 0, combo = 0, flagY = 0, fin = null, freezeT = 0, clock = 0, hurryDone = false, carryBig = false;
 
@@ -1510,7 +1509,7 @@ function center(s, y, c, size = 8) {
   const w = ctx.measureText(s).width, x = Math.round((VW - w) / 2);
   ctx.fillStyle = '#14072e'; ctx.fillText(s, x + 1, y + 1); ctx.fillStyle = c; ctx.fillText(s, x, y);
 }
-const OMENS = ['THE DEAD WALK THE MIDWAY', 'MIND THE COBWEBS', 'THE CALLIOPE NEVER STOPS', "DON'T FEED THE CLOWNS", 'THE RIDES RUN ALL NIGHT', 'KEEP YOUR TICKET STUB', 'NO ONE LEAVES BEFORE DAWN', 'SMILE. THEY ARE WATCHING.'];
+const OMENS = ['DINNER IS AT THE FUNHOUSE', 'SOMETHING SMELLS LIKE FISH', 'THE DINNER BELL IS RINGING', "DON'T FEED THE CLOWNS", 'THE SOUP IS GETTING COLD', 'KEEP YOUR TICKET STUB', 'A BOWL OF CREAM AWAITS', 'MIND THE COBWEBS'];
 
 function render() {
   ctx.setTransform(S, 0, 0, S, 0, 0); ctx.imageSmoothingEnabled = false;
@@ -1523,22 +1522,17 @@ function render() {
       center(OMENS[(night * 3 + lives) % OMENS.length], 168, '#b9a3d6');
     } else {
       center('GAME OVER', 88, '#ff3d6e', 16);
-      center('SCAREISDALE KEEPS YOU', 124, '#b9a3d6');
+      center('CHESTNUT MISSED DINNER', 124, '#b9a3d6');
       if (stateT > 1.8 && Math.floor(clock * 2) % 2) center('PRESS JUMP TO RIDE AGAIN', 156, '#ffe7c2');
     }
     return;
   }
-  const v3 = !!(window.__sc3d && window.__sc3d.on);
-  if (v3) {
-    mainCtx.clearRect(0, 0, VW, VH);
-    ctx = bgCtx; ctx.setTransform(2, 0, 0, 2, 0, 0); area === 'main' ? drawBG() : drawRoomBG(); ctx = mainCtx;
-    window.__sc3d.draw(bgCanvas);
-  } else area === 'main' ? drawBG() : drawRoomBG();
+  area === 'main' ? drawBG() : drawRoomBG();
   const cx = Math.round(camX);
   const x0 = Math.floor(cx / TS), x1 = Math.min(COLS - 1, x0 + VW / TS + 1);
   const qf = [0, 0, 1, 2, 1][Math.floor(clock * 6) % 5];
   for (let ty = 0; ty < ROWS; ty++) for (let tx = x0; tx <= x1; tx++) {
-    const c = grid[ty][tx]; if (c === '.' || (v3 && c !== 'o')) continue;
+    const c = grid[ty][tx]; if (c === '.') continue;
     let px = tx * TS - cx, py = ty * TS;
     const b = bumps.find(b => b.tx === tx && b.ty === ty); if (b) py -= Math.round(Math.sin(b.t / 0.18 * Math.PI) * 6);
     switch (c) {
@@ -1616,7 +1610,7 @@ function render() {
     ctx.stroke(); ctx.restore();
   }
   if (state !== 'title') drawHUD();
-  if (state === 'finish' && (fin.phase === 'tally' || fin.phase === 'done')) center('NIGHT ' + night + ' SURVIVED', 64, '#ffd23f');
+  if (state === 'finish' && (fin.phase === 'tally' || fin.phase === 'done')) center('DINNER IS SERVED!', 64, '#ffd23f');
   if (roomTitleT > 0 && area === 'room') { ctx.globalAlpha = Math.min(1, roomTitleT); center(ROOM_NAMES[roomKey], 64, '#ffd23f'); ctx.globalAlpha = 1; }
   if (pipe && /fade/.test(pipe.phase)) { ctx.fillStyle = '#0b0416'; ctx.globalAlpha = clamp(pipe.phase === 'fade' ? pipe.t / 0.35 : 1 - pipe.t / 0.3, 0, 1); ctx.fillRect(0, 0, VW, VH); ctx.globalAlpha = 1; }
   if (paused) { ctx.fillStyle = 'rgba(11,4,22,.6)'; ctx.fillRect(0, 0, VW, VH); center('PAUSED', 104, '#ffd23f', 16); center('PRESS P TO RESUME', 134, '#ffe7c2'); }
@@ -1648,136 +1642,5 @@ window.claude?.hot?.ready ? window.claude.hot.ready(boot) : boot(window.claude?.
 })();
 </script>
 <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});</script>
-<style>
-/* 2.5D: a WebGL canvas behind the game canvas draws the blocks in 3D and the sky behind them; the game canvas
-   on top keeps the pixel-art characters, tickets and score, with a see-through background. */
-.stage canvas.gl3d { position: absolute; background: #14072e; pointer-events: none; image-rendering: auto; }
-html.view3d #game { position: relative; background: transparent; }
-</style>
-<script type="module">
-// Scareisdale in 2.5D (three.js). The game is unchanged: each frame its render() hands over the painted sky and
-// calls draw(), which builds the visible blocks from window.__sc. One world unit is one game pixel; the blocks' front
-// faces sit exactly where the flat tiles were, and the camera looks slightly down so their tops and the ground show.
-import * as THREE from "../lib/three.module.min.js";
-(() => {
-  const SC = window.__sc, cv = document.getElementById("game"), root = document.documentElement;
-  if (!SC) return;
-  const { T, TS, VW, VH, ROWS } = SC;
-  let renderer;
-  try { renderer = new THREE.WebGLRenderer({ antialias: true }); } catch (e) { return; }   // no WebGL: flat only
-  const gl = renderer.domElement; gl.className = "gl3d"; cv.before(gl);
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
-
-  // ---- view switch: 2.5D by default, saved on this device ----
-  let on = true;
-  try { on = localStorage.getItem("scareisdale.view") !== "2d"; } catch (e) {}
-  const btn = document.createElement("button"); btn.className = "tog"; btn.id = "viewBtn"; btn.type = "button";
-  const mute = document.getElementById("muteBtn"); mute.after(btn);
-  function setView(v) {
-    on = v; api.on = v; root.classList.toggle("view3d", v); gl.style.display = v ? "" : "none";
-    btn.textContent = "VIEW: " + (v ? "2.5D" : "2D"); btn.setAttribute("aria-pressed", String(v));
-    SC.resetSky();
-    try { localStorage.setItem("scareisdale.view", v ? "25d" : "2d"); } catch (e) {}
-  }
-  btn.addEventListener("click", () => { setView(!on); btn.blur(); });
-  addEventListener("keydown", e => { if (e.code === "KeyV" && !e.repeat) setView(!on); });
-
-  // ---- keep the 3D canvas exactly behind the game canvas ----
-  function place() {
-    Object.assign(gl.style, { left: cv.offsetLeft + "px", top: cv.offsetTop + "px", width: cv.offsetWidth + "px", height: cv.offsetHeight + "px", borderRadius: getComputedStyle(cv).borderRadius });
-    renderer.setSize(cv.offsetWidth || VW, cv.offsetHeight || VH, false);
-  }
-  new ResizeObserver(place).observe(cv); addEventListener("resize", () => setTimeout(place, 50));
-
-  // ---- scene ----
-  const scene = new THREE.Scene();
-  const sky = new THREE.CanvasTexture(document.createElement("canvas")); sky.colorSpace = THREE.SRGBColorSpace;
-  scene.add(new THREE.AmbientLight(0xb8a0ff, 1.55));
-  const moon = new THREE.DirectionalLight(0xffe2c4, 2.1); moon.position.set(-0.35, 1, 0.75); scene.add(moon);
-  const camera = new THREE.PerspectiveCamera();
-  const D = 430, LIFT = 95;   // camera distance and how far above the middle of the screen it sits (game pixels)
-
-  // textures from the game's own 16x16 tiles, kept crisp
-  const texCache = new Map();
-  const tex = src => {
-    let t = texCache.get(src);
-    if (!t) { t = new THREE.CanvasTexture(src); t.colorSpace = THREE.SRGBColorSpace; t.magFilter = THREE.NearestFilter; t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; texCache.set(src, t); }
-    return t;
-  };
-  const tile = paint => { const c = document.createElement("canvas"); c.width = c.height = TS; paint(c.getContext("2d")); return c; };
-  const flat = (fill, edge, hi) => tile(g => { g.fillStyle = edge; g.fillRect(0, 0, 16, 16); g.fillStyle = fill; g.fillRect(1, 1, 14, 14); if (hi) { g.fillStyle = hi; g.fillRect(1, 1, 14, 1); } });
-  const soil = tile(g => {
-    g.fillStyle = "#3a1a63"; g.fillRect(0, 0, 16, 16);
-    g.fillStyle = "#4b2680"; [[2, 3], [9, 1], [12, 9], [5, 12], [14, 14]].forEach(([x, y]) => g.fillRect(x, y, 2, 1));
-    g.fillStyle = "#ff7a1a"; [[6, 5], [1, 10], [11, 13]].forEach(([x, y]) => g.fillRect(x, y, 1, 1));
-  });
-  const SIDES = {
-    "?": flat("#f0a51c", "#7a3a08", "#ffe07a"), P: flat("#f0a51c", "#7a3a08", "#ffe07a"), U: flat("#6e4030", "#2a120a"),
-    drumTop: tile(g => { g.fillStyle = "#a86a00"; g.fillRect(0, 0, 16, 16); g.fillStyle = "#ffd23f"; g.fillRect(1, 1, 14, 14); g.fillStyle = "#14072e"; g.fillRect(3, 3, 10, 10); g.fillStyle = "#2a0b4a"; g.fillRect(4, 4, 8, 8); }),
-  };
-  const mats = new Map();
-  const lam = src => { let m = mats.get(src); if (!m) { m = new THREE.MeshLambertMaterial({ map: tex(src) }); mats.set(src, m); } return m; };
-  // box faces: +x, -x, +y (top), -y, +z (front), -z
-  const look = (front, side, top) => [lam(side), lam(side), lam(top), lam(side), lam(front), lam(side)];
-  function faces(c, tx, ty, grid) {
-    switch (c) {
-      case "#": { const topRow = !(ty > 0 && grid[ty - 1][tx] === "#"); return look(topRow ? T.groundTop : T.ground, T.ground, soil); }
-      case "B": return look(T.brick, T.brick, T.brick);
-      case "?": case "P": { const q = T.q[[0, 0, 1, 2, 1][Math.floor(SC.clock * 6) % 5]]; return look(q, SIDES["?"], SIDES["?"]); }
-      case "U": return look(T.used, SIDES.U, SIDES.U);
-      case "=": return look(T.hard, T.hard, T.hard);
-      case "W": return look(T.wall, T.wall, T.wall);
-      case "D": {
-        const L = grid[ty][tx - 1] !== "D", top = grid[ty - 1][tx] !== "D";
-        const sec = top && SC.ENTRIES[SC.area === "main" ? "main" : SC.roomKey][L ? tx : tx - 1];
-        const front = top ? (L ? (sec ? T.dTLs : T.dTL) : (sec ? T.dTRs : T.dTR)) : (L ? T.dBL : T.dBR);
-        return look(front, T.dBL, top ? SIDES.drumTop : T.dBL);
-      }
-    }
-    return null;
-  }
-  // block depth: the ground runs well back like a stage; walls deeper still; floating blocks are cubes
-  const GEO = {
-    block: new THREE.BoxGeometry(TS, TS, TS).translate(TS / 2, -TS / 2, -TS / 2),
-    ground: new THREE.BoxGeometry(TS, TS, 72).translate(TS / 2, -TS / 2, -36),
-    wall: new THREE.BoxGeometry(TS, TS, 96).translate(TS / 2, -TS / 2, -48),
-    drum: new THREE.CylinderGeometry(1, 1, 1, 20),
-  };
-  const pools = { block: [], ground: [], wall: [] }, used = { block: 0, ground: 0, wall: 0 };
-  const take = kind => {
-    const p = pools[kind];
-    if (used[kind] >= p.length) { const m = new THREE.Mesh(GEO[kind]); scene.add(m); p.push(m); }
-    const m = p[used[kind]++]; m.visible = true; return m;
-  };
-
-  // ---- each frame, called from the game's render() ----
-  const api = { on, draw(bg) {
-    if (sky.image !== bg) { sky.image = bg; }
-    sky.needsUpdate = true; scene.background = sky;
-    const grid = SC.grid, COLS = SC.COLS, cx = Math.round(SC.camX);
-    for (const k in used) used[k] = 0;
-    const x0 = Math.max(0, Math.floor(cx / TS) - 2), x1 = Math.min(COLS - 1, Math.floor(cx / TS) + VW / TS + 2);
-    for (let ty = 0; ty < ROWS; ty++) for (let tx = x0; tx <= x1; tx++) {
-      const c = grid[ty][tx];
-      if (c === "." || c === "o" || c === "H" || c === "h") continue;
-      const f = faces(c, tx, ty, grid); if (!f) continue;
-      const kind = c === "#" ? "ground" : c === "W" ? "wall" : "block";
-      const m = take(kind); m.material = f;
-      let py = ty * TS; const b = SC.bumps.find(b => b.tx === tx && b.ty === ty);
-      if (b) py -= Math.round(Math.sin(b.t / 0.18 * Math.PI) * 6);
-      m.position.set(tx * TS, -py, 0);
-    }
-    for (const k in pools) for (let i = used[k]; i < pools[k].length; i++) pools[k][i].visible = false;
-    // an off-centre view: the front faces (z = 0) land exactly on the game's pixels, while the eye sits above the middle
-    const n = 10, ey = -VH / 2 + LIFT;
-    camera.position.set(cx + VW / 2, ey, D);
-    camera.projectionMatrix.makePerspective((-VW / 2) * n / D, (VW / 2) * n / D, (0 - ey) * n / D, (-VH - ey) * n / D, n, 2000);
-    camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert();
-    renderer.render(scene, camera);
-  } };
-  window.__sc3d = api;
-  place(); setView(on);
-})();
-</script>
 </body>
 </html>
