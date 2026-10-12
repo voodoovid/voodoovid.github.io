@@ -169,17 +169,7 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
           <path d="M5 22h18M49 22h18M27 50h18M49 50h18"/>
         </svg>
         <h2>Flip Five</h2>
-        <p>A Wordle-style word game on a station departure board. Six guesses at a five-letter word, the full Wordle dictionary, and an optional rule that makes you keep every green letter.</p>
-        <span class="play">Play &rarr;</span>
-      </a>
-      <a class="game" href="flip-five-3d/">
-        <svg viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="6" y="14" width="26" height="30" rx="3"/><path d="M6 29h26"/>
-          <path d="M40 29h26l-4 18H44z" fill="currentColor"/><rect x="40" y="14" width="26" height="15" rx="3"/>
-          <path d="M14 56h44" stroke-dasharray="4 5"/>
-        </svg>
-        <h2>Flip Five 3D</h2>
-        <p>A test of Flip Five in real 3D: the same word game, but every letter is a split flap that falls on its hinge, rattles through the alphabet and jumps when you win.</p>
+        <p>A Wordle-style word game on a 3D station departure board: clicking split flaps, trip-hop tracks, the full Wordle dictionary and an optional rule that makes you keep every green letter.</p>
         <span class="play">Play &rarr;</span>
       </a>
       <a class="game" href="follow-chestnut/">
@@ -203,7 +193,7 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
   </main>
 </div>
 <script>
-const SITE_VERSION = "v1.9";
+const SITE_VERSION = "v1.10";
 // Lock the screen: no rubber-band bounce or drag when swiping, unless the page really needs to scroll (phones)
 document.documentElement.style.overscrollBehavior = "none"; document.body.style.overscrollBehavior = "none";
 document.addEventListener("touchmove", e => {
@@ -230,7 +220,7 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").then(() => navigator.serviceWorker.ready).then(async () => {
     const keys = await caches.keys();
     const cache = keys.length ? await caches.open(keys[0]) : null;
-    const ok = cache && (await Promise.all(["hangman/", "scareisdale/", "ponchos-adventure/", "flip-five/", "flip-five-3d/", "follow-chestnut/"].map(p => cache.match(p)))).every(Boolean);
+    const ok = cache && (await Promise.all(["hangman/", "scareisdale/", "ponchos-adventure/", "flip-five/", "follow-chestnut/"].map(p => cache.match(p)))).every(Boolean);
     status.textContent = ok ? "Ready to play offline: all games are saved on this device." : "Open this page once more while online to finish saving the games.";
     status.classList.toggle("ready", !!ok);
   }).catch(() => { status.textContent = "This browser can't save the games for offline play."; });

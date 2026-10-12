@@ -182,10 +182,10 @@ button { cursor: pointer; }
   display: grid; grid-template: "line line" auto "word new" minmax(0, 1fr) / minmax(0, 1fr) auto; align-items: center; gap: 2px 20px;
 }
 .res-line { grid-area: line; margin: 0; font: 600 clamp(15px, 14cqh, 24px)/1.1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
-.res-word { grid-area: word; margin: 0; min-width: 0; font: 700 clamp(34px, min(62cqh, 13cqw), 120px)/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--amber); white-space: nowrap; }
+.res-word { grid-area: word; margin: 0; min-width: 0; font: 700 clamp(30px, min(60cqh, 12cqw), 120px)/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--amber); white-space: nowrap; }
 .result.won .res-word { color: var(--hit); }
 :root.contrast .result.won .res-word { color: var(--hit); }
-.res-new { grid-area: new; height: clamp(48px, 56cqh, 84px); padding: 0 clamp(24px, 5cqw, 48px); font-size: clamp(20px, 26cqh, 34px); border-radius: 10px; }
+.res-new { grid-area: new; height: clamp(48px, 56cqh, 84px); padding: 0 clamp(18px, 3.5cqw, 44px); font-size: clamp(20px, min(26cqh, 5cqw), 34px); border-radius: 10px; }
 .side.roomy.ended #status, .side.roomy #btnNew { display: none; }
 
 /* ---- keyboard ---- */
@@ -399,9 +399,14 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
     <div class="opts-body">
     <div>
       <div class="opt">
-        <b id="lblSfx">Cheers and raspberries</b>
-        <span class="fine">A cheer when you solve the word, bigger the fewer guesses you needed. A raspberry when you miss.</span>
+        <b id="lblSfx">Sound effects</b>
+        <span class="fine">Flaps clicking like a station board, a cheer when you solve the word (bigger the fewer guesses you needed) and a raspberry when you miss.</span>
         <button class="switch" id="optSfx" type="button" role="switch" aria-checked="true" aria-labelledby="lblSfx"><span class="track"></span></button>
+      </div>
+      <div class="opt" id="optViewRow" hidden>
+        <b id="lblView">3D board</b>
+        <span class="fine">Letters on real split flaps that fall on their hinges. Switch off for flat tiles.</span>
+        <button class="switch" id="optView" type="button" role="switch" aria-checked="true" aria-labelledby="lblView"><span class="track"></span></button>
       </div>
       <div class="opt">
         <b id="lblContrast">High contrast</b>
@@ -423,7 +428,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v1.14";
+const VERSION = "v2.0";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
@@ -454,7 +459,7 @@ $("about").textContent = "Flip Five " + VERSION + ". Your results and settings a
 const load = (k, d) => { try { const v = JSON.parse(localStorage.getItem("flipfive." + k)); return v ?? d; } catch (e) { return d; } };
 const save = (k, v) => { try { localStorage.setItem("flipfive." + k, JSON.stringify(v)); } catch (e) {} };
 const freshStats = () => ({ played: 0, wins: 0, streak: 0, best: 0, dist: [0, 0, 0, 0, 0, 0] });
-let opts = Object.assign({ strict: false, contrast: false, music: true, sfx: true, track: 0 }, load("opts", {}));
+let opts = Object.assign({ strict: false, contrast: false, music: true, sfx: true, track: 0, view3d: true }, load("opts", {}));
 let stats = Object.assign(freshStats(), load("stats", {}));
 let recent = load("recent", []);
 let G = null;          // { answer, guesses: [], cur, over, won }
@@ -609,6 +614,7 @@ function paintOpts() {
   root.classList.toggle("contrast", opts.contrast);
   for (const id of ["strict", "optStrict"]) $(id).setAttribute("aria-checked", String(opts.strict));
   $("optContrast").setAttribute("aria-checked", String(opts.contrast));
+  $("optView").setAttribute("aria-checked", String(opts.view3d));
   $("optMusic").setAttribute("aria-checked", String(opts.music));
   $("optSfx").setAttribute("aria-checked", String(opts.sfx));
   $("trackName").textContent = (opts.track + 1) + " of " + TRACKS.length + ": " + TRACKS[opts.track].name;
@@ -631,6 +637,7 @@ function reject(msg) {
   const row = tiles[G.guesses.length][0].parentNode;
   row.classList.remove("shake"); void row.offsetWidth; row.classList.add("shake");
 }
+function flatClick() { if (!window.__view3dActive && window.__flapClick) window.__flapClick(); }
 function type(ch) {
   if (busy || G.over) return;
   let n;
@@ -642,7 +649,7 @@ function type(ch) {
   } else n = placeLetter(G.cur, ch, fixedSlots());
   if (!n) return;
   G.cur = n.cur; note = null;
-  paintDraft(); tiles[G.guesses.length][n.at].classList.add("pop");
+  paintDraft(); tiles[G.guesses.length][n.at].classList.add("pop"); flatClick();
   paintStatus(); save("game", G);
 }
 function erase() {
@@ -697,9 +704,9 @@ function submit() {
   busy = true; paintStatus();
   marks.forEach((m, c) => {
     setTimeout(() => tiles[r][c].classList.add("out"), c * 220);
-    setTimeout(() => { setTile(tiles[r][c], guess[c], m); tiles[r][c].classList.add("in"); }, c * 220 + 200);
+    setTimeout(() => { setTile(tiles[r][c], guess[c], m); tiles[r][c].classList.add("in"); flatClick(); }, c * 220 + 200);
   });
-  setTimeout(done, 4 * 220 + 460);
+  setTimeout(done, 4 * 220 + (window.__view3dActive ? 1000 : 460));   // the 3D flaps run through the alphabet first
 }
 function newGame() {
   if (G) setTrack(opts.track + 1);   // a new track with each new word (not when the page first opens)
@@ -1084,8 +1091,23 @@ const Music = (() => {
     if (document.hidden) { ac.suspend(); keepAlive && keepAlive.pause(); }
     else if (unlocked) { ac.resume(); keepAlive && keepAlive.play().catch(() => {}); if (on) nextTime = Math.max(nextTime, ac.currentTime + 0.05); }
   });
-  return { play, pause, setTrack, cheer, raspberry, ensure, get on() { return on; } };
+  // one flap slapping down: a sharp tick over a woody knock. Many together rattle like a departure board.
+  let lastClick = 0;
+  function click() {
+    try {
+      if (!ac || ac.state !== "running") return;
+      const now = ac.currentTime; if (now - lastClick < 0.014) return; lastClick = now;
+      const t = now + 0.003, v = rnd(0.7, 1);
+      burst(t, 0.014, "bandpass", rnd(2800, 4400), 2.2, 0.32 * v, g => toFx(g, 1, 0.05));
+      const o = ac.createOscillator(), g = ac.createGain(); o.type = "triangle";
+      o.frequency.setValueAtTime(rnd(1100, 1500), t); o.frequency.exponentialRampToValueAtTime(480, t + 0.022);
+      g.gain.setValueAtTime(0.16 * v, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+      o.connect(g); toFx(g, 1, 0); o.start(t); o.stop(t + 0.035);
+    } catch (e) {}
+  }
+  return { play, pause, setTrack, cheer, raspberry, ensure, click, get on() { return on; } };
 })();
+window.__flapClick = () => { if (opts.sfx) Music.click(); };
 function setMusic(play) {
   try { play ? Music.play() : Music.pause(); } catch (e) {}
   opts.music = play; save("opts", opts); paintOpts();
@@ -1124,6 +1146,7 @@ function toggleStrict() {
 $("strict").addEventListener("click", e => { e.currentTarget.blur(); toggleStrict(); });
 $("optStrict").addEventListener("click", toggleStrict);
 $("optContrast").addEventListener("click", () => setOpt("contrast", !opts.contrast));
+$("optView").addEventListener("click", () => { setOpt("view3d", !opts.view3d); window.__flaps && window.__flaps.setView(opts.view3d); });
 function open(id) {
   $("resetAsk").hidden = true; $("btnReset").hidden = false;
   $("giveAsk").hidden = true; $("btnGiveUp").hidden = false; $("btnGiveUp").disabled = G.over || busy;
@@ -1189,9 +1212,9 @@ function fit() {
   // on the left, and the title, status and main settings on the right
   const W = { kbw: Math.floor(Math.min(cw, 1300)), sw: cw, sh: ch, colGap: clamp(Math.round(cw * 0.03), 16, 56) };
   W.kg = clamp(Math.round(W.kbw * 0.008), 6, 10);
-  W.kh = Math.floor(Math.min(120, (W.kbw - 9 * W.kg) / 10, (ch * 0.34 - 2 * W.kg) / 3));
+  W.kh = Math.floor(Math.min(96, (W.kbw - 9 * W.kg) / 10, (ch * 0.27 - 2 * W.kg) / 3));
   const kbH = 3 * W.kh + 2 * W.kg;
-  W.tile = Math.floor(Math.min((ch - kbH - rowGap - pillRoom - 5 * g) / 6, (cw * 0.5 - 4 * g) / 5, 150));
+  W.tile = Math.floor(Math.min((ch - kbH - rowGap - pillRoom - 5 * g) / 6, (cw * 0.52 - 4 * g) / 5, 150));
   const roomy = cw >= 900 && ch >= 600 && cw / ch >= 1.15 && W.tile >= 60 && ch - kbH - rowGap >= topH + remH + 200 + 2 * rowGap;
   if (roomy) { ({ tile, kbw, kg, kh, sw, sh, colGap } = W); app.classList.add("side"); }
   app.classList.toggle("roomy", roomy);
@@ -1237,6 +1260,214 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setTimeout(checkForUpdate, 1500);
 window.claude?.hot?.snapshot?.(() => ({ G }));
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
+})();
+</script>
+<style>
+/* 3D board: a WebGL canvas draws the split flaps over the board. The page's own tiles stay in place (invisible) so taps and screen readers work as before. */
+html.three #board { position: relative; }
+html.three #board .tile { opacity: 0; }
+#board canvas.flaps { position: absolute; pointer-events: none; z-index: 0; }
+</style>
+<script type="module">
+// Split-flap board in 3D (three.js), the default view. It watches the page's tiles and copies each change onto real flaps:
+// the top half of the old letter falls forward on its hinge, slaps down, bounces, and becomes the bottom half of the
+// new one, with a click for every flap like a station departure board. Settings > 3D board switches back to flat tiles.
+import * as THREE from "../lib/three.module.min.js";
+(() => {
+  const board = document.getElementById("board"), root = document.documentElement;
+  const rows = [...board.querySelectorAll(".row")];
+  const els = rows.map(r => [...r.querySelectorAll(".tile")]);
+  const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let renderer;
+  try { renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); } catch (e) { return; }   // no WebGL: the flat board stays
+  let on = true;
+  try { on = (JSON.parse(localStorage.getItem("flipfive.opts")) || {}).view3d !== false; } catch (e) {}
+  root.classList.toggle("three", on); window.__view3dActive = on;
+  const viewRow = document.getElementById("optViewRow"); if (viewRow) viewRow.hidden = false;
+  const cv = renderer.domElement; cv.className = "flaps"; board.appendChild(cv); cv.hidden = !on;
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+  const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(30, 1, 1, 10000);
+  // Light from above and in front. Ambient + direct add up to pi so a flap at rest shows its exact colour.
+  const PHI = 0.6;
+  scene.add(new THREE.AmbientLight(0xffffff, Math.PI * 0.45));
+  const sun = new THREE.DirectionalLight(0xffffff, Math.PI * 0.55 / Math.cos(PHI));
+  sun.position.set(0, Math.sin(PHI), Math.cos(PHI)); scene.add(sun);
+
+  // ---- flap faces: one canvas texture per look (letter + colours), cached ----
+  const S = 256, cache = new Map();
+  const css = n => getComputedStyle(root).getPropertyValue(n).trim();
+  function look(el, blink) {
+    const k = el.className, ch = (el.textContent || "").trim();
+    const state = ["hit", "near", "miss", "fixed", "typed"].find(c => el.classList.contains(c)) || "blank";
+    const sel = el.classList.contains("sel") ? (ch || !blink ? 2 : 1) : 0;
+    return { ch, state, sel, face: ch + "|" + state, key: ch + "|" + state + "|" + sel + "|" + root.classList.contains("contrast") };
+  }
+  function tex(L) {
+    let t = cache.get(L.key); if (t) return t;
+    const c = document.createElement("canvas"); c.width = c.height = S; const g = c.getContext("2d");
+    const bg = { hit: css("--hit"), near: css("--near"), miss: css("--dead"), fixed: css("--flap"), typed: css("--flap"), blank: css("--blank") }[L.state];
+    const ink = { hit: css("--hit-ink"), near: css("--near-ink"), miss: css("--dim") }[L.state] || css("--ink");
+    const r = S * 0.08;
+    g.beginPath(); g.roundRect(0, 0, S, S, r); g.fillStyle = bg; g.fill();
+    const ring = (w, col) => { g.save(); g.beginPath(); g.roundRect(0, 0, S, S, r); g.clip(); g.lineWidth = w * 2; g.strokeStyle = col; g.stroke(); g.restore(); };
+    if (L.state === "blank") ring(S / 56, css("--flap-line"));
+    if (L.state === "typed") ring(S / 56, "#5d6575");
+    if (L.state === "fixed") ring(Math.max(2, S * 0.035), css("--hit"));
+    if (L.sel) ring(Math.max(3, S * 0.05), L.sel === 1 ? "rgba(244,185,66,.35)" : css("--amber"));
+    // a soft sheen on the top flap and shade on the bottom one, like painted metal
+    const sh = g.createLinearGradient(0, 0, 0, S);
+    sh.addColorStop(0, "rgba(255,255,255,.07)"); sh.addColorStop(.5, "rgba(255,255,255,0)"); sh.addColorStop(.5, "rgba(0,0,0,.06)"); sh.addColorStop(1, "rgba(0,0,0,0)");
+    g.beginPath(); g.roundRect(0, 0, S, S, r); g.fillStyle = sh; g.fill();
+    if (L.ch) {
+      g.fillStyle = ink; g.font = `700 ${Math.round(S * 0.66)}px ${css("--font-display")}`;
+      g.textAlign = "center"; g.textBaseline = "alphabetic";
+      const m = g.measureText("H"), up = L.ch.toUpperCase();
+      g.fillText(up, S / 2, S / 2 + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2);
+    }
+    // the seam between the flaps and the hinge notches at each end
+    g.fillStyle = "rgba(0,0,0,.42)"; g.fillRect(0, S / 2 - S * 0.011, S, S * 0.022);
+    g.clearRect(0, S / 2 - S * 0.07, S * 0.045, S * 0.14); g.clearRect(S * 0.955, S / 2 - S * 0.07, S * 0.045, S * 0.14);
+    t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+    cache.set(L.key, t);
+    if (cache.size > 160) for (const [k, v] of cache) { if (cache.size <= 100) break; if (!inUse(v)) { v.dispose(); cache.delete(k); } }
+    return t;
+  }
+  const inUse = t => tiles.some(T => T.parts.some(m => m.material.map === t) || T.queue.some(q => cache.get(q.key) === t));
+
+  // ---- geometry: halves of a unit square, hinged at y = 0 ----
+  const half = top => {
+    const g = new THREE.PlaneGeometry(1, 0.5); g.translate(0, top ? 0.25 : -0.25, 0);
+    const uv = g.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setY(i, top ? 0.5 + uv.getY(i) * 0.5 : uv.getY(i) * 0.5);
+    return g;
+  };
+  const TOP = half(true), BOT = half(false), CASE = new THREE.BoxGeometry(0.94, 0.94, 0.3).translate(0, 0, -0.16);
+  const caseMat = new THREE.MeshLambertMaterial({ color: 0x07080b });
+  const flat = () => new THREE.MeshBasicMaterial({ alphaTest: 0.5 });
+  const lit = () => new THREE.MeshLambertMaterial({ alphaTest: 0.5 });
+  const tiles = [];
+  els.forEach((row, r) => row.forEach((el, c) => {
+    const grp = new THREE.Group(), flap = new THREE.Group();
+    const top = new THREE.Mesh(TOP, flat()), bot = new THREE.Mesh(BOT, flat());
+    const front = new THREE.Mesh(TOP, lit()), back = new THREE.Mesh(BOT, lit());
+    back.rotation.x = Math.PI; flap.add(front, back); flap.position.z = 0.004; flap.visible = false;
+    grp.add(new THREE.Mesh(CASE, caseMat), top, bot, flap); scene.add(grp);
+    const L = look(el, false);
+    top.material.map = bot.material.map = tex(L);
+    tiles.push({ el, r, c, grp, flap, top, bot, front, back, parts: [top, bot, front, back], cur: L, queue: [], anim: null, hop: 0, hopping: false, x: 0, y: 0, size: 1 });
+  }));
+
+  // ---- layout: the canvas covers the board plus a margin; one world unit = one CSS pixel at the board's depth ----
+  let W = 1, H = 1;
+  function layout() {
+    const t0 = els[0][0], T = t0.offsetWidth || 40, M = Math.round(T * 0.7);
+    W = board.offsetWidth + 2 * M; H = board.offsetHeight + 2 * M;
+    Object.assign(cv.style, { left: -M + "px", top: -M + "px", width: W + "px", height: H + "px" });
+    renderer.setSize(W, H, false);
+    camera.aspect = W / H; camera.position.set(0, 0, (H / 2) / Math.tan(THREE.MathUtils.degToRad(15))); camera.updateProjectionMatrix();
+    for (const t of tiles) {
+      t.size = t.el.offsetWidth; t.x = t.el.offsetLeft + t.size / 2 + M - W / 2; t.y = H / 2 - (t.el.offsetTop + t.size / 2 + M);
+      t.grp.scale.setScalar(t.size); t.grp.position.set(t.x, t.y, 0);
+    }
+    wake();
+  }
+  new ResizeObserver(layout).observe(board);
+
+  // ---- watching the page's tiles ----
+  let blink = false, shakes = new Map();
+  const ease = t => t * t * (1.6 - 0.6 * t);   // falls faster as it goes, like a flap under gravity
+  const HIT = 0.8;                              // share of a flip spent falling; the rest is the bounce after it slaps down
+  const angle = k => k < HIT ? Math.PI * ease(k / HIT) : Math.PI - Math.sin(Math.PI * (k - HIT) / (1 - HIT)) * 0.32;
+  const LETTERS = "abcdefghijklmnopqrstuvwxyz";
+  function sync() {
+    for (const t of tiles) {
+      const L = look(t.el, blink), last = t.queue.length ? t.queue[t.queue.length - 1] : t.anim ? t.anim.to : t.cur;
+      if (L.key === last.key) continue;
+      if (L.face === last.face && !t.anim && !t.queue.length) {          // only the outline changed: no flip
+        t.cur = L; t.top.material.map = t.bot.material.map = tex(L); t.top.material.needsUpdate = t.bot.material.needsUpdate = true;
+        continue;
+      }
+      if (calm || !on) { t.queue = []; t.anim = null; t.flap.visible = false; t.cur = L; t.top.material.map = t.bot.material.map = tex(L); continue; }
+      // like a station board, the flaps run up through the alphabet to the new letter: a long run for a colour
+      // reveal, a short one for a typed letter
+      const reveal = L.state !== last.state && /hit|near|miss/.test(L.state);
+      const idx = LETTERS.indexOf((L.ch || "").toLowerCase()), runs = !L.ch || idx < 0 ? 0 : reveal ? 5 : L.state === "typed" ? 2 : 0;
+      for (let i = runs; i >= 1; i--) {
+        const ch = LETTERS[(idx - i + 26) % 26];
+        t.queue.push({ ch, state: "typed", sel: 0, face: ch + "|typed", key: ch + "|typed|0|x", dur: reveal ? 95 : 75 });
+      }
+      t.queue.push(Object.assign(L, { dur: reveal ? 300 : last.state === L.state ? 200 : 240 }));
+    }
+    for (const t of tiles) {
+      const hop = t.el.classList.contains("hop");
+      if (hop && !t.hopping) t.hop = performance.now();
+      t.hopping = hop;
+    }
+    rows.forEach((row, r) => {
+      const on = row.classList.contains("shake");
+      if (on && !shakes.has(r)) shakes.set(r, performance.now());
+      if (!on && shakes.has(r) && performance.now() - shakes.get(r) > 400) shakes.delete(r);
+    });
+    wake();
+  }
+  new MutationObserver(sync).observe(board, { subtree: true, attributes: true, attributeFilter: ["class"], childList: true, characterData: true });
+  new MutationObserver(() => { cache.forEach(v => v.dispose()); cache.clear(); sync(); for (const t of tiles) { t.top.material.map = t.bot.material.map = tex(t.cur); t.top.material.needsUpdate = t.bot.material.needsUpdate = true; } wake(); })
+    .observe(root, { attributes: true, attributeFilter: ["class"] });   // high-contrast colours switched
+  setInterval(() => { if (tiles.some(t => t.el.classList.contains("sel") && !t.el.textContent)) { blink = !blink; sync(); } else if (blink) { blink = false; sync(); } }, 550);
+  if (document.fonts) document.fonts.ready.then(() => { cache.forEach(v => v.dispose()); cache.clear(); for (const t of tiles) { t.top.material.map = t.bot.material.map = tex(t.cur); t.top.material.needsUpdate = t.bot.material.needsUpdate = true; } wake(); });
+
+  // ---- animation ----
+  let raf = 0;
+  function wake() { if (!raf && on) raf = requestAnimationFrame(frame); }
+  function setMap(m, t) { if (m.material.map !== t) { m.material.map = t; m.material.needsUpdate = true; } }
+  function frame(now) {
+    raf = 0; let busy = false;
+    for (const t of tiles) {
+      if (!t.anim && t.queue.length) {
+        const to = t.queue.shift(); t.anim = { from: t.cur, to, start: now, dur: to.dur };
+        setMap(t.top, tex(to)); setMap(t.bot, tex(t.cur)); setMap(t.front, tex(t.cur)); setMap(t.back, tex(to));
+        t.flap.visible = true;
+      }
+      if (t.anim) {
+        const k = Math.min(1, (now - t.anim.start) / t.anim.dur), th = angle(k);
+        t.flap.rotation.x = th;
+        t.flap.position.z = 0.004 + Math.sin(th) * 0.08;          // the flap swings out toward you as it falls
+        if (k >= HIT && !t.anim.clicked) { t.anim.clicked = true; window.__flapClick && window.__flapClick(); }   // the slap
+        // the falling flap shades the halves it passes over
+        const s = Math.sin(th);
+        t.top.material.color.setScalar(1 - 0.6 * (1 - Math.min(th, Math.PI) / Math.PI));
+        t.bot.material.color.setScalar(th < Math.PI / 2 ? 1 - 0.5 * s : 1 - 0.12 * s);
+        if (k >= 1) {
+          t.cur = t.anim.to; t.anim = null; t.flap.visible = false;
+          setMap(t.top, tex(t.cur)); setMap(t.bot, tex(t.cur));
+          t.top.material.color.setScalar(1); t.bot.material.color.setScalar(1);
+          if (t.queue.length) busy = true;
+        } else busy = true;
+      }
+      // winning row: each flap jumps out of the board and spins once
+      let z = 0, y = 0, rx = 0;
+      if (t.hop) {
+        const k = (now - t.hop) / 600;
+        if (k >= 1) t.hop = 0; else { const a = Math.sin(Math.PI * k); z = a * t.size * 0.9; y = a * t.size * 0.12; rx = -Math.PI * 2 * ease(k); busy = true; }
+      }
+      let x = 0;
+      if (shakes.has(t.r)) {
+        const k = (now - shakes.get(t.r)) / 360;
+        if (k < 1) { x = Math.sin(k * Math.PI * 6) * t.size * 0.09 * (1 - k); busy = true; }
+      }
+      t.grp.position.set(t.x + x, t.y + y, z); t.grp.rotation.x = rx;
+    }
+    renderer.render(scene, camera);
+    if (busy) raf = requestAnimationFrame(frame);
+  }
+  // switching between the 3D board and the flat tiles (Settings > 3D board)
+  function setView(v) {
+    on = v; window.__view3dActive = v;
+    root.classList.toggle("three", v); cv.hidden = !v;
+    for (const t of tiles) { t.queue = []; t.anim = null; t.flap.visible = false; t.hop = 0; t.cur = look(t.el, blink); setMap(t.top, tex(t.cur)); setMap(t.bot, tex(t.cur)); t.top.material.color.setScalar(1); t.bot.material.color.setScalar(1); }
+    if (v) layout();
+  }
+  layout();
+  window.__flaps = { tiles, scene, renderer, setView };
 })();
 </script>
 </body>
