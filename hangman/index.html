@@ -225,6 +225,48 @@ kbd { font-family: var(--font-hand); border: 1px solid var(--chalk-dim); border-
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+/* Phones held sideways (iPhone 17 Pro Max landscape is about 956x440): everything on one screen,
+   the gallows on the left sized to the height, word and letter keys on the right. */
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 600px) {
+  body { padding-block: 6px; padding-inline: max(8px, env(safe-area-inset-left, 0px)) max(8px, env(safe-area-inset-right, 0px));
+         height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column;
+         --gh: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 92px); }
+  .frame { max-width: none; width: 100%; flex: 1; min-height: 0; padding: 6px; display: flex; flex-direction: column; }
+  .board { flex: 1; min-height: 0; padding: 8px 16px; display: flex; flex-direction: column; }
+  .ledge { display: none; }
+  header { flex-wrap: nowrap; align-items: center; margin-bottom: 8px; padding-bottom: 6px; gap: 8px 16px; }
+  h1 { font-size: 26px; }
+  .head-right { flex-wrap: nowrap; gap: 14px; }
+  .stats { gap: 12px; font-size: 13px; }
+  .stats b { font-size: 15px; }
+  .music { font-size: 13px; padding: 3px 12px; }
+  .play { flex: 1; min-height: 0; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 22px; align-items: center; }
+  .stage { width: min(calc(var(--gh) * 1.1538), 38vw); aspect-ratio: 300 / 260; }
+  .stage canvas { width: 100%; height: 100%; }
+  .side { gap: 7px; justify-content: center; height: 100%; }
+  .cat { flex-wrap: nowrap; gap: 10px; }
+  .cat-label { font-size: 11px; }
+  .cat-name { font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .cat > div { min-width: 0; }
+  .cat select.btn { font-size: 13px; padding-block: 3px; }
+  .word { min-height: 0; --u: min(40px, calc(100cqw / var(--n, 8))); }
+  .misses { font-size: 13px; }
+  .tally { height: 18px; } .tally i { height: 16px; }
+  .wrong-letters { font-size: 18px; }
+  .keys { gap: 5px; }
+  .row { gap: 5px; }
+  .key { aspect-ratio: auto; max-width: 52px; height: clamp(28px, calc((var(--gh) - 170px) / 3), 46px); font-size: 18px; }
+  .actions { gap: 8px; }
+  .actions .btn { font-size: 14px; padding: 3px 12px; }
+  .long { display: none; }
+  .hint-line { display: none; }
+  .version { font-size: 11px; }
+  .verdict { padding: 6px 12px; gap: 4px; }
+  /* game over: the letter keys step aside for the result and its Next word button */
+  .side:has(#verdict:not([hidden])) .keys { display: none; }
+  .verdict h2 { font-size: 24px; }
+  .verdict p { font-size: 14px; }
+}
 @media (max-width: 720px), (pointer: coarse) and (orientation: portrait) {
   /* fill the phone's (or a portrait tablet's) visible screen: the board stretches and the extra height goes to bigger letter keys */
   body {
@@ -364,7 +406,7 @@ kbd { font-family: var(--font-hand); border: 1px solid var(--chalk-dim); border-
 
 <script>
 (() => {
-const VERSION = "v1.5";
+const VERSION = "v1.6";
 document.getElementById("version").textContent = "Hangman " + VERSION;
 const WORDS = {
   "Animals": ["platypus", "armadillo", "chameleon", "flamingo", "hedgehog", "narwhal", "porcupine", "salamander", "wolverine", "jellyfish", "kangaroo", "octopus", "pelican", "raccoon", "walrus", "axolotl", "alligator", "antelope", "baboon", "badger", "beaver", "bison", "buffalo", "butterfly", "camel", "caterpillar", "cheetah", "chimpanzee", "chinchilla", "chipmunk", "cobra", "coyote", "crocodile", "dolphin", "donkey", "dragonfly", "eagle", "elephant", "falcon", "ferret", "gazelle", "gecko", "giraffe", "gorilla", "grasshopper", "hamster", "hippopotamus", "hummingbird", "hyena", "iguana", "jaguar", "koala", "ladybug", "lemur", "leopard", "lobster", "meerkat", "mongoose", "moose", "mosquito", "ostrich", "otter", "panther", "parrot", "peacock", "penguin", "pheasant", "piranha", "porpoise", "python", "rattlesnake", "reindeer", "rhinoceros", "scorpion", "seahorse", "squirrel", "starfish", "stingray", "tarantula", "tortoise", "toucan", "turtle", "vulture", "warthog", "weasel", "woodpecker", "yak", "zebra", "anteater", "bumblebee", "cockatoo", "cuttlefish", "manatee", "mandrill", "ocelot", "orangutan", "pangolin", "puffin", "quokka", "sloth", "tapir", "wombat"],
@@ -633,7 +675,7 @@ fitCanvas(dc, dctx);
 const frameEl = document.querySelector(".frame");
 function fitBoard() {
   frameEl.style.zoom = "";
-  if (!matchMedia("(max-width: 720px), (pointer: coarse) and (orientation: portrait)").matches) {
+  if (!matchMedia("(max-width: 720px), (pointer: coarse) and (orientation: portrait), (pointer: coarse) and (orientation: landscape) and (max-height: 600px)").matches) {
     const r = frameEl.getBoundingClientRect();
     const padB = parseFloat(getComputedStyle(document.documentElement).paddingBottom) || 0;
     const z = Math.min(2, (innerWidth - 32) / r.width, (innerHeight - r.top - padB - 16) / r.height);
@@ -644,6 +686,8 @@ function fitBoard() {
 addEventListener("resize", fitBoard);
 addEventListener("orientationchange", () => setTimeout(fitBoard, 300));
 if (document.fonts) document.fonts.ready.then(fitBoard);
+// the result box changes the board's height, so fit again whenever it appears or goes away
+new MutationObserver(() => requestAnimationFrame(fitBoard)).observe($("verdict"), { attributes: true, attributeFilter: ["hidden"], childList: true });
 fitBoard();
 let motes = [];
 function puff(x, y, n, colors) {
