@@ -224,7 +224,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <script>
 (() => {
 'use strict';
-const VERSION = 'v3.1';
+const VERSION = 'v3.2';
 document.getElementById('verBar').textContent = VERSION;
 document.getElementById('verOverlay').textContent = VERSION;
 const TS = 16, VW = 384, VH = 240, ROWS = 15;
@@ -280,10 +280,8 @@ function limb(x0, y0, x1, y1, col, w) { ctx.lineCap = 'round'; ctx.beginPath(); 
 function xEye(x, y, r) { ctx.strokeStyle = INK; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(x - r, y - r); ctx.lineTo(x + r, y + r); ctx.moveTo(x + r, y - r); ctx.lineTo(x - r, y + r); ctx.stroke(); }
 function dot(col, x, y, r) { ctx.fillStyle = col; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
 
-// Pancake's fur. Power-ups recolour her: ginger with a burning tail for the ghost pepper, a rainbow while on catnip.
+// Pancake's fur: she is always grey (the ghost pepper only sets her tail tip alight; catnip makes a rainbow glow around her).
 const PAL_GREY = { OUT: '#34333d', FUR: '#8f8e9a', BACK: '#6f6e7a', BELLY: '#b4b3bf', EYE: '#b7d84a' };
-const PAL_FIRE = { OUT: '#4a2410', FUR: '#e08a3c', BACK: '#b85e22', BELLY: '#f6c890', EYE: '#ffe14a' };
-const PAL_STAR = ['#ff7ac8', '#5ef2ff', '#ffd23f', '#3ddc84'].map((c, i) => ({ OUT: '#34333d', FUR: c, BACK: ['#d94a9a', '#2bb3c8', '#d9a020', '#1ea860'][i], BELLY: ['#ffc0e6', '#c0fbff', '#fff0a0', '#b8ffd6'][i], EYE: '#ffffff' }));
 // Pancake: a big, round cat with yellow-green eyes, drawn side-on facing right with her feet at (0, 0).
 // look: { pal, flame: burning tail tip (ghost pepper), wings: bat wings }
 function drawHero(pose, big, a, vy = 0, look = {}) {
@@ -2008,7 +2006,7 @@ function drawExit(x0) {
 function drawPeek(cx) {
   if (!fin || !fin.peek) return;
   const t = clock - fin.peek, p = clamp(t / 0.22, 0, 1), pop = p < 1 ? p * (1.18 - 0.18 * p) : 1;
-  const dx = DOOR_X - cx, base = 13 * TS, pal = P.form === 'fire' ? PAL_FIRE : PAL_GREY;
+  const dx = DOOR_X - cx, base = 13 * TS, pal = PAL_GREY;
   const meowing = fin.meow && clock - fin.meow < 0.6;
   ctx.save(); doorPath(dx, base); ctx.clip();
   ctx.translate(dx + 20 - 16 * pop, base - 16 + (meowing ? -1 : 0)); ctx.rotate(0.22 * pop + Math.sin(t * 3) * 0.04); ctx.scale(-1.8, 1.8);
@@ -2213,7 +2211,12 @@ function drawPlayer(cx) {
   ctx.save();
   if (state === 'pipe' && pipe) { ctx.beginPath(); ctx.rect(0, 0, VW, pipe.clipY); ctx.clip(); }
   ctx.translate(P.x + P.w / 2 - cx, P.y + P.h); ctx.scale(P.face * P.sx, P.sy);
-  let look = { pal: P.star > 0 ? PAL_STAR[Math.floor(clock * 14) % 4] : P.form === 'fire' ? PAL_FIRE : PAL_GREY, flame: P.form === 'fire', wings: P.form === 'wings' };
+  if (P.star > 0) {   // catnip: a flashing rainbow glow around her
+    const col = ['255,122,200', '94,242,255', '255,210,63', '61,220,132'][Math.floor(clock * 14) % 4], gy = -(big ? 15 : 9), r = big ? 22 : 15;
+    const g = ctx.createRadialGradient(0, gy, 2, 0, gy, r); g.addColorStop(0, `rgba(${col},.55)`); g.addColorStop(1, `rgba(${col},0)`);
+    ctx.fillStyle = g; ctx.fillRect(-r, gy - r, r * 2, r * 2);
+  }
+  let look = { pal: PAL_GREY, flame: P.form === 'fire', wings: P.form === 'wings' };
   if (P.formFlash > 0 && Math.floor(P.formFlash * 14) % 2) look = {};   // flicker between looks when the form changes
   drawHero(pose, big, P.anim * 0.13, P.vy, look);
   ctx.restore();
