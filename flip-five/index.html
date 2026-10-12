@@ -138,19 +138,21 @@ button { cursor: pointer; }
 .remarks { grid-area: remarks; width: var(--kbw); max-width: 100%; height: 100%; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 6px 12px; }
 .side .remarks { flex-wrap: wrap; align-content: center; }
 .side.roomy .stage {
-  grid-template: "board top" var(--top-h) "board remarks" var(--rem-h) "board panel" minmax(0, 1fr) "board keys" auto / auto minmax(0, 1fr);
+  grid-template: "board top" var(--top-h) "board ." minmax(0, 1fr) "board remarks" var(--rem-h) "board panel" auto "board keys" auto / auto minmax(0, 1fr);
 }
+.side.roomy .board { align-self: center; margin-top: var(--pill-room, 0px); }
 .side.roomy .remarks { flex-wrap: nowrap; }
-.side.roomy #btnOpts, .side.roomy #strict { display: none; }
+.side.roomy #strict { display: none; }
 /* ---- settings panel: fills the spare space beside the board on wide screens ---- */
 .panel { display: none; }
 .side.roomy .panel {
-  grid-area: panel; display: flex; flex-direction: column; gap: 10px; align-self: stretch; width: var(--kbw); max-width: 100%; min-height: 0;
-  overflow: auto; overscroll-behavior: contain; padding: 12px 18px 14px;
+  grid-area: panel; display: flex; flex-direction: column; gap: 6px; align-self: start; width: var(--kbw); max-width: 100%; min-height: 0;
+  padding: 12px 18px 8px;
   background: var(--housing); border: 1px solid var(--flap-line); border-radius: 10px; font-size: 15px; line-height: 1.4;
 }
 .panel h3 { margin: 0; font: 600 15px/1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
 .panel .opt { padding-block: 8px; }
+.panel .opts-body > .opt:first-child { border-top: 0; }
 .panel .fine { font-size: 13px; color: var(--dim); }
 .opts-body { display: flex; flex-direction: column; gap: 14px; }
 .panel .opts-body { gap: 10px; }
@@ -309,11 +311,11 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
       <div><span class="tile miss">T</span><span>Dark: the letter is not in the word.</span></div>
     </div>
     <p>A letter can appear more than once. If you guess two Es and only one turns green or amber, the word has just one E.</p>
-    <p>Green letters you have found are filled into the next row for you, outlined in green. If you type that same letter it goes in its spot; any other letter jumps ahead to the next open spot. You can switch this off in Settings.</p>
+    <p>With <b>Must keep greens</b> on, green letters you have found are filled into the next row for you, outlined in green. If you type that same letter it goes in its spot; any other letter jumps ahead to the next open spot.</p>
     <p>Tap any flap in the row you're typing to put the next letter there. It's outlined in amber; tap it again to let go. On a keyboard the arrow keys do the same.</p>
     <p>The music changes track with each new word; pick a track in Settings. Solve the word for a cheer (bigger the fewer guesses you needed), miss it for a raspberry.</p>
     <h3>Must keep greens</h3>
-    <p>Switch this on for a harder game. Every green letter must stay in its spot in every later guess. Amber letters can be left out.</p>
+    <p>Every green letter stays in its spot in every later guess, filled in for you. Amber letters can be left out.</p>
     <h3>Words</h3>
     <p class="fine" id="wordCount"></p>
     <p class="fine">On a keyboard: type letters, <b>Enter</b> to guess, <b>Backspace</b> to erase. After a game, Enter starts the next word.</p>
@@ -343,16 +345,15 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <dialog id="dlgOpts" aria-labelledby="hOpts">
   <div class="sheet">
     <header><h2 id="hOpts">Settings</h2><button class="ib" type="button" data-close>Close</button></header>
-    <div class="opts-home" id="optsHome"><div class="opts-body" id="optsBody">
-    <div>
+    <div class="opts-home" id="optsHome"><div class="opts-body" id="optsQuick">
       <div class="opt">
         <b id="lblStrict">Must keep greens</b>
-        <span class="fine">Every green letter must stay in its spot in every later guess. Amber letters can be left out.</span>
+        <span class="fine">Green letters you find are filled in for you and stay in their spots in every later guess. Amber letters can be left out.</span>
         <button class="switch" id="optStrict" type="button" role="switch" aria-checked="false" aria-labelledby="lblStrict"><span class="track"></span></button>
       </div>
       <div class="opt">
         <b id="lblMusic">Music</b>
-        <span class="fine">Trip-hop beats in the background, a new track with each word. They start with your first tap or key press.</span>
+        <span class="fine">Trip-hop beats, a new track with each word. They start with your first tap or key press.</span>
         <button class="switch" id="optMusic" type="button" role="switch" aria-checked="true" aria-labelledby="lblMusic"><span class="track"></span></button>
       </div>
       <div class="opt">
@@ -363,15 +364,13 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
           <button class="ib" id="trkNext" type="button" aria-label="Next track"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
         </div>
       </div>
+    </div></div>
+    <div class="opts-body">
+    <div>
       <div class="opt">
         <b id="lblSfx">Cheers and raspberries</b>
         <span class="fine">A cheer when you solve the word, bigger the fewer guesses you needed. A raspberry when you miss.</span>
         <button class="switch" id="optSfx" type="button" role="switch" aria-checked="true" aria-labelledby="lblSfx"><span class="track"></span></button>
-      </div>
-      <div class="opt">
-        <b id="lblFill">Fill in green letters</b>
-        <span class="fine">Letters you have already put in the right spot appear in the next row, so you only type the rest.</span>
-        <button class="switch" id="optFill" type="button" role="switch" aria-checked="true" aria-labelledby="lblFill"><span class="track"></span></button>
       </div>
       <div class="opt">
         <b id="lblContrast">High contrast</b>
@@ -386,14 +385,14 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
       <button class="ghost" id="btnGiveNo" type="button">Keep playing</button>
     </div>
     <p class="fine" id="about"></p>
-    </div></div>
+    </div>
   </div>
 </dialog>
 
 <script>
 (() => {
 "use strict";
-const VERSION = "v1.8";
+const VERSION = "v1.9";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
@@ -424,7 +423,7 @@ $("about").textContent = "Flip Five " + VERSION + ". Your results and settings a
 const load = (k, d) => { try { const v = JSON.parse(localStorage.getItem("flipfive." + k)); return v ?? d; } catch (e) { return d; } };
 const save = (k, v) => { try { localStorage.setItem("flipfive." + k, JSON.stringify(v)); } catch (e) {} };
 const freshStats = () => ({ played: 0, wins: 0, streak: 0, best: 0, dist: [0, 0, 0, 0, 0, 0] });
-let opts = Object.assign({ strict: false, contrast: false, fill: true, music: true, sfx: true, track: 0 }, load("opts", {}));
+let opts = Object.assign({ strict: false, contrast: false, music: true, sfx: true, track: 0 }, load("opts", {}));
 let stats = Object.assign(freshStats(), load("stats", {}));
 let recent = load("recent", []);
 let G = null;          // { answer, guesses: [], cur, over, won }
@@ -501,7 +500,7 @@ function setTile(t, ch, mark) {
 // Green letters already found, by spot (empty when "Fill in green letters" is off)
 function fixedSlots() {
   const f = ["", "", "", "", ""];
-  if (!opts.fill) return f;
+  if (!opts.strict) return f;   // green letters are filled in only with "Must keep greens" on
   for (const g of G.guesses) { const m = score(g, G.answer); for (let i = 0; i < 5; i++) if (m[i] === "hit") f[i] = g[i]; }
   return f;
 }
@@ -573,7 +572,6 @@ function paintOpts() {
   root.classList.toggle("contrast", opts.contrast);
   for (const id of ["strict", "optStrict"]) $(id).setAttribute("aria-checked", String(opts.strict));
   $("optContrast").setAttribute("aria-checked", String(opts.contrast));
-  $("optFill").setAttribute("aria-checked", String(opts.fill));
   $("optMusic").setAttribute("aria-checked", String(opts.music));
   $("optSfx").setAttribute("aria-checked", String(opts.sfx));
   $("trackName").textContent = (opts.track + 1) + " of " + TRACKS.length + ": " + TRACKS[opts.track].name;
@@ -1065,7 +1063,7 @@ $("btnMusic").addEventListener("click", e => { e.currentTarget.blur(); setMusic(
 $("optMusic").addEventListener("click", () => setMusic(!opts.music));
 $("optSfx").addEventListener("click", () => setOpt("sfx", !opts.sfx));
 // buttons clicked with a mouse or finger let go of focus, so Enter on a keyboard still submits the guess
-$("optsBody").addEventListener("click", e => { const btn = e.target.closest("button"); if (btn && e.detail) btn.blur(); });
+document.addEventListener("click", e => { const btn = e.target.closest && e.target.closest("#panel button, #dlgOpts button"); if (btn && e.detail) btn.blur(); });
 $("trkPrev").addEventListener("click", () => setTrack(opts.track - 1));
 $("trkNext").addEventListener("click", () => setTrack(opts.track + 1));
 // Music is on unless the player switched it off. Browsers only allow sound after a tap or key press, so it starts then.
@@ -1079,14 +1077,15 @@ const startMusic = e => {
 
 // ---------- Settings, statistics, help ----------
 function setOpt(name, value) { opts[name] = value; save("opts", opts); paintOpts(); note = null; paintStatus(); }
-$("strict").addEventListener("click", e => { e.currentTarget.blur(); setOpt("strict", !opts.strict); });
-$("optStrict").addEventListener("click", () => setOpt("strict", !opts.strict));
-$("optContrast").addEventListener("click", () => setOpt("contrast", !opts.contrast));
-$("optFill").addEventListener("click", () => {
+// Must keep greens also fills the green letters in, so letters already typed are laid out again around them
+function toggleStrict() {
   const typed = G.cur.replace(/\./g, "");
-  setOpt("fill", !opts.fill);
-  if (!busy) { G.cur = layOut(typed); paintDraft(); save("game", G); }   // re-lay typed letters for the new setting
-});
+  setOpt("strict", !opts.strict);
+  if (!busy) { sel = null; G.cur = layOut(typed); paintDraft(); save("game", G); }
+}
+$("strict").addEventListener("click", e => { e.currentTarget.blur(); toggleStrict(); });
+$("optStrict").addEventListener("click", toggleStrict);
+$("optContrast").addEventListener("click", () => setOpt("contrast", !opts.contrast));
 function open(id) {
   $("resetAsk").hidden = true; $("btnReset").hidden = false;
   $("giveAsk").hidden = true; $("btnGiveUp").hidden = false; $("btnGiveUp").disabled = G.over || busy;
@@ -1146,18 +1145,28 @@ function fit() {
   const side = cw >= 520 && B.kbw >= 300 && B.tile > A.tile * 1.05;
   let { tile, kbw, kg, kh, sw, sh, colGap } = side ? B : A;
   tile = Math.max(tile, 20);
-  const keyW = (kbw - 9 * kg) / 10;
   const set = (k, v) => root.style.setProperty(k, v + "px");
   app.classList.toggle("side", side);
-  app.classList.toggle("tight", kbw < 470);
-  const spare = sh - topH - remH - (3 * kh + 2 * kg) - 3 * rowGap;
-  const roomy = side && spare >= 200;
+  // roomy (iPad or Mac held sideways): the board on the left, and on the right the title, the main settings and a
+  // big keyboard that reaches the bottom of the screen
+  const R = { tile: Math.floor(Math.min((ch - pillRoom - 5 * g) / 6, 150, (cw * 0.46 - 4 * g) / 5)), colGap: B.colGap };
+  const rbw = 5 * R.tile + 4 * g;
+  R.kbw = Math.floor(Math.min(cw - rbw - R.colGap, 900));
+  R.kg = clamp(Math.round(R.kbw * 0.012), 5, 10);
+  const PANEL_H = 215;
+  // keys grow to take the height left under the settings, up to a comfortable shape
+  R.kh = Math.floor(Math.min(116, (R.kbw - 9 * R.kg) / 10 * 1.85, (ch - topH - remH - PANEL_H - 4 * rowGap - 2 * R.kg) / 3));
+  R.sh = ch; R.sw = rbw + R.colGap + R.kbw;
+  const roomy = side && R.kbw >= 420 && R.kh >= 56;
+  if (roomy) ({ tile, kbw, kg, kh, sw, sh, colGap } = R);
   app.classList.toggle("roomy", roomy);
-  const home = roomy ? $("panel") : $("optsHome"), body = $("optsBody");
-  if (body.parentNode !== home) { home.appendChild(body); if (roomy && $("dlgOpts").open) $("dlgOpts").close(); }
+  app.classList.toggle("tight", kbw < 470);
+  const home = roomy ? $("panel") : $("optsHome"), body = $("optsQuick");
+  if (body.parentNode !== home) home.appendChild(body);
   set("--title", Math.round(clamp(Math.min(kbw * 0.06, topH * 0.62), 19, 34)));
   set("--tile", tile); set("--gap", g); set("--kh", kh); set("--kgap", kg); set("--kbw", kbw);
-  set("--kf", Math.round(clamp(Math.min(kh * 0.44, keyW * 0.62), 13, 30)));
+  const keyW = (kbw - 9 * kg) / 10;
+  set("--kf", Math.round(clamp(Math.min(kh * 0.44, keyW * 0.62), 13, 36)));
   set("--sw", Math.floor(sw)); set("--sh", Math.floor(sh));
   set("--pill-room", side ? pillRoom : 0);
   set("--top-h", topH); set("--rem-h", remH); set("--row-gap", rowGap); set("--col-gap", colGap);
