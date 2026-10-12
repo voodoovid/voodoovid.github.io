@@ -183,6 +183,18 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
         <p>Chestnut the grey cat leads a marching crowd home. Place arrows, jumps and planks across 16 floating-garden puzzles so they reach the light.</p>
         <span class="play">Play &rarr;</span>
       </a>
+      <a class="game" href="fathom/">
+        <svg viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 12c5-4 9-4 14 0s9 4 14 0 9-4 14 0 9 4 14 0 7-3 8-2"/>
+          <path d="M36 16v12" stroke-dasharray="3 4"/>
+          <path d="M18 44c0-9 8-14 18-14s20 5 20 14-10 13-20 13-18-4-18-13z"/>
+          <path d="M30 30l2-8h8l2 8"/><circle cx="30" cy="44" r="3.5"/><circle cx="42" cy="44" r="3.5"/>
+          <path d="M18 44l-8-6v12z"/><path d="M56 60c4 0 6 2 8 5"/>
+        </svg>
+        <h2>Fathom</h2>
+        <p>A deep-sea word game. Name things from seven prompts; the rarer your answer, the deeper your submarine sinks. A new daily dive every day, plus free dives.</p>
+        <span class="play">Play &rarr;</span>
+      </a>
     </div>
     <section class="offline" id="installHelp">
       <h2>Play offline</h2>
@@ -193,7 +205,7 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
   </main>
 </div>
 <script>
-const SITE_VERSION = "v1.10";
+const SITE_VERSION = "v1.11";
 // Lock the screen: no rubber-band bounce or drag when swiping, unless the page really needs to scroll (phones)
 document.documentElement.style.overscrollBehavior = "none"; document.body.style.overscrollBehavior = "none";
 document.addEventListener("touchmove", e => {
@@ -220,7 +232,7 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").then(() => navigator.serviceWorker.ready).then(async () => {
     const keys = await caches.keys();
     const cache = keys.length ? await caches.open(keys[0]) : null;
-    const ok = cache && (await Promise.all(["hangman/", "scareisdale/", "ponchos-adventure/", "flip-five/", "follow-chestnut/"].map(p => cache.match(p)))).every(Boolean);
+    const ok = cache && (await Promise.all(["hangman/", "scareisdale/", "ponchos-adventure/", "flip-five/", "follow-chestnut/", "fathom/"].map(p => cache.match(p)))).every(Boolean);
     status.textContent = ok ? "Ready to play offline: all games are saved on this device." : "Open this page once more while online to finish saving the games.";
     status.classList.toggle("ready", !!ok);
   }).catch(() => { status.textContent = "This browser can't save the games for offline play."; });
