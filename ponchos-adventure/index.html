@@ -1478,7 +1478,7 @@ const ETYPE = {
   B: { kind: "boss", shoot: true, speed: 0.45, dir: "right" },
 };
 
-const VERSION = "3.1";
+const VERSION = "3.2";
 // On the games site: link back to the menu and save everything for offline play
 if (location.pathname.includes("/ponchos-adventure/")) {
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -2756,25 +2756,28 @@ import * as THREE from "../lib/three.module.min.js";
   const woodTex = canvasTex(64, 64, (g, w, h) => {
     g.fillStyle = "#a8743f"; g.fillRect(0, 0, w, h); g.fillStyle = "#7d5228"; for (let i = 0; i < 4; i++) g.fillRect(0, i * 16 + 14, w, 2);
   });
-  const doorTex = canvasTex(64, 64, (g, w, h) => {
-    g.fillStyle = "#2a2246"; g.beginPath(); g.roundRect(6, 4, 52, 60, [26, 26, 0, 0]); g.fill();
-    g.fillStyle = "#8b5a2b"; g.beginPath(); g.roundRect(10, 8, 44, 56, [22, 22, 0, 0]); g.fill();
-    g.fillStyle = "#5e3a18"; for (let i = 0; i < 3; i++) g.fillRect(19 + i * 10, 12, 4, 52);
-    g.fillStyle = "#ffd166"; g.beginPath(); g.arc(46, 40, 3.5, 0, 7); g.fill();
+  const doorTex = canvasTex(64, 128, (g, w, h) => {   // tall arched door, planks and iron bands
+    g.fillStyle = "#2a2246"; g.beginPath(); g.roundRect(2, 2, 60, 126, [30, 30, 0, 0]); g.fill();
+    g.fillStyle = "#8b5a2b"; g.beginPath(); g.roundRect(6, 6, 52, 122, [26, 26, 0, 0]); g.fill();
+    g.fillStyle = "#5e3a18"; for (let i = 0; i < 4; i++) g.fillRect(15 + i * 11, 10, 3, 118);
+    g.fillStyle = "#3a3a46"; for (const y of [40, 92]) g.fillRect(6, y, 52, 7);
+    g.fillStyle = "#ffd166"; g.beginPath(); g.arc(48, 70, 4, 0, 7); g.fill();
   });
-  const doorOpenTex = canvasTex(64, 64, (g, w, h) => {
-    g.fillStyle = "#2a2246"; g.beginPath(); g.roundRect(6, 4, 52, 60, [26, 26, 0, 0]); g.fill();
-    const gr = g.createLinearGradient(0, 8, 0, 64); gr.addColorStop(0, "#fff3c4"); gr.addColorStop(1, "#ffb43a");
-    g.fillStyle = gr; g.beginPath(); g.roundRect(10, 8, 44, 56, [22, 22, 0, 0]); g.fill();
+  const doorOpenTex = canvasTex(64, 128, (g, w, h) => {
+    g.fillStyle = "#2a2246"; g.beginPath(); g.roundRect(2, 2, 60, 126, [30, 30, 0, 0]); g.fill();
+    const gr = g.createLinearGradient(0, 8, 0, 128); gr.addColorStop(0, "#fffbe6"); gr.addColorStop(0.5, "#ffe08a"); gr.addColorStop(1, "#ffb43a");
+    g.fillStyle = gr; g.beginPath(); g.roundRect(6, 6, 52, 122, [26, 26, 0, 0]); g.fill();
   });
+  const tallBricks = {};
+  const brickTall = hgt => { if (!tallBricks[hgt]) { const t = brick.clone(); t.needsUpdate = true; t.repeat.set(1, hgt / 0.9); tallBricks[hgt] = t; } return tallBricks[hgt]; };
 
   // ---- the room: rebuilt whenever the map changes (a new room, a bridge laid, a rock smashed) ----
   const room = new THREE.Group(); scene.add(room);
-  let roomKey = "", water = [], doors = [], grass = [];
+  let roomKey = "", water = [], doors = [], grass = [], doorLamps = [];
   const terr = (g, r, c) => (r < 0 || c < 0 || r >= N || c >= N) ? "W" : g.grid[r][c];
   const isWater = t => t === "~" || "8246".includes(t);
   function buildRoom(g) {
-    room.clear(); water = []; doors = []; grass = [];
+    room.clear(); water = []; doors = []; grass = []; doorLamps = [];
     const castle = g.theme === "castle";
     // a dark plinth under the whole room
     const plinth = mesh(G.box, mat(0x241a3a), false, true); plinth.scale.set(N + 0.6, 0.9, N + 0.6); room.add(at(plinth, 0, -0.8, 0));
@@ -2785,14 +2788,20 @@ import * as THREE from "../lib/three.module.min.js";
         const f = mesh(G.box, mat(col), false, true); f.scale.set(1, 0.3, 1); room.add(at(f, x, -0.15, z));
       };
       if (t === "W" || t === "D") {
-        const w = mesh(G.box, mat(0xffffff, { map: brick }), true, true); w.scale.set(1, 0.9, 1); room.add(at(w, x, 0.45, z));
-        const cap = mesh(G.box, mat(0x6a5cb4), false, true); cap.scale.set(1.0, 0.06, 1.0); room.add(at(cap, x, 0.93, z));
+        // the back wall stands tall (it hides nothing from the camera); the door tile is a tall gatehouse on any wall
+        const hgt = t === "D" ? 2.1 : r === 0 ? 1.7 : 0.9;
+        const w = mesh(G.box, mat(0xffffff, { map: hgt > 1 ? brickTall(hgt) : brick }), true, true); w.scale.set(1, hgt, 1); room.add(at(w, x, hgt / 2, z));
+        const cap = mesh(G.box, mat(0x6a5cb4), false, true); cap.scale.set(1.0, 0.06, 1.0); room.add(at(cap, x, hgt + 0.03, z));
         if (t === "D") {
-          const d = new THREE.Mesh(new THREE.PlaneGeometry(0.86, 0.86), new THREE.MeshStandardMaterial({ map: doorTex, transparent: true, alphaTest: 0.4 }));
-          // the door faces into the room
           const face = r === 0 ? [0, 0.5] : r === N - 1 ? [0, -0.5] : c === 0 ? [0.5, 0] : [-0.5, 0];
-          d.position.set(x + face[0] * 1.02, 0.45, z + face[1] * 1.02); d.rotation.y = Math.atan2(face[0], face[1]);
-          room.add(d); doors.push(d);
+          const gate = new THREE.Group(); gate.position.set(x + face[0] * 1.0, 0, z + face[1] * 1.0); gate.rotation.y = Math.atan2(face[0], face[1]); room.add(gate);
+          for (const k of [-1, 1]) { const tw = mesh(G.box, mat(0x6a5cb4), true, true); tw.scale.set(0.16, hgt + 0.25, 0.14); gate.add(at(tw, k * 0.5, (hgt + 0.25) / 2, 0)); }
+          for (let i = 0; i < 3; i++) { const cr = mesh(G.box, mat(0x6a5cb4), true); cr.scale.set(0.22, 0.2, 0.16); gate.add(at(cr, -0.36 + i * 0.36, hgt + 0.13, 0)); }
+          const arch = new THREE.Mesh(new THREE.TorusGeometry(0.4, 0.06, 8, 24, Math.PI), gold); gate.add(at(arch, 0, 1.12, 0.015));
+          for (const k of [-1, 1]) { const jamb = mesh(G.box, gold, false); jamb.scale.set(0.1, 1.12, 0.06); gate.add(at(jamb, k * 0.4, 0.56, 0.015)); }
+          const d = new THREE.Mesh(new THREE.PlaneGeometry(0.74, 1.5), new THREE.MeshStandardMaterial({ map: doorTex, transparent: true, alphaTest: 0.4 }));
+          gate.add(at(d, 0, 0.75, 0.02)); doors.push(d);
+          const lamp = new THREE.PointLight(0xffb43a, 0, 3.5); gate.add(at(lamp, 0, 0.9, 0.6)); doorLamps.push(lamp);
         }
         continue;
       }
@@ -2803,7 +2812,7 @@ import * as THREE from "../lib/three.module.min.js";
         const m = new THREE.MeshStandardMaterial(lava ? { map: tex, emissive: 0xff5a1a, emissiveMap: tex, emissiveIntensity: 0.9, roughness: 0.6 } : { map: tex, roughness: 0.15, metalness: 0.1 });
         const s = mesh(G.plane, m, false, true); room.add(at(s, x, -0.18, z));
         const bed = mesh(G.box, mat(lava ? 0x5a1a0c : 0x163a6e), false, false); bed.scale.set(1, 0.1, 1); room.add(at(bed, x, -0.3, z));
-        water.push({ tex, flow: { "8": [0, 1], "2": [0, -1], "4": [1, 0], "6": [-1, 0] }[t], lava });
+        water.push({ tex, flow: { "8": [0, -1], "2": [0, 1], "4": [1, 0], "6": [-1, 0] }[t], lava });   // texture offset moves the picture the other way
         if ("8246".includes(t)) {
           const ft = flowTex.clone(); ft.needsUpdate = true; ft.center.set(0.5, 0.5); ft.rotation = { "8": 0, "6": -Math.PI / 2, "2": Math.PI, "4": Math.PI / 2 }[t];
           const a = mesh(G.plane, new THREE.MeshBasicMaterial({ map: ft, transparent: true, depthWrite: false }), false); room.add(at(a, x, -0.16, z));
@@ -2887,9 +2896,15 @@ import * as THREE from "../lib/three.module.min.js";
         g.strokeStyle = "#c48a4a"; g.lineWidth = 12; g.beginPath(); g.moveTo(44, 96); g.lineTo(74, 56); g.stroke();
         g.save(); g.translate(76, 52); g.rotate(0.64); g.fillStyle = "#d9dde6"; g.beginPath(); g.roundRect(-30, -14, 60, 28, 6); g.fill(); g.fillStyle = "#9aa3b5"; g.fillRect(-30, 6, 60, 8); g.restore();
       } else if (H.icon === "bridge") {
-        g.fillStyle = "#2b6cc4"; g.beginPath(); g.roundRect(22, 74, 84, 22, 8); g.fill();
-        g.fillStyle = "#c48a4a"; for (let i = 0; i < 4; i++) { g.beginPath(); g.roundRect(26 + i * 20, 46, 16, 40, 3); g.fill(); }
-        g.fillStyle = "#8b5a2b"; g.fillRect(22, 56, 84, 6);
+        g.save(); g.beginPath(); g.arc(64, 64, 50, 0, 7); g.clip();
+        g.fillStyle = "#2b6cc4"; g.fillRect(0, 78, 128, 50);                                  // water
+        g.strokeStyle = "#8fc4ff"; g.lineWidth = 3; for (const y of [88, 100]) { g.beginPath(); g.moveTo(24, y); g.quadraticCurveTo(44, y - 5, 64, y); g.quadraticCurveTo(84, y + 5, 104, y); g.stroke(); }
+        g.fillStyle = "#c48a4a"; g.beginPath(); g.moveTo(14, 60); g.lineTo(114, 60); g.lineTo(114, 92); g.lineTo(100, 92);   // arched span
+        g.quadraticCurveTo(64, 50, 28, 92); g.lineTo(14, 92); g.closePath(); g.fill();
+        g.fillStyle = "#8b5a2b"; g.fillRect(14, 56, 100, 8);                                      // deck
+        g.fillStyle = "#e0a55e"; g.fillRect(14, 34, 100, 6);                                      // handrail
+        for (let i = 0; i < 6; i++) g.fillRect(16 + i * 19, 34, 6, 24);                           // posts
+        g.restore();
       } else if (H.icon === "arrow") {
         g.strokeStyle = "#ffb15c"; g.lineWidth = 11; g.beginPath(); g.arc(64, 66, 28, Math.PI * 0.85, Math.PI * 2.25); g.stroke();
         g.fillStyle = "#ffb15c"; g.beginPath(); g.moveTo(88, 82); g.lineTo(104, 56); g.lineTo(74, 60); g.closePath(); g.fill();
@@ -2949,7 +2964,7 @@ import * as THREE from "../lib/three.module.min.js";
     const slot = mesh(G.box, dark, false); slot.scale.set(0.012, 0.04, 0.02); lock.add(at(slot, 0, -0.015, 0.02));
     // the jewel, with a glow and twinkles
     const jewel = new THREE.Group(); o.add(jewel);
-    const tilt = new THREE.Group(); tilt.rotation.x = 0.75; jewel.add(tilt);   // tipped toward the camera so the facets show
+    const tilt = new THREE.Group(); tilt.rotation.set(-0.15, 0, 0.62); jewel.add(tilt);   // tipped to one side: a three-quarter view of table, crown and pavilion
     const gem = new THREE.Mesh(jewelGeo, jewelMat); gem.castShadow = true; tilt.add(gem);
     const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: starTex, color: 0x9fe8ff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.5 }));
     halo.scale.setScalar(0.9); halo.material.opacity = 0.35; jewel.add(halo);
@@ -2959,15 +2974,16 @@ import * as THREE from "../lib/three.module.min.js";
       jewel.add(sp); twinkles.push(sp);
     }
     const light = new THREE.PointLight(0x7fdcff, 0, 1.8); jewel.add(at(light, 0, 0.45, 0.2));
-    let rise = 0;
+    let rise = 0, lastT = null;
     return { o, upd(t, ch) {
+      const now = performance.now() / 1000, dt = lastT === null ? 0 : Math.min(0.1, now - lastT); lastT = now;
       const open = ch.state !== "closed", has = ch.state === "open";
       hinge.rotation.x += ((open ? -1.9 : 0) - hinge.rotation.x) * 0.2;
       inside.material.emissiveIntensity = has ? 0.35 + Math.sin(t * 4) * 0.1 : 0;
-      rise += ((has ? 1 : 0) - rise) * 0.08;
+      rise += ((has ? 1 : 0) - rise) * Math.min(1, dt * 4);
       jewel.visible = has || rise > 0.05;
-      jewel.position.y = 0.45 + rise * 0.62 + Math.sin(t * 3) * 0.04;
-      jewel.scale.setScalar(Math.max(0.01, rise) * 1.25);
+      jewel.position.y = 0.45 + rise * 0.75 + Math.sin(t * 3) * 0.04;
+      jewel.scale.setScalar(Math.max(0.01, rise) * 1.7);
       gem.rotation.y = t * 1.6;
       light.intensity = has ? 0.7 : 0;
       twinkles.forEach((sp, i) => {
@@ -3048,11 +3064,30 @@ import * as THREE from "../lib/three.module.min.js";
         const don = kind === "don";
         add(G.sph, mat(don ? 0x7d1f15 : 0x5b34a0), 0.32, 0.3, 0.3, 0, 0.33, 0);
         add(G.sph, mat(don ? 0xc0392b : 0x8e5bd6), 0.3, 0.3, 0.28, 0, 0.36, 0.03);
-        const snakes = [];
-        for (let i = 0; i < 7; i++) { const a = (i / 7) * Math.PI * 2; snakes.push(add(G.sph, mat(0x3f9a3f), 0.08, 0.08, 0.08, Math.cos(a) * 0.26, 0.6, Math.sin(a) * 0.22 - 0.03)); }
+        // a crown of snakes: each an S-curved tube rising from the scalp, with a head, yellow eyes and a forked tongue
+        const snakes = [], scale = mat(0x3f9a3f, { roughness: 0.5 }), belly = mat(0x7cc95a, { roughness: 0.5 });
+        const snakeEye = mat(0xffe066, { emissive: 0x806000 }), tongue = mat(0xe8344f);
+        const n = 9;
+        for (let i = 0; i < n; i++) {
+          const a = (i / n) * Math.PI * 2 + 0.2, root = new THREE.Group();
+          const rx = Math.cos(a) * 0.2, rz = Math.sin(a) * 0.18 - 0.04;
+          root.position.set(rx, 0.55, rz); root.rotation.y = -a + Math.PI / 2; body.add(root);
+          const lean = new THREE.Group(); lean.rotation.x = 0.55 + (i % 3) * 0.15; root.add(lean);   // leans outward
+          const len = 0.26 + (i % 3) * 0.05, sway = (i % 2 ? 1 : -1) * 0.07;
+          const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(0, 0, 0), new THREE.Vector3(sway, len * 0.35, 0.02), new THREE.Vector3(-sway, len * 0.7, 0.04), new THREE.Vector3(0, len, 0.1)]);
+          const tube = mesh(new THREE.TubeGeometry(curve, 14, 0.032, 7), i % 2 ? scale : belly); lean.add(tube);
+          const head = new THREE.Group(); lean.add(at(head, 0, len, 0.1)); head.rotation.x = 1.0;
+          const hd = mesh(G.sph, scale); hd.scale.set(0.05, 0.035, 0.065); head.add(hd);
+          for (const k of [-1, 1]) { const ey = mesh(G.sph, snakeEye, false); ey.scale.setScalar(0.014); head.add(at(ey, k * 0.03, 0.02, 0.03)); }
+          const tg = mesh(G.box, tongue, false); tg.scale.set(0.012, 0.006, 0.05); head.add(at(tg, 0, -0.01, 0.08));
+          snakes.push({ lean, head, tg, ph: i * 1.3, base: lean.rotation.x });
+        }
         eyeMat = mat(0xffe066, { emissive: 0x806000 });
         for (const s of [-1, 1]) { add(G.sph, eyeMat, 0.08, 0.09, 0.05, s * 0.11, 0.4, 0.29); add(G.sph, mat(0xc0001a), 0.035, 0.045, 0.03, s * 0.11, 0.41, 0.33); }
-        upd = t => snakes.forEach((s, i) => { s.position.y = 0.6 + Math.sin(t * 6 + i) * 0.04; });
+        upd = t => snakes.forEach(s => {
+          s.lean.rotation.x = s.base + Math.sin(t * 3 + s.ph) * 0.18; s.lean.rotation.z = Math.sin(t * 2.3 + s.ph) * 0.15;
+          s.head.rotation.y = Math.sin(t * 4 + s.ph) * 0.4; s.tg.visible = Math.sin(t * 7 + s.ph) > 0.4;
+        });
         break;
       }
       case "gol": case "boss": {
@@ -3179,7 +3214,8 @@ import * as THREE from "../lib/three.module.min.js";
     const now = performance.now(), dt = Math.min(0.05, (now - lastT) / 1000), t = g.time; lastT = now;
     const key = g.grid.map(r => r.join("")).join("") + g.theme;
     if (g !== lastG || key !== roomKey) { roomKey = key; buildRoom(g); if (g !== lastG) { for (const p of live.values()) things.remove(p.o); live.clear(); } lastG = g; }
-    for (const w of water) { if (w.arrow) { w.tex.offset.y = (t * 1.25) % 1; } else { w.tex.offset.x += (w.flow ? w.flow[0] * 0.6 : 0.05) * dt; w.tex.offset.y += (w.flow ? w.flow[1] * 0.6 : 0.03) * dt; } }
+    for (const w of water) { if (w.arrow) { w.tex.offset.y = 1 - (t * 1.25) % 1; } else { w.tex.offset.x += (w.flow ? w.flow[0] * 0.6 : 0.05) * dt; w.tex.offset.y += (w.flow ? w.flow[1] * 0.6 : 0.03) * dt; } }
+    for (const lp of doorLamps) lp.intensity = g.doorOpen ? 4 + Math.sin(t * 5) : 0;
     for (const d of doors) { d.material.map = g.doorOpen ? doorOpenTex : doorTex; d.material.emissive.set(g.doorOpen ? 0xffb43a : 0); d.material.emissiveMap = g.doorOpen ? doorOpenTex : null; d.material.emissiveIntensity = g.doorOpen ? 0.6 + 0.3 * Math.sin(t * 5) : 0; d.material.needsUpdate = true; }
     for (const s of grass) { if (s.spawn) s.o.scale.setScalar(1 + Math.sin(t * 3 + s.ph) * 0.1); else s.o.rotation.z = Math.sin(t * 2 + s.ph) * 0.05; }
     for (const p of live.values()) p.seen = false;
@@ -3195,7 +3231,8 @@ import * as THREE from "../lib/three.module.min.js";
     {
       const L = g.lolo, p = piece("lolo", makeCat), y = L.fr + (L.r - L.fr) * L.t, x = L.fc + (L.c - L.fc) * L.t;
       const onRaft = isWater(terr(g, Math.round(y), Math.round(x)));
-      ponchoLift += ((onRaft ? 0.27 : 0) - ponchoLift) * Math.min(1, dt * 14);
+      const ch = g.chest, onChest = ch && Math.hypot(y - ch.r, x - ch.c) < 0.55;
+      ponchoLift += ((onRaft ? 0.27 : onChest ? 0.44 : 0) - ponchoLift) * Math.min(1, dt * 16);
       at(p.o, x - 6, ponchoLift + (onRaft ? Math.sin(t * 4) * 0.025 : 0), y - 6); p.upd(t, L, dt);
     }
     for (const [k, p] of live) if (!p.seen) { things.remove(p.o); live.delete(k); }
