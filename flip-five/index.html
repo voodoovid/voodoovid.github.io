@@ -269,7 +269,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
       <div><span class="tile miss">T</span><span>Dark: the letter is not in the word.</span></div>
     </div>
     <p>A letter can appear more than once. If you guess two Es and only one turns green or amber, the word has just one E.</p>
-    <p>Green letters you have found are filled into the next row for you, outlined in green, and typing skips over them. You can switch this off in Settings.</p>
+    <p>Green letters you have found are filled into the next row for you, outlined in green. If you type that same letter it goes in its spot; any other letter jumps ahead to the next open spot. You can switch this off in Settings.</p>
     <h3>Must keep greens</h3>
     <p>Switch this on for a harder game. Every green letter must stay in its spot in every later guess. Amber letters can be left out.</p>
     <h3>Words</h3>
@@ -331,7 +331,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v1.4";
+const VERSION = "v1.5";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
@@ -443,15 +443,29 @@ function fixedSlots() {
   for (const g of G.guesses) { const m = score(g, G.answer); for (let i = 0; i < 5; i++) if (m[i] === "hit") f[i] = g[i]; }
   return f;
 }
-const freeSpots = () => fixedSlots().reduce((a, ch, i) => ch ? a : a.concat(i), []);
-// The row being typed: found green letters in their spots, typed letters filling the other spots in order
+// G.cur is the row being typed, one character per spot: a letter you typed, or "." for a spot you haven't typed in.
+const EMPTY = ".....";
+// Where the next letter you type lands: the first spot after the last letter typed. A filled-in green letter is
+// taken as typed when you type that same letter; any other letter jumps over it to the next spot.
+function placeLetter(cur, ch, f) {
+  let p = cur.replace(/\.+$/, "").length;
+  while (p < 5 && f[p] && f[p] !== ch) p++;
+  return p < 5 ? { cur: cur.slice(0, p) + ch + cur.slice(p + 1), at: p } : null;
+}
+// Lay plain typed letters (or a row saved in the old format) into spots using the rule above
+function layOut(letters) {
+  if (/^[a-z.]{5}$/.test(letters)) return letters;
+  let cur = EMPTY;
+  for (const ch of String(letters || "").replace(/[^a-z]/g, "")) { const n = placeLetter(cur, ch, fixedSlots()); if (n) cur = n.cur; }
+  return cur;
+}
+// The row as shown: typed letters, plus found green letters in any spot not typed in
 function draft() {
-  const f = fixedSlots(); let k = 0;
-  return f.map(ch => ch ? { ch, fixed: true } : { ch: G.cur[k++] || "", fixed: false });
+  const f = fixedSlots();
+  return f.map((g, i) => G.cur[i] !== "." ? { ch: G.cur[i], fixed: g === G.cur[i] } : { ch: g, fixed: !!g });
 }
 function paintDraft() {
   if (G.over || G.guesses.length >= 6) return;
-  G.cur = G.cur.slice(0, freeSpots().length);
   draft().forEach((d, c) => {
     const t = tiles[G.guesses.length][c];
     setTile(t, d.ch);
@@ -509,18 +523,18 @@ function reject(msg) {
   row.classList.remove("shake"); void row.offsetWidth; row.classList.add("shake");
 }
 function type(ch) {
-  const free = freeSpots();
-  if (busy || G.over || G.cur.length >= free.length) return;
-  G.cur += ch; note = null;
-  const t = tiles[G.guesses.length][free[G.cur.length - 1]];
-  setTile(t, ch); t.classList.add("pop");
+  if (busy || G.over) return;
+  const n = placeLetter(G.cur, ch, fixedSlots());
+  if (!n) return;
+  G.cur = n.cur; note = null;
+  paintDraft(); tiles[G.guesses.length][n.at].classList.add("pop");
   paintStatus(); save("game", G);
 }
 function erase() {
-  if (busy || G.over || !G.cur) return;
-  G.cur = G.cur.slice(0, -1); note = null;
-  setTile(tiles[G.guesses.length][freeSpots()[G.cur.length]], "");
-  paintStatus(); save("game", G);
+  const last = G.cur.replace(/\.+$/, "").length - 1;
+  if (busy || G.over || last < 0) return;
+  G.cur = G.cur.slice(0, last) + "." + G.cur.slice(last + 1); note = null;
+  paintDraft(); paintStatus(); save("game", G);
 }
 function record() {
   stats.played++;
@@ -536,7 +550,7 @@ function submit() {
   if (!valid.has(guess)) return reject("Not in the word list");
   if (opts.strict) { const why = clueProblem(guess, G.guesses, G.answer); if (why) return reject(why); }
   const r = G.guesses.length, marks = score(guess, G.answer);
-  G.guesses.push(guess); G.cur = ""; note = null;
+  G.guesses.push(guess); G.cur = EMPTY; note = null;
   G.won = guess === G.answer; G.over = G.won || G.guesses.length === 6;
   if (G.over) record();
   save("game", G);
@@ -553,13 +567,13 @@ function submit() {
   setTimeout(done, 4 * 220 + 460);
 }
 function newGame() {
-  G = { answer: pickAnswer(), guesses: [], cur: "", over: false, won: false };
+  G = { answer: pickAnswer(), guesses: [], cur: EMPTY, over: false, won: false };
   note = null; busy = false;
   save("game", G); paint();
 }
 function giveUp() {
   if (G.over || busy) return;
-  G.cur = ""; G.over = true; G.won = false;
+  G.cur = EMPTY; G.over = true; G.won = false;
   record(); save("game", G); note = null; paint();
 }
 function press(k) {
@@ -588,7 +602,11 @@ function setOpt(name, value) { opts[name] = value; save("opts", opts); paintOpts
 $("strict").addEventListener("click", e => { e.currentTarget.blur(); setOpt("strict", !opts.strict); });
 $("optStrict").addEventListener("click", () => setOpt("strict", !opts.strict));
 $("optContrast").addEventListener("click", () => setOpt("contrast", !opts.contrast));
-$("optFill").addEventListener("click", () => { setOpt("fill", !opts.fill); if (!busy) { paintDraft(); save("game", G); } });
+$("optFill").addEventListener("click", () => {
+  const typed = G.cur.replace(/\./g, "");
+  setOpt("fill", !opts.fill);
+  if (!busy) { G.cur = layOut(typed); paintDraft(); save("game", G); }   // re-lay typed letters for the new setting
+});
 function open(id) {
   $("resetAsk").hidden = true; $("btnReset").hidden = false;
   $("giveAsk").hidden = true; $("btnGiveUp").hidden = false; $("btnGiveUp").disabled = G.over || busy;
@@ -670,7 +688,7 @@ function start(data) {
   const ok = saved && typeof saved.answer === "string" && valid.has(saved.answer) && Array.isArray(saved.guesses) &&
     saved.guesses.length <= 6 && saved.guesses.every(w => typeof w === "string" && w.length === 5);
   paintOpts();
-  if (ok) { G = { answer: saved.answer, guesses: saved.guesses, cur: String(saved.cur || "").slice(0, 5), over: !!saved.over, won: !!saved.won }; paint(); }
+  if (ok) { G = { answer: saved.answer, guesses: saved.guesses, cur: EMPTY, over: !!saved.over, won: !!saved.won }; G.cur = layOut(String(saved.cur || "")); paint(); }
   else newGame();
   fit();
 }
