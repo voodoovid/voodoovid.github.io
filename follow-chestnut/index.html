@@ -526,7 +526,7 @@ const LEVELS = [
 ];
 
 
-const VERSION = "v1.1";
+const VERSION = "v1.2";
 const KEY = "followchestnut.";
 const $ = id => document.getElementById(id);
 const store = {
@@ -577,7 +577,7 @@ function loadLevel(n) {
   const first = L.tools.turn ? "R" : L.tools.jump ? "J" : "P";
   selectTool(first);
   const st = G.W.start;
-  G.cat.x = G.cat.tx = st.x + 0.8; G.cat.y = G.cat.ty = st.y + 0.66; G.cat.face = 1;
+  G.cat.x = G.cat.tx = st.x + 0.82; G.cat.y = G.cat.ty = st.y + 0.78; G.cat.face = 1;
   G.cat.happy = 0;
   layout();
 }
@@ -621,7 +621,7 @@ function nudgeCount(kind) {
   el.animate([{ transform: "scale(1)" }, { transform: "scale(1.5)" }, { transform: "scale(1)" }], { duration: 300 });
 }
 function moveCat(x, y) {
-  const c = G.cat, tx = x + 0.8, ty = y + 0.66;
+  const c = G.cat, tx = x + 0.82, ty = y + 0.78;
   if (tx !== c.x) c.face = tx > c.x ? 1 : -1;
   c.tx = tx; c.ty = ty;
 }
@@ -862,7 +862,7 @@ function draw() {
     }
     for (const { k, p } of people) if (Math.max(0, Math.min(W.h - 1, Math.floor(p.y))) === y) drawWalker(c, k, p, X, Y, s, t);
     const cat = G.cat;
-    if (Math.max(0, Math.min(W.h - 1, Math.floor(cat.y))) === y) drawCat(c, X(cat.x), Y(cat.y), s * .78, t, cat);
+    if (Math.max(0, Math.min(W.h - 1, Math.floor(cat.y))) === y) drawCat(c, X(cat.x), Y(cat.y), s * .52, t, cat);   // Chestnut is a small cat: about half a tile tall
   }
   // exit light, added on top
   c.globalCompositeOperation = "lighter";
