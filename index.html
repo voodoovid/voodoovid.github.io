@@ -205,7 +205,7 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
   </main>
 </div>
 <script>
-const SITE_VERSION = "v1.14";
+const SITE_VERSION = "v1.15";
 // Lock the screen: no rubber-band bounce or drag when swiping, unless the page really needs to scroll (phones)
 document.documentElement.style.overscrollBehavior = "none"; document.body.style.overscrollBehavior = "none";
 document.addEventListener("touchmove", e => {
@@ -219,7 +219,7 @@ const safeTop = () => {
   p.style.cssText = "position:fixed;top:0;left:0;width:0;visibility:hidden;height:env(safe-area-inset-top,0px)";
   d.appendChild(p); let t = p.offsetHeight; p.remove();
   if (navigator.standalone || matchMedia("(display-mode: standalone)").matches)
-    t = Math.max(t, Math.min(screen.width, screen.height) >= 700 ? 24 : innerHeight > innerWidth ? 54 : 0) + 8;
+    t = Math.max(t, Math.min(screen.width, screen.height) >= 700 ? 24 : innerHeight > innerWidth ? 54 : 16) + 8;
   d.style.setProperty("--safe-top", t + "px");
 };
 safeTop(); addEventListener("resize", safeTop); addEventListener("orientationchange", () => setTimeout(safeTop, 250));

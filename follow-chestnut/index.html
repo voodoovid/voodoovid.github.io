@@ -187,7 +187,7 @@ h1 span { color: var(--gold); display: block; }
     p.style.cssText = "position:fixed;top:0;left:0;width:0;visibility:hidden;height:env(safe-area-inset-top,0px)";
     d.appendChild(p); let t = p.offsetHeight; p.remove();
     if (navigator.standalone || matchMedia("(display-mode: standalone)").matches)
-      t = Math.max(t, Math.min(screen.width, screen.height) >= 700 ? 24 : innerHeight > innerWidth ? 54 : 0) + 8;
+      t = Math.max(t, Math.min(screen.width, screen.height) >= 700 ? 24 : innerHeight > innerWidth ? 54 : 16) + 8;
     d.style.setProperty("--safe-top", t + "px");
   };
   safeTop(); addEventListener("resize", safeTop); addEventListener("orientationchange", () => setTimeout(safeTop, 250));
@@ -220,6 +220,18 @@ h1 span { color: var(--gold); display: block; }
   addEventListener("DOMContentLoaded", fit); addEventListener("load", fit); addEventListener("resize", fit);
   addEventListener("orientationchange", () => setTimeout(fit, 250));
   if (document.fonts) document.fonts.ready.then(fit);
+  // A tap on the button always goes back, even when iOS drops the click (it can after the phone is turned sideways):
+  // watch touches for the whole page, before the game sees them, and treat a short tap on or just around the button as a press
+  const near = (x, y) => { const r = pill.getBoundingClientRect(); return x > r.left - 10 && x < r.right + 10 && y > r.top - 10 && y < r.bottom + 10; };
+  let tap = null;
+  addEventListener("touchstart", e => { const t = e.touches[0]; tap = e.touches.length === 1 && near(t.clientX, t.clientY) ? [t.clientX, t.clientY] : null; }, { capture: true, passive: true });
+  addEventListener("touchend", e => {
+    const t = e.changedTouches[0];
+    if (tap && near(t.clientX, t.clientY) && Math.hypot(t.clientX - tap[0], t.clientY - tap[1]) < 30) { if (e.cancelable) e.preventDefault(); location.href = pill.href; }
+    tap = null;
+  }, { capture: true, passive: false });
+  // after turning, lay the button out afresh so where it is drawn and where it answers taps agree
+  addEventListener("orientationchange", () => setTimeout(() => { pill.style.display = "none"; void pill.offsetWidth; pill.style.display = ""; if (scrollY || scrollX) scrollTo(0, 0); }, 300));
 })();
 </script>
 
@@ -779,7 +791,7 @@ const LEVELS = [
 // Level groups shown in the level picker: [first level index, name]
 const WORLDS = [[0, "Garden Paths"], [8, "Planks and Plates"], [16, "Twilight Hops"], [22, "Long Way Round"], [28, "Crumbling Isles"], [34, "Night Garden"]];
 
-const VERSION = "v1.9";
+const VERSION = "v1.10";
 const KEY = "followchestnut.";
 const $ = id => document.getElementById(id);
 const store = {
