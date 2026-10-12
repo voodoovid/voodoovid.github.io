@@ -83,7 +83,7 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
 #offlineStatus { color: var(--chalk-dim); }
 #offlineStatus.ready { color: #9fe0a8; }
 .site-version { margin: 14px 0 0; font-size: 13px; color: var(--chalk-dim); text-align: right; font-family: system-ui, -apple-system, sans-serif; }
-/* Wide landscape screens (iPad landscape, desktop): a wider slate with all games on one row, filling the screen without scrolling. */
+/* Wide landscape screens (iPad landscape, desktop): a wider slate with the games in rows of three (icon beside the words), filling the screen without scrolling. */
 @media (orientation: landscape) and (min-width: 1000px) and (min-height: 680px) {
   body { min-height: 100dvh; display: flex; flex-direction: column; justify-content: center; padding-inline: max(24px, env(safe-area-inset-left, 0px)) max(24px, env(safe-area-inset-right, 0px)); }
   .frame { width: 100%; max-width: 1400px; }
@@ -92,9 +92,9 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
   h1 { font-size: 64px; }
   .lede { margin: 0; font-size: 19px; }
   hr { margin: 22px 0 24px; }
-  .games { grid-template-columns: repeat(5, 1fr); gap: 18px; }
-  .game { padding: 22px 18px; gap: 12px; }
-  .game svg { width: 104px; height: 104px; margin-bottom: 4px; }
+  .games { grid-template-columns: repeat(3, 1fr); gap: 20px; }
+  .game { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto 1fr auto; column-gap: 18px; row-gap: 8px; padding: 22px 22px 18px; }
+  .game svg { width: 88px; height: 88px; grid-row: 1 / 4; }
   .game h2 { font-size: 29px; line-height: 1.1; }
   .game p { font-size: 16px; line-height: 1.42; }
   .play { font-size: 20px; }
@@ -108,10 +108,12 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
   .board { padding: 22px 32px 16px; }
   h1 { font-size: 52px; }
   hr { margin: 16px 0 18px; }
-  .game { padding: 18px; gap: 8px; }
-  .game svg { width: 80px; height: 80px; margin-bottom: 0; }
-  .game h2 { font-size: 28px; }
-  .game p { font-size: 16px; line-height: 1.4; }
+  .game { padding: 16px 18px 14px; row-gap: 6px; }
+  .game svg { width: 56px; height: 56px; }
+  .game h2 { font-size: 25px; }
+  .game p { font-size: 15px; line-height: 1.35; }
+  .play { font-size: 18px; }
+  .lede { font-size: 17px; }
   .offline { margin-top: 18px; padding-top: 12px; }
 }
 </style>
@@ -168,6 +170,16 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
         <p>A Wordle-style word game on a station departure board. Six guesses at a five-letter word, the full Wordle dictionary, and an optional rule that makes you keep every green letter.</p>
         <span class="play">Play &rarr;</span>
       </a>
+      <a class="game" href="flip-five-3d/">
+        <svg viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="6" y="14" width="26" height="30" rx="3"/><path d="M6 29h26"/>
+          <path d="M40 29h26l-4 18H44z" fill="currentColor"/><rect x="40" y="14" width="26" height="15" rx="3"/>
+          <path d="M14 56h44" stroke-dasharray="4 5"/>
+        </svg>
+        <h2>Flip Five 3D</h2>
+        <p>A test of Flip Five in real 3D: the same word game, but every letter is a split flap that falls on its hinge, rattles through the alphabet and jumps when you win.</p>
+        <span class="play">Play &rarr;</span>
+      </a>
       <a class="game" href="follow-chestnut/">
         <svg viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M14 30V10l10 9h12l10-9v20c0 10-7 16-16 16s-16-6-16-16z"/>
@@ -189,7 +201,7 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
   </main>
 </div>
 <script>
-const SITE_VERSION = "v1.5";
+const SITE_VERSION = "v1.6";
 // Lock the screen: no rubber-band bounce or drag when swiping, unless the page really needs to scroll (phones)
 document.documentElement.style.overscrollBehavior = "none"; document.body.style.overscrollBehavior = "none";
 document.addEventListener("touchmove", e => {
@@ -206,7 +218,7 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").then(() => navigator.serviceWorker.ready).then(async () => {
     const keys = await caches.keys();
     const cache = keys.length ? await caches.open(keys[0]) : null;
-    const ok = cache && (await Promise.all(["hangman/", "scareisdale/", "ponchos-adventure/", "flip-five/", "follow-chestnut/"].map(p => cache.match(p)))).every(Boolean);
+    const ok = cache && (await Promise.all(["hangman/", "scareisdale/", "ponchos-adventure/", "flip-five/", "flip-five-3d/", "follow-chestnut/"].map(p => cache.match(p)))).every(Boolean);
     status.textContent = ok ? "Ready to play offline: all games are saved on this device." : "Open this page once more while online to finish saving the games.";
     status.classList.toggle("ready", !!ok);
   }).catch(() => { status.textContent = "This browser can't save the games for offline play."; });

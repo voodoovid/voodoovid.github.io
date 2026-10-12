@@ -328,7 +328,7 @@ kbd { font-family: var(--font-hand); border: 1px solid var(--chalk-dim); border-
 (() => {
   const pill = document.getElementById("gamesPill");
   // Only on the games site, not when a page is opened on its own
-  if (!/\/(hangman|scareisdale|ponchos-adventure|flip-five|follow-chestnut)\//.test(location.pathname)) return;
+  if (!/\/(hangman|scareisdale|ponchos-adventure|flip-five|flip-five-3d|follow-chestnut)\//.test(location.pathname)) return;
   pill.hidden = false;
   // Lock the screen: no rubber-band bounce or drag when swiping, except inside something that really scrolls
   document.documentElement.style.overscrollBehavior = "none"; document.body.style.overscrollBehavior = "none";
@@ -418,7 +418,7 @@ kbd { font-family: var(--font-hand); border: 1px solid var(--chalk-dim); border-
 
 <script>
 (() => {
-const VERSION = "v1.8";
+const VERSION = "v1.9";
 document.getElementById("version").textContent = "Hangman " + VERSION;
 const WORDS = {
   "Animals": ["platypus", "armadillo", "chameleon", "flamingo", "hedgehog", "narwhal", "porcupine", "salamander", "wolverine", "jellyfish", "kangaroo", "octopus", "pelican", "raccoon", "walrus", "axolotl", "alligator", "antelope", "baboon", "badger", "beaver", "bison", "buffalo", "butterfly", "camel", "caterpillar", "cheetah", "chimpanzee", "chinchilla", "chipmunk", "cobra", "coyote", "crocodile", "dolphin", "donkey", "dragonfly", "eagle", "elephant", "falcon", "ferret", "gazelle", "gecko", "giraffe", "gorilla", "grasshopper", "hamster", "hippopotamus", "hummingbird", "hyena", "iguana", "jaguar", "koala", "ladybug", "lemur", "leopard", "lobster", "meerkat", "mongoose", "moose", "mosquito", "ostrich", "otter", "panther", "parrot", "peacock", "penguin", "pheasant", "piranha", "porpoise", "python", "rattlesnake", "reindeer", "rhinoceros", "scorpion", "seahorse", "squirrel", "starfish", "stingray", "tarantula", "tortoise", "toucan", "turtle", "vulture", "warthog", "weasel", "woodpecker", "yak", "zebra", "anteater", "bumblebee", "cockatoo", "cuttlefish", "manatee", "mandrill", "ocelot", "orangutan", "pangolin", "puffin", "quokka", "sloth", "tapir", "wombat"],
