@@ -35,7 +35,7 @@ html, body { min-height: 100%; }
 body {
   margin: 0;
   padding-inline: 16px;
-  padding-block: max(24px, env(safe-area-inset-top, 0px)) max(24px, env(safe-area-inset-bottom, 0px));
+  padding-block: max(24px, var(--safe-top, env(safe-area-inset-top, 0px))) max(24px, env(safe-area-inset-bottom, 0px));
   background: radial-gradient(ellipse at 50% 0%, #2a1f17 0%, var(--wall) 70%);
   color: var(--chalk);
   font-family: var(--font-hand);
@@ -104,7 +104,7 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
 }
 /* Shorter landscape tablets (iPad Air, iPad mini): tighten so it still fits. */
 @media (orientation: landscape) and (min-width: 1000px) and (min-height: 680px) and (max-height: 900px) {
-  body { padding-block: max(14px, env(safe-area-inset-top, 0px)) max(14px, env(safe-area-inset-bottom, 0px)); }
+  body { padding-block: max(14px, var(--safe-top, env(safe-area-inset-top, 0px))) max(14px, env(safe-area-inset-bottom, 0px)); }
   .board { padding: 22px 32px 16px; }
   h1 { font-size: 52px; }
   hr { margin: 16px 0 18px; }
@@ -201,7 +201,7 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
   </main>
 </div>
 <script>
-const SITE_VERSION = "v1.6";
+const SITE_VERSION = "v1.7";
 // Lock the screen: no rubber-band bounce or drag when swiping, unless the page really needs to scroll (phones)
 document.documentElement.style.overscrollBehavior = "none"; document.body.style.overscrollBehavior = "none";
 document.addEventListener("touchmove", e => {
@@ -209,6 +209,16 @@ document.addEventListener("touchmove", e => {
   if (e.touches.length === 1 && e.cancelable && d.scrollHeight <= innerHeight + 1 && d.scrollWidth <= innerWidth + 1) e.preventDefault();
 }, { passive: false });
 document.getElementById("siteVersion").textContent = "Games menu " + SITE_VERSION;
+// Where the status bar ends (same as in the games): in the installed app use at least the status bar's height, plus a little air
+const safeTop = () => {
+  const d = document.documentElement, p = document.createElement("div");
+  p.style.cssText = "position:fixed;top:0;left:0;width:0;visibility:hidden;height:env(safe-area-inset-top,0px)";
+  d.appendChild(p); let t = p.offsetHeight; p.remove();
+  if (navigator.standalone || matchMedia("(display-mode: standalone)").matches)
+    t = Math.max(t, Math.min(screen.width, screen.height) >= 700 ? 24 : innerHeight > innerWidth ? 54 : 0) + 8;
+  d.style.setProperty("--safe-top", t + "px");
+};
+safeTop(); addEventListener("resize", safeTop); addEventListener("orientationchange", () => setTimeout(safeTop, 250));
 // Hide the install tip inside the installed app
 if (window.navigator.standalone || matchMedia("(display-mode: standalone)").matches) {
   document.querySelector("#installHelp p:last-child").hidden = true;

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0d0f13">
-<style>:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<style>:root{box-sizing:border-box;padding-top:var(--safe-top, env(safe-area-inset-top, 0px));padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 <title>Flip Five</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -247,7 +247,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <!-- Shared "back to the games menu" button: identical in every game on the site -->
 <a class="games-pill" id="gamesPill" href="../" hidden aria-label="Back to the games menu">&lsaquo; Games</a>
 <style>
-.games-pill { position: fixed; z-index: 9999; top: calc(env(safe-area-inset-top, 0px) + 8px); left: calc(env(safe-area-inset-left, 0px) + 8px);
+.games-pill { position: fixed; z-index: 9999; top: calc(var(--safe-top, env(safe-area-inset-top, 0px)) + 10px); left: calc(env(safe-area-inset-left, 0px) + 8px);
   display: inline-flex; align-items: center; gap: 3px; height: 34px; padding: 0 14px 0 11px; box-sizing: border-box; border-radius: 17px;
   background: #ffd166; color: #241a05; border: 2px solid #fff3c4; box-shadow: 0 2px 10px rgba(0,0,0,.5);
   font: 700 15px/1 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: .01em; text-decoration: none; -webkit-tap-highlight-color: transparent; }
@@ -258,6 +258,17 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <script>
 (() => {
   const pill = document.getElementById("gamesPill");
+  // Where the status bar ends. The installed app sometimes reports 0 here (after the device turns), which put this button
+  // and the titles under the blurred status bar. So in the app use at least the status bar's height, plus a little air.
+  const safeTop = () => {
+    const d = document.documentElement, p = document.createElement("div");
+    p.style.cssText = "position:fixed;top:0;left:0;width:0;visibility:hidden;height:env(safe-area-inset-top,0px)";
+    d.appendChild(p); let t = p.offsetHeight; p.remove();
+    if (navigator.standalone || matchMedia("(display-mode: standalone)").matches)
+      t = Math.max(t, Math.min(screen.width, screen.height) >= 700 ? 24 : innerHeight > innerWidth ? 54 : 0) + 8;
+    d.style.setProperty("--safe-top", t + "px");
+  };
+  safeTop(); addEventListener("resize", safeTop); addEventListener("orientationchange", () => setTimeout(safeTop, 250));
   // Only on the games site, not when a page is opened on its own
   if (!/\/(hangman|scareisdale|ponchos-adventure|flip-five|flip-five-3d|follow-chestnut)\//.test(location.pathname)) return;
   pill.hidden = false;
@@ -412,7 +423,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v1.12";
+const VERSION = "v1.13";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
