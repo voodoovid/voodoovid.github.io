@@ -130,14 +130,26 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
     <hr>
     <div class="games">
       <!-- To add a game: put it in its own folder (e.g. snake/index.html) and copy one of these cards. -->
-      <a class="game" href="hangman/">
-        <svg viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true">
-          <path d="M8 66h40M16 66V6h34M16 18 28 6M50 6v10"/>
-          <circle cx="50" cy="23" r="7"/>
-          <path d="M50 30v18M50 35l-8 8M50 35l8 8M50 48l-7 12M50 48l7 12"/>
+      <a class="game" href="ponchos-adventure/">
+        <svg viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 66V30h48v36M12 30l6-12h36l6 12M8 66h56"/>
+          <path d="M30 66V52a6 6 0 0 1 12 0v14"/>
+          <path d="M36 22l-6 6 6 8 6-8z"/>
+          <circle cx="24" cy="44" r="5"/><path d="M46 40h10v10H46z"/>
         </svg>
-        <h2>Hangman</h2>
-        <p>Guess the word before the chalk figure is finished. Over 800 words in 14 categories, with music and sound effects.</p>
+        <h2>Poncho’s Adventure</h2>
+        <p>Guide Poncho the black cat through 14 floors of Lolo-style puzzle rooms, with lives, boss fights and a brutal Summit. Plays in 3D, with a switch for the classic 2D look.</p>
+        <span class="play">Play &rarr;</span>
+      </a>
+      <a class="game" href="follow-chestnut/">
+        <svg viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14 30V10l10 9h12l10-9v20c0 10-7 16-16 16s-16-6-16-16z"/>
+          <path d="M23 29h.5M37 29h.5M28 35l2 2 2-2M30 37v2"/>
+          <path d="M8 60h50" stroke-dasharray="5 6"/>
+          <path d="M58 53l8 7-8 7"/>
+        </svg>
+        <h2>Follow Chestnut</h2>
+        <p>Chestnut the grey cat leads a marching crowd home. Place arrows, jumps and planks across 16 floating-garden puzzles so they reach the light.</p>
         <span class="play">Play &rarr;</span>
       </a>
       <a class="game" href="scareisdale/">
@@ -151,17 +163,6 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
         <p>A Halloween carnival side-scroller. Stomp zombies, ghouls, spiders and clowns, find secret drum rooms, and reach the Funhouse before the moon loses its temper.</p>
         <span class="play">Play &rarr;</span>
       </a>
-      <a class="game" href="ponchos-adventure/">
-        <svg viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M12 66V30h48v36M12 30l6-12h36l6 12M8 66h56"/>
-          <path d="M30 66V52a6 6 0 0 1 12 0v14"/>
-          <path d="M36 22l-6 6 6 8 6-8z"/>
-          <circle cx="24" cy="44" r="5"/><path d="M46 40h10v10H46z"/>
-        </svg>
-        <h2>Poncho’s Adventure</h2>
-        <p>Guide Poncho the black cat through 14 floors of Lolo-style puzzle rooms, with lives, boss fights and a brutal Summit. Plays in 3D, with a switch for the classic 2D look.</p>
-        <span class="play">Play &rarr;</span>
-      </a>
       <a class="game" href="flip-five/">
         <svg viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="5" y="12" width="18" height="20" rx="2"/><rect x="27" y="12" width="18" height="20" rx="2" fill="currentColor"/><rect x="49" y="12" width="18" height="20" rx="2"/>
@@ -170,17 +171,6 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
         </svg>
         <h2>Flip Five</h2>
         <p>A Wordle-style word game on a 3D station departure board: clicking split flaps, trip-hop tracks, the full Wordle dictionary and an optional rule that makes you keep every green letter.</p>
-        <span class="play">Play &rarr;</span>
-      </a>
-      <a class="game" href="follow-chestnut/">
-        <svg viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M14 30V10l10 9h12l10-9v20c0 10-7 16-16 16s-16-6-16-16z"/>
-          <path d="M23 29h.5M37 29h.5M28 35l2 2 2-2M30 37v2"/>
-          <path d="M8 60h50" stroke-dasharray="5 6"/>
-          <path d="M58 53l8 7-8 7"/>
-        </svg>
-        <h2>Follow Chestnut</h2>
-        <p>Chestnut the grey cat leads a marching crowd home. Place arrows, jumps and planks across 16 floating-garden puzzles so they reach the light.</p>
         <span class="play">Play &rarr;</span>
       </a>
       <a class="game" href="fathom/">
@@ -195,6 +185,16 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
         <p>A deep-sea word game. Name things from seven prompts; the rarer your answer, the deeper your submarine sinks. A new daily dive every day, plus free dives.</p>
         <span class="play">Play &rarr;</span>
       </a>
+      <a class="game" href="hangman/">
+        <svg viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true">
+          <path d="M8 66h40M16 66V6h34M16 18 28 6M50 6v10"/>
+          <circle cx="50" cy="23" r="7"/>
+          <path d="M50 30v18M50 35l-8 8M50 35l8 8M50 48l-7 12M50 48l7 12"/>
+        </svg>
+        <h2>Hangman</h2>
+        <p>Guess the word before the chalk figure is finished. Over 800 words in 14 categories, with music and sound effects.</p>
+        <span class="play">Play &rarr;</span>
+      </a>
     </div>
     <section class="offline" id="installHelp">
       <h2>Play offline</h2>
@@ -205,7 +205,7 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
   </main>
 </div>
 <script>
-const SITE_VERSION = "v1.11";
+const SITE_VERSION = "v1.12";
 // Lock the screen: no rubber-band bounce or drag when swiping, unless the page really needs to scroll (phones)
 document.documentElement.style.overscrollBehavior = "none"; document.body.style.overscrollBehavior = "none";
 document.addEventListener("touchmove", e => {
