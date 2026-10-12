@@ -179,13 +179,15 @@ button { cursor: pointer; }
 .result { display: none; }
 .side.roomy .result:not([hidden]) {
   grid-area: result; align-self: stretch; width: 100%; min-height: 0; container-type: size;
-  display: grid; grid-template: "line line" auto "word new" minmax(0, 1fr) / minmax(0, 1fr) auto; align-items: center; gap: 2px 20px;
+  display: grid; grid-template: "line line" auto "title title" auto "word new" auto / auto minmax(0, 1fr); align-items: center; align-content: center; gap: 4px clamp(18px, 4cqw, 40px);
 }
-.res-line { grid-area: line; margin: 0; font: 600 clamp(15px, 14cqh, 24px)/1.1 var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--dim); }
-.res-word { grid-area: word; margin: 0; min-width: 0; font: 700 clamp(30px, min(60cqh, 12cqw), 120px)/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--amber); white-space: nowrap; }
+.res-line { grid-area: line; margin: 0; font: 700 clamp(20px, min(20cqh, 6.5cqw), 46px)/1.05 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: #ff8f7a; }
+.result.won .res-line { color: var(--hit); }
+.res-title { grid-area: title; margin: 0; font: 600 clamp(13px, 10cqh, 20px)/1.1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+.res-word { grid-area: word; margin: 0; min-width: 0; font: 700 clamp(28px, min(42cqh, 12cqw), 112px)/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--amber); white-space: nowrap; }
 .result.won .res-word { color: var(--hit); }
 :root.contrast .result.won .res-word { color: var(--hit); }
-.res-new { grid-area: new; height: clamp(48px, 56cqh, 84px); padding: 0 clamp(18px, 3.5cqw, 44px); font-size: clamp(20px, min(26cqh, 5cqw), 34px); border-radius: 10px; }
+.res-new { grid-area: new; justify-self: start; height: clamp(46px, 40cqh, 80px); padding: 0 clamp(18px, 3.5cqw, 44px); font-size: clamp(20px, min(26cqh, 5cqw), 34px); border-radius: 10px; }
 .side.roomy.ended #status, .side.roomy #btnNew { display: none; }
 
 /* ---- keyboard ---- */
@@ -323,7 +325,8 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
     <section class="panel" id="panel" aria-label="Settings"><h3>Settings</h3></section>
 
     <div class="result" id="result" hidden>
-      <p class="res-line" id="resLine">The word was</p>
+      <p class="res-line" id="resLine">Out of guesses</p>
+      <p class="res-title">Final Word:</p>
       <p class="res-word" id="resWord"></p>
       <button class="cta res-new" id="btnNew2" type="button">New word</button>
     </div>
@@ -428,7 +431,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.0";
+const VERSION = "v2.1";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
@@ -596,7 +599,7 @@ function paintStatus() {
   app.classList.toggle("ended", shown && !note);
   $("result").hidden = !shown;
   $("result").classList.toggle("won", !!G.won);
-  $("resLine").textContent = G.won ? "Solved in " + G.guesses.length + (G.guesses.length === 1 ? " guess" : " guesses") : "The word was";
+  $("resLine").textContent = G.won ? "Solved in " + G.guesses.length + (G.guesses.length === 1 ? " guess!" : " guesses!") : "Out of guesses";
   $("resWord").textContent = G.answer.toUpperCase();
   $("btnGiveUp").disabled = G.over || busy;
   $("strict").hidden = shown;
@@ -1098,10 +1101,10 @@ const Music = (() => {
       if (!ac || ac.state !== "running") return;
       const now = ac.currentTime; if (now - lastClick < 0.014) return; lastClick = now;
       const t = now + 0.003, v = rnd(0.7, 1);
-      burst(t, 0.014, "bandpass", rnd(2800, 4400), 2.2, 0.32 * v, g => toFx(g, 1, 0.05));
+      burst(t, 0.014, "bandpass", rnd(2800, 4400), 2.2, 0.11 * v, g => toFx(g, 1, 0.05));
       const o = ac.createOscillator(), g = ac.createGain(); o.type = "triangle";
       o.frequency.setValueAtTime(rnd(1100, 1500), t); o.frequency.exponentialRampToValueAtTime(480, t + 0.022);
-      g.gain.setValueAtTime(0.16 * v, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+      g.gain.setValueAtTime(0.055 * v, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
       o.connect(g); toFx(g, 1, 0); o.start(t); o.stop(t + 0.035);
     } catch (e) {}
   }
