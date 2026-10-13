@@ -370,9 +370,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
     <p>Tap any flap in the row you're typing to put the next letter there. It's outlined in amber; tap it again to let go. On a keyboard the arrow keys do the same.</p>
     <p>The music changes track with each new word; pick a track in Settings. Solve the word for a cheer (bigger the fewer guesses you needed), miss it for a raspberry.</p>
     <h3>Must keep greens</h3>
-    <p>Every green letter stays in its spot in every later guess, filled in for you. Amber letters can be left out.</p>
-    <h3>Force Green</h3>
-    <p>With <b>Force Green</b> on (it starts on; switch it off in Settings), a letter you know is in the word but that has only one spot left it could go (every other spot is already green or was ruled out by an earlier guess) is filled into that spot for you in solid green.</p>
+    <p>Every green letter stays in its spot in every later guess, filled in for you. A letter you know is in the word but that has only one spot left it could go (every other spot is green, or you already tried it there) is filled into that spot too, outlined in green. Amber letters can be left out.</p>
     <h3>Words</h3>
     <p class="fine" id="wordCount"></p>
     <p class="fine">On a keyboard: type letters, <b>Enter</b> to guess, <b>Backspace</b> to erase. After a game, Enter starts the next word.</p>
@@ -405,13 +403,8 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
     <div class="opts-home" id="optsHome"><div class="opts-body" id="optsQuick">
       <div class="opt">
         <b id="lblStrict">Must keep greens</b>
-        <span class="fine">Green letters you find are filled in for you and stay in their spots in every later guess. Amber letters can be left out.</span>
+        <span class="fine">Green letters you find are filled in for you and stay in their spots in every later guess. A found letter with only one spot left it can go is filled in there too. Amber letters can be left out.</span>
         <button class="switch" id="optStrict" type="button" role="switch" aria-checked="true" aria-labelledby="lblStrict"><span class="track"></span></button>
-      </div>
-      <div class="opt">
-        <b id="lblForce">Force Green</b>
-        <span class="fine">When a letter you've found has only one spot left it can go, it's filled in for you in green.</span>
-        <button class="switch" id="optForce" type="button" role="switch" aria-checked="true" aria-labelledby="lblForce"><span class="track"></span></button>
       </div>
       <div class="opt">
         <b id="lblMusic">Music</b>
@@ -459,7 +452,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.8";
+const VERSION = "v2.9";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
@@ -491,7 +484,7 @@ const load = (k, d) => { try { const v = JSON.parse(localStorage.getItem("flipfi
 const save = (k, v) => { try { localStorage.setItem("flipfive." + k, JSON.stringify(v)); } catch (e) {} };
 const freshStats = () => ({ played: 0, wins: 0, streak: 0, best: 0, dist: [0, 0, 0, 0, 0, 0] });
 // "Must keep greens" starts on for a brand-new device; after that the player's own choice is remembered
-let opts = Object.assign({ strict: true, force: true, contrast: false, music: true, sfx: true, track: 0, view3d: true }, load("opts", {}));
+let opts = Object.assign({ strict: true, contrast: false, music: true, sfx: true, track: 0, view3d: true }, load("opts", {}));
 if (typeof opts.strict !== "boolean") opts.strict = true;
 let stats = Object.assign(freshStats(), load("stats", {}));
 let recent = load("recent", []);
@@ -569,17 +562,17 @@ function setTile(t, ch, mark) {
 // Green letters already found, by spot (empty when "Fill in green letters" is off)
 function fixedSlots() {
   const f = ["", "", "", "", ""];
-  if (opts.strict)   // green letters are filled in only with "Must keep greens" on
-    for (const g of G.guesses) { const m = score(g, G.answer); for (let i = 0; i < 5; i++) if (m[i] === "hit") f[i] = g[i]; }
-  if (opts.force) forcedSlots().forEach((ch, i) => { if (ch && !f[i]) f[i] = ch; });
+  if (!opts.strict) return f;   // green letters are filled in only with "Must keep greens" on
+  for (const g of G.guesses) { const m = score(g, G.answer); for (let i = 0; i < 5; i++) if (m[i] === "hit") f[i] = g[i]; }
+  forcedSlots().forEach((ch, i) => { if (ch && !f[i]) f[i] = ch; });
   return f;
 }
-// Force Green: a letter known to be in the word that has only one spot left it can go (every other spot is green, or
+// With "Must keep greens" on, a letter known to be in the word that has only one spot left it can go (every other spot is green, or
 // the letter was already tried there) must be in that spot. Repeat letters count: two known Es need two open spots.
 // Filling one spot can leave another letter with only one, so it goes round until nothing changes.
 function forcedSlots() {
   const S5 = [0, 1, 2, 3, 4], green = ["", "", "", "", ""], f = ["", "", "", "", ""], tried = {}, need = {};
-  if (!opts.force || !G) return f;
+  if (!opts.strict || !G) return f;
   for (const g of G.guesses) {
     const m = score(g, G.answer), n = {};
     for (const i of S5) {
@@ -622,21 +615,16 @@ function layOut(letters) {
 }
 // The row as shown: typed letters, plus found green letters in any spot not typed in
 function draft() {
-  const f = fixedSlots(), forced = forcedSlots();
-  return f.map((g, i) => {
-    const d = G.cur[i] !== "." ? { ch: G.cur[i], fixed: g === G.cur[i] } : { ch: g, fixed: !!g };
-    d.forced = !!d.ch && forced[i] === d.ch;
-    return d;
-  });
+  const f = fixedSlots();
+  return f.map((g, i) => G.cur[i] !== "." ? { ch: G.cur[i], fixed: g === G.cur[i] } : { ch: g, fixed: !!g });
 }
 function paintDraft() {
   tiles.forEach((row, r) => row[0].parentNode.classList.toggle("live", r === G.guesses.length && !G.over));
   if (G.over || G.guesses.length >= 6) return;
   draft().forEach((d, c) => {
     const t = tiles[G.guesses.length][c];
-    setTile(t, d.ch, d.forced ? "hit" : null);
-    if (d.forced) t.setAttribute("aria-label", d.ch.toUpperCase() + ", filled in by Force Green");
-    else if (d.fixed) { t.classList.add("fixed"); t.setAttribute("aria-label", d.ch.toUpperCase() + ", filled in from an earlier guess"); }
+    setTile(t, d.ch);
+    if (d.fixed) { t.classList.add("fixed"); t.setAttribute("aria-label", d.ch.toUpperCase() + ", filled in from an earlier guess"); }
     if (sel === c && !busy) t.classList.add("sel");
   });
 }
@@ -685,7 +673,6 @@ function paint() {
 function paintOpts() {
   root.classList.toggle("contrast", opts.contrast);
   for (const id of ["strict", "optStrict"]) $(id).setAttribute("aria-checked", String(opts.strict));
-  $("optForce").setAttribute("aria-checked", String(opts.force));
   $("optContrast").setAttribute("aria-checked", String(opts.contrast));
   $("optView").setAttribute("aria-checked", String(opts.view3d));
   $("optMusic").setAttribute("aria-checked", String(opts.music));
@@ -1211,16 +1198,13 @@ const startMusic = e => {
 // ---------- Settings, statistics, help ----------
 function setOpt(name, value) { opts[name] = value; save("opts", opts); paintOpts(); note = null; paintStatus(); }
 // Must keep greens also fills the green letters in, so letters already typed are laid out again around them
-function toggleStrict() { toggleFill("strict"); }
-// Both of these fill letters in, so letters already typed are laid out again around them
-function toggleFill(name) {
+function toggleStrict() {
   const typed = G.cur.replace(/\./g, "");
-  setOpt(name, !opts[name]);
+  setOpt("strict", !opts.strict);
   if (!busy) { sel = null; G.cur = layOut(typed); paintDraft(); save("game", G); }
 }
 $("strict").addEventListener("click", e => { e.currentTarget.blur(); toggleStrict(); });
 $("optStrict").addEventListener("click", toggleStrict);
-$("optForce").addEventListener("click", () => toggleFill("force"));
 $("optContrast").addEventListener("click", () => setOpt("contrast", !opts.contrast));
 $("optView").addEventListener("click", () => { setOpt("view3d", !opts.view3d); window.__flaps && window.__flaps.setView(opts.view3d); });
 function open(id) {
