@@ -372,7 +372,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
     <h3>Must keep greens</h3>
     <p>Every green letter stays in its spot in every later guess, filled in for you. Amber letters can be left out.</p>
     <h3>Force Green</h3>
-    <p>With <b>Force Green</b> on (in Settings), a letter you know is in the word but that has only one spot left it could go (every other spot is already green or was ruled out by an earlier guess) is filled into that spot for you in solid green.</p>
+    <p>With <b>Force Green</b> on (it starts on; switch it off in Settings), a letter you know is in the word but that has only one spot left it could go (every other spot is already green or was ruled out by an earlier guess) is filled into that spot for you in solid green.</p>
     <h3>Words</h3>
     <p class="fine" id="wordCount"></p>
     <p class="fine">On a keyboard: type letters, <b>Enter</b> to guess, <b>Backspace</b> to erase. After a game, Enter starts the next word.</p>
@@ -411,7 +411,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
       <div class="opt">
         <b id="lblForce">Force Green</b>
         <span class="fine">When a letter you've found has only one spot left it can go, it's filled in for you in green.</span>
-        <button class="switch" id="optForce" type="button" role="switch" aria-checked="false" aria-labelledby="lblForce"><span class="track"></span></button>
+        <button class="switch" id="optForce" type="button" role="switch" aria-checked="true" aria-labelledby="lblForce"><span class="track"></span></button>
       </div>
       <div class="opt">
         <b id="lblMusic">Music</b>
@@ -459,7 +459,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.7";
+const VERSION = "v2.8";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
@@ -491,7 +491,7 @@ const load = (k, d) => { try { const v = JSON.parse(localStorage.getItem("flipfi
 const save = (k, v) => { try { localStorage.setItem("flipfive." + k, JSON.stringify(v)); } catch (e) {} };
 const freshStats = () => ({ played: 0, wins: 0, streak: 0, best: 0, dist: [0, 0, 0, 0, 0, 0] });
 // "Must keep greens" starts on for a brand-new device; after that the player's own choice is remembered
-let opts = Object.assign({ strict: true, force: false, contrast: false, music: true, sfx: true, track: 0, view3d: true }, load("opts", {}));
+let opts = Object.assign({ strict: true, force: true, contrast: false, music: true, sfx: true, track: 0, view3d: true }, load("opts", {}));
 if (typeof opts.strict !== "boolean") opts.strict = true;
 let stats = Object.assign(freshStats(), load("stats", {}));
 let recent = load("recent", []);
