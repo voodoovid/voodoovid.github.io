@@ -196,24 +196,23 @@ canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; 
 .fire.tool { --face: #6e5310; --rim: var(--gold); --base: #2b1f04; }
 .dpad button { --face: #3a2f6e; }
 /* key labels inside SHOT and POWER: big, bright keycaps */
-.fire kbd { display: block; margin: 5px auto 0; width: max-content; font: 800 .82rem/1 system-ui, -apple-system, "Segoe UI", sans-serif; color: #fff;
-  letter-spacing: .06em; background: rgba(0,0,0,.35); border: 1.5px solid rgba(255,255,255,.75); border-radius: 5px; padding: 3px 7px 4px; text-shadow: none; }
-.fire.tool kbd { font-size: .95rem; padding: 3px 9px 4px; }
+.fire .lbl { display: block; font-size: 1.45em; line-height: 1; font-weight: 700; letter-spacing: .04em; }
+.fire.tool .lbl { font-size: 1.3em; }
+.fire kbd { display: block; margin: .35em auto 0; width: max-content; font: 800 .82em/1 system-ui, -apple-system, "Segoe UI", sans-serif; color: #fff;
+  letter-spacing: .06em; background: rgba(0,0,0,.35); border: 1.5px solid rgba(255,255,255,.75); border-radius: 5px; padding: 2px 6px 3px; text-shadow: none; }
+.fire.tool kbd { font-size: .9em; padding: 2px 8px 3px; }
 
 /* ---- controls sit at the bottom of the screen ---- */
 @media (pointer: coarse) and (max-width: 600px) and (orientation: portrait) {
   .wrap { min-height: calc(100dvh - 16px - var(--safe-top, env(safe-area-inset-top, 0px)) - env(safe-area-inset-bottom, 0px)); }
   .pad { margin-top: auto; padding-bottom: 4px; }
-  .fire kbd { font-size: .78rem; }
-  .fire.tool kbd { font-size: .86rem; }
 }
 @media (pointer: coarse) and (orientation: landscape) {
   .dpad { grid-row: 12; align-self: end; margin-bottom: 8px; }
   .fireCol { grid-row: 12; align-self: end; margin-bottom: 8px; }
 }
 @media (pointer: coarse) and (orientation: landscape) and (max-height: 600px) {
-  .fire kbd { font-size: .62rem; padding: 2px 5px 3px; margin-top: 3px; }
-  .fire.tool kbd { font-size: .66rem; }
+  .fire kbd { padding: 1px 4px 2px; }
 }
 </style>
 </head>
@@ -367,8 +366,8 @@ canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; 
       <span></span><button type="button" data-dir="down" aria-label="Down">▼</button><span></span>
     </div>
     <div class="fireCol">
-      <button class="fire" type="button" id="padFire" aria-label="Shot (Space)">SHOT<kbd>SPACE</kbd></button>
-      <button class="fire tool" type="button" id="padTool" aria-label="Power (X)">POWER<kbd>X</kbd></button>
+      <button class="fire" type="button" id="padFire" aria-label="Shot (Space)"><b class="lbl">SHOT</b><kbd>SPACE</kbd></button>
+      <button class="fire tool" type="button" id="padTool" aria-label="Power (X)"><b class="lbl">POWER</b><kbd>X</kbd></button>
     </div>
   </div>
 </div>
@@ -1533,7 +1532,7 @@ const ETYPE = {
   B: { kind: "boss", shoot: true, speed: 0.45, dir: "right" },
 };
 
-const VERSION = "3.5";
+const VERSION = "3.6";
 // On the games site: link back to the menu and save everything for offline play
 if (location.pathname.includes("/ponchos-adventure/")) {
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -2324,6 +2323,9 @@ function drawCat(cx, cy, dir, step, alive) {
   ctx.quadraticCurveTo(cx + tx * 22, cy + 10, cx + tx * 18 + sway, cy - 4); ctx.stroke();
   ell(cx, cy + 9, 13, 10, fur);
   ell(cx - 7, cy + 17 + step, 5, 3.5, furHi); ell(cx + 7, cy + 17 - step, 5, 3.5, furHi);
+  // Poncho's glucose sensor: a round white patch high on his right side, a third of the way back
+  { const [sx, sy] = dir === "up" ? [7, 11] : dir === "right" ? [-4, 8] : dir === "left" ? [5, 8] : [-7, 11];
+    circle(cx + sx, cy + sy, 3.6, "#9a9aa6"); circle(cx + sx, cy + sy, 3, "#ffffff"); circle(cx + sx, cy + sy, 1, "#c9c9d2"); }
   const hx = cx + side * 2, hy = cy - 5;
   ctx.fillStyle = fur;
   for (const s of [-1, 1]) {
@@ -3061,6 +3063,12 @@ import * as THREE from "../lib/three.module.min.js";
     const body = new THREE.Group(); body.scale.setScalar(1.2); o.add(body);
     const torso = mesh(G.sph, fur); torso.scale.set(0.15, 0.15, 0.3); body.add(at(torso, 0, 0.3, -0.04));
     const chest = mesh(G.sph, fur); chest.scale.set(0.12, 0.14, 0.13); body.add(at(chest, 0, 0.36, 0.13));
+    // glucose sensor: a round white disc on the upper right of his back, a third of the way from his front
+    { const n = new THREE.Vector3(-0.55, 0.83, 0).normalize();
+      const sensor = new THREE.Group(); sensor.position.set(-0.082, 0.424, 0.02); sensor.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), n); body.add(sensor);
+      const rim = mesh(G.cyl, mat(0xd8d8e0, { roughness: 0.5 }), true); rim.scale.set(0.068, 0.018, 0.068); sensor.add(rim);
+      const disc = mesh(G.cyl, mat(0xffffff, { roughness: 0.35, emissive: 0xffffff, emissiveIntensity: 0.25 }), false); disc.scale.set(0.057, 0.024, 0.057); sensor.add(at(disc, 0, 0.004, 0));
+      const dot = mesh(G.cyl, mat(0xb9b9c4), false); dot.scale.set(0.014, 0.028, 0.014); sensor.add(at(dot, 0, 0.006, 0)); }
     const feet = [];
     for (const [fx, fz] of [[-0.075, 0.15], [0.075, 0.15], [-0.075, -0.2], [0.075, -0.2]]) {
       const f = new THREE.Group(); body.add(at(f, fx, 0, fz)); feet.push(f);
