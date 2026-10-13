@@ -99,6 +99,28 @@ button:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
   #panel { gap: 8px; padding: 4px 10px 6px 4px; }
   .top { min-height: 44px; padding: 4px 10px; }
 }
+/* Big landscape phones (iPhone Pro Max and the like): the panel takes the full height on the right, beside the title row too,
+   so the arrows, jump, plank and run buttons can be as big as the screen allows. Arrows on the left, tools in a column
+   beside them, Go / Fast / Restart / Clear underneath. */
+@media (orientation: landscape) and (max-height: 500px) and (min-width: 700px) {
+  :root { --b: clamp(44px, calc((100dvh - var(--safe-top, 0px) - 26px - 40px) / 4.75), 72px); }
+  #app { grid-template-rows: auto minmax(0, 1fr); }
+  .top { grid-column: 1; grid-row: 1; }
+  #stage { grid-column: 1; grid-row: 2; }
+  #panel { grid-column: 2; grid-row: 1 / -1; display: grid; grid-template-columns: auto auto; align-content: center; justify-content: center;
+    gap: 10px 12px; padding: 4px 12px 8px 6px; }
+  .dpad { gap: 5px; }
+  .tools { flex-direction: column; gap: 5px; justify-content: center; }
+  .run { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .act { height: calc(var(--b) * .8); font-size: clamp(16px, calc(var(--b) * .3), 22px); }
+  .cmd svg { width: 62%; height: 62%; }
+  .cmd .n { min-width: 26px; height: 26px; border-radius: 13px; font-size: 15px; right: -7px; top: -7px; }
+  .dpad .count { font-size: calc(var(--b) * .34); }
+  /* keep the title row on one line: "♪ On" instead of "Sound on", and no music name beside the level number */
+  .top .pill .long, .top .trk { display: none; } .top .pill .short { display: inline; } .top .pill { padding: 0 11px; font-size: 14px; height: 34px; }
+  .top { gap: 8px; } .stats { gap: 5px; } .chip { padding: 0 9px; font-size: 15px; height: 32px; gap: 4px; } .chip svg { width: 15px; height: 15px; }
+  .lvl { min-width: 120px; } .lvl small { font-size: 11px; } .lvl b { font-size: 18px; }
+}
 
 /* Overlays: the menu and the end-of-run card */
 .overlay { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 16px;
@@ -791,7 +813,7 @@ const LEVELS = [
 // Level groups shown in the level picker: [first level index, name]
 const WORLDS = [[0, "Garden Paths"], [8, "Planks and Plates"], [16, "Twilight Hops"], [22, "Long Way Round"], [28, "Crumbling Isles"], [34, "Night Garden"]];
 
-const VERSION = "v1.10";
+const VERSION = "v1.11";
 const KEY = "followchestnut.";
 const $ = id => document.getElementById(id);
 const store = {
