@@ -813,7 +813,7 @@ const LEVELS = [
 // Level groups shown in the level picker: [first level index, name]
 const WORLDS = [[0, "Garden Paths"], [8, "Planks and Plates"], [16, "Twilight Hops"], [22, "Long Way Round"], [28, "Crumbling Isles"], [34, "Night Garden"]];
 
-const VERSION = "v1.11";
+const VERSION = "v1.12";
 const KEY = "followchestnut.";
 const $ = id => document.getElementById(id);
 const store = {
@@ -1001,6 +1001,26 @@ function updateUI() {
   go.disabled = G.mode === "done";
   $("btnFast").classList.toggle("on", G.fast);
   $("btnFast").setAttribute("aria-pressed", G.fast);
+}
+// iPhone Safari can stop turning taps into clicks after the phone is turned sideways, so every button in the game
+// fires straight from the touch itself: a short tap that starts and ends on the same button presses it once
+// (the touchend is cancelled so no second, late click follows). Mouse, pen and keyboard still use ordinary clicks.
+{
+  let down = null;
+  addEventListener("touchstart", e => {
+    const t = e.touches[0], btn = e.touches.length === 1 && e.target.closest && e.target.closest("button");
+    down = btn && !btn.disabled ? { btn, x: t.clientX, y: t.clientY } : null;
+  }, { capture: true, passive: true });
+  addEventListener("touchmove", e => { const t = e.touches[0]; if (down && Math.hypot(t.clientX - down.x, t.clientY - down.y) > 24) down = null; }, { capture: true, passive: true });
+  addEventListener("touchcancel", () => { down = null; }, { capture: true });
+  addEventListener("touchend", e => {
+    const d = down; down = null;
+    if (!d || e.touches.length) return;
+    const t = e.changedTouches[0], r = d.btn.getBoundingClientRect(), pad = 12;
+    if (t.clientX < r.left - pad || t.clientX > r.right + pad || t.clientY < r.top - pad || t.clientY > r.bottom + pad) return;
+    if (e.cancelable) e.preventDefault();
+    if (!d.btn.disabled && d.btn.isConnected) d.btn.click();
+  }, { capture: true, passive: false });
 }
 document.querySelectorAll("#panel .cmd").forEach(b => b.addEventListener("click", () => { Sound.unlock(); Sound.tick(); selectTool(b.dataset.cmd); }));
 $("btnGo").onclick = go;
