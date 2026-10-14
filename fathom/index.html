@@ -217,7 +217,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
 <script>
 (() => {
 "use strict";
-const VERSION = "v1.7";
+const VERSION = "v1.8";
 const ROUNDS = 7, ROUND_SECS = 25, WRONG_PENALTY = 3, M_PER_POINT = 4;
 const $ = id => document.getElementById(id);
 const KEY = "fathom.";
@@ -864,7 +864,7 @@ const Sea = (() => {
     // portholes: Pancake (round grey) at the back, Chestnut (grey) in the middle, Poncho (black) up front
     catFace(-24, -2, "#8f8e9a", "#b7d84a", 0); cx.beginPath(); cx.arc(-24, -2, 10, 0, 7); cx.stroke();
     catFace(0, -2, "#8e939b", "#9fe08a", 1); cx.beginPath(); cx.arc(0, -2, 10, 0, 7); cx.stroke();
-    catFace(24, -2, "#15151a", "#e8d24a", 2); cx.beginPath(); cx.arc(24, -2, 10, 0, 7); cx.stroke();
+    catFace(24, -2, "#15151a", "#3fd46e", 2); cx.beginPath(); cx.arc(24, -2, 10, 0, 7); cx.stroke();
     cx.fillStyle = "rgba(255,255,255,.55)"; for (const x of [-24, 0, 24]) { cx.beginPath(); cx.arc(x - 5, -7, 1.6, 0, 7); cx.fill(); }
     cx.fillStyle = "#e9a41e"; cx.beginPath(); cx.moveTo(-40, -6); cx.lineTo(-58, -20); cx.lineTo(-54, 0); cx.lineTo(-58, 20); cx.lineTo(-40, 6); cx.closePath(); cx.fill(); cx.stroke();
     const stalled = mood.kind === "gasp" && mood.until > t, sp = Math.sin(t * (stalled ? 3 : 18 + sinking * 20)) * 9;
