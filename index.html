@@ -141,6 +141,16 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
         <p>Guide Poncho the black cat through 14 floors of Lolo-style puzzle rooms, with lives, boss fights and a brutal Summit. Plays in 3D, with a switch for the classic 2D look.</p>
         <span class="play">Play &rarr;</span>
       </a>
+      <a class="game" href="ponchos-pills/">
+        <svg viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M26 6h20v8H26zM28 14v6l-12 8v36a4 4 0 0 0 4 4h32a4 4 0 0 0 4-4V28l-12-8v-6"/>
+          <rect x="22" y="48" width="20" height="10" rx="5"/><path d="M32 48v10"/>
+          <circle cx="46" cy="38" r="5"/><path d="M46 30v3M46 43v3M38 38h3M51 38h3"/>
+        </svg>
+        <h2>Poncho’s Pills</h2>
+        <p>Dr. Poncho throws coloured pills into a bottle full of germs. Line up four of a colour to zap them, Dr. Mario-style, with two catchy music tracks and germs that dance under the lens.</p>
+        <span class="play">Play &rarr;</span>
+      </a>
       <a class="game" href="follow-chestnut/">
         <svg viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M14 30V10l10 9h12l10-9v20c0 10-7 16-16 16s-16-6-16-16z"/>
@@ -205,7 +215,7 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
   </main>
 </div>
 <script>
-const SITE_VERSION = "v1.16";
+const SITE_VERSION = "v1.17";
 // Lock the screen: no rubber-band bounce or drag when swiping, unless the page really needs to scroll (phones)
 document.documentElement.style.overscrollBehavior = "none"; document.body.style.overscrollBehavior = "none";
 document.addEventListener("touchmove", e => {
@@ -232,7 +242,7 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").then(() => navigator.serviceWorker.ready).then(async () => {
     const keys = await caches.keys();
     const cache = keys.length ? await caches.open(keys[0]) : null;
-    const ok = cache && (await Promise.all(["hangman/", "scareisdale/", "ponchos-adventure/", "flip-five/", "follow-chestnut/", "fathom/"].map(p => cache.match(p)))).every(Boolean);
+    const ok = cache && (await Promise.all(["hangman/", "scareisdale/", "ponchos-adventure/", "flip-five/", "follow-chestnut/", "fathom/", "ponchos-pills/"].map(p => cache.match(p)))).every(Boolean);
     status.textContent = ok ? "Ready to play offline: all games are saved on this device." : "Open this page once more while online to finish saving the games.";
     status.classList.toggle("ready", !!ok);
   }).catch(() => { status.textContent = "This browser can't save the games for offline play."; });

@@ -1,0 +1,981 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Poncho’s Pills</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#120f2e">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap">
+<style>
+/* Layout: one column filling the screen: title row, the canvas (bottle, Poncho, lens, stats) scaled to fit, touch pad below. */
+:root {
+  --bg: #120f2e;
+  --panel: #231d52;
+  --edge: #4a3f96;
+  --fg: #f4f1ff;
+  --muted: #a9a2d8;
+  --gold: #ffd166;
+  --red: #ff4d6d;
+  --blue: #3fa9ff;
+  --font-display: "Press Start 2P", "Courier New", monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; overflow: hidden; background: var(--bg); color: var(--fg);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
+.wrap {
+  height: 100dvh; max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px;
+  padding: calc(var(--safe-top, env(safe-area-inset-top, 0px)) + 10px) 10px calc(env(safe-area-inset-bottom, 0px) + 10px);
+}
+header { display: flex; align-items: center; gap: 8px; min-height: 34px; }
+h1 { flex: 1; margin: 0; font: 400 14px/1.3 var(--font-display); color: var(--gold); text-shadow: 2px 2px 0 #7a2c55; white-space: nowrap; }
+.version { font: 500 10px system-ui, sans-serif; color: var(--muted); text-shadow: none; margin-left: 4px; }
+.hbtn {
+  height: 34px; white-space: nowrap; padding: 0 10px; border-radius: 9px; border: 2px solid var(--edge); background: var(--panel); color: var(--fg);
+  font: 700 13px system-ui, sans-serif; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.hbtn:active { transform: scale(.95); }
+#stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+#screen { position: relative; }
+#cv { display: block; border-radius: 12px; touch-action: none; }
+#layer { position: absolute; left: 0; top: 0; width: 420px; height: 504px; transform-origin: 0 0; pointer-events: none; }
+.ov {
+  position: absolute; pointer-events: auto; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center;
+  background: rgba(18, 15, 46, .94); border: 3px solid var(--edge); border-radius: 14px; padding: 18px 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.5);
+}
+.ov.full { left: 18px; right: 18px; top: 40px; }
+.ov.bottle { left: 14px; width: 212px; top: 150px; padding: 16px 10px; }
+.ov h2 { margin: 0; font: 400 18px/1.4 var(--font-display); color: var(--gold); text-shadow: 2px 2px 0 #7a2c55; }
+.ov.bottle h2 { font-size: 14px; }
+.ov p { margin: 0; font-size: 14px; line-height: 1.4; color: var(--muted); }
+.ov p b { color: var(--fg); }
+.opt { display: flex; align-items: center; gap: 10px; width: 100%; justify-content: space-between; }
+.opt > span { font: 400 11px var(--font-display); color: var(--fg); width: 64px; text-align: left; }
+.stepper { display: flex; align-items: center; gap: 8px; }
+.stepper b { font: 400 16px var(--font-display); min-width: 40px; color: var(--gold); }
+.seg { display: flex; gap: 6px; }
+.ov button {
+  font: 400 11px var(--font-display); color: var(--fg); background: var(--panel); border: 2px solid var(--edge);
+  border-radius: 9px; padding: 10px 10px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.ov button:active { transform: scale(.95); }
+.ov button.on { background: var(--gold); color: #2a1a00; border-color: #fff3c4; }
+.stepper button { width: 40px; padding: 8px 0; font-size: 14px; }
+.ov button.big { background: var(--red); border-color: #ffc2cf; color: #fff; font-size: 14px; padding: 14px 26px; }
+.ov .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.keys { font-size: 12px !important; }
+.pad { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; height: clamp(58px, 10dvh, 86px); flex: none; }
+.pad button {
+  border-radius: 14px; border: 2px solid var(--edge); background: linear-gradient(180deg, #2e2768, #1d1848); color: var(--fg);
+  font: 700 26px/1 system-ui, sans-serif; touch-action: none; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.pad button.rot { color: var(--gold); }
+.pad button.held { background: var(--edge); transform: scale(.96); }
+/* Wide screens with a keyboard don't need the pad as much: keep it smaller */
+@media (min-width: 900px) and (hover: hover) { .pad { height: 56px; } }
+</style>
+</head>
+<body>
+
+<!-- Shared "back to the games menu" button: identical in every game on the site -->
+<a class="games-pill" id="gamesPill" href="../" hidden aria-label="Back to the games menu">&lsaquo; Games</a>
+<style>
+.games-pill { position: fixed; z-index: 9999; top: calc(var(--safe-top, env(safe-area-inset-top, 0px)) + 10px); left: calc(env(safe-area-inset-left, 0px) + 8px);
+  display: inline-flex; align-items: center; gap: 3px; height: 34px; padding: 0 14px 0 11px; box-sizing: border-box; border-radius: 17px;
+  background: #ffd166; color: #241a05; border: 2px solid #fff3c4; box-shadow: 0 2px 10px rgba(0,0,0,.5);
+  font: 700 15px/1 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: .01em; text-decoration: none; -webkit-tap-highlight-color: transparent; }
+.games-pill:active { transform: scale(.95); }
+.games-pill:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.games-pill[hidden] { display: none !important; }
+</style>
+<script>
+(() => {
+  const pill = document.getElementById("gamesPill");
+  // Where the status bar ends. The installed app sometimes reports 0 here (after the device turns), which put this button
+  // and the titles under the blurred status bar. So in the app use at least the status bar's height, plus a little air.
+  const safeTop = () => {
+    const d = document.documentElement, p = document.createElement("div");
+    p.style.cssText = "position:fixed;top:0;left:0;width:0;visibility:hidden;height:env(safe-area-inset-top,0px)";
+    d.appendChild(p); let t = p.offsetHeight; p.remove();
+    if (navigator.standalone || matchMedia("(display-mode: standalone)").matches)
+      t = Math.max(t, Math.min(screen.width, screen.height) >= 700 ? 24 : innerHeight > innerWidth ? 54 : 16) + 8;
+    d.style.setProperty("--safe-top", t + "px");
+  };
+  safeTop(); addEventListener("resize", safeTop); addEventListener("orientationchange", () => setTimeout(safeTop, 250));
+  // Only on the games site, not when a page is opened on its own
+  if (!/\/(hangman|scareisdale|ponchos-adventure|ponchos-adventure-3d|flip-five|flip-five-3d|follow-chestnut|fathom|ponchos-pills)\//.test(location.pathname)) return;
+  pill.hidden = false;
+  // Lock the screen: no rubber-band bounce or drag when swiping, except inside something that really scrolls
+  document.documentElement.style.overscrollBehavior = "none"; document.body.style.overscrollBehavior = "none";
+  const canScroll = el => {
+    for (; el && el !== document.documentElement; el = el.parentElement) {
+      if (el.closest && el.closest("input, textarea, select")) return true;
+      const s = getComputedStyle(el);
+      if (/(auto|scroll)/.test(s.overflowY + s.overflowX) && (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1)) return true;
+    }
+    const d = document.documentElement;
+    return d.scrollHeight > innerHeight + 1 || d.scrollWidth > innerWidth + 1;
+  };
+  document.addEventListener("touchmove", e => { if (e.touches.length === 1 && e.cancelable && !canScroll(e.target)) e.preventDefault(); }, { passive: false });
+  // Nudge the game's top row right so nothing sits under the button
+  const fit = () => {
+    for (const el of document.querySelectorAll("[data-pill-gap]")) {
+      el.style.paddingLeft = "";
+      const p = pill.getBoundingClientRect(), r = el.getBoundingClientRect();
+      if (r.height && r.top < p.bottom + 4 && r.bottom > p.top) {
+        const need = Math.ceil(p.right + 10 - r.left);
+        if (need > 0) { el.style.boxSizing = "border-box"; el.style.paddingLeft = need + "px"; }
+      }
+    }
+  };
+  addEventListener("DOMContentLoaded", fit); addEventListener("load", fit); addEventListener("resize", fit);
+  addEventListener("orientationchange", () => setTimeout(fit, 250));
+  if (document.fonts) document.fonts.ready.then(fit);
+  // A tap on the button always goes back, even when iOS drops the click (it can after the phone is turned sideways):
+  // watch touches for the whole page, before the game sees them, and treat a short tap on or just around the button as a press
+  const near = (x, y) => { const r = pill.getBoundingClientRect(); return x > r.left - 10 && x < r.right + 10 && y > r.top - 10 && y < r.bottom + 10; };
+  let tap = null;
+  addEventListener("touchstart", e => { const t = e.touches[0]; tap = e.touches.length === 1 && near(t.clientX, t.clientY) ? [t.clientX, t.clientY] : null; }, { capture: true, passive: true });
+  addEventListener("touchend", e => {
+    const t = e.changedTouches[0];
+    if (tap && near(t.clientX, t.clientY) && Math.hypot(t.clientX - tap[0], t.clientY - tap[1]) < 30) { if (e.cancelable) e.preventDefault(); location.href = pill.href; }
+    tap = null;
+  }, { capture: true, passive: false });
+  // after turning, lay the button out afresh so where it is drawn and where it answers taps agree
+  addEventListener("orientationchange", () => setTimeout(() => { pill.style.display = "none"; void pill.offsetWidth; pill.style.display = ""; if (scrollY || scrollX) scrollTo(0, 0); }, 300));
+})();
+</script>
+
+<div class="wrap">
+  <header data-pill-gap>
+    <h1>Poncho’s Pills<span class="version" id="version"></span></h1>
+    <button class="hbtn" id="btnSound" aria-pressed="true">♪ On</button>
+    <button class="hbtn" id="btnPause" aria-label="Pause">II</button>
+  </header>
+  <div id="stage">
+    <div id="screen">
+      <canvas id="cv" aria-label="Pill bottle"></canvas>
+      <div id="layer">
+        <div class="ov full" id="ovMenu">
+          <h2>Poncho’s Pills</h2>
+          <p>Dr. Poncho throws the pills, you stack them. Line up <b>four of one colour</b> to zap germs. Clear every germ in the bottle to pass the level.</p>
+          <div class="opt"><span>Level</span><div class="stepper"><button id="lvDown" aria-label="Lower level">−</button><b id="lvVal">0</b><button id="lvUp" aria-label="Higher level">+</button></div></div>
+          <div class="opt"><span>Speed</span><div class="seg" id="segSpeed"><button data-v="0">Low</button><button data-v="1">Med</button><button data-v="2">Hi</button></div></div>
+          <div class="opt"><span>Music</span><div class="seg" id="segMusic"><button data-v="catnip">Catnip</button><button data-v="nap">Nap</button><button data-v="off">Off</button></div></div>
+          <button class="big" id="btnStart">Start</button>
+          <p class="keys">Keys: ← → move · ↓ drop · Z / X or ↑ turn · P pause</p>
+        </div>
+        <div class="ov full" id="ovPause" hidden>
+          <h2>Paused</h2>
+          <p>The germs are waiting.</p>
+          <div class="row"><button class="big" id="btnResume">Resume</button><button id="btnQuit">Menu</button></div>
+        </div>
+        <div class="ov bottle" id="ovClear" hidden>
+          <h2>Stage clear!</h2>
+          <p id="clearText"></p>
+          <button class="big" id="btnNext">Next</button>
+        </div>
+        <div class="ov bottle" id="ovOver" hidden>
+          <h2>Game over</h2>
+          <p id="overText"></p>
+          <div class="row"><button class="big" id="btnRetry">Retry</button><button id="btnMenu">Menu</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="pad" id="pad">
+    <button class="rot" data-k="ccw" aria-label="Turn left">⟲</button>
+    <button data-k="left" aria-label="Left">◀</button>
+    <button data-k="down" aria-label="Drop">▼</button>
+    <button data-k="right" aria-label="Right">▶</button>
+    <button class="rot" data-k="cw" aria-label="Turn right">⟳</button>
+  </div>
+</div>
+<script>
+const VERSION = "v1.0";
+const $ = id => document.getElementById(id);
+$("version").textContent = VERSION;
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
+
+// ---------- Board ----------
+const COLS = 8, ROWS = 16, C = 26;        // bottle is 8 x 16 cells
+const W = 420, H = 504;                    // canvas in logical pixels
+const BX = 16, BY = 76;                    // top-left of the bottle's inside
+const PX = 344, PY = 198;                  // Poncho's feet
+const LX = 330, LY = 296, LR = 70;         // microscope lens
+const COL = [
+  { main: "#ff4d6d", dark: "#a8123a", light: "#ffd0da" },   // red
+  { main: "#ffd23f", dark: "#b07a00", light: "#fff6c4" },   // yellow
+  { main: "#3fa9ff", dark: "#1450b0", light: "#d4ecff" },   // blue
+];
+const SPEEDS = ["LOW", "MED", "HI"];
+const rnd = n => Math.floor(Math.random() * n);
+
+let opts = { level: 0, speed: 1, music: "catnip" };
+try { Object.assign(opts, JSON.parse(localStorage.getItem("ponchospills.opts") || "{}")); } catch (e) {}
+let topScore = 0;
+try { topScore = +localStorage.getItem("ponchospills.top") || 0; } catch (e) {}
+const saveOpts = () => { try { localStorage.setItem("ponchospills.opts", JSON.stringify(opts)); } catch (e) {} };
+
+// A cell is null or { c: colour, v: true for a germ, link: where its other half is ("l" "r" "u" "d" or null), pop }
+const g = {
+  mode: "menu", phase: "", level: 0, speed: 1, grid: [], cur: null, next: [0, 0], timer: 0, grav: 0, das: 0,
+  pills: 0, score: 0, germs: 0, chain: 0, time: 0, downLock: false, tossFrom: null,
+  lens: [0, 1, 2].map(c => ({ c, hurt: 0, gone: false, poof: 0 })), sparks: [], popups: [], confetti: [],
+};
+const at = (x, y) => g.grid[y * COLS + x];
+const free = (x, y) => x >= 0 && x < COLS && y < ROWS && (y < 0 || !at(x, y));
+function cells(p) { return p.vert ? [[p.x, p.y, p.c1], [p.x, p.y - 1, p.c2]] : [[p.x, p.y, p.c1], [p.x + 1, p.y, p.c2]]; }
+const fits = p => cells(p).every(([x, y]) => free(x, y));
+const germCount = c => g.grid.filter(k => k && k.v && (c === undefined || k.c === c)).length;
+
+// Germs fill the bottle from the bottom; higher levels reach higher and hold more (4 per level, at most 84)
+function makeGerms(level) {
+  const n = Math.min(84, (level + 1) * 4);
+  const topRow = level >= 19 ? 3 : level >= 17 ? 4 : level >= 15 ? 5 : 6;
+  g.grid = new Array(COLS * ROWS).fill(null);
+  const spots = [];
+  for (let y = topRow; y < ROWS; y++) for (let x = 0; x < COLS; x++) spots.push([x, y]);
+  for (let i = spots.length - 1; i > 0; i--) { const j = rnd(i + 1); [spots[i], spots[j]] = [spots[j], spots[i]]; }
+  // never three of a colour in a row: that would be too easy to clear
+  const run = (x, y, c, dx, dy) => { let k = 0; for (let s = 1; s < 3; s++) { const a = x + dx * s, b = y + dy * s; if (a < 0 || a >= COLS || b < 0 || b >= ROWS || !at(a, b) || at(a, b).c !== c) break; k++; } return k; };
+  const ok = (x, y, c) => run(x, y, c, 1, 0) + run(x, y, c, -1, 0) < 2 && run(x, y, c, 0, 1) + run(x, y, c, 0, -1) < 2;
+  let placed = 0;
+  for (const [x, y] of spots) {
+    if (placed >= n) break;
+    const first = placed % 3;
+    for (let k = 0; k < 3; k++) {
+      const c = (first + k) % 3;
+      if (ok(x, y, c)) { g.grid[y * COLS + x] = { c, v: true, link: null }; placed++; break; }
+    }
+  }
+}
+
+function gravInterval() { return Math.max(0.09, [0.72, 0.48, 0.3][g.speed] * Math.pow(0.94, Math.floor(g.pills / 10))); }
+
+function startGame() {
+  g.level = opts.level; g.speed = opts.speed; g.score = 0;
+  startLevel();
+}
+function startLevel() {
+  makeGerms(g.level);
+  g.germs = germCount(); g.pills = 0; g.cur = null; g.sparks = []; g.popups = []; g.confetti = [];
+  g.lens.forEach(l => { l.hurt = 0; l.gone = false; l.poof = 0; });
+  g.next = [rnd(3), rnd(3)];
+  g.mode = "play"; showOverlay(null);
+  playMusic(opts.music);
+  toss();
+}
+// Poncho throws the pill he is holding into the neck of the bottle, then picks up the next one
+function toss() {
+  g.phase = "toss"; g.timer = 0.42;
+  g.tossPill = g.next; g.next = [rnd(3), rnd(3)];
+  sfx("toss");
+}
+function landToss() {
+  const [c1, c2] = g.tossPill;
+  g.cur = { x: 3, y: 0, vert: false, c1, c2 };
+  g.pills++; g.chain = 0; g.grav = 0; g.downLock = input.down;
+  if (!fits(g.cur)) { g.cur = null; return gameOver(); }
+  g.phase = "drop";
+}
+
+function tryMove(dx) {
+  if (g.phase !== "drop" || !g.cur) return;
+  const p = { ...g.cur, x: g.cur.x + dx };
+  if (fits(p)) { g.cur = p; sfx("move"); }
+}
+function rotate(cw) {
+  if (g.phase !== "drop" || !g.cur) return;
+  const p = { ...g.cur, vert: !g.cur.vert };
+  if (cw ? !g.cur.vert : g.cur.vert) [p.c1, p.c2] = [p.c2, p.c1];
+  if (fits(p)) { g.cur = p; sfx("rotate"); return; }
+  if (!p.vert) { p.x--; if (fits(p)) { g.cur = p; sfx("rotate"); } }   // against the right wall: slide left to turn
+}
+function stepDown() {
+  const p = { ...g.cur, y: g.cur.y + 1 };
+  if (fits(p)) { g.cur = p; return; }
+  lock();
+}
+function lock() {
+  const p = g.cur; g.cur = null;
+  if (cells(p).some(([, y]) => y < 0)) return gameOver();
+  if (p.vert) { g.grid[p.y * COLS + p.x] = { c: p.c1, link: "u" }; g.grid[(p.y - 1) * COLS + p.x] = { c: p.c2, link: "d" }; }
+  else { g.grid[p.y * COLS + p.x] = { c: p.c1, link: "r" }; g.grid[p.y * COLS + p.x + 1] = { c: p.c2, link: "l" }; }
+  sfx("land");
+  resolve();
+}
+
+function findMatches() {
+  const hit = new Set();
+  const scan = (len, n, idx) => {
+    for (let a = 0; a < n; a++) {
+      let s = 0;
+      for (let b = 1; b <= len; b++) {
+        const A = b < len && g.grid[idx(a, b)], S = g.grid[idx(a, s)];
+        if (A && S && A.c === S.c) continue;
+        if (S && b - s >= 4) for (let k = s; k < b; k++) hit.add(idx(a, k));
+        s = b;
+      }
+    }
+  };
+  scan(COLS, ROWS, (y, x) => y * COLS + x);
+  scan(ROWS, COLS, (x, y) => y * COLS + x);
+  return [...hit];
+}
+const partner = (i, link) => link === "l" ? i - 1 : link === "r" ? i + 1 : link === "u" ? i - COLS : link === "d" ? i + COLS : -1;
+
+// After a pill lands (and after every fall), clear lines of four; if none, Poncho throws the next pill
+function resolve() {
+  const m = findMatches();
+  if (!m.length) {
+    if (g.germs === 0) { g.phase = "won"; g.timer = 0.7; return; }
+    return toss();
+  }
+  let germs = 0;
+  for (const i of m) {
+    const k = g.grid[i]; k.pop = true;
+    const x = i % COLS, y = Math.floor(i / COLS);
+    for (let s = 0; s < 5; s++) g.sparks.push({ x: BX + x * C + C / 2, y: BY + y * C + C / 2, vx: (Math.random() - .5) * 160, vy: (Math.random() - .8) * 160, life: .5, c: k.c });
+    if (k.v) {
+      germs++;
+      const pts = [100, 200, 300][g.speed] * Math.pow(2, Math.min(g.chain, 5));
+      g.chain++; g.score += pts;
+      g.popups.push({ x: BX + x * C + C / 2, y: BY + y * C, text: String(pts), life: 1 });
+      g.lens[k.c].hurt = 1.2;
+    }
+  }
+  if (g.score > topScore) { topScore = g.score; try { localStorage.setItem("ponchospills.top", String(topScore)); } catch (e) {} }
+  sfx(germs ? "germ" : "pop");
+  g.phase = "pop"; g.timer = 0.3;
+}
+function finishPop() {
+  for (let i = 0; i < g.grid.length; i++) {
+    const k = g.grid[i];
+    if (!k || !k.pop) continue;
+    const j = partner(i, k.link);
+    if (j >= 0 && g.grid[j]) g.grid[j].link = null;
+    g.grid[i] = null;
+  }
+  g.germs = germCount();
+  g.lens.forEach(l => { if (!l.gone && germCount(l.c) === 0) { l.gone = true; l.poof = 0.8; sfx("poof"); } });
+  if (g.germs === 0) { g.phase = "won"; g.timer = 0.8; return; }
+  g.phase = "fall"; g.timer = 0.12;
+}
+// Loose pill halves fall one row per tick; a whole pill only falls when nothing holds up either half
+function fallStep() {
+  let moved = false;
+  const mv = (from, to) => { g.grid[to] = g.grid[from]; g.grid[from] = null; };
+  for (let y = ROWS - 2; y >= 0; y--) for (let x = 0; x < COLS; x++) {
+    const i = y * COLS + x, k = g.grid[i];
+    if (!k || k.v || k.link === "d" || k.link === "l") continue;
+    const below = i + COLS;
+    if (k.link === "r") {
+      if (x + 1 < COLS && !g.grid[below] && !g.grid[below + 1]) { mv(i, below); mv(i + 1, below + 1); moved = true; }
+    } else if (k.link === "u") {
+      if (!g.grid[below]) { mv(i, below); mv(i - COLS, i); moved = true; }
+    } else if (!g.grid[below]) { mv(i, below); moved = true; }
+  }
+  return moved;
+}
+
+function gameOver() {
+  g.mode = "over"; g.phase = "";
+  playMusic("off"); jingle("over");
+  setTimeout(() => {
+    if (g.mode !== "over") return;
+    $("overText").innerHTML = `Level <b>${g.level}</b> · Score <b>${g.score}</b>` + (g.score && g.score >= topScore ? "<br>New top score!" : "");
+    showOverlay("ovOver");
+  }, 1100);
+}
+function stageClear() {
+  g.mode = "clear"; g.phase = "";
+  g.lens.forEach(l => { if (!l.gone) { l.gone = true; l.poof = 0.8; } });
+  playMusic("off"); jingle("clear");
+  for (let i = 0; i < 60; i++) g.confetti.push({ x: BX + Math.random() * COLS * C, y: BY - 20 - Math.random() * 200, vy: 60 + Math.random() * 80, vx: (Math.random() - .5) * 40, c: rnd(3), r: Math.random() * 6, life: 4 });
+  setTimeout(() => {
+    if (g.mode !== "clear") return;
+    $("clearText").innerHTML = `Level <b>${g.level}</b> is germ-free.<br>Score <b>${g.score}</b>`;
+    showOverlay("ovClear");
+  }, 1300);
+}
+
+// ---------- Input ----------
+const input = { left: false, right: false, down: false, last: null };
+function keyDown(k) {
+  if (k === "cw" || k === "ccw") return rotate(k === "cw");
+  if (input[k]) return;
+  input[k] = true;
+  if (k === "left" || k === "right") { input.last = k; tryMove(k === "left" ? -1 : 1); g.das = 0.17; }
+}
+function keyUp(k) {
+  if (!(k in input)) return;
+  input[k] = false;
+  if (k === "down") g.downLock = false;
+}
+const KEYS = { ArrowLeft: "left", ArrowRight: "right", ArrowDown: "down", ArrowUp: "cw", x: "cw", X: "cw", z: "ccw", Z: "ccw", a: "left", A: "left", d: "right", D: "right", s: "down", S: "down" };
+addEventListener("keydown", e => {
+  ensureAudio();
+  if (e.key.startsWith("Arrow") || e.key === " ") e.preventDefault();
+  if (e.key === "p" || e.key === "P" || e.key === "Escape") { if (g.mode === "play") pause(); else if (g.mode === "pause") resume(); return; }
+  if (e.key === "Enter") {
+    if (g.mode === "menu") return $("btnStart").click();
+    if (g.mode === "clear" && !$("ovClear").hidden) return $("btnNext").click();
+    if (g.mode === "over" && !$("ovOver").hidden) return $("btnRetry").click();
+    if (g.mode === "pause") return resume();
+  }
+  const k = KEYS[e.key];
+  if (k && !e.repeat) keyDown(k);
+});
+addEventListener("keyup", e => { const k = KEYS[e.key]; if (k) keyUp(k); });
+for (const b of document.querySelectorAll("#pad button")) {
+  const k = b.dataset.k;
+  b.addEventListener("pointerdown", e => { e.preventDefault(); ensureAudio(); try { b.setPointerCapture(e.pointerId); } catch (err) {} b.classList.add("held"); keyDown(k); });
+  const up = () => { b.classList.remove("held"); keyUp(k); };
+  b.addEventListener("pointerup", up); b.addEventListener("pointercancel", up); b.addEventListener("lostpointercapture", up);
+  b.addEventListener("contextmenu", e => e.preventDefault());
+}
+
+// ---------- Menus ----------
+function showOverlay(id) { for (const o of ["ovMenu", "ovPause", "ovClear", "ovOver"]) $(o).hidden = o !== id; }
+function syncMenu() {
+  $("lvVal").textContent = String(opts.level).padStart(2, "0");
+  for (const b of $("segSpeed").children) b.classList.toggle("on", +b.dataset.v === opts.speed);
+  for (const b of $("segMusic").children) b.classList.toggle("on", b.dataset.v === opts.music);
+}
+$("lvDown").onclick = () => { opts.level = Math.max(0, opts.level - 1); saveOpts(); syncMenu(); sfx("move"); };
+$("lvUp").onclick = () => { opts.level = Math.min(20, opts.level + 1); saveOpts(); syncMenu(); sfx("move"); };
+$("segSpeed").onclick = e => { const v = e.target.dataset.v; if (v == null) return; opts.speed = +v; saveOpts(); syncMenu(); sfx("rotate"); };
+$("segMusic").onclick = e => { const v = e.target.dataset.v; if (v == null) return; opts.music = v; saveOpts(); syncMenu(); ensureAudio(); playMusic(v); };
+$("btnStart").onclick = () => { ensureAudio(); startGame(); };
+$("btnNext").onclick = () => { g.level++; startLevel(); };
+$("btnRetry").onclick = () => startGame();
+const toMenu = () => { g.mode = "menu"; g.cur = null; g.phase = ""; playMusic("off"); syncMenu(); showOverlay("ovMenu"); };
+$("btnMenu").onclick = toMenu; $("btnQuit").onclick = toMenu;
+function pause() { if (g.mode !== "play") return; g.mode = "pause"; if (musicBus) musicBus.gain.value = 0; showOverlay("ovPause"); }
+function resume() { if (g.mode !== "pause") return; g.mode = "play"; if (musicBus) musicBus.gain.value = MUSIC_VOL; showOverlay(null); }
+$("btnPause").onclick = () => { $("btnPause").blur(); if (g.mode === "play") pause(); else if (g.mode === "pause") resume(); };
+$("btnResume").onclick = resume;
+syncMenu();
+
+// ---------- Sound ----------
+// Two original tracks in the spirit of the classic: "Catnip" (bouncy swing-funk) and "Nap" (laid-back jazz)
+let soundOn = true;
+try { soundOn = localStorage.getItem("ponchospills.sound") !== "off"; } catch (e) {}
+const MUSIC_VOL = 0.26;
+let actx = null, master = null, musicBus = null, noiseBuf = null, nextTime = 0, stepIdx = 0, schedTimer = null, curTrack = null;
+const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+const _ = 0;
+const TRACKS = {
+  catnip: {
+    tempo: 152, swing: 0.17, lead: "square", leadVol: 0.11, leadLen: 0.7, bassWave: "triangle", bassVol: 0.55,
+    compWave: "square", compVol: 0.025, compLen: 0.35, comp: [2, 6], drumVol: 1,
+    roots: [45, 50, 45, 40, 41, 43, 40, 45],
+    bass: [0, null, 12, 0, null, 7, 10, 7],
+    chords: [[57, 60, 64, 67], [54, 57, 60, 62], [57, 60, 64, 67], [56, 59, 62, 64], [53, 57, 60, 64], [55, 59, 62, 65], [52, 55, 59, 62], [57, 60, 64, 69]],
+    kick: [1, 0, 0, 0, 1, 0, 0, 1], snare: [0, 0, 1, 0, 0, 0, 1, 0], hat: [1, 1, 1, 1, 1, 1, 1, 1],
+    melody: [
+      76, _, 74, 72, _, 69, 72, 74,   _, 78, _, 76, 74, _, 72, _,
+      69, 72, 76, 79, _, 76, 74, 72,  71, _, 68, 71, 74, _, 76, _,
+      77, _, 76, 77, 81, _, 77, _,    79, _, 77, 79, 83, _, 79, _,
+      76, 79, 76, 74, 71, 74, 76, _,  81, _, _, 76, _, _, 69, _,
+    ],
+  },
+  nap: {
+    tempo: 98, swing: 0.24, lead: "triangle", leadVol: 0.3, leadLen: 1.7, bassWave: "sine", bassVol: 0.6,
+    compWave: "triangle", compVol: 0.05, compLen: 3.5, comp: [0], drumVol: 0.55,
+    roots: [41, 38, 43, 36, 41, 38, 43, 36],
+    bass: [0, null, null, 7, 12, null, 7, null],
+    chords: [[53, 57, 60, 64], [50, 53, 57, 60], [55, 58, 62, 65], [48, 52, 55, 58], [53, 57, 60, 64], [50, 53, 57, 60], [55, 58, 62, 65], [48, 52, 55, 58]],
+    kick: [1, 0, 0, 0, 0, 0, 1, 0], snare: [0, 0, 1, 0, 0, 0, 1, 0], hat: [0, 1, 0, 1, 0, 1, 0, 1],
+    melody: [
+      72, _, _, 69, 76, _, _, _,      74, _, 72, _, 69, _, 65, _,
+      70, _, _, 74, 72, _, 70, _,     69, _, 67, _, _, 64, 67, _,
+      72, _, 76, _, 79, _, 77, 76,    74, _, _, _, 77, _, 74, _,
+      70, _, 74, _, 72, 70, 69, 67,   65, _, _, _, _, _, _, _,
+    ],
+  },
+};
+
+function ensureAudio() {
+  if (!soundOn) return;
+  try {
+    if (!actx) {
+      actx = new (window.AudioContext || window.webkitAudioContext)();
+      master = actx.createGain(); master.gain.value = 0.5; master.connect(actx.destination);
+      musicBus = actx.createGain(); musicBus.gain.value = g.mode === "pause" ? 0 : MUSIC_VOL; musicBus.connect(master);
+      noiseBuf = actx.createBuffer(1, actx.sampleRate * 0.3, actx.sampleRate);
+      const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      // iOS can restart the context by itself in the background; keep it quiet while hidden
+      actx.addEventListener("statechange", () => { if (document.hidden && actx.state === "running") actx.suspend(); });
+    }
+    iosUnlock();
+    if (actx.state === "suspended" && !document.hidden) actx.resume();
+    if (!schedTimer) { nextTime = actx.currentTime + 0.1; schedTimer = setInterval(schedule, 50); }
+  } catch (e) {}
+}
+// iPhone/iPad: play Web Audio as media so the Silent switch doesn't mute it
+let keepAlive = null;
+function iosUnlock() {
+  try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch (e) {}
+  try {
+    if (!keepAlive) {
+      // older iOS without audioSession: a looping silent <audio> track switches the page to the playback category
+      const rate = 8000, n = rate / 2, buf = new ArrayBuffer(44 + n), v = new DataView(buf);
+      const w = (o, str) => [...str].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+      w(0, "RIFF"); v.setUint32(4, 36 + n, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true);
+      v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, rate, true); v.setUint32(28, rate, true);
+      v.setUint16(32, 1, true); v.setUint16(34, 8, true); w(36, "data"); v.setUint32(40, n, true);
+      for (let i = 0; i < n; i++) v.setUint8(44 + i, 128);
+      keepAlive = new Audio(URL.createObjectURL(new Blob([buf], { type: "audio/wav" })));
+      keepAlive.loop = true;
+      keepAlive.setAttribute("playsinline", "");
+    }
+    keepAlive.play().catch(() => {});
+    // a one-sample buffer started inside the tap unlocks the context on Safari
+    const b = actx.createBufferSource(); b.buffer = actx.createBuffer(1, 1, 22050);
+    b.connect(actx.destination); b.start(0);
+  } catch (e) {}
+}
+function tone(freq, start, dur, type, vol, bus, slideTo) {
+  const o = actx.createOscillator(), gn = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, start);
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, start + dur);
+  gn.gain.setValueAtTime(0.0001, start);
+  gn.gain.exponentialRampToValueAtTime(vol, start + 0.01);
+  gn.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+  o.connect(gn); gn.connect(bus || master);
+  o.start(start); o.stop(start + dur + 0.02);
+}
+function noise(start, dur, vol, filter, freq, bus) {
+  const s = actx.createBufferSource(), f = actx.createBiquadFilter(), gn = actx.createGain();
+  s.buffer = noiseBuf; f.type = filter; f.frequency.value = freq;
+  gn.gain.setValueAtTime(vol, start); gn.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+  s.connect(f); f.connect(gn); gn.connect(bus || master);
+  s.start(start); s.stop(start + dur + 0.02);
+}
+function playMusic(name) {
+  curTrack = TRACKS[name] || null; stepIdx = 0;
+  if (actx) { nextTime = actx.currentTime + 0.08; musicBus.gain.value = MUSIC_VOL; }
+}
+function schedule() {
+  if (!actx || !curTrack || actx.state !== "running") return;
+  const T = curTrack, step = 60 / T.tempo / 2;
+  if (nextTime < actx.currentTime - 0.1) nextTime = actx.currentTime + 0.05;
+  while (nextTime < actx.currentTime + 0.2) {
+    const i = stepIdx % T.melody.length, bar = Math.floor(i / 8), s = i % 8;
+    const t = nextTime + (s % 2 ? step * T.swing : 0), dv = T.drumVol;
+    const m = T.melody[i];
+    if (m) tone(mtof(m), t, step * T.leadLen, T.lead, T.leadVol, musicBus);
+    if (T.bass[s] !== null) tone(mtof(T.roots[bar] + T.bass[s]), t, step * 0.85, T.bassWave, T.bassVol, musicBus);
+    if (T.comp.includes(s)) for (const n of T.chords[bar]) tone(mtof(n), t, step * T.compLen, T.compWave, T.compVol, musicBus);
+    if (T.kick[s]) tone(150, t, 0.14, "sine", 0.7 * dv, musicBus, 42);
+    if (T.snare[s]) noise(t, 0.12, 0.28 * dv, "bandpass", 1800, musicBus);
+    if (T.hat[s]) noise(t, 0.035, (s % 2 ? 0.07 : 0.12) * dv, "highpass", 7000, musicBus);
+    nextTime += step; stepIdx++;
+  }
+}
+function jingle(name) {
+  if (!soundOn || !actx || actx.state !== "running") return;
+  const t = actx.currentTime + 0.05;
+  if (name === "clear") {
+    [[72, 0], [76, .12], [79, .24], [84, .36], [79, .6], [84, .72], [88, .84]].forEach(([n, d]) => tone(mtof(n), t + d, 0.22, "square", 0.14));
+    [[48, 0], [55, .36], [60, .72]].forEach(([n, d]) => tone(mtof(n), t + d, 0.3, "triangle", 0.5));
+  } else {
+    [[67, 0], [66, .25], [65, .5], [64, .75], [60, 1.1]].forEach(([n, d], i) => tone(mtof(n), t + d, i === 4 ? 0.8 : 0.22, "square", 0.13));
+    [[43, 0], [42, .25], [41, .5], [40, .75], [36, 1.1]].forEach(([n, d]) => tone(mtof(n), t + d, 0.3, "triangle", 0.5));
+  }
+}
+function sfx(name) {
+  if (!soundOn || !actx || actx.state !== "running") return;
+  const t = actx.currentTime;
+  switch (name) {
+    case "move": tone(330, t, 0.035, "square", 0.06); break;
+    case "rotate": tone(520, t, 0.06, "square", 0.08, null, 780); break;
+    case "land": tone(150, t, 0.09, "triangle", 0.4, null, 90); break;
+    case "toss": tone(380, t, 0.25, "sine", 0.12, null, 900); break;
+    case "pop": tone(880, t, 0.06, "square", 0.1); tone(1175, t + 0.05, 0.08, "square", 0.1); break;
+    case "germ": tone(660, t, 0.18, "square", 0.12, null, 1320); tone(990, t + 0.08, 0.14, "square", 0.1); break;
+    case "poof": [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, t + 0.15 + i * 0.05, 0.1, "square", 0.08)); break;
+  }
+}
+function setSound(on) {
+  soundOn = on;
+  try { localStorage.setItem("ponchospills.sound", on ? "on" : "off"); } catch (e) {}
+  $("btnSound").textContent = on ? "♪ On" : "♪ Off";
+  $("btnSound").setAttribute("aria-pressed", String(on));
+  if (on) ensureAudio();
+  else { if (keepAlive) keepAlive.pause(); if (actx) actx.suspend(); }
+}
+$("btnSound").addEventListener("click", () => { setSound(!soundOn); $("btnSound").blur(); });
+$("btnSound").textContent = soundOn ? "♪ On" : "♪ Off";
+$("btnSound").setAttribute("aria-pressed", String(soundOn));
+addEventListener("pointerdown", ensureAudio);
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    if (g.mode === "play") pause();
+    for (const k of ["left", "right", "down"]) input[k] = false;
+    if (actx) actx.suspend(); if (keepAlive) keepAlive.pause();
+  } else if (soundOn && actx) { actx.resume(); if (keepAlive) keepAlive.play().catch(() => {}); }
+});
+
+// ---------- Update ----------
+function update(dt) {
+  g.time += dt;
+  for (const l of g.lens) { l.hurt = Math.max(0, l.hurt - dt); l.poof = Math.max(0, l.poof - dt); }
+  for (const s of g.sparks) { s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 400 * dt; s.life -= dt; }
+  g.sparks = g.sparks.filter(s => s.life > 0);
+  for (const p of g.popups) { p.y -= 30 * dt; p.life -= dt; }
+  g.popups = g.popups.filter(p => p.life > 0);
+  for (const c of g.confetti) { c.x += c.vx * dt; c.y += c.vy * dt; c.r += dt * 6; c.life -= dt; }
+  g.confetti = g.confetti.filter(c => c.life > 0 && c.y < H);
+  if (g.mode !== "play") return;
+  switch (g.phase) {
+    case "toss": g.timer -= dt; if (g.timer <= 0) landToss(); break;
+    case "drop": {
+      const d = input.left && input.right ? (input.last === "left" ? -1 : 1) : input.left ? -1 : input.right ? 1 : 0;
+      if (d) { g.das -= dt; while (g.das <= 0) { tryMove(d); g.das += 0.055; } }
+      const iv = input.down && !g.downLock ? 0.035 : gravInterval();
+      g.grav += dt;
+      while (g.grav >= iv && g.phase === "drop") { g.grav -= iv; stepDown(); }
+      break;
+    }
+    case "pop": g.timer -= dt; if (g.timer <= 0) finishPop(); break;
+    case "fall": g.timer -= dt; if (g.timer <= 0) { if (fallStep()) g.timer = 0.07; else resolve(); } break;
+    case "won": g.timer -= dt; if (g.timer <= 0) stageClear(); break;
+  }
+}
+
+// ---------- Drawing ----------
+const cv = $("cv"), ctx = cv.getContext("2d");
+function fit() {
+  const st = $("stage"), s = Math.min(st.clientWidth / W, st.clientHeight / H), dpr = Math.min(3, devicePixelRatio || 1);
+  cv.style.width = W * s + "px"; cv.style.height = H * s + "px";
+  cv.width = Math.round(W * s * dpr); cv.height = Math.round(H * s * dpr);
+  $("screen").style.width = W * s + "px"; $("screen").style.height = H * s + "px";
+  $("layer").style.transform = `scale(${s})`;
+}
+addEventListener("resize", fit); addEventListener("orientationchange", () => setTimeout(fit, 250));
+fit();
+
+function circle(x, y, r, fill) { ctx.fillStyle = fill; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
+function ell(x, y, rx, ry, fill) { ctx.fillStyle = fill; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill(); }
+function rr(x, y, w, h, [tl, tr, br, bl]) {
+  ctx.beginPath(); ctx.moveTo(x + tl, y);
+  ctx.lineTo(x + w - tr, y); ctx.quadraticCurveTo(x + w, y, x + w, y + tr);
+  ctx.lineTo(x + w, y + h - br); ctx.quadraticCurveTo(x + w, y + h, x + w - br, y + h);
+  ctx.lineTo(x + bl, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - bl);
+  ctx.lineTo(x, y + tl); ctx.quadraticCurveTo(x, y, x + tl, y); ctx.closePath();
+}
+function text(s, x, y, size, color, align) {
+  ctx.font = `${size}px "Press Start 2P", monospace`; ctx.textAlign = align || "left"; ctx.textBaseline = "top";
+  ctx.fillStyle = "rgba(0,0,0,.5)"; ctx.fillText(s, x + 2, y + 2);
+  ctx.fillStyle = color; ctx.fillText(s, x, y);
+}
+
+// One half of a pill; the side joined to its other half is square, the rest rounded. A lone half is a round pill.
+function drawHalf(x, y, c, link, size) {
+  const p = size * 0.07, r = size * 0.42, q = size * 0.08;
+  let x0 = x + p, y0 = y + p, w = size - 2 * p, h = size - 2 * p, rad = [r, r, r, r];
+  if (link === "r") { rad = [r, q, q, r]; w += p; }
+  else if (link === "l") { rad = [q, r, r, q]; x0 -= p; w += p; }
+  else if (link === "u") { rad = [q, q, r, r]; y0 -= p; h += p; }
+  else if (link === "d") { rad = [r, r, q, q]; h += p; }
+  const k = COL[c];
+  rr(x0, y0, w, h, rad); ctx.fillStyle = k.main; ctx.fill();
+  ctx.lineWidth = size * 0.07; ctx.strokeStyle = k.dark; ctx.stroke();
+  ell(x0 + w * 0.36, y0 + h * 0.3, w * 0.2, h * 0.12, k.light);
+  ell(x0 + w * 0.62, y0 + h * 0.74, w * 0.22, h * 0.08, "rgba(0,0,0,.18)");
+}
+function drawCapsule(cx, cy, ang, c1, c2, size) {
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(ang);
+  drawHalf(-size, -size / 2, c1, "r", size); drawHalf(0, -size / 2, c2, "l", size);
+  ctx.restore();
+}
+// A germ: a bumpy blob with a face. Red scowls, yellow grins, blue looks sleepy. mood: "", "hurt", "laugh", "pop"
+function drawGerm(cx, cy, c, size, frame, mood) {
+  const k = COL[c], R = size * 0.34;
+  for (let i = 0; i < 8; i++) {
+    const a = i * Math.PI / 4 + frame * Math.PI / 8, rr2 = R * (i % 2 ? 1.02 : 1.12);
+    circle(cx + Math.cos(a) * rr2, cy + Math.sin(a) * rr2, R * 0.3, k.dark);
+  }
+  circle(cx, cy, R, k.main);
+  circle(cx - R * 0.42, cy - R * 0.5, R * 0.18, "rgba(255,255,255,.55)");
+  const ex = R * 0.4, ey = cy - R * 0.12, lw = Math.max(1, size * 0.05);
+  ctx.lineCap = "round";
+  if (mood === "hurt" || mood === "pop") {
+    ctx.strokeStyle = "#1a1030"; ctx.lineWidth = lw * 1.2;
+    for (const s of [-1, 1]) { const x = cx + s * ex, d = R * 0.18; ctx.beginPath(); ctx.moveTo(x - d, ey - d); ctx.lineTo(x + d, ey + d); ctx.moveTo(x + d, ey - d); ctx.lineTo(x - d, ey + d); ctx.stroke(); }
+    ell(cx, cy + R * 0.45, R * 0.22, R * 0.26, "#1a1030");
+    return;
+  }
+  for (const s of [-1, 1]) {
+    ell(cx + s * ex, ey, R * 0.26, R * 0.32, "#fff");
+    const px = cx + s * ex + (frame ? 1 : -1) * R * 0.07;
+    circle(px, ey + R * 0.06, R * 0.14, "#1a1030");
+    if (c === 2) { ctx.fillStyle = k.main; ctx.fillRect(cx + s * ex - R * 0.3, ey - R * 0.36, R * 0.6, R * 0.26); }   // sleepy lids
+  }
+  ctx.strokeStyle = "#1a1030"; ctx.lineWidth = lw;
+  if (c === 0) for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(cx + s * ex * 1.6, ey - R * 0.42); ctx.lineTo(cx + s * ex * 0.3, ey - R * 0.26); ctx.stroke(); }   // angry brows
+  ctx.beginPath();
+  if (mood === "laugh") { ell(cx, cy + R * 0.42, R * 0.38, R * 0.26 * (frame ? 1 : 0.6), "#1a1030"); return; }
+  if (c === 1) { const y = cy + R * 0.38; ctx.moveTo(cx - R * 0.45, y); for (let i = 1; i <= 4; i++) ctx.lineTo(cx - R * 0.45 + i * R * 0.225, y + (i % 2 ? R * 0.14 : 0) * (frame ? 1 : -1)); }
+  else if (frame) ctx.arc(cx, cy + R * 0.22, R * 0.3, 0.15 * Math.PI, 0.85 * Math.PI);
+  else { ctx.moveTo(cx - R * 0.28, cy + R * 0.45); ctx.lineTo(cx + R * 0.28, cy + R * 0.42); }
+  ctx.stroke();
+}
+
+let bgPattern = null;
+function background() {
+  if (!bgPattern) {
+    const t = document.createElement("canvas"); t.width = t.height = 40; const c = t.getContext("2d");
+    c.fillStyle = "#1a1544"; c.fillRect(0, 0, 40, 40);
+    c.fillStyle = "#211b55"; c.fillRect(0, 0, 20, 20); c.fillRect(20, 20, 20, 20);
+    c.fillStyle = "rgba(255,255,255,.05)"; c.fillRect(8, 5, 4, 10); c.fillRect(5, 8, 10, 4);   // little medical crosses
+    c.fillRect(28, 25, 4, 10); c.fillRect(25, 28, 10, 4);
+    bgPattern = ctx.createPattern(t, "repeat");
+  }
+  ctx.fillStyle = bgPattern; ctx.fillRect(0, 0, W, H);
+}
+
+function bottlePath(pad) {
+  const l = BX - pad, r = BX + COLS * C + pad, b = BY + ROWS * C + pad, t = BY - pad;
+  const nl = BX + 3 * C - 6 - pad, nr = BX + 5 * C + 6 + pad, nt = BY - 40 - pad;
+  ctx.beginPath();
+  ctx.moveTo(nl, nt); ctx.lineTo(nl, t - 6); ctx.quadraticCurveTo(nl, t, nl - 8, t);
+  ctx.lineTo(l + 14, t); ctx.quadraticCurveTo(l, t, l, t + 14);
+  ctx.lineTo(l, b - 16); ctx.quadraticCurveTo(l, b, l + 16, b);
+  ctx.lineTo(r - 16, b); ctx.quadraticCurveTo(r, b, r, b - 16);
+  ctx.lineTo(r, t + 14); ctx.quadraticCurveTo(r, t, r - 14, t);
+  ctx.lineTo(nr + 8, t); ctx.quadraticCurveTo(nr, t, nr, t - 6);
+  ctx.lineTo(nr, nt); ctx.closePath();
+}
+function drawBottle() {
+  bottlePath(7); ctx.fillStyle = "#cfe9ff"; ctx.fill();
+  bottlePath(4); ctx.fillStyle = "#6c8fc9"; ctx.fill();
+  bottlePath(0); ctx.fillStyle = "#0b0920"; ctx.fill();
+  // neck lip
+  ctx.fillStyle = "#cfe9ff"; rr(BX + 3 * C - 20, BY - 54, 2 * C + 40, 12, [5, 5, 5, 5]); ctx.fill();
+  ctx.fillStyle = "#6c8fc9"; ctx.fillRect(BX + 3 * C - 16, BY - 46, 2 * C + 32, 3);
+  ctx.strokeStyle = "rgba(255,255,255,.035)"; ctx.lineWidth = 1;
+  for (let x = 1; x < COLS; x++) { ctx.beginPath(); ctx.moveTo(BX + x * C, BY); ctx.lineTo(BX + x * C, BY + ROWS * C); ctx.stroke(); }
+  for (let y = 1; y < ROWS; y++) { ctx.beginPath(); ctx.moveTo(BX, BY + y * C); ctx.lineTo(BX + COLS * C, BY + y * C); ctx.stroke(); }
+}
+function drawGlass() {
+  ctx.fillStyle = "rgba(255,255,255,.07)"; rr(BX + 6, BY + 10, 8, ROWS * C - 30, [4, 4, 4, 4]); ctx.fill();
+}
+
+function drawGrid() {
+  const frame = Math.floor(g.time * 3) % 2;
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    const k = at(x, y); if (!k) continue;
+    const px = BX + x * C, py = BY + y * C;
+    if (k.pop) {
+      const s = 1 - Math.max(0, g.timer) / 0.3;
+      if (k.v) { ctx.globalAlpha = 1 - s * 0.7; drawGerm(px + C / 2, py + C / 2, k.c, C * (1 + s * 0.4), 0, "pop"); ctx.globalAlpha = 1; }
+      else {
+        ctx.strokeStyle = COL[k.c].main; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(px + C / 2, py + C / 2, 4 + s * 10, 0, Math.PI * 2); ctx.stroke();
+        circle(px + C / 2, py + C / 2, 4 * (1 - s), COL[k.c].light);
+      }
+      continue;
+    }
+    if (k.v) drawGerm(px + C / 2, py + C / 2, k.c, C, (frame + x + y) % 2, g.mode === "over" ? "laugh" : "");
+    else drawHalf(px, py, k.c, k.link, C);
+  }
+  if (g.cur) for (const [x, y, c] of cells(g.cur)) if (y >= 0) drawHalf(BX + x * C, BY + y * C, c, g.cur.vert ? (y === g.cur.y ? "u" : "d") : (x === g.cur.x ? "r" : "l"), C);
+}
+
+// Where Poncho's throwing paw holds the next pill
+const PAW = { x: PX - 50, y: PY - 102 };
+function drawTossed() {
+  if (g.mode !== "play" || g.phase !== "toss" || !g.tossPill) return;
+  const k = 1 - Math.max(0, g.timer) / 0.42;
+  const ex = BX + 4 * C, ey = BY + C / 2;
+  const x = PAW.x + (ex - PAW.x) * k, y = PAW.y + (ey - PAW.y) * k - Math.sin(Math.PI * k) * 70;
+  drawCapsule(x, y, -k * Math.PI * 4, g.tossPill[0], g.tossPill[1], C);
+}
+
+// Poncho the black cat, sitting on a shelf beside the bottle in a doctor's head mirror and stethoscope
+function drawPoncho() {
+  const t = g.time, happy = g.mode === "clear", sad = g.mode === "over";
+  const tossing = g.mode === "play" && g.phase === "toss" ? 1 - Math.max(0, g.timer) / 0.42 : -1;
+  // shelf
+  ctx.fillStyle = "#7a5434"; rr(PX - 82, PY, 154, 10, [3, 3, 3, 3]); ctx.fill();
+  ctx.fillStyle = "#4a311d"; ctx.fillRect(PX - 76, PY + 10, 142, 4);
+  ctx.save();
+  const hop = happy ? -Math.abs(Math.sin(t * 7)) * 12 : 0;
+  ctx.translate(PX, PY + hop); ctx.scale(2, 2);
+  const fur = "#1c1b24", furHi = "#34323f";
+  ell(0, 0, 18, 3, "rgba(0,0,0,.3)");
+  // tail
+  const sway = Math.sin(t * (happy ? 9 : 2.4)) * (happy ? 7 : 4);
+  ctx.strokeStyle = fur; ctx.lineWidth = 5; ctx.lineCap = "round";
+  ctx.beginPath(); ctx.moveTo(11, -6); ctx.quadraticCurveTo(30, -4, 25 + sway, sad ? -4 : -28); ctx.stroke();
+  ell(0, -17, 15, 18, fur);
+  ell(-8, -1, 7, 4, furHi); ell(8, -1, 7, 4, furHi);
+  // his glucose sensor: a round white patch high on his right side
+  circle(-9, -21, 3.6, "#9a9aa6"); circle(-9, -21, 3, "#ffffff"); circle(-9, -21, 1, "#c9c9d2");
+  ell(8, -8, 4.5, 3.5, furHi);
+  // stethoscope
+  ctx.strokeStyle = "#8a93a6"; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(-7, -32); ctx.quadraticCurveTo(-6, -22, 0, -21); ctx.quadraticCurveTo(6, -22, 7, -32); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(0, -21); ctx.quadraticCurveTo(4, -18, 3, -13); ctx.stroke();
+  circle(3, -12, 2.8, "#cfd6e4"); circle(3, -12, 1.3, "#8a93a6");
+  // throwing arm: holds the next pill up, swings forward on a throw
+  const sh = { x: -9, y: -28 };
+  let ang = -2.3;                                   // raised, paw up and to the left
+  if (tossing >= 0) ang = tossing < 0.25 ? -2.3 - tossing * 2 : -2.8 + Math.min(1, (tossing - 0.25) * 3) * 1.9;
+  if (happy) ang = -2.0 + Math.sin(t * 7) * 0.4;
+  if (sad) ang = 1.9;
+  const paw = { x: sh.x + Math.cos(ang) * 17, y: sh.y + Math.sin(ang) * 17 };
+  ctx.strokeStyle = fur; ctx.lineWidth = 6;
+  ctx.beginPath(); ctx.moveTo(sh.x, sh.y); ctx.lineTo(paw.x, paw.y); ctx.stroke();
+  circle(paw.x, paw.y, 4, furHi);
+  // head
+  const hx = -1, hy = sad ? -40 : -43;
+  ctx.fillStyle = fur;
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    if (sad) { ctx.moveTo(hx + s * 12, hy - 1); ctx.lineTo(hx + s * 17, hy - 10); ctx.lineTo(hx + s * 4, hy - 10); }
+    else { ctx.moveTo(hx + s * 12, hy - 3); ctx.lineTo(hx + s * 10, hy - 17); ctx.lineTo(hx + s * 2, hy - 10); }
+    ctx.closePath(); ctx.fill();
+  }
+  circle(hx, hy, 12.5, fur);
+  ctx.fillStyle = "#e58fa6";
+  for (const s of [-1, 1]) {
+    ctx.beginPath();
+    if (sad) { ctx.moveTo(hx + s * 11, hy - 3); ctx.lineTo(hx + s * 14.5, hy - 8.5); ctx.lineTo(hx + s * 7, hy - 8); }
+    else { ctx.moveTo(hx + s * 10, hy - 6); ctx.lineTo(hx + s * 9.5, hy - 13); ctx.lineTo(hx + s * 5, hy - 9); }
+    ctx.closePath(); ctx.fill();
+  }
+  // head mirror on a band
+  ctx.strokeStyle = "#5b6275"; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.ellipse(hx, hy - 5, 12.6, 5, 0, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
+  circle(hx + 5, hy - 10, 4.6, "#dfe6f2"); circle(hx + 5, hy - 10, 3.3, "#aeb8cc"); circle(hx + 3.8, hy - 11.2, 1.2, "#fff");
+  // eyes look at the bottle; they blink now and then
+  const ey = hy + 1, look = -1.2;
+  ctx.lineCap = "round";
+  if (happy) {
+    ctx.strokeStyle = "#c6f24e"; ctx.lineWidth = 1.8;
+    for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(hx + s * 5, ey + 1, 3, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke(); }
+  } else if (sad) {
+    ctx.strokeStyle = "#c6f24e"; ctx.lineWidth = 1.8;
+    for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(hx + s * 5, ey - 2, 3, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke(); }
+    ell(hx - 6, ey + 4 + (t * 12) % 6, 1.2, 1.8, "#8fd3ff");
+  } else if (t % 3.7 < 0.13) {
+    ctx.strokeStyle = "#c6f24e"; ctx.lineWidth = 1.5;
+    for (const s of [-1, 1]) { ctx.beginPath(); ctx.moveTo(hx + s * 5 - 3, ey); ctx.lineTo(hx + s * 5 + 3, ey); ctx.stroke(); }
+  } else {
+    for (const s of [-1, 1]) {
+      ell(hx + s * 5, ey, 3.6, 4.2, "#c6f24e");
+      ell(hx + s * 5 + look, ey, 1.2, 3.4, "#0b0b0f");
+      circle(hx + s * 5 + look - 0.8, ey - 1.5, 0.9, "#ffffff");
+    }
+  }
+  ctx.fillStyle = "#e58fa6";
+  ctx.beginPath(); ctx.moveTo(hx - 2, hy + 5); ctx.lineTo(hx + 2, hy + 5); ctx.lineTo(hx, hy + 7); ctx.closePath(); ctx.fill();
+  if (happy) ell(hx, hy + 9, 2.4, 1.8, "#e58fa6");
+  ctx.strokeStyle = "rgba(255,255,255,.75)"; ctx.lineWidth = 0.8;
+  for (const s of [-1, 1]) for (const k of [-1.5, 1.5]) {
+    ctx.beginPath(); ctx.moveTo(hx + s * 4, hy + 6); ctx.lineTo(hx + s * 15, hy + 5 + k * 2); ctx.stroke();
+  }
+  ctx.restore();
+  // the pill in his paw is the next one
+  const wx = PX + paw.x * 2, wy = PY + hop + paw.y * 2;
+  if (g.mode === "play" && tossing < 0) drawCapsule(wx, wy - 4, -0.25, g.next[0], g.next[1], 20);
+  else if (g.mode === "play" && tossing > 0.6) drawCapsule(wx, wy - 4, -0.25, g.next[0], g.next[1], 20 * Math.min(1, (tossing - 0.6) * 3));
+}
+
+// The microscope lens: one big germ of each colour dances in a circle; hit ones wince, cleared colours vanish
+function drawLens() {
+  ctx.save();
+  circle(LX, LY, LR + 9, "#6c8fc9"); circle(LX, LY, LR + 5, "#cfe9ff"); circle(LX, LY, LR, "#0f2a3c");
+  ctx.beginPath(); ctx.arc(LX, LY, LR, 0, Math.PI * 2); ctx.clip();
+  const gr = ctx.createRadialGradient(LX - 20, LY - 25, 5, LX, LY, LR);
+  gr.addColorStop(0, "#2d6e8a"); gr.addColorStop(1, "#0f2a3c");
+  ctx.fillStyle = gr; ctx.fillRect(LX - LR, LY - LR, LR * 2, LR * 2);
+  ctx.globalAlpha = 0.15;
+  for (let i = 0; i < 6; i++) circle(LX + Math.cos(i * 1.7 + g.time * 0.3) * 40, LY + Math.sin(i * 2.3) * 40, 6 + (i % 3) * 3, "#8fd3ff");
+  ctx.globalAlpha = 1;
+  const laughing = g.mode === "over", frame = Math.floor(g.time * (laughing ? 8 : 4)) % 2;
+  g.lens.forEach((l, i) => {
+    const a = g.time * 0.7 + i * Math.PI * 2 / 3;
+    let x = LX + Math.cos(a) * 36, y = LY + Math.sin(a) * 30 + Math.sin(g.time * 6 + i) * 3;
+    if (laughing) y -= Math.abs(Math.sin(g.time * 10 + i)) * 8;
+    if (l.gone) {
+      if (l.poof > 0) {
+        const s = 1 - l.poof / 0.8;
+        ctx.globalAlpha = 1 - s;
+        for (let k = 0; k < 8; k++) { const b = k * Math.PI / 4; circle(x + Math.cos(b) * s * 30, y + Math.sin(b) * s * 30, 6 * (1 - s) + 2, COL[l.c].light); }
+        ctx.globalAlpha = 1;
+      }
+      return;
+    }
+    if (l.hurt > 0) x += Math.sin(g.time * 50) * 3;
+    drawGerm(x, y, l.c, 48, frame, l.hurt > 0 ? "hurt" : laughing ? "laugh" : "");
+  });
+  ctx.restore();
+  ctx.fillStyle = "rgba(255,255,255,.18)";
+  ctx.beginPath(); ctx.ellipse(LX - 30, LY - 36, 18, 8, -0.6, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawStats() {
+  const x = 248, y0 = 384, lines = [
+    ["TOP", String(topScore).padStart(7, "0"), "#a9a2d8"],
+    ["SCORE", String(g.score).padStart(7, "0"), "#f4f1ff"],
+    ["LEVEL", String(g.mode === "menu" ? opts.level : g.level).padStart(2, "0"), "#ffd166"],
+    ["SPEED", SPEEDS[g.mode === "menu" ? opts.speed : g.speed], "#ffd166"],
+    ["GERMS", String(g.mode === "menu" ? 0 : g.germs).padStart(2, "0"), "#ff8fa6"],
+  ];
+  ctx.fillStyle = "rgba(10,8,30,.75)"; rr(x - 6, y0 - 8, 176, 122, [10, 10, 10, 10]); ctx.fill();
+  ctx.strokeStyle = "#4a3f96"; ctx.lineWidth = 2; ctx.stroke();
+  lines.forEach(([k, v, c], i) => { text(k, x + 4, y0 + i * 22, 9, "#a9a2d8"); text(v, x + 160, y0 + i * 22, 10, c, "right"); });
+}
+
+function draw() {
+  ctx.setTransform(cv.width / W, 0, 0, cv.height / H, 0, 0);
+  background();
+  drawBottle();
+  if (g.mode !== "pause") drawGrid();
+  drawGlass();
+  drawLens();
+  drawStats();
+  drawPoncho();
+  drawTossed();
+  for (const s of g.sparks) { ctx.globalAlpha = Math.max(0, s.life * 2); circle(s.x, s.y, 2.5, COL[s.c].light); }
+  ctx.globalAlpha = 1;
+  for (const p of g.popups) { ctx.globalAlpha = Math.min(1, p.life * 2); text(p.text, p.x, p.y, 8, "#fff", "center"); }
+  ctx.globalAlpha = 1;
+  for (const c of g.confetti) {
+    ctx.save(); ctx.translate(c.x, c.y); ctx.rotate(c.r); ctx.fillStyle = COL[c.c].main; ctx.fillRect(-4, -2, 8, 4); ctx.restore();
+  }
+}
+
+let last = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  update(dt); draw();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// For testing in the console
+window.__pp = {
+  g, fallStep, findMatches,
+  clearGerms(leave = 1) { let n = 0; g.grid.forEach((k, i) => { if (k && k.v && n++ >= leave) g.grid[i] = null; }); g.germs = germCount(); },
+};
+</script>
+</body>
+</html>
