@@ -930,11 +930,14 @@ window.addEventListener('keydown', e => {
 });
 window.addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) { e.preventDefault(); press(k, false); } });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
-// Bluetooth controller: stick / d-pad move (down to pound), A or Y jump, B or X run, Start starts the game or pauses
+// Bluetooth controller: stick / d-pad move (down to pound), A or Y jump, B or X run (X also resumes from pause), Start starts the game or pauses
 {
+  let xResumed = false;
   const K = GamePad.K, tap = spec => { window.dispatchEvent(new KeyboardEvent('keydown', spec)); window.dispatchEvent(new KeyboardEvent('keyup', spec)); };
   GamePad.init({ map: { left: K('ArrowLeft'), right: K('ArrowRight'), down: K('ArrowDown'), up: K('ArrowUp'),
-    a: K(' ', 'Space'), y: K('z', 'KeyZ'), b: K('x', 'KeyX'), x: K('j', 'KeyJ'),
+    a: K(' ', 'Space'), y: K('z', 'KeyZ'), b: K('x', 'KeyX'),
+    // X runs, or ends the pause when the game is paused
+    x: d => { if (d && paused) { setPaused(false); xResumed = true; return; } if (!d && xResumed) { xResumed = false; return; } window.dispatchEvent(new KeyboardEvent(d ? 'keydown' : 'keyup', { key: 'j', code: 'KeyJ' })); },
     start: d => { if (!d) return; if (state === 'title') { Snd.wake(); tap({ key: 'Enter', code: 'Enter' }); } else tap({ key: 'p', code: 'KeyP' }); } } });
 }
 ['pointerdown', 'touchend', 'keydown'].forEach(t => window.addEventListener(t, () => { if (state !== 'title') Snd.wake(); }, { passive: true }));
@@ -2359,7 +2362,7 @@ function render() {
   if (state === 'finish' && (fin.phase === 'tally' || fin.phase === 'done')) center(L.course, 64, '#ffd23f');
   if (roomTitleT > 0 && area === 'room') { ctx.globalAlpha = Math.min(1, roomTitleT); center(ROOM_NAMES[roomKey], 64, '#ffd23f'); ctx.globalAlpha = 1; }
   if (pipe && /fade/.test(pipe.phase)) { ctx.fillStyle = '#0b0416'; ctx.globalAlpha = clamp(pipe.phase === 'fade' ? pipe.t / 0.35 : 1 - pipe.t / 0.3, 0, 1); ctx.fillRect(0, 0, VW, VH); ctx.globalAlpha = 1; }
-  if (paused) { ctx.fillStyle = 'rgba(11,4,22,.6)'; ctx.fillRect(0, 0, VW, VH); center('PAUSED', 104, '#ffd23f', 16); center('PRESS P TO RESUME', 134, '#ffe7c2'); }
+  if (paused) { ctx.fillStyle = 'rgba(11,4,22,.6)'; ctx.fillRect(0, 0, VW, VH); center('PAUSED', 104, '#ffd23f', 16); center(GamePad.connected() ? 'PRESS X TO RESUME' : 'PRESS P TO RESUME', 134, '#ffe7c2'); }
 }
 
 // ---------- loop ----------
