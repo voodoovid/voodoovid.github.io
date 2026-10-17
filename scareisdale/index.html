@@ -225,7 +225,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <script>
 (() => {
 'use strict';
-const VERSION = 'v3.5';
+const VERSION = 'v3.6';
 document.getElementById('verBar').textContent = VERSION;
 document.getElementById('verOverlay').textContent = VERSION;
 const TS = 16, VW = 384, VH = 240, ROWS = 15;
@@ -757,6 +757,8 @@ function sfx(k) {
     case 'meow': s.meow(); break;
     case 'squeak': s.tone('sine', 2200, 3100, 0.07, 0.08); s.tone('sine', 2600, 3400, 0.06, 0.07, 0.09); break;
     case 'pounce': s.tone('square', 300, 120, 0.12, 0.08); break;
+    case 'poundStart': s.tone('square', 500, 1100, 0.08, 0.06); break;
+    case 'pound': s.noise(0.18, 0.3, 700); s.tone('square', 180, 50, 0.2, 0.12); s.tone('sine', 120, 40, 0.25, 0.15); break;
     case 'oneup': [0, 4, 7, 12, 16, 19].forEach((n, i) => s.tone('square', mtof(72 + n), mtof(72 + n), 0.1, 0.07, i * 0.08)); break;
     case 'die': [71, 70, 69, 66, 63, 62, 57].forEach((n, i) => s.tone('square', mtof(n), mtof(n) * 0.97, 0.22, 0.09, 0.25 + i * 0.2)); break;
     case 'flag': s.tone('square', 1400, 260, 1.0, 0.07); break;
@@ -918,7 +920,7 @@ function scheduleBar(t0, barIdx) { const tr = TRACKS[Snd.track] || TRACKS.waltz;
 
 // ---------- input ----------
 const keys = { left: false, right: false, jump: false, run: false, down: false };
-let jumpQueued = false, runQueued = false, downQueued = false;
+let jumpQueued = false, runQueued = false, downQueued = false, shakeT = 0;
 const KEYMAP = { ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', Space: 'jump', ArrowUp: 'jump', KeyW: 'jump', KeyZ: 'jump', KeyK: 'jump', ShiftLeft: 'run', ShiftRight: 'run', KeyX: 'run', KeyJ: 'run' };
 function press(k, down) { if (k === 'jump' && down && !keys.jump) jumpQueued = true; if (k === 'run' && down && !keys.run) runQueued = true; if (k === 'down' && down && !keys.down) downQueued = true; keys[k] = down; }
 window.addEventListener('keydown', e => {
@@ -1007,6 +1009,7 @@ function buildLevel() {
   const fire = (x, y) => { Sx(x, y, 'U'); en('firebar', x, y); };   // a block with a spinning chain of fire
   if (L.ceiling) for (let x = 0; x < COLS; x++) { Sx(x, 0, 'W'); Sx(x, 1, 'W'); }
   L.build({ Sx, ground, col, drum, row, en, fire });
+  if (L.ceiling) for (let x = POLE_TX - 16; x < COLS; x++) for (const y of [0, 1]) if (grid[y][x] === 'W') grid[y][x] = '.';   // open roof over the final stairs and flag
   col(POLE_TX, 1);
 }
 
@@ -1319,8 +1322,9 @@ function updatePlayer(dt) {
     P.vy = Math.min(P.vy, -290); P.flaps--; P.jbuf = 0; P.flapT = 0.3; sfx('flap');
   }
   if (P.onGround) P.jumped = false; else if (P.vy < 0) P.jumped = true;   // walking off a ledge isn't a jump
-  if (downQueued && P.jumped && !P.onGround && !P.pound && !P.dead && state === 'play') { P.pound = true; P.vx *= 0.4; P.sx = 0.8; P.sy = 1.2; }
+  if (downQueued && P.jumped && !P.onGround && !P.pound && !P.dead && state === 'play') { P.pound = true; P.vx *= 0.4; P.sx = 0.8; P.sy = 1.2; sfx('poundStart'); burst(P.x + P.w / 2, P.y + P.h / 2, 6, ['#ffe7c2', '#ffd23f'], 70, 0, 0.25, 2); }
   downQueued = false;
+  if (P.pound) parts.push({ x: P.x + 1 + Math.random() * (P.w - 2), y: P.y - 2 - Math.random() * 4, vx: 0, vy: -20, g: 0, life: 0.18, max: 0.18, col: '#ffe7c2', size: 1, kind: 'streak' });   // speed lines while diving
   if (P.pound) { P.vy = Math.max(P.vy, 300); P.vx = approach(P.vx, 0, 300 * dt); }
   let g = (P.vy < 0 && keys.jump) ? G_HOLD : G_FALL;
   if (keys.jump && Math.abs(P.vy) < 55) g *= 0.5; // apex hang
@@ -1350,7 +1354,10 @@ function updatePlayer(dt) {
   if (P.pound && P.onGround && !wasGround) {
     const fy = Math.round((P.y + P.h) / TS), l2 = Math.floor(P.x / TS), r2 = Math.floor((P.x + P.w - 0.01) / TS), cx2 = P.x + P.w / 2;
     const hits = []; for (let tx = l2; tx <= r2; tx++) if (grid[fy] && '?PGSB'.includes(grid[fy][tx])) hits.push(tx);
-    sfx('pounce'); dust(P.x + P.w / 2, P.y + P.h, 6);
+    sfx('pound'); dust(P.x + P.w / 2, P.y + P.h, 10); shakeT = 0.22;
+    parts.push({ x: P.x + P.w / 2, y: P.y + P.h, vx: 0, vy: 0, g: 0, life: 0.32, max: 0.32, kind: 'ring' });
+    burst(P.x + P.w / 2, P.y + P.h - 1, 10, ['#c9b3e8', '#ffe7c2', '#8a6fb8'], 140, 600, 0.45, 2);
+    P.sx = 1.45; P.sy = 0.6;
     if (hits.length) bumpBlock(hits.reduce((a, b) => Math.abs(b * TS + 8 - cx2) < Math.abs(a * TS + 8 - cx2) ? b : a), fy);
   }
   if (P.onGround || P.vy < 0) P.pound = false;
@@ -1595,6 +1602,7 @@ function step(dt) {
   if (freezeT > 0) { freezeT -= dt; return; }
   for (const p of parts) { p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; if (p.rot !== undefined) p.rot += dt * 12; }
   parts = parts.filter(p => p.life > 0);
+  if (shakeT > 0) shakeT -= dt;
   for (const p of pops) p.t += dt; pops = pops.filter(p => p.t < 0.9);
   for (const b of bumps) b.t += dt; bumps = bumps.filter(b => b.t < 0.18);
 
@@ -2277,6 +2285,9 @@ function render() {
     }
     return;
   }
+  const shk = shakeT > 0 && !paused ? Math.round(shakeT / 0.22 * 3) : 0;
+  if (shk) { ctx.fillStyle = '#0b0416'; ctx.fillRect(0, 0, VW, VH); }
+  ctx.save(); if (shk) ctx.translate(Math.round((Math.random() - 0.5) * shk), Math.round((Math.random() - 0.5) * shk * 2));
   area === 'main' ? BGS[L.theme]() : drawRoomBG();
   const tset = TT[L.theme];
   const cx = Math.round(camX);
@@ -2348,11 +2359,14 @@ function render() {
     const x = Math.round(p.x - cx), y = Math.round(p.y);
     if (p.kind === 'coin') drawKibble(x - 4, y, clock * 20);
     else if (p.kind === 'zhead') { ctx.save(); ctx.translate(x, y); ctx.rotate(p.rot); blob('#8fcf6a', C(0, 0, 4)); xEye(-1.4, -0.6, 0.8); xEye(1.6, -0.6, 0.8); blob('#3a0a1a', E(0.3, 2, 1.4, 0.8), 0.4); ctx.restore(); }
+    else if (p.kind === 'ring') { const k = 1 - p.life / p.max; ctx.globalAlpha = 1 - k; ctx.strokeStyle = '#ffe7c2'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(x, y - 1, 6 + k * 26, 2 + k * 5, 0, Math.PI, 0); ctx.stroke(); ctx.globalAlpha = 1; }
+    else if (p.kind === 'streak') { ctx.globalAlpha = Math.max(0, p.life / p.max) * 0.8; ctx.fillStyle = p.col; ctx.fillRect(x, y - 6, 1, 6); ctx.globalAlpha = 1; }
     else if (p.kind === 'shard') { ctx.save(); ctx.translate(x, y); ctx.rotate(p.rot); ctx.fillStyle = '#d4612b'; ctx.fillRect(-3, -3, 6, 6); ctx.fillStyle = '#4a1a10'; ctx.fillRect(-3, 2, 6, 1); ctx.restore(); }
     else { ctx.globalAlpha = Math.max(0, p.life / p.max); ctx.fillStyle = p.col; ctx.fillRect(x, y, p.size, p.size); ctx.globalAlpha = 1; }
   }
   ctx.font = '8px "Press Start 2P", monospace'; ctx.textBaseline = 'top';
   for (const p of pops) { const x = Math.round(p.x - cx), y = Math.round(p.y - p.t * 30); ctx.fillStyle = '#14072e'; ctx.fillText(p.text, x + 1, y + 1); ctx.fillStyle = '#ffffff'; ctx.fillText(p.text, x, y); }
+  ctx.restore();
   for (const sx of [1, -1]) {
     ctx.save(); ctx.translate(sx > 0 ? 0 : VW, 0); ctx.scale(sx, 1);
     ctx.strokeStyle = 'rgba(230,225,255,.28)'; ctx.lineWidth = 0.6; ctx.beginPath();
