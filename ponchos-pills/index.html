@@ -64,6 +64,7 @@ h1 { flex: 1; margin: 0; font: 400 14px/1.3 var(--font-display); color: var(--go
 .opt > span { font: 400 11px var(--font-display); color: var(--fg); width: 64px; text-align: left; }
 .stepper { display: flex; align-items: center; gap: 8px; }
 .stepper b { font: 400 16px var(--font-display); min-width: 40px; color: var(--gold); }
+.stepper b.wide { font-size: 10px; min-width: 132px; }
 .seg { display: flex; gap: 6px; }
 .ov button {
   font: 400 11px var(--font-display); color: var(--fg); background: var(--panel); border: 2px solid var(--edge);
@@ -172,9 +173,9 @@ h1 { flex: 1; margin: 0; font: 400 14px/1.3 var(--font-display); color: var(--go
           <p>Dr. Poncho throws the pills, you stack them. Line up <b>four of one colour</b> to zap germs. Clear every germ in the bottle to pass the level.</p>
           <div class="opt"><span>Level</span><div class="stepper"><button id="lvDown" aria-label="Lower level">−</button><b id="lvVal">0</b><button id="lvUp" aria-label="Higher level">+</button></div></div>
           <div class="opt"><span>Speed</span><div class="seg" id="segSpeed"><button data-v="0">Low</button><button data-v="1">Med</button><button data-v="2">Hi</button></div></div>
-          <div class="opt"><span>Music</span><div class="seg" id="segMusic"><button data-v="catnip">Catnip</button><button data-v="nap">Nap</button><button data-v="off">Off</button></div></div>
-          <button class="big" id="btnStart">Start</button>
-          <p class="keys">Keys: ← → move · ↓ drop · Z / X or ↑ turn · P pause</p>
+          <div class="opt"><span>Music</span><div class="stepper"><button id="muDown" aria-label="Previous music">◀</button><b id="muVal" class="wide">Mix</b><button id="muUp" aria-label="Next music">▶</button></div></div>
+          <div class="row"><button class="big" id="btnContinue" hidden>Continue</button><button class="big" id="btnStart">Start</button></div>
+          <p class="keys">Keys: ← → move · ↓ drop · Z / X / ↑ / Space turn · P pause · Space or Enter picks the main button</p>
         </div>
         <div class="ov full" id="ovPause" hidden>
           <h2>Paused</h2>
@@ -203,7 +204,7 @@ h1 { flex: 1; margin: 0; font: 400 14px/1.3 var(--font-display); color: var(--go
   </div>
 </div>
 <script>
-const VERSION = "v1.0";
+const VERSION = "v1.1";
 const $ = id => document.getElementById(id);
 $("version").textContent = VERSION;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -222,7 +223,7 @@ const COL = [
 const SPEEDS = ["LOW", "MED", "HI"];
 const rnd = n => Math.floor(Math.random() * n);
 
-let opts = { level: 0, speed: 1, music: "catnip" };
+let opts = { level: 0, speed: 1, music: "mix" };
 try { Object.assign(opts, JSON.parse(localStorage.getItem("ponchospills.opts") || "{}")); } catch (e) {}
 let topScore = 0;
 try { topScore = +localStorage.getItem("ponchospills.top") || 0; } catch (e) {}
@@ -231,7 +232,7 @@ const saveOpts = () => { try { localStorage.setItem("ponchospills.opts", JSON.st
 // A cell is null or { c: colour, v: true for a germ, link: where its other half is ("l" "r" "u" "d" or null), pop }
 const g = {
   mode: "menu", phase: "", level: 0, speed: 1, grid: [], cur: null, next: [0, 0], timer: 0, grav: 0, das: 0,
-  pills: 0, score: 0, germs: 0, chain: 0, time: 0, downLock: false, tossFrom: null,
+  pills: 0, score: 0, germs: 0, chain: 0, time: 0, downLock: false, growT: null,
   lens: [0, 1, 2].map(c => ({ c, hurt: 0, gone: false, poof: 0 })), sparks: [], popups: [], confetti: [],
 };
 const at = (x, y) => g.grid[y * COLS + x];
@@ -269,7 +270,7 @@ function startGame() {
   startLevel();
 }
 function startLevel() {
-  makeGerms(g.level);
+  makeGerms(g.level); g.growT = null;
   g.germs = germCount(); g.pills = 0; g.cur = null; g.sparks = []; g.popups = []; g.confetti = [];
   g.lens.forEach(l => { l.hurt = 0; l.gone = false; l.poof = 0; });
   g.next = [rnd(3), rnd(3)];
@@ -282,7 +283,39 @@ function toss() {
   g.phase = "toss"; g.timer = 0.42;
   g.tossPill = g.next; g.next = [rnd(3), rnd(3)];
   sfx("toss");
+  saveGame();
 }
+
+// The game in progress is kept on the device, so leaving for the games menu and coming back offers Continue
+const SAVE_KEY = "ponchospills.save";
+function loadSave() { try { return JSON.parse(localStorage.getItem(SAVE_KEY) || "null"); } catch (e) { return null; } }
+function saveGame() {
+  try {
+    if (g.mode === "play" || g.mode === "pause")
+      localStorage.setItem(SAVE_KEY, JSON.stringify({ level: g.level, speed: g.speed, score: g.score, pills: g.pills, grid: g.grid, next: g.next, cur: g.cur, tossPill: g.tossPill, phase: g.phase }));
+    else if (g.mode === "clear") localStorage.setItem(SAVE_KEY, JSON.stringify({ level: g.level + 1, speed: g.speed, score: g.score, fresh: true }));
+    else if (g.mode === "over") localStorage.removeItem(SAVE_KEY);
+  } catch (e) {}
+}
+function continueGame() {
+  const s = loadSave();
+  if (!s) return startGame();
+  g.level = s.level; g.speed = s.speed; g.score = s.score;
+  if (s.fresh || !s.grid) return startLevel();
+  g.grid = s.grid; g.germs = germCount();
+  if (!g.germs) { g.level++; return startLevel(); }
+  g.pills = s.pills || 0; g.next = s.next || [rnd(3), rnd(3)]; g.cur = s.cur; g.tossPill = s.tossPill; g.growT = null;
+  g.sparks = []; g.popups = []; g.confetti = [];
+  g.lens.forEach(l => { l.hurt = 0; l.poof = 0; l.gone = germCount(l.c) === 0; });
+  g.mode = "play"; showOverlay(null);
+  playMusic(opts.music);
+  if (g.grid.some(k => k && k.pop)) { g.phase = "pop"; g.timer = 0.3; }
+  else if (g.cur) { g.phase = "drop"; g.grav = 0; g.downLock = false; }
+  else if (s.phase === "fall") { g.phase = "fall"; g.timer = 0.1; }
+  else if (s.phase === "toss" && g.tossPill) { g.phase = "toss"; g.timer = 0.42; }
+  else resolve();
+}
+addEventListener("pagehide", saveGame);
 function landToss() {
   const [c1, c2] = g.tossPill;
   g.cur = { x: 3, y: 0, vert: false, c1, c2 };
@@ -392,6 +425,7 @@ function fallStep() {
 
 function gameOver() {
   g.mode = "over"; g.phase = "";
+  saveGame();
   playMusic("off"); jingle("over");
   setTimeout(() => {
     if (g.mode !== "over") return;
@@ -402,7 +436,10 @@ function gameOver() {
 function stageClear() {
   g.mode = "clear"; g.phase = "";
   g.lens.forEach(l => { if (!l.gone) { l.gone = true; l.poof = 0.8; } });
+  saveGame();
   playMusic("off"); jingle("clear");
+  // Poncho grows big and proud, and meows
+  g.growT = g.time; setTimeout(() => { if (g.mode === "clear") ponchoMeow(); }, 450);
   for (let i = 0; i < 60; i++) g.confetti.push({ x: BX + Math.random() * COLS * C, y: BY - 20 - Math.random() * 200, vy: 60 + Math.random() * 80, vx: (Math.random() - .5) * 40, c: rnd(3), r: Math.random() * 6, life: 4 });
   setTimeout(() => {
     if (g.mode !== "clear") return;
@@ -424,13 +461,15 @@ function keyUp(k) {
   input[k] = false;
   if (k === "down") g.downLock = false;
 }
-const KEYS = { ArrowLeft: "left", ArrowRight: "right", ArrowDown: "down", ArrowUp: "cw", x: "cw", X: "cw", z: "ccw", Z: "ccw", a: "left", A: "left", d: "right", D: "right", s: "down", S: "down" };
+const KEYS = { ArrowLeft: "left", ArrowRight: "right", ArrowDown: "down", ArrowUp: "cw", x: "cw", X: "cw", z: "ccw", Z: "ccw", a: "left", A: "left", d: "right", D: "right", s: "down", S: "down", " ": "cw" };
 addEventListener("keydown", e => {
   ensureAudio();
-  if (e.key.startsWith("Arrow") || e.key === " ") e.preventDefault();
+  if (e.key.startsWith("Arrow") || e.key === " " || e.key === "Enter") e.preventDefault();
   if (e.key === "p" || e.key === "P" || e.key === "Escape") { if (g.mode === "play") pause(); else if (g.mode === "pause") resume(); return; }
-  if (e.key === "Enter") {
-    if (g.mode === "menu") return $("btnStart").click();
+  // Space or Enter presses the main button of whatever is showing (Continue/Start, Next, Retry, Resume); in play, Space turns the pill
+  if (e.key === "Enter" || (e.key === " " && g.mode !== "play")) {
+    if (e.repeat) return;
+    if (g.mode === "menu") return (loadSave() ? $("btnContinue") : $("btnStart")).click();
     if (g.mode === "clear" && !$("ovClear").hidden) return $("btnNext").click();
     if (g.mode === "over" && !$("ovOver").hidden) return $("btnRetry").click();
     if (g.mode === "pause") return resume();
@@ -452,25 +491,35 @@ function showOverlay(id) { for (const o of ["ovMenu", "ovPause", "ovClear", "ovO
 function syncMenu() {
   $("lvVal").textContent = String(opts.level).padStart(2, "0");
   for (const b of $("segSpeed").children) b.classList.toggle("on", +b.dataset.v === opts.speed);
-  for (const b of $("segMusic").children) b.classList.toggle("on", b.dataset.v === opts.music);
+  $("muVal").textContent = musicLabel(opts.music);
+  const s = loadSave();
+  $("btnContinue").hidden = !s;
+  if (s) $("btnContinue").textContent = "Continue L" + String(s.level).padStart(2, "0");
+  $("btnStart").textContent = s ? "New game" : "Start";
+  $("btnStart").classList.toggle("big", !s);
 }
 $("lvDown").onclick = () => { opts.level = Math.max(0, opts.level - 1); saveOpts(); syncMenu(); sfx("move"); };
 $("lvUp").onclick = () => { opts.level = Math.min(20, opts.level + 1); saveOpts(); syncMenu(); sfx("move"); };
 $("segSpeed").onclick = e => { const v = e.target.dataset.v; if (v == null) return; opts.speed = +v; saveOpts(); syncMenu(); sfx("rotate"); };
-$("segMusic").onclick = e => { const v = e.target.dataset.v; if (v == null) return; opts.music = v; saveOpts(); syncMenu(); ensureAudio(); playMusic(v); };
+const stepMusic = d => {
+  const i = MUSIC_OPTS.indexOf(opts.music);
+  opts.music = MUSIC_OPTS[(Math.max(0, i) + d + MUSIC_OPTS.length) % MUSIC_OPTS.length];
+  saveOpts(); syncMenu(); ensureAudio(); playMusic(opts.music);
+};
+$("muDown").onclick = () => stepMusic(-1); $("muUp").onclick = () => stepMusic(1);
 $("btnStart").onclick = () => { ensureAudio(); startGame(); };
+$("btnContinue").onclick = () => { ensureAudio(); continueGame(); };
 $("btnNext").onclick = () => { g.level++; startLevel(); };
-$("btnRetry").onclick = () => startGame();
-const toMenu = () => { g.mode = "menu"; g.cur = null; g.phase = ""; playMusic("off"); syncMenu(); showOverlay("ovMenu"); };
+$("btnRetry").onclick = () => { g.score = 0; startLevel(); };   // try the same level again
+const toMenu = () => { saveGame(); g.mode = "menu"; g.cur = null; g.phase = ""; playMusic("off"); syncMenu(); showOverlay("ovMenu"); };
 $("btnMenu").onclick = toMenu; $("btnQuit").onclick = toMenu;
-function pause() { if (g.mode !== "play") return; g.mode = "pause"; if (musicBus) musicBus.gain.value = 0; showOverlay("ovPause"); }
+function pause() { if (g.mode !== "play") return; g.mode = "pause"; saveGame(); if (musicBus) musicBus.gain.value = 0; showOverlay("ovPause"); }
 function resume() { if (g.mode !== "pause") return; g.mode = "play"; if (musicBus) musicBus.gain.value = MUSIC_VOL; showOverlay(null); }
 $("btnPause").onclick = () => { $("btnPause").blur(); if (g.mode === "play") pause(); else if (g.mode === "pause") resume(); };
 $("btnResume").onclick = resume;
-syncMenu();
 
 // ---------- Sound ----------
-// Two original tracks in the spirit of the classic: "Catnip" (bouncy swing-funk) and "Nap" (laid-back jazz)
+// Six original tracks in the spirit of the classic. "Mix" picks one at random each level and moves on after three times through.
 let soundOn = true;
 try { soundOn = localStorage.getItem("ponchospills.sound") !== "off"; } catch (e) {}
 const MUSIC_VOL = 0.26;
@@ -506,7 +555,67 @@ const TRACKS = {
       70, _, 74, _, 72, 70, 69, 67,   65, _, _, _, _, _, _, _,
     ],
   },
+  zoomies: {
+    tempo: 168, swing: 0, lead: "square", leadVol: 0.1, leadLen: 0.75, bassWave: "triangle", bassVol: 0.55,
+    compWave: "square", compVol: 0.022, compLen: 0.3, comp: [1, 3, 5, 7], drumVol: 1,
+    roots: [43, 40, 48, 50, 43, 40, 45, 50],
+    bass: [0, 12, 0, 12, 0, 12, 7, 12],
+    chords: [[55, 59, 62], [52, 55, 59], [52, 55, 60], [54, 57, 62], [55, 59, 62], [52, 55, 59], [57, 60, 64], [54, 57, 62]],
+    kick: [1, 0, 0, 0, 1, 0, 0, 0], snare: [0, 0, 1, 0, 0, 0, 1, 0], hat: [1, 1, 1, 1, 1, 1, 1, 1],
+    melody: [
+      79, _, 78, 79, 74, _, 71, _,    76, _, 74, 76, 71, _, 67, _,
+      72, 74, 76, _, 79, _, 76, 74,   78, _, _, 74, _, _, 69, _,
+      71, 74, 79, 74, 71, 74, 79, _,  76, 79, 83, 79, 76, _, 74, _,
+      72, _, 76, _, 81, _, 79, 76,    78, _, 74, _, 79, _, _, _,
+    ],
+  },
+  hairball: {
+    tempo: 132, swing: 0.3, lead: "square", leadVol: 0.09, leadLen: 0.8, bassWave: "triangle", bassVol: 0.55,
+    compWave: "square", compVol: 0.02, compLen: 0.4, comp: [1, 5], drumVol: 0.9,
+    roots: [40, 40, 45, 40, 47, 45, 40, 47],
+    bass: [0, 4, 7, 9, 10, 9, 7, 4],
+    chords: [[52, 56, 59, 62], [52, 56, 59, 62], [57, 61, 64, 67], [52, 56, 59, 62], [54, 57, 59, 63], [57, 61, 64, 67], [52, 56, 59, 62], [54, 57, 59, 63]],
+    kick: [1, 0, 0, 0, 1, 0, 0, 0], snare: [0, 0, 1, 0, 0, 0, 1, 0], hat: [1, 0, 1, 1, 1, 0, 1, 1],
+    melody: [
+      76, _, 74, 76, _, 71, _, _,     74, _, 71, 69, 67, _, 64, _,
+      69, _, 73, 76, _, 73, _, 69,    67, _, 64, _, _, _, _, _,
+      71, _, 75, 78, _, 75, _, 71,    69, _, 73, 76, _, 73, 72, 69,
+      67, 64, 67, 69, 70, 71, _, _,   75, _, 74, _, 71, _, _, _,
+    ],
+  },
+  prowl: {
+    tempo: 120, swing: 0.1, lead: "square", leadVol: 0.08, leadLen: 1.1, bassWave: "triangle", bassVol: 0.6,
+    compWave: "triangle", compVol: 0.05, compLen: 1.8, comp: [0, 4], drumVol: 0.8,
+    roots: [38, 46, 43, 45, 38, 46, 43, 45],
+    bass: [0, null, 0, 12, null, 0, 7, null],
+    chords: [[50, 53, 57], [50, 53, 58], [50, 55, 58], [49, 52, 57], [50, 53, 57], [50, 53, 58], [50, 55, 58], [49, 52, 57]],
+    kick: [1, 0, 0, 0, 0, 1, 0, 0], snare: [0, 0, 1, 0, 0, 0, 1, 0], hat: [1, 0, 1, 0, 1, 0, 1, 1],
+    melody: [
+      74, _, 69, _, 74, _, 76, 77,    74, _, _, _, 70, _, _, _,
+      67, _, 70, 74, 72, _, 70, _,    69, _, _, 73, _, _, _, _,
+      62, 65, 69, 74, _, 72, 70, 69,  70, _, 74, _, 77, _, 74, _,
+      79, _, 77, _, 74, _, 70, _,     73, _, _, 76, _, _, 74, _,
+    ],
+  },
+  sunbeam: {
+    tempo: 112, swing: 0, lead: "triangle", leadVol: 0.3, leadLen: 1.5, bassWave: "sine", bassVol: 0.6,
+    compWave: "triangle", compVol: 0.045, compLen: 0.9, comp: [0, 3, 6], drumVol: 0.5,
+    roots: [36, 45, 38, 43, 40, 45, 38, 43],
+    bass: [0, null, null, 7, 7, null, 0, null],
+    chords: [[48, 52, 55, 59], [48, 52, 55, 57], [48, 50, 53, 57], [47, 50, 53, 55], [47, 50, 52, 55], [49, 52, 55, 57], [48, 50, 53, 57], [47, 50, 53, 55]],
+    kick: [1, 0, 0, 1, 0, 0, 0, 0], snare: [0, 0, 0, 1, 0, 0, 1, 0], hat: [1, 1, 1, 1, 1, 1, 1, 1],
+    melody: [
+      76, _, _, 74, 76, _, 79, _,     76, _, 72, _, _, _, 69, _,
+      74, _, _, 72, 74, _, 77, _,     74, _, 71, _, _, _, 67, _,
+      71, _, 74, _, 79, _, 78, 76,    73, _, _, _, 76, _, 79, _,
+      77, _, 76, 74, 72, _, 69, _,    71, _, _, 74, _, _, 79, _,
+    ],
+  },
 };
+const TRACK_NAMES = { catnip: "Catnip", nap: "Nap", zoomies: "Zoomies", hairball: "Hairball Blues", prowl: "Night Prowl", sunbeam: "Sunbeam" };
+const MUSIC_OPTS = ["mix", ...Object.keys(TRACK_NAMES), "off"];
+const musicLabel = v => v === "mix" ? "Mix" : v === "off" ? "Off" : TRACK_NAMES[v] || "Mix";
+let mixing = false, curName = null, songToast = null;
 
 function ensureAudio() {
   if (!soundOn) return;
@@ -565,15 +674,22 @@ function noise(start, dur, vol, filter, freq, bus) {
   s.connect(f); f.connect(gn); gn.connect(bus || master);
   s.start(start); s.stop(start + dur + 0.02);
 }
+const pickTrack = () => { const ks = Object.keys(TRACKS).filter(k => k !== curName); return ks[rnd(ks.length)]; };
+function setTrack(name) {
+  curName = TRACKS[name] ? name : null; curTrack = TRACKS[name] || null; stepIdx = 0;
+  if (curTrack) songToast = { text: "♪ " + TRACK_NAMES[name], t: g.time };
+}
 function playMusic(name) {
-  curTrack = TRACKS[name] || null; stepIdx = 0;
+  mixing = name === "mix";
+  setTrack(mixing ? pickTrack() : name);
   if (actx) { nextTime = actx.currentTime + 0.08; musicBus.gain.value = MUSIC_VOL; }
 }
 function schedule() {
   if (!actx || !curTrack || actx.state !== "running") return;
-  const T = curTrack, step = 60 / T.tempo / 2;
   if (nextTime < actx.currentTime - 0.1) nextTime = actx.currentTime + 0.05;
   while (nextTime < actx.currentTime + 0.2) {
+    if (mixing && stepIdx >= curTrack.melody.length * 3) setTrack(pickTrack());
+    const T = curTrack, step = 60 / T.tempo / 2;
     const i = stepIdx % T.melody.length, bar = Math.floor(i / 8), s = i % 8;
     const t = nextTime + (s % 2 ? step * T.swing : 0), dv = T.drumVol;
     const m = T.melody[i];
@@ -609,6 +725,33 @@ function sfx(name) {
     case "germ": tone(660, t, 0.18, "square", 0.12, null, 1320); tone(990, t + 0.08, 0.14, "square", 0.1); break;
     case "poof": [523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, t + 0.15 + i * 0.05, 0.1, "square", 0.08)); break;
   }
+}
+// Poncho's meow: lower and longer than Chestnut's, a tomcat's rolled "mrrr" opening into a big round "OWW"
+function ponchoMeow() {
+  if (!soundOn || !actx || actx.state !== "running") return;
+  const t0 = actx.currentTime + 0.01, dur = 0.9, p = 300 + Math.random() * 40, vol = 0.45;
+  const o = actx.createOscillator(); o.type = "sawtooth";
+  o.frequency.setValueAtTime(p * 0.8, t0);
+  o.frequency.linearRampToValueAtTime(p * 0.88, t0 + 0.2);
+  o.frequency.linearRampToValueAtTime(p * 1.45, t0 + 0.45);
+  o.frequency.exponentialRampToValueAtTime(p * 0.7, t0 + dur);
+  const vib = actx.createOscillator(), vg = actx.createGain(); vib.frequency.value = 4.5; vg.gain.value = p * 0.03;
+  vib.connect(vg); vg.connect(o.frequency);
+  const mouth = actx.createBiquadFilter(); mouth.type = "lowpass"; mouth.Q.value = 0.7;
+  mouth.frequency.setValueAtTime(350, t0); mouth.frequency.exponentialRampToValueAtTime(3200, t0 + 0.32);
+  const f1 = actx.createBiquadFilter(), f2 = actx.createBiquadFilter(), g1 = actx.createGain(), g2 = actx.createGain();
+  f1.type = f2.type = "bandpass"; f1.Q.value = 4; f2.Q.value = 6; g1.gain.value = 1.5; g2.gain.value = 0.6;
+  f1.frequency.setValueAtTime(450, t0); f1.frequency.linearRampToValueAtTime(900, t0 + 0.45); f1.frequency.linearRampToValueAtTime(520, t0 + dur);
+  f2.frequency.setValueAtTime(1000, t0); f2.frequency.linearRampToValueAtTime(1500, t0 + 0.45); f2.frequency.linearRampToValueAtTime(850, t0 + dur);
+  const env = actx.createGain();
+  env.gain.setValueAtTime(0, t0); env.gain.linearRampToValueAtTime(vol, t0 + 0.05);
+  env.gain.setValueAtTime(vol, t0 + dur * 0.6); env.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+  // the rolled "rrr": a 30 Hz flutter over the first part
+  const am = actx.createOscillator(), ag = actx.createGain(); am.frequency.value = 30;
+  ag.gain.setValueAtTime(vol * 0.9, t0); ag.gain.linearRampToValueAtTime(0, t0 + 0.28);
+  am.connect(ag); ag.connect(env.gain); am.start(t0); am.stop(t0 + 0.3);
+  o.connect(mouth); mouth.connect(f1); mouth.connect(f2); f1.connect(g1); f2.connect(g2); g1.connect(env); g2.connect(env); env.connect(master);
+  o.start(t0); vib.start(t0); o.stop(t0 + dur + 0.05); vib.stop(t0 + dur + 0.05);
 }
 function setSound(on) {
   soundOn = on;
@@ -815,8 +958,12 @@ function drawPoncho() {
   ctx.fillStyle = "#7a5434"; rr(PX - 82, PY, 154, 10, [3, 3, 3, 3]); ctx.fill();
   ctx.fillStyle = "#4a311d"; ctx.fillRect(PX - 76, PY + 10, 142, 4);
   ctx.save();
-  const hop = happy ? -Math.abs(Math.sin(t * 7)) * 12 : 0;
-  ctx.translate(PX, PY + hop); ctx.scale(2, 2);
+  // on a win he swells up big and proud, then breathes in and out
+  const grow = happy && g.growT != null ? Math.min(1, (t - g.growT) / 0.7) : 0, ease = 1 - Math.pow(1 - grow, 3);
+  const sc = 2 + ease * 0.9 + (grow >= 1 ? Math.sin(t * 4) * 0.05 : 0);
+  const meowing = happy && g.growT != null && t - g.growT > 0.45 && t - g.growT < 1.35;
+  const hop = happy ? -Math.abs(Math.sin(t * 7)) * 12 * (1 - ease * 0.7) : 0;
+  ctx.translate(PX, PY + hop); ctx.scale(sc, sc);
   const fur = "#1c1b24", furHi = "#34323f";
   ell(0, 0, 18, 3, "rgba(0,0,0,.3)");
   // tail
@@ -886,14 +1033,15 @@ function drawPoncho() {
   }
   ctx.fillStyle = "#e58fa6";
   ctx.beginPath(); ctx.moveTo(hx - 2, hy + 5); ctx.lineTo(hx + 2, hy + 5); ctx.lineTo(hx, hy + 7); ctx.closePath(); ctx.fill();
-  if (happy) ell(hx, hy + 9, 2.4, 1.8, "#e58fa6");
+  if (meowing) { ell(hx, hy + 9.5, 3.2, 3.6, "#3a0f1c"); ell(hx, hy + 11, 2, 1.4, "#e58fa6"); }
+  else if (happy) ell(hx, hy + 9, 2.4, 1.8, "#e58fa6");
   ctx.strokeStyle = "rgba(255,255,255,.75)"; ctx.lineWidth = 0.8;
   for (const s of [-1, 1]) for (const k of [-1.5, 1.5]) {
     ctx.beginPath(); ctx.moveTo(hx + s * 4, hy + 6); ctx.lineTo(hx + s * 15, hy + 5 + k * 2); ctx.stroke();
   }
   ctx.restore();
   // the pill in his paw is the next one
-  const wx = PX + paw.x * 2, wy = PY + hop + paw.y * 2;
+  const wx = PX + paw.x * sc, wy = PY + hop + paw.y * sc;
   if (g.mode === "play" && tossing < 0) drawCapsule(wx, wy - 4, -0.25, g.next[0], g.next[1], 20);
   else if (g.mode === "play" && tossing > 0.6) drawCapsule(wx, wy - 4, -0.25, g.next[0], g.next[1], 20 * Math.min(1, (tossing - 0.6) * 3));
 }
@@ -954,6 +1102,11 @@ function draw() {
   drawStats();
   drawPoncho();
   drawTossed();
+  if (songToast && g.time - songToast.t < 2.5 && g.mode !== "menu") {
+    ctx.globalAlpha = Math.min(1, (2.5 - (g.time - songToast.t)) * 2);
+    text(songToast.text, W - 10, 10, 8, "#ffd166", "right");
+    ctx.globalAlpha = 1;
+  }
   for (const s of g.sparks) { ctx.globalAlpha = Math.max(0, s.life * 2); circle(s.x, s.y, 2.5, COL[s.c].light); }
   ctx.globalAlpha = 1;
   for (const p of g.popups) { ctx.globalAlpha = Math.min(1, p.life * 2); text(p.text, p.x, p.y, 8, "#fff", "center"); }
@@ -970,6 +1123,8 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+
+syncMenu();
 
 // For testing in the console
 window.__pp = {
