@@ -46,6 +46,12 @@ h1 { font-family: var(--font-display); font-weight: 700; font-size: 1.6rem; marg
   background: rgba(18, 12, 34, .86); border: 2px solid var(--gold); border-radius: 10px; padding: 12px 22px; opacity: 0; }
 .roomBanner b { display: block; font: 700 clamp(1.3rem, 5vmin, 2.4rem)/1.1 var(--font-display); color: var(--gold); text-shadow: 3px 3px 0 #7a2140; letter-spacing: .05em; }
 .roomBanner span { display: block; margin-top: 6px; font: clamp(.75rem, 2.4vmin, 1.1rem)/1.2 var(--font-display); color: var(--fg); letter-spacing: .06em; text-transform: uppercase; }
+.stuck { position: absolute; left: 50%; bottom: 6%; transform: translateX(-50%); z-index: 4; width: min(84%, 380px); text-align: center;
+  background: rgba(20, 8, 30, .92); border: 3px solid var(--gold); padding: 10px 12px; box-shadow: 0 6px 0 rgba(0,0,0,.4); animation: stuckIn .35s ease; }
+.stuck[hidden] { display: none; }
+.stuck b { display: block; font: 700 clamp(1rem, 4vmin, 1.6rem)/1.1 var(--font-display); color: var(--gold); text-shadow: 2px 2px 0 #7a2140; letter-spacing: .05em; }
+.stuck span { display: block; margin: 6px 0 10px; font-size: clamp(.8rem, 2.6vmin, 1rem); color: var(--fg); line-height: 1.3; }
+@keyframes stuckIn { from { opacity: 0; transform: translate(-50%, 20px); } to { opacity: 1; transform: translate(-50%, 0); } }
 .roomBanner.show { animation: roomBanner 2s ease forwards; }
 @keyframes roomBanner { 0% { opacity: 0; transform: translate(-50%, -40%); } 12%, 72% { opacity: 1; transform: translate(-50%, -50%); } 100% { opacity: 0; transform: translate(-50%, -55%); } }
 .hud { width: 100%; display: flex; gap: 8px; flex-wrap: wrap; }
@@ -306,6 +312,7 @@ canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; 
   <div class="stage">
     <canvas id="cv" width="624" height="624" aria-label="Game board"></canvas>
     <div class="roomBanner" id="roomBanner" aria-hidden="true"><b></b><span></span></div>
+    <div class="stuck" id="stuck" role="alert" hidden><b>Stuck!</b><span>A block has moved where this room can't be solved any more.</span><button class="btn primary" id="btnStuckRetry" type="button">Retry room (R)</button></div>
     <div class="overlay" id="ovMenu">
       <div class="card">
         <div class="cardHead"><h2>Level Select</h2><button class="btn" id="btnClose" type="button">Back to room</button></div>
@@ -324,7 +331,8 @@ canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; 
         <div class="levels" id="levelGrid"></div>
         <h3>How to play</h3>
         <p>Poncho the cat must cross the keep's rooms. In each room, collect every Heart Framer to open the chest, take the jewel, and leave through the door that opens at the top.</p>
-        <p class="small">Push green Emerald Framers to block gazes. Gold-framed purple hearts give 2 magic shots: hit a monster to turn it into an egg, hit the egg to send it away for a while. Eggs can be pushed, and they float on water. Trees stop your feet but not shots or stares. Later rooms add grey hearts that give a Hammer for breaking one rock, teal hearts that give a Bridge for crossing one water or lava tile (press X), plus sand that slows you, grass that monsters cannot enter, and river currents that carry eggs. In the castle, orange hearts give an Arrow power that turns a one-way arrow around, monsters you blast away come back on glowing runes, and bosses take several magic shots.</p>
+        <p class="small">Push green Emerald Framers to block gazes. Gold-framed purple hearts give 2 magic shots: hit a monster to turn it into an egg, hit the egg to send it away for a while. Eggs can be pushed, and they float on water. Trees stop your feet but not shots or stares. Later rooms add grey hearts that give a Hammer for breaking one rock, teal hearts that give a Bridge for crossing one water or lava tile (press X), plus sand that slows you, grass that monsters cannot enter, and river currents that carry eggs. In the castle, orange hearts give an Arrow power that turns a one-way arrow around, and bosses take several magic shots.</p>
+        <p class="small">Most rooms are puzzles: think before you push, because a framer in the wrong spot can't always be pulled back. If a push leaves the room impossible to finish, a <b>Stuck!</b> card tells you so you can retry.</p>
       </div>
     </div>
     <div class="overlay" id="ovIntro" hidden>
@@ -494,101 +502,69 @@ const LEVELS = [
       "W.....h.....W",
       "W.....L.....W",
       "WWWWWWWWWWWWW"] },
-  { name: "The Keep",
-    hint: "Medusa watches the bridge and Don Medusa patrols the hall by the chest. Framers in the right places shut both of them out.",
+  { name: "Side Step",
+    hint: "Opening moves: push the middle-right framer left 2 squares, then push that framer down.",
     map: [
-      "WWWWWWDWWWWWW",
-      "WRRRRRCRRRRRW",
-      "WO..........W",
-      "WRRRRE.RRRRRW",
-      "W.h...R...h.W",
-      "W...........W",
-      "W~~~~~H~~~~~W",
-      "W...........W",
-      "W.h.E.....h.W",
-      "W.RRRRMRRRR.W",
-      "W.........h.W",
-      "W.L.........W",
+      "WWWDWWWWWWWWW",
+      "W..C........W",
+      "W.R...LR....W",
+      "W...R....R..W",
+      "W.R.R....R..W",
+      "WTR...R...R.W",
+      "W..TT.T..T..W",
+      "W....T.T.hE.W",
+      "WR..E......RW",
+      "W........R.hW",
+      "W.TT.....hR.W",
+      "W.R..M......W",
       "WWWWWWWWWWWWW"] },
-  { name: "Pushing Through",
-    hint: "Two framers plug the way to the chest. Pushing the wrong one the wrong way seals it for good.",
+  { name: "Crossfire",
+    hint: "Opening moves: push the centre framer down 3 squares, then push the top-left framer left.",
+    map: [
+      "WWWWWWWWDWWWW",
+      "W.......C...W",
+      "WR.E.R.R....W",
+      "W.....RRRR..W",
+      "Wh..R...Th..W",
+      "W...R.E..h..W",
+      "WM..R...R.RTW",
+      "W.....L.R...W",
+      "W....h.....MW",
+      "W....RR...T.W",
+      "W....RTR...TW",
+      "WT..........W",
+      "WWWWWWWWWWWWW"] },
+  { name: "Sleeping Gol",
+    hint: "Gol wakes when the last heart is taken, so plan the last heart around its fire. Opening moves: push the centre framer right, then push the middle-right framer left.",
+    map: [
+      "WWWWWWWDWWWWW",
+      "W......C....W",
+      "W.......T..GW",
+      "W.R.h...T...W",
+      "W.R...T...R.W",
+      "W.RR.T...RhhW",
+      "W...RLRR.E.RW",
+      "W.R..h..E.R.W",
+      "W.T.T.R..T.MW",
+      "W.....T.R...W",
+      "W..R........W",
+      "W...........W",
+      "WWWWWWWWWWWWW"] },
+  { name: "Three Blocks",
+    hint: "Opening moves: push the top-right framer up, then push the middle-right framer up 4 squares.",
     map: [
       "WWWWWWDWWWWWW",
       "W.....C.....W",
-      "WTTTTT.TTTTTW",
-      "W.h...E.....W",
-      "W.....E...h.W",
-      "W.TTTT.TTTT.W",
-      "W...........W",
-      "W.h.s...s.h.W",
-      "W...........W",
-      "W.TTTTTTTTT.W",
-      "W.h.......h.W",
-      "W.....L.....W",
-      "WWWWWWWWWWWWW"] },
-  { name: "Twin Medusas",
-    hint: "Two Medusas stare down the same row. You need a framer on each side before you can cross.",
-    map: [
-      "WWWWWWDWWWWWW",
-      "W..h..C..h..W",
-      "W...........W",
-      "WM.........MW",
-      "WR..E...E..RW",
-      "W...........W",
-      "W...........W",
-      "W..h.....h..W",
-      "W...........W",
-      "W.....h.....W",
-      "W...........W",
-      "W.....L.....W",
-      "WWWWWWWWWWWWW"] },
-  { name: "Two Rivers",
-    hint: "Two rivers, two Snakeys, two shots. Each Snakey becomes the raft for its own river.",
-    map: [
-      "WWWWWWDWWWWWW",
-      "W.h...C...h.W",
-      "W...........W",
-      "W~~~~~~~~~~~W",
-      "W.....s.....W",
-      "W.........h.W",
-      "W~~~~~~~~~~~W",
-      "W.....s.....W",
-      "W...........W",
-      "W.m.......h.W",
-      "W...........W",
-      "W.....L.....W",
-      "WWWWWWWWWWWWW"] },
-  { name: "Pushy Pillow",
-    hint: "No framer this time. Let the Leeper fall asleep on you, then push it into Medusa's line.",
-    map: [
-      "WWWWWWDWWWWWW",
-      "W..h..C..h..W",
-      "W...........W",
-      "W.T.......T.W",
-      "WRRRRR.RRRRRW",
-      "WM..........W",
-      "WR..........W",
-      "W...........W",
-      "W.......p...W",
-      "W..h.....h..W",
-      "W...........W",
-      "W.....L.....W",
-      "WWWWWWWWWWWWW"] },
-  { name: "Fire Lane",
-    hint: "The chest is below Gol's lane and the hearts are above it. Block the lane before the last heart wakes Gol.",
-    map: [
-      "WWWWWWDWWWWWW",
-      "W..h.....h..W",
-      "W...........W",
-      "W.h..TTT..h.W",
-      "W...........W",
-      "WRRRRR.RRRRRW",
-      "WG..........W",
-      "WRR.RRRR.RRRW",
-      "W..E........W",
-      "W...........W",
-      "W.....C.....W",
-      "W.....L.....W",
+      "W..M..T....TW",
+      "W....R..RhETW",
+      "W....T......W",
+      "WR....TR....W",
+      "W.....h..E..W",
+      "W..RTh..R...W",
+      "WT.R.h..TTEMW",
+      "W.RR........W",
+      "W.....T...L.W",
+      "WT...TR....TW",
       "WWWWWWWWWWWWW"] },
   { name: "Skull Guard",
     hint: "Two Skulls sit beside the chest. Egg them, blast the eggs away, then grab the last heart and run before they return.",
@@ -606,101 +582,53 @@ const LEVELS = [
       "W...........W",
       "W.....L.....W",
       "WWWWWWWWWWWWW"] },
-  { name: "Vertical Watch",
-    hint: "Don Medusa paces the middle column. Shove a framer into the column while it is at the top, and it stays trapped there.",
+  { name: "Statue Garden",
+    hint: "With no magic hearts here, Snakeys are just statues, and they block Medusa's view like a framer. Opening moves: push the middle-left framer down, then push that framer right 4 squares.",
     map: [
-      "WWWWWWWWWWDWW",
-      "W.h..RQR..C.W",
+      "WWWWWWWWDWWWW",
+      "W.......C...W",
+      "W.....MR....W",
       "W....R.R....W",
-      "W..E.......hW",
+      "W.R.......RTW",
+      "W..T.R...R..W",
+      "W.E.R..TR...W",
+      "W...hh..R...W",
+      "WEh......R..W",
+      "WTs...s.....W",
+      "W..h.....T..W",
+      "WR..L....R.MW",
+      "WWWWWWWWWWWWW"] },
+  { name: "Wrong Way",
+    hint: "Opening moves: push the bottom framer up 6 squares, then push that framer right 2 squares.",
+    map: [
+      "WWWWWWWDWWWWW",
+      "W......C....W",
+      "WT...T..RRM.W",
+      "W.RTR.T.R...W",
+      "W.>..TT..h..W",
+      "WT....R.hR..W",
       "W....R.R....W",
-      "W.h..R.R..h.W",
-      "W....R.R....W",
-      "W....R.R....W",
-      "W....R.R....W",
-      "W...........W",
-      "W....R.R..h.W",
-      "W.L..R.R....W",
+      "W.RT.T...Th.W",
+      "W.vRT..R....W",
+      "W.ER.RT..L..W",
+      "W....T<.E..TW",
+      "W.TT<...hT..W",
       "WWWWWWWWWWWWW"] },
-  { name: "Rolling Halls",
-    hint: "Two Almas will roll down the hall. Grab both magic hearts first and hold the bottom of the hall.",
+  { name: "Gol Corridor",
+    hint: "Gol wakes when the last heart is taken, so plan the last heart around its fire. Opening moves: push the centre framer left 5 squares, then push the left one of the top-left framers left.",
     map: [
-      "WWWWWWDWWWWWW",
-      "W.h...C...h.W",
-      "W....a.a....W",
-      "WRRRRR.RRRRRW",
-      "WRRRRR.RRRRRW",
-      "WRRRRR.RRRRRW",
-      "W...........W",
-      "W.h.......h.W",
-      "W...........W",
-      "W....m.m....W",
-      "W...........W",
-      "W.....L.....W",
-      "WWWWWWWWWWWWW"] },
-  { name: "Sleeper Shield",
-    hint: "A sleeping Leeper stops fireballs too. Push it into Gol's lane before you take the last heart.",
-    map: [
-      "WWWWWWDWWWWWW",
-      "W.h.......h.W",
-      "W...........W",
-      "W....h.h....W",
-      "W...........W",
-      "WRRRRR.RRRRRW",
-      "WG..........W",
-      "WRR.RR.RRRRRW",
-      "W...........W",
-      "W.p.........W",
-      "W.....C.....W",
-      "W.....L.....W",
-      "WWWWWWWWWWWWW"] },
-  { name: "Crate Shuffle",
-    hint: "Four framers guard the chest. Only one push opens the way; most of the others jam it shut.",
-    map: [
-      "WWWWWWDWWWWWW",
-      "WRRRRRCRRRRRW",
-      "WRRRR.E.RRRRW",
-      "WRRRR.E.RRRRW",
-      "W.h..E.E..h.W",
-      "W...........W",
-      "W.TT.....TT.W",
-      "W.h..s.s..h.W",
-      "W...........W",
-      "W.TT.....TT.W",
-      "W.h.......h.W",
-      "W.....L.....W",
-      "WWWWWWWWWWWWW"] },
-  { name: "Watched Waters",
-    hint: "To make the raft you must stand in Medusa's row. Shield yourself first.",
-    map: [
-      "WWWWWWDWWWWWW",
-      "W.h...C...h.W",
-      "W...........W",
-      "W...........W",
-      "W~~~~~~~~~~~W",
-      "WR..........W",
-      "WM....s.....W",
-      "WR..........W",
-      "W..E.....m..W",
-      "W.h.......h.W",
-      "W...........W",
-      "W.....L.....W",
-      "WWWWWWWWWWWWW"] },
-  { name: "Gaze Maze",
-    hint: "Three Medusas and a maze of rocks. There is always a safe path; find it before you step.",
-    map: [
-      "WWWWWWDWWWWWW",
-      "W..h.RCR.h..W",
-      "WM.R.R.R....W",
-      "WRR......R.RW",
-      "W...R..hR...W",
-      "W.R.R.R.R.R.W",
-      "W.R...M.R...W",
-      "W.RRR.R.R.R.W",
-      "W.h.R...R.hRW",
-      "WR...R.R.R.MW",
-      "W..R.....R.RW",
-      "W.h...L...h.W",
+      "WWWDWWWWWWWWW",
+      "W..C........W",
+      "W..T........W",
+      "WR.ERRR.....W",
+      "W.Eh...TRR..W",
+      "W..........GW",
+      "W.......E...W",
+      "WM....R....RW",
+      "W..hTRRRL...W",
+      "W..T...h....W",
+      "W....RT.T...W",
+      "W.hG.....RM.W",
       "WWWWWWWWWWWWW"] },
   { name: "Shooting Gallery",
     hint: "Three Snakeys plug the gaps and Medusa guards the hall beyond. A Snakey is a fine shield, even as an egg.",
@@ -718,21 +646,37 @@ const LEVELS = [
       "W...........W",
       "W.....L.....W",
       "WWWWWWWWWWWWW"] },
-  { name: "Four Gols",
-    hint: "Gols cover every side of the chest. Close one side with the framer, and take the last heart far from their lines.",
+  { name: "Triple Stare",
+    hint: "Opening moves: push the left one of the centre framers left, then push that framer down 2 squares.",
     map: [
       "WWWWWWDWWWWWW",
-      "W.....G.....W",
-      "W.h.......h.W",
-      "W..T.....T..W",
-      "W...........W",
-      "W...........W",
-      "WG....C....GW",
-      "W..E........W",
-      "W...........W",
-      "W..T.....T..W",
-      "W.h.......h.W",
-      "W.L...G.....W",
+      "W.....C.....W",
+      "W..MR..T....W",
+      "W..R.......MW",
+      "W...T..T.h..W",
+      "Wh..TRR.E.R.W",
+      "W.....R.....W",
+      "W..T..ELR...W",
+      "WR.h......hRW",
+      "WE.....RTR..W",
+      "W.TTR....h..W",
+      "W.....RT..M.W",
+      "WWWWWWWWWWWWW"] },
+  { name: "Fire and Stone",
+    hint: "Gol wakes when the last heart is taken, so plan the last heart around its fire. Opening moves: push the bottom-left framer up 7 squares, then push the middle-right framer right.",
+    map: [
+      "WWWWDWWWWWWWW",
+      "W...C.......W",
+      "W..M.ET.....W",
+      "WM....T.T...W",
+      "W..RTR.T...RW",
+      "W...R.R.TR..W",
+      "W....hR..E..W",
+      "WG.ThTTT.h..W",
+      "W.L..R....R.W",
+      "W..T..RTRT..W",
+      "W.E..hTR.RT.W",
+      "W.....h.....W",
       "WWWWWWWWWWWWW"] },
   { name: "Island Hopping",
     hint: "A river splits the room in two and another guards the chest. Each Snakey is one raft.",
@@ -750,103 +694,103 @@ const LEVELS = [
       "W.....~.....W",
       "W..L..~.....W",
       "WWWWWWWWWWWWW"] },
-  { name: "Skull Bridge",
-    hint: "Skulls can't swim. Have your raft ready before the last heart wakes them.",
+  { name: "Turnstiles",
+    hint: "Opening moves: push the centre framer left, then push that framer down 3 squares.",
     map: [
-      "WWWWWWDWWWWWW",
-      "W.....C.....W",
-      "W.T.T...T.T.W",
-      "W...........W",
-      "W~~~~~~~~~~~W",
-      "W.....s.....W",
-      "W...........W",
-      "W.K.......K.W",
-      "W...........W",
-      "W.h..m....h.W",
-      "W...........W",
-      "W.....L.....W",
+      "WWWWWDWWWWWWW",
+      "W....C......W",
+      "W..R.E..T...W",
+      "W>.T.RT..h.MW",
+      "W<...<T.T...W",
+      "W.RhR..R....W",
+      "WR.TLv.R.v.RW",
+      "W.....Eh..E.W",
+      "WT...>.R.R..W",
+      "W.....R....TW",
+      "W..R...h....W",
+      "W.R......M..W",
       "WWWWWWWWWWWWW"] },
-  { name: "Medusa Square",
-    hint: "Medusa in the middle splits the room into four. Three framers, three crossings.",
+  { name: "Corner Pocket",
+    hint: "Opening moves: push the bottom framer left 4 squares, then push that framer up 2 squares.",
     map: [
-      "WWWWWWDWWWWWW",
-      "WM...RCR...MW",
-      "W...........W",
-      "W..h.....h..W",
-      "W.......E...W",
-      "W...........W",
-      "W.....M.....W",
-      "W...........W",
-      "W..E.....E..W",
-      "W..h.....h..W",
-      "W...........W",
-      "W..L........W",
+      "WWWWWDWWWWWWW",
+      "W....C......W",
+      "W..R.....R..W",
+      "W....RRRR...W",
+      "W.........R.W",
+      "WEhR.RT.....W",
+      "W....RRR.R..W",
+      "WM.T.T.T...MW",
+      "W.....R.h..TW",
+      "W.R...h.ELh.W",
+      "WTR...R..ER.W",
+      "W...hT.T....W",
       "WWWWWWWWWWWWW"] },
-  { name: "Gol Gauntlet",
-    hint: "The hearts are all above the Gols' row and the chest is below it. Turn the Snakeys into a wall first.",
+  { name: "Stone Snakes",
+    hint: "With no magic hearts here, Snakeys are just statues, and they block Medusa's view like a framer. Opening moves: push the bottom framer left 3 squares, then push the bottom-left framer up.",
     map: [
-      "WWWWWWDWWWWWW",
-      "W.h.......h.W",
-      "W.....m.....W",
-      "W...h...h...W",
-      "W...........W",
-      "WG.........GW",
-      "WR.s.....s.RW",
-      "W...........W",
-      "W...........W",
-      "W.....C.....W",
-      "W...........W",
-      "W.....L.....W",
+      "WWWWWWWWWWDWW",
+      "W.........C.W",
+      "W......R....W",
+      "W..s......L.W",
+      "W...RT......W",
+      "W.s..R.h...MW",
+      "W.R......T..W",
+      "WT.R...Rh.R.W",
+      "W.R..hT.hRR.W",
+      "W...E..hT..EW",
+      "WR....E....TW",
+      "W..MT...TRT.W",
       "WWWWWWWWWWWWW"] },
-  { name: "One-Way Islands",
-    hint: "Each island has one way in and one way out. Clear each exit without blocking the other island's entrance.",
+  { name: "Twin Furnaces",
+    hint: "Gol wakes when the last heart is taken, so plan the last heart around its fire. Opening moves: push the middle-left framer up, then push that framer right 4 squares.",
     map: [
-      "WWWWWWDWWWWWW",
-      "W.h...C...h.W",
+      "WWWWDWWWWWWWW",
+      "W...C.......W",
+      "WhR.h.GRM...W",
+      "W.R........GW",
+      "W.....hR....W",
+      "WTERR.......W",
+      "WR.T...ThTR.W",
+      "W....R.R....W",
+      "W..hL.......W",
       "W...........W",
-      "W...........W",
-      "WRRvRRRRR^RRW",
-      "WR...R.R.E.RW",
-      "WR.hE>.>.h.RW",
-      "WR...R.R...RW",
-      "WRRRRR.RRRRRW",
-      "W...........W",
-      "W.h.......h.W",
-      "W.....L.....W",
+      "W.........R.W",
+      "W...R.ER.E..W",
       "WWWWWWWWWWWWW"] },
-  { name: "Grand Keep",
-    hint: "Everything you have learned: a Leeper to push, a Medusa to block, a raft to build and Skulls to outrun.",
+  { name: "Arrow Court",
+    hint: "Opening moves: push the middle-right framer up 2 squares, then push the bottom framer down.",
     map: [
-      "WWWWWWDWWWWWW",
-      "W..K..C..K..W",
-      "W.h.......h.W",
-      "W~~~~~~~~~~~W",
-      "WR..........W",
-      "WM....s.....W",
-      "WR..........W",
-      "W...........W",
-      "W.h.......h.W",
-      "W.....p.....W",
-      "W..m........W",
-      "W.....L.....W",
+      "WWWWWDWWWWWWW",
+      "W....C......W",
+      "W....RR..RM.W",
+      "W.RTR.R.RTR.W",
+      "W.E.<.<.R...W",
+      "WM.R........W",
+      "W..h....T...W",
+      "W...hRhTh.REW",
+      "W.R...R.E.R.W",
+      "W.R.TR....R.W",
+      "W...h....RL.W",
+      "W.TMT.>.T...W",
       "WWWWWWWWWWWWW"] },
-  { name: "Under the Gaze", part: "The Tower",
-    hint: "Two Medusas stare straight down from the top wall. Slide a framer under each one before you go near their columns.",
+  { name: "Four Corners",
+    hint: "Opening moves: push the left one of the bottom framers left 2 squares, then push that framer up 3 squares.",
     map: [
-      "WWWWWWDWWWWWW",
-      "W.M..RCR..M.W",
-      "W...........W",
-      "W...........W",
-      "W..E.....E..W",
-      "W...........W",
-      "W...T...T...W",
-      "W.h.......h.W",
-      "W...........W",
-      "W....h.h....W",
-      "W...........W",
-      "W.....L.....W",
+      "WWDWWWWWWWWWW",
+      "W.C.........W",
+      "W....MR...h.W",
+      "W.h......RT.W",
+      "W.Rh..T.....W",
+      "W.RhTRR.T...W",
+      "WR..L..RT...W",
+      "W.....R....MW",
+      "WT.Rh.......W",
+      "W..R..E.R.E.W",
+      "WT....R..E..W",
+      "W....TE.M...W",
       "WWWWWWWWWWWWW"] },
-  { name: "Hammer Time",
+  { name: "Hammer Time", part: "The Tower",
     hint: "The grey heart gives you a Hammer. Press X to smash the rock in front of you, but pick a rock that keeps Medusa's view blocked.",
     map: [
       "WWWWWWDWWWWWW",
@@ -861,6 +805,22 @@ const LEVELS = [
       "W...TTTTT...W",
       "W...........W",
       "W.....L.....W",
+      "WWWWWWWWWWWWW"] },
+  { name: "Rubble Run",
+    hint: "The grey heart is a Hammer: press X facing a rock to smash it. Opening moves: push the bottom-right framer down 2 squares, then push that framer left 3 squares.",
+    map: [
+      "WWWWDWWWWWWWW",
+      "W...C.......W",
+      "W.M.R.......W",
+      "W.R.......T.W",
+      "W.TR.....RT.W",
+      "W.R..T.T..R.W",
+      "WRER.hT..RLRW",
+      "W.......T...W",
+      "WRR....h.ERRW",
+      "W.T.RR.Rk.ThW",
+      "W..R........W",
+      "W...MT.h....W",
       "WWWWWWWWWWWWW"] },
   { name: "Bridge Builder",
     hint: "The teal heart gives one Bridge. Lay it over the river, then push the framer across it to shield yourself from Medusa.",
@@ -878,6 +838,38 @@ const LEVELS = [
       "W...........W",
       "W.....L.....W",
       "WWWWWWWWWWWWW"] },
+  { name: "Over the River",
+    hint: "Each teal heart is a Bridge for one square of water or lava. Framers can roll over bridges too. Opening moves: push the middle-right framer left 3 squares, then push that framer up 3 squares.",
+    map: [
+      "WWWWWWWWWDWWW",
+      "W........C..W",
+      "WM....R.....W",
+      "WRR.......TRW",
+      "W...ETT....TW",
+      "W~~~~~~~~~~~W",
+      "W.L....h..E.W",
+      "W...R...R.R.W",
+      "WR.T..R..R.hW",
+      "W..h..R...b.W",
+      "WM..........W",
+      "W.Rh.....R..W",
+      "WWWWWWWWWWWWW"] },
+  { name: "Watchtower",
+    hint: "Gol wakes when the last heart is taken, so plan the last heart around its fire. Opening moves: push the top-left framer right 3 squares, then push that framer down 6 squares.",
+    map: [
+      "WWDWWWWWWWWWW",
+      "W.C.........W",
+      "W.RT...G....W",
+      "W.Eh........W",
+      "W...R...R..MW",
+      "W...R.T..Eh.W",
+      "W.h...R....hW",
+      "W..T..ThT...W",
+      "WR.T.L.T...TW",
+      "W...........W",
+      "WT.....T....W",
+      "W.RETR.MT...W",
+      "WWWWWWWWWWWWW"] },
   { name: "River Ride",
     hint: "The river flows north. Push an egg into the current and hop on before it drifts away.",
     map: [
@@ -894,37 +886,21 @@ const LEVELS = [
       "W.h.......8RW",
       "W.....L...8RW",
       "WWWWWWWWWWWWW"] },
-  { name: "Skull Pen",
-    hint: "Skulls wake when the last heart is taken. Seal them in their alcoves with framers first.",
+  { name: "Quarry",
+    hint: "The grey heart is a Hammer: press X facing a rock to smash it. Opening moves: push the bottom-left framer right, then push the middle-right framer up.",
     map: [
-      "WWWWWWDWWWWWW",
-      "W.....C.....W",
-      "W...........W",
-      "W.RRR...RRR.W",
-      "W.RKR...RKR.W",
-      "W...........W",
-      "W..E.....E..W",
-      "W...........W",
-      "W.h..h.h..h.W",
-      "W...........W",
-      "W.h.......h.W",
-      "W.....L.....W",
-      "WWWWWWWWWWWWW"] },
-  { name: "Sleepy Sentries",
-    hint: "Leepers can't cross grass. Stand below each Leeper so it walks down its Medusa's column and falls asleep there.",
-    map: [
-      "WWWWWWDWWWWWW",
-      "WR.M.RCR.M.RW",
-      "W.....g.....W",
-      "W.....g.....W",
-      "W..p..g..p..W",
-      "W.....g.....W",
-      "W.....g.....W",
-      "W.h...g...h.W",
-      "W.....g.....W",
-      "W..h..g..h..W",
-      "W.....g.....W",
-      "W....Lg.....W",
+      "WWDWWWWWWWWWW",
+      "W.C.........W",
+      "WM..R.RR...hW",
+      "W..E.T......W",
+      "W.RT.T.T...MW",
+      "W.R.RR.R.RE.W",
+      "W....R.R..R.W",
+      "WTRkRh..h.T.W",
+      "WR.E.RRR..h.W",
+      "W.....LT.R..W",
+      "WR.RR...R..RW",
+      "W.k......T..W",
       "WWWWWWWWWWWWW"] },
   { name: "Rocky Road",
     hint: "Rocky charges whenever he sees you and boxes you in, but he can't walk on grass.",
@@ -942,21 +918,37 @@ const LEVELS = [
       "W...........W",
       "W.h...L...h.W",
       "WWWWWWWWWWWWW"] },
-  { name: "Sand Trap",
-    hint: "Sand slows you down but not the Skulls. Take the last heart close to the chest.",
+  { name: "About Face",
+    hint: "The orange heart turns one arrow around (press X facing it). Opening moves: push the middle-right framer down, then push that framer left 8 squares.",
     map: [
-      "WWWWWWDWWWWWW",
-      "W.....C.....W",
+      "WWWWWWWWDWWWW",
+      "W.......C...W",
+      "W..M.R.R....W",
+      "W.M..Th...R.W",
+      "WR.R....ET..W",
+      "Wh.T<..TR...W",
+      "Wf...E..RR..W",
+      "WhT^.RTR..E.W",
+      "W.......h...W",
+      "W...R..Rv.T.W",
+      "W.RvTT.....LW",
+      "W....R.R<.RTW",
+      "WWWWWWWWWWWWW"] },
+  { name: "Hall of Eyes",
+    hint: "Opening moves: push the top-right framer up, then push the middle-right framer left 2 squares.",
+    map: [
+      "WWWWWWWDWWWWW",
+      "W......C....W",
+      "W..T.MM....TW",
+      "W..M.RRR.ER.W",
+      "W..........TW",
+      "WE...hT...R.W",
+      "W..TRR....T.W",
+      "W.hT..h..E.TW",
+      "W.hR.RT.TR..W",
+      "WT..R...h...W",
       "W...........W",
-      "WSSSSSSSSSSSW",
-      "WSShSSSSShSSW",
-      "WSSSSSSSSSSSW",
-      "W.K.......K.W",
-      "W...........W",
-      "W.h..TTT..h.W",
-      "W...........W",
-      "W.h.......h.W",
-      "W.....L.....W",
+      "W.......L...W",
       "WWWWWWWWWWWWW"] },
   { name: "Lava Moat",
     hint: "Lava stops everyone, and an egg pushed into it is gone. A Bridge works on lava too.",
@@ -974,21 +966,21 @@ const LEVELS = [
       "W...........W",
       "W.....L.....W",
       "WWWWWWWWWWWWW"] },
-  { name: "Hammer and Leeper",
-    hint: "Medusa watches the only corridor. Break its rock, let the Leeper come to you, then push it back up as a shield.",
+  { name: "Lava Crossing",
+    hint: "Each teal heart is a Bridge for one square of water or lava. Framers can roll over bridges too. Opening moves: push the left one of the centre framers left 2 squares, then push the right one of the centre framers left.",
     map: [
-      "WWWWWWWWWWDWW",
-      "WRRMRR....C.W",
-      "WRR.RR......W",
-      "WRhphR......W",
-      "WRR.RR......W",
-      "WRR.RR......W",
-      "WRRRRR......W",
-      "W...........W",
-      "W.k.....h...W",
-      "W...........W",
-      "W.....h.....W",
-      "W.....L.....W",
+      "WWDWWWWWWWWWW",
+      "W.C.........W",
+      "W.T...Rh.RT.W",
+      "W.TR.RRRR.T.W",
+      "WXXXXXXXXXXXW",
+      "W...R..E....W",
+      "W....R.RhT..W",
+      "W.RT...EhTT.W",
+      "WR......b.T.W",
+      "W.TL.R.....EW",
+      "WhT.......RRW",
+      "W....MRT..M.W",
       "WWWWWWWWWWWWW"] },
   { name: "Whirlpool",
     hint: "The current runs in a ring around the chest island. Ride an egg in, and save the Bridge to get back out.",
@@ -1006,6 +998,38 @@ const LEVELS = [
       "W.h.......h.W",
       "W.....L.....W",
       "WWWWWWWWWWWWW"] },
+  { name: "Smoke Stack",
+    hint: "Gol wakes when the last heart is taken, so plan the last heart around its fire. Opening moves: push the bottom-right framer left 3 squares, then push that framer up 5 squares.",
+    map: [
+      "WWDWWWWWWWWWW",
+      "W.C.........W",
+      "W..h...GER.MW",
+      "W....R....h.W",
+      "WT...R..TT..W",
+      "WT.RT....R..W",
+      "W.......T.EMW",
+      "WGTT..R.R..RW",
+      "WLR..T...TR.W",
+      "W.........E.W",
+      "W....T.h....W",
+      "W....hRhR..TW",
+      "WWWWWWWWWWWWW"] },
+  { name: "Gridlock",
+    hint: "Opening moves: push the thirdmost of the bottom framers left, then push the left one of the bottom framers left.",
+    map: [
+      "WWWWWDWWWWWWW",
+      "W....C......W",
+      "W..R...M....W",
+      "W...TT.....TW",
+      "W.....T.R...W",
+      "W....T.....MW",
+      "W.h.T..RhhR.W",
+      "WT.RT...ThT.W",
+      "WhE.R.E.R...W",
+      "W.....R..LR.W",
+      "W....E......W",
+      "W...M.R.E...W",
+      "WWWWWWWWWWWWW"] },
   { name: "Grass Fort",
     hint: "Almas can't enter grass. Shoot from the safety of the fort, then make a run for the hearts.",
     map: [
@@ -1022,133 +1046,69 @@ const LEVELS = [
       "W.h...a...h.W",
       "W...........W",
       "WWWWWWWWWWWWW"] },
-  { name: "Hammer Choice",
-    hint: "Two Medusas guard a heart sealed in rock and a third watches from below. Only one rock is safe to break.",
-    map: [
-      "WWWWWWDWWWWWW",
-      "W.h...C...h.W",
-      "W...........W",
-      "W.k.......h.W",
-      "W...........W",
-      "W...........W",
-      "WR....R..E.RW",
-      "WM...RhR...MW",
-      "WR.E..R....RW",
-      "W.L.........W",
-      "W.h.......h.W",
-      "W.....M.....W",
-      "WWWWWWWWWWWWW"] },
-  { name: "Undertow",
-    hint: "The current carries you right past Medusa's column. Block her view before you set sail.",
+  { name: "Two Bridges",
+    hint: "Each teal heart is a Bridge for one square of water or lava. Framers can roll over bridges too. Opening moves: push the centre framer up, then push that framer left 4 squares.",
     map: [
       "WWWWWWWWWWDWW",
-      "WRRRRRRRR.C.W",
-      "WRRRRRRRR...W",
-      "WRRRRRRRR.h.W",
-      "WRRRRRRRR...W",
-      "WRRRRRRRR.h.W",
-      "W6666666666RW",
-      "W.s.....RRRRW",
-      "W.......RRRRW",
-      "W...E...RRRRW",
-      "W.h.m...RRRRW",
-      "W.L...RMRRRRW",
+      "W.........C.W",
+      "WT...TE..ER.W",
+      "W.b..R.....MW",
+      "W~~~~~~~~~~~W",
+      "WM.......R..W",
+      "W..R...E....W",
+      "W.b.....R...W",
+      "W.RRRLTh.TT.W",
+      "W.....T..Rh.W",
+      "WR.R.T.hR..RW",
+      "W..R.RhR...RW",
       "WWWWWWWWWWWWW"] },
-  { name: "Lava Lake",
-    hint: "The chest sits beyond the lava. Spend both Bridges there, and block Gol's row before the last heart.",
+  { name: "Sculpture Hall",
+    hint: "With no magic hearts here, Snakeys are just statues, and they block Medusa's view like a framer. Opening moves: push the middle-right framer up, then push the right one of the bottom-right framers down.",
     map: [
-      "WWWWWWDWWWWWW",
-      "WXXXXXCXXXXXW",
-      "WXXXXXXXXXXXW",
-      "WXXXXXXXXXXXW",
-      "WG..........W",
-      "W..E.....b..W",
-      "W.h...h...h.W",
-      "W...........W",
-      "W.b.......h.W",
-      "W...........W",
-      "W...TTTTT...W",
-      "W.....L.....W",
-      "WWWWWWWWWWWWW"] },
-  { name: "Grass Lane",
-    hint: "The Leeper can't leave its lane, because both exits are grass. Make it fall asleep where it blocks Medusa.",
-    map: [
-      "WWWWWWDWWWWWW",
-      "W.h...C...h.W",
-      "W...........W",
-      "W.h.......h.W",
-      "WRRRRRgRRRRRW",
-      "WM.........pW",
-      "WRRRgRgRRRRRW",
-      "W...........W",
-      "W...........W",
-      "W.h.......h.W",
-      "W...........W",
-      "W.....L.....W",
-      "WWWWWWWWWWWWW"] },
-  { name: "The Lure",
-    hint: "Rocky blocks the only hallway north. Draw him out, circle around, and slip past.",
-    map: [
-      "WWWWWWDWWWWWW",
-      "W.h...C...h.W",
-      "W...........W",
-      "WRRRRR.RRRRRW",
-      "WRRRRR.RRRRRW",
-      "WRRRRRrRRRRRW",
-      "WRRRRR.RRRRRW",
-      "WRRRRR.RRRRRW",
-      "W...........W",
-      "W.h.T...T.h.W",
-      "W...........W",
-      "W.h...L...h.W",
-      "WWWWWWWWWWWWW"] },
-  { name: "Snake Charmer",
-    hint: "Two Medusas, two Snakeys, two shots. An egg in the right lane is a shield, and it stays one after it hatches.",
-    map: [
-      "WWWWWWDWWWWWW",
-      "W.h...C...h.W",
-      "W...........W",
-      "WRRRRR.RRRRRW",
+      "WWWWWWWWDWWWW",
+      "W.......C...W",
+      "W..TM.......W",
+      "W.R.R...TTR.W",
+      "WTT.E....T.TW",
+      "WT..T.R.T...W",
       "WM..........W",
-      "WRRsRR.RRRRRW",
-      "W.h.......h.W",
-      "WRRRRR.RRRRRW",
-      "W..........MW",
-      "WRRRRR.RRsRRW",
-      "W.h..m....h.W",
-      "W.....L.....W",
+      "WRh..sL..ERRW",
+      "WRR.h..R...TW",
+      "WR..R.Rh.E..W",
+      "WT.hRhT.R.ETW",
+      "W.M.....R...W",
       "WWWWWWWWWWWWW"] },
-  { name: "Tools of the Trade",
-    hint: "Bridge first, then Hammer. The order you collect them in matters.",
+  { name: "Fire Escape",
+    hint: "Gol wakes when the last heart is taken, so plan the last heart around its fire. Opening moves: push the bottom-left framer left, then push the top-left framer up.",
     map: [
-      "WWWWWWDWWWWWW",
-      "W.h..RCR..h.W",
-      "W....R.R....W",
-      "W....RRR....W",
-      "W.k.........W",
-      "W~~~~~~~~~~~W",
-      "W...........W",
-      "W.h.......h.W",
-      "W....b......W",
-      "W...........W",
-      "W...........W",
-      "W.....L.....W",
+      "WWWWWWWWWWDWW",
+      "W.........C.W",
+      "W<<R..TE..TRW",
+      "Wh...R....TMW",
+      "WRE.....h..GW",
+      "W....h..R.T.W",
+      "WRT.......R.W",
+      "W.hRR....RT.W",
+      "WR..R^...RTTW",
+      "WR.E.LT....TW",
+      "WTR..h^...T.W",
+      "WT....TM....W",
       "WWWWWWWWWWWWW"] },
-  { name: "The Castle",
-    hint: "The last room: Rocky on the loose, a river to bridge, a heart walled in rock and Don Medusa pacing the throne hall.",
+  { name: "Clockwork",
+    hint: "Opening moves: push the top-right framer up, then push the bottom-right framer up 5 squares.",
     map: [
-      "WWWWWWDWWWWWW",
-      "WRRRRRCRRRRRW",
-      "WO..........W",
-      "WRRRRE.RRRRRW",
-      "W.h...R..RhRW",
-      "W.........R.W",
-      "W~~~~~~~~~~~W",
-      "W...........W",
-      "W.k.......b.W",
-      "W.....r.....W",
-      "W...........W",
-      "W.h...L...h.W",
+      "WWWWWDWWWWWWW",
+      "W....C......W",
+      "WT..R.MMT...W",
+      "W...R...h...W",
+      "WR......h.E.W",
+      "W..RR.......W",
+      "W.TE...RhR..W",
+      "W.T..TR..Lh.W",
+      "W.h..RE.T...W",
+      "WR........E.W",
+      "W.....T..h.RW",
+      "W..TTM.T.TT.W",
       "WWWWWWWWWWWWW"] },
   { name: "Pinned Don", theme: "castle", part: "The Castle",
     hint: "Don Medusa paces the middle hall. Push the framer down beside it just as it reaches the left wall, and it's stuck there for good.",
@@ -1166,37 +1126,37 @@ const LEVELS = [
       "W...........W",
       "W...........W",
       "WWWWWWWWWWWWW"] },
-  { name: "Lava Gols", theme: "castle",
-    hint: "Two Gols guard the lava. Bridge the lava early, then turn both Gols into eggs before taking the last heart.",
+  { name: "Stone Court", theme: "castle",
+    hint: "With no magic hearts here, Snakeys are just statues, and they block Medusa's view like a framer. Opening moves: push the middle-left framer right 2 squares, then push that framer down 3 squares.",
     map: [
-      "WWWWWWDWWWWWW",
-      "WXXXXXCXXXXXW",
-      "WXXXXXXXXXXXW",
-      "W...G...G...W",
-      "W...........W",
-      "W.m...b...h.W",
-      "W...........W",
-      "W.TT.....TT.W",
-      "W.h.......h.W",
-      "W...........W",
-      "W.....h.....W",
-      "W.....L.....W",
+      "WWWWDWWWWWWWW",
+      "W...C.......W",
+      "W........M..W",
+      "WR.....Rh...W",
+      "W....hsR.R..W",
+      "WR.E...RL...W",
+      "W.T.R.T...T.W",
+      "WM..R...s...W",
+      "W..E....h...W",
+      "W.......R.hRW",
+      "W..R....h.E.W",
+      "W..R...TRMR.W",
       "WWWWWWWWWWWWW"] },
-  { name: "Spawn Runes", theme: "castle",
-    hint: "In the castle, a Snakey you blast away comes back on the glowing rune. Send it away so it returns as your shield.",
+  { name: "Ember Hall", theme: "castle",
+    hint: "Gol wakes when the last heart is taken, so plan the last heart around its fire. Opening moves: push the right one of the top framers left 2 squares, then push that framer down.",
     map: [
       "WWWWWWDWWWWWW",
-      "W.h...C...h.W",
-      "W...........W",
-      "W.h.......h.W",
-      "WRRRRR.RRRRRW",
-      "WM.*........W",
-      "WRRRRR.RRRRRW",
-      "W...........W",
-      "W.h.......h.W",
-      "WRRRRRsRRRRRW",
-      "W.m.......h.W",
-      "W.....L.....W",
+      "W.....C.....W",
+      "W.M..ERR.R..W",
+      "W..........RW",
+      "WT..hE......W",
+      "WM...T.TE...W",
+      "W.h...R.....W",
+      "Wh......R...W",
+      "WG...Rh..RRTW",
+      "W..T.RLR....W",
+      "W.....RT.Th.W",
+      "WE..TGR....RW",
       "WWWWWWWWWWWWW"] },
   { name: "Arrow Turn", theme: "castle",
     hint: "The orange heart gives an Arrow power. Press X facing a one-way arrow to turn it around.",
@@ -1214,23 +1174,71 @@ const LEVELS = [
       "W...........W",
       "W.....L.....W",
       "WWWWWWWWWWWWW"] },
-  { name: "Skulls and Sleeper", theme: "castle",
-    hint: "Let the Leeper doze off in front of one Skull's alcove, and seal the other alcove with the framer.",
+  { name: "Turnabout", theme: "castle",
+    hint: "The orange heart turns one arrow around (press X facing it). Opening moves: push the top-right framer up, then push that framer left 5 squares.",
     map: [
-      "WWWWWWDWWWWWW",
-      "W.....C.....W",
-      "W...........W",
-      "W.RRR...RRR.W",
-      "W.RKR...RKR.W",
-      "W.L.........W",
-      "WRR......E..W",
-      "W...........W",
-      "W..p........W",
-      "W.h..h.h..h.W",
-      "W...........W",
-      "W...........W",
+      "WWWWWWWDWWWWW",
+      "W......C....W",
+      "W>ER.T.T..>.W",
+      "W.R.........W",
+      "W.....R.RE..W",
+      "WRE..T......W",
+      "W.T.v...T...W",
+      "W....T....RfW",
+      "WMRT.RTh..R.W",
+      "W......hhvL.W",
+      "W..Rh..<.R.hW",
+      "W.R...v.M.TRW",
       "WWWWWWWWWWWWW"] },
-  { name: "Gol Brute", theme: "castle", bossHP: 4,
+  { name: "Blind Spots", theme: "castle",
+    hint: "Opening moves: push the middle-right framer up 2 squares, then push the right one of the top framers left 3 squares.",
+    map: [
+      "WWWWWWWWWWDWW",
+      "W.........C.W",
+      "W....TETTTR.W",
+      "W.T...E...T.W",
+      "W...RR.TR...W",
+      "W.TR...R.T..W",
+      "WRM.ERhR.R..W",
+      "W...h.h.R.ERW",
+      "W..RR.h.hR..W",
+      "W.R..T...TR.W",
+      "W.....R...hLW",
+      "W.....M.M...W",
+      "WWWWWWWWWWWWW"] },
+  { name: "Breaking Point", theme: "castle",
+    hint: "The grey heart is a Hammer: press X facing a rock to smash it. Opening moves: push the middle-left framer right 8 squares, then push that framer up 3 squares.",
+    map: [
+      "WWWWWWWWWDWWW",
+      "W........C..W",
+      "W.MR..T..R..W",
+      "W........h.MW",
+      "WhR......T..W",
+      "W.LT.RTRRT.TW",
+      "W.E......hR.W",
+      "WTkR..R..Rh.W",
+      "W...R.R....TW",
+      "WR..h.....R.W",
+      "WM.........TW",
+      "WE..TE......W",
+      "WWWWWWWWWWWWW"] },
+  { name: "The Moat", theme: "castle",
+    hint: "Each teal heart is a Bridge for one square of water or lava. Framers can roll over bridges too. Opening moves: push the left one of the bottom framers left, then push the right one of the bottom framers down 2 squares.",
+    map: [
+      "WWWWDWWWWWWWW",
+      "W...C.......W",
+      "W.RRR..M....W",
+      "WThR....RRETW",
+      "W..T..bR...MW",
+      "W..hhR.R...RW",
+      "W...T...hR..W",
+      "W~~~~~~~~~~~W",
+      "W....b..ER..W",
+      "W..T...Rh.T.W",
+      "WR.R.....LT.W",
+      "WR..R.E.R...W",
+      "WWWWWWWWWWWWW"] },
+  { name: "Gol Brute", bossHP: 4, theme: "castle",
     hint: "Boss! The Gol Brute spits fire down any open line. Grab the magic hearts, step into the gap, shoot, and sidestep.",
     map: [
       "WWWWWWDWWWWWW",
@@ -1246,87 +1254,87 @@ const LEVELS = [
       "W.m.L.....h.W",
       "W...........W",
       "WWWWWWWWWWWWW"] },
-  { name: "Don Duo", theme: "castle",
-    hint: "Two Don Medusas, two lanes. Pin each one against the far wall, the lower one first.",
+  { name: "Four Winds", theme: "castle",
+    hint: "Opening moves: push the right one of the middle-left framers left 3 squares, then push the left one of the middle-left framers right 4 squares.",
     map: [
-      "WWWWWWDWWWWWW",
-      "W.h...C...h.W",
-      "W...........W",
-      "WRRRRRRR.RRRW",
-      "WO..........W",
-      "WRRRRRRR.RERW",
-      "W.h.......h.W",
-      "WRRRRR.RRRRRW",
-      "WO..........W",
-      "WRERRR.RRRRRW",
-      "W.h.......h.W",
-      "W.....L.....W",
+      "WWWWWWWWWWDWW",
+      "W.........C.W",
+      "W..T....MR..W",
+      "WT.R.R.h....W",
+      "W.E..hh.....W",
+      "W.E.....h...W",
+      "W...TR.RT..RW",
+      "W.h.E......hW",
+      "W...T...T...W",
+      "WMRL.R.RT...W",
+      "W....R.EM...W",
+      "W..T.M......W",
       "WWWWWWWWWWWWW"] },
-  { name: "Snakes and Ladders", theme: "castle",
-    hint: "The teal heart is a ladder across the first river. A Snakey egg carries you over the second.",
+  { name: "The Kiln", theme: "castle",
+    hint: "Gol wakes when the last heart is taken, so plan the last heart around its fire. Opening moves: push the centre framer left, then push that framer down.",
     map: [
-      "WWWWWWDWWWWWW",
-      "W.h...C...h.W",
+      "WWWWWWWWDWWWW",
+      "W.......C...W",
+      "W..R..T.hLR.W",
+      "WTRE.RTR..RTW",
+      "WG....h..R..W",
+      "W.....RR.T..W",
+      "WR...R.....TW",
+      "WT.h.R.E...TW",
       "W...........W",
-      "W~~~~~~~~~~~W",
-      "W...........W",
-      "W.s.......s.W",
-      "W~~~~~~~~~~~W",
-      "W...........W",
-      "W.h.b..m..h.W",
-      "W...........W",
-      "W.....s.....W",
-      "W.....L.....W",
+      "W....ET..ERhW",
+      "WMR.....T.h.W",
+      "W..M..M..hR.W",
       "WWWWWWWWWWWWW"] },
-  { name: "Second Chances", theme: "castle",
-    hint: "The Snakey shields one lane now. Blast it away and it returns on the rune in the other lane.",
+  { name: "Weathervane", theme: "castle",
+    hint: "Opening moves: push the left one of the bottom-left framers down 2 squares, then push that framer right 8 squares.",
     map: [
-      "WWWWWWDWWWWWW",
-      "W.h...C...h.W",
+      "WWWWWWWWWWDWW",
+      "W.........C.W",
+      "W...E.T.TE.MW",
+      "W...R.T...vMW",
+      "W.T^T.T.RTT.W",
+      "W.R....RTT..W",
+      "W.RR..h....MW",
+      "WL.hhh..T..RW",
+      "W<E.ER.RhR..W",
+      "W...R.......W",
       "W...........W",
-      "WRRRRR.RRRRRW",
-      "WM.*........W",
-      "WRRRRR.RRRRRW",
-      "W.h..m....h.W",
-      "WR.R.RRRRRRRW",
-      "W...s......MW",
-      "WR.RRRRRRRRRW",
-      "W.h.......h.W",
-      "W.....L.....W",
+      "W..T...v....W",
       "WWWWWWWWWWWWW"] },
-  { name: "Arrow Maze", theme: "castle",
-    hint: "Every gate points the wrong way. You get one Arrow power per floor, so choose which gate to turn.",
+  { name: "Cinder Bridge", theme: "castle",
+    hint: "Each teal heart is a Bridge for one square of water or lava. Framers can roll over bridges too. Opening moves: push the right one of the bottom-left framers up 3 squares, then push the centre framer right.",
     map: [
-      "WWWWWWDWWWWWW",
-      "W.h...C...h.W",
-      "W...........W",
-      "WRRRvRRRvRRRW",
-      "W.....f.....W",
-      "W.h.......h.W",
-      "WRRRvRRRvRRRW",
-      "W...........W",
-      "W.h.......h.W",
-      "W.....f.....W",
-      "W...........W",
-      "W.....L.....W",
+      "WWWWWWWWDWWWW",
+      "W.......C...W",
+      "W......hT...W",
+      "W....R......W",
+      "WXXXXXXXXXXXW",
+      "WT....T....RW",
+      "WM.T..E.R...W",
+      "W..R..T..TRbW",
+      "WRREhL....T.W",
+      "W...E....hh.W",
+      "WMRR...R...MW",
+      "W.h.b....T..W",
       "WWWWWWWWWWWWW"] },
-  { name: "Leeper Line-up", theme: "castle",
-    hint: "Each Leeper is stuck in its lane by grass. Stand in the right grass pocket and it falls asleep exactly where you need it.",
+  { name: "Watchers' Hall", theme: "castle",
+    hint: "With no magic hearts here, Snakeys are just statues, and they block Medusa's view like a framer. Opening moves: push the bottom-right framer down, then push that framer right.",
     map: [
-      "WWWWWWDWWWWWW",
-      "W.h.h.C.....W",
-      "WRRgRRgRRRRRW",
-      "Wp.........MW",
-      "WRRRRRgRgRRRW",
-      "W.h.......h.W",
-      "W...........W",
-      "W.h.......h.W",
-      "WRRRRRgRRRRRW",
-      "WM.........pW",
-      "WRRRgRgRRRRRW",
-      "W.....L.....W",
+      "WWWWWWWDWWWWW",
+      "W......C....W",
+      "W........M..W",
+      "W......T....W",
+      "W.R.RhT.ERR.W",
+      "Wh.hR..E..shW",
+      "WRM.R.T..TR.W",
+      "WTRR....RR.hW",
+      "W..........RW",
+      "WhR......ER.W",
+      "W....L......W",
+      "W..MM..ER...W",
       "WWWWWWWWWWWWW"] },
-  { name: "The Warden", theme: "castle", bossHP: 6, bossFire: 1.2,
+  { name: "The Warden", bossHP: 6, bossFire: 1.2, theme: "castle",
     hint: "Final boss! The Warden fires faster and takes six hits. Collect every magic heart before you face it.",
     map: [
       "WWWWWWDWWWWWW",
@@ -1342,165 +1350,165 @@ const LEVELS = [
       "W.m.m.L.m.h.W",
       "W...........W",
       "WWWWWWWWWWWWW"] },
-  { name: "Sentry Post", theme: "castle", part: "The Summit",
-    hint: "Three Medusas watch this hall. Each framer can close only one line, so decide where all three end up before your first push.",
-    map: [
-      "WWWWWWDWWWWWW",
-      "W....RCR....W",
-      "W..h.T.T..h.W",
-      "WM....E.h...W",
-      "W.E.h.R.....W",
-      "W....T.T....W",
-      "WT..hR.R...TW",
-      "W..........MW",
-      "W...........W",
-      "W....RRR....W",
-      "W...E.....EMW",
-      "W..L........W",
-      "WWWWWWWWWWWWW"] },
-  { name: "Rubble Stair", theme: "castle",
-    hint: "The hearts sit in the open, but every route crosses a gaze. Some framers have to travel the long way round.",
-    map: [
-      "WWWWWWDWWWWWW",
-      "W...h.C.....W",
-      "W....ER.....W",
-      "WMRR.E...RR.W",
-      "W..RR...RR..W",
-      "W...T.R.T...W",
-      "W..T.....T..W",
-      "W......h...MW",
-      "WR...hh....RW",
-      "WR...R.R...RW",
-      "WR.E.......RW",
-      "W.....L.....W",
-      "WWWWWWWWWWWWW"] },
-  { name: "Twin Watch", theme: "castle",
-    hint: "Medusas guard both sides of the middle row. A framer pushed one square too far can't be pulled back.",
-    map: [
-      "WWWWWWDWWWWWW",
-      "W...h.C.....W",
-      "W.R..R.R..R.W",
-      "W..RR...RR..W",
-      "W....R.R....W",
-      "W...........W",
-      "W.R.......R.W",
-      "WM.T..E..T.MW",
-      "W........h..W",
-      "W...R.R.R...W",
-      "W.E.h...E...W",
-      "W.....L.....W",
-      "WWWWWWWWWWWWW"] },
-  { name: "Thornwall", theme: "castle",
-    hint: "Trees stop you but not a stare. Use the rock walls to herd the framers where you need them.",
-    map: [
-      "WWWWWWDWWWWWW",
-      "W...h.C.....W",
-      "W.TT.E...TT.W",
-      "W...RT.TR...W",
-      "WMR..R.R..R.W",
-      "W.T.......TMW",
-      "WRR.RR.RR.RRW",
-      "WTR...h...RTW",
-      "WM.TE....T..W",
-      "W......h...hW",
-      "W.E.R...R..hW",
-      "W.L.........W",
-      "WWWWWWWWWWWWW"] },
-  { name: "Long Shadow", theme: "castle",
-    hint: "Three framers, hearts scattered through Medusa's sight and plenty of ways to jam a corridor. Count your pushes.",
-    map: [
-      "WWWWWWDWWWWWW",
-      "W....RCR...hW",
-      "W..........hW",
-      "W....R.R..h.W",
-      "W...T...T...W",
-      "W.T...h...T.W",
-      "WM..........W",
-      "W....R.R....W",
-      "W.R.RR.RR.R.W",
-      "W...hE..E..MW",
-      "W.R....E..R.W",
-      "W......L....W",
-      "WWWWWWWWWWWWW"] },
-  { name: "Heart Hoard", theme: "castle",
-    hint: "Five hearts wait up near the chest. Clear a safe lane up the middle first.",
-    map: [
-      "WWWWWWDWWWWWW",
-      "Whh...Ch....W",
-      "W....R.R..E.W",
-      "W..h..Rh....W",
-      "W...........W",
-      "W..........MW",
-      "WM..T...T...W",
-      "W...R.E.R...W",
-      "WR.........RW",
-      "WR.R..E..R.RW",
-      "W...........W",
-      "W.....L.....W",
-      "WWWWWWWWWWWWW"] },
-  { name: "Bottleneck", theme: "castle",
-    hint: "The room narrows to single-square gaps. Push in the wrong order and a framer plugs the only way through.",
-    map: [
-      "WWWWWWDWWWWWW",
-      "Wh...hC.....W",
-      "WT.........TW",
-      "W......E...MW",
-      "WM...T.T....W",
-      "WRRRE....RRRW",
-      "W...E.......W",
-      "W.T.R...R.T.W",
-      "WR.........RW",
-      "W...T.R.Th.MW",
-      "WR.R.R.R.RERW",
-      "W.........L.W",
-      "WWWWWWWWWWWWW"] },
-  { name: "Three Eyes", theme: "castle",
-    hint: "Three Medusas cover the lower half. Your first framer is the hardest one to place.",
-    map: [
-      "WWWWWWDWWWWWW",
-      "W....RCR...hW",
-      "W...........W",
-      "W.......E...W",
-      "W....hR.....W",
-      "WMT.T.h.T.T.W",
-      "W.....E...h.W",
-      "W...TRRRT...W",
-      "WM.........MW",
-      "W......E.Eh.W",
-      "WRR.......RRW",
-      "W....L......W",
-      "WWWWWWWWWWWWW"] },
-  { name: "The Gauntlet", theme: "castle",
-    hint: "Two Medusas stare down the right side and a long push is needed on the left. Pace yourself.",
-    map: [
-      "WWWWWWDWWWWWW",
-      "W....RCR....W",
-      "W...........W",
-      "W.R..RER.hR.W",
-      "W.......h..MW",
-      "W.E.........W",
-      "W..........MW",
-      "WT.R.T.T.R.TW",
-      "WR..R...R..RW",
-      "WR.........RW",
-      "Wh.E........W",
-      "W..........LW",
-      "WWWWWWWWWWWWW"] },
-  { name: "Summit", theme: "castle",
-    hint: "The last climb: two Medusas, three framers and the longest solution in the keep.",
+  { name: "Thin Air", theme: "castle", part: "The Summit",
+    hint: "Opening moves: push the centre framer right 3 squares, then push the middle-right framer up.",
     map: [
       "WWWWWWDWWWWWW",
       "W.....C.....W",
-      "W.T.......T.W",
-      "W......h...MW",
+      "W......M...RW",
+      "W....T.R..E.W",
+      "WM.......E.TW",
+      "WMTRT.L.T.ThW",
+      "W..R........W",
+      "WT...E....ETW",
+      "WR..T.R.T..TW",
+      "W.RR.hRh.TT.W",
+      "W..h.T.....hW",
+      "W...Th.RR.R.W",
+      "WWWWWWWWWWWWW"] },
+  { name: "The Forge", theme: "castle",
+    hint: "Gol wakes when the last heart is taken, so plan the last heart around its fire. Opening moves: push the bottom-left framer right, then push the middle-left framer up 2 squares.",
+    map: [
+      "WWWWWWWDWWWWW",
+      "W......C....W",
+      "W.Gh.M..RT..W",
+      "W.E..RRR....W",
+      "W.RT..h...R.W",
+      "W.T........MW",
+      "W.R..LRh....W",
+      "WhR.ERR.T...W",
+      "WR..E.TTR...W",
+      "W...TR.E....W",
+      "WR..T.....hGW",
+      "W.M......Rh.W",
+      "WWWWWWWWWWWWW"] },
+  { name: "Ember Watch", theme: "castle",
+    hint: "Gol wakes when the last heart is taken, so plan the last heart around its fire. Opening moves: push the top framer right 2 squares, then push the top-right framer down 3 squares.",
+    map: [
+      "WWDWWWWWWWWWW",
+      "W.C.........W",
+      "WT...R.....RW",
+      "W.ETR.h..ER.W",
+      "W.T...E.....W",
+      "W..R.R.Rh...W",
+      "W..h..T.R..MW",
+      "WGT.E..TT..MW",
+      "Wh..Rh.RTT..W",
+      "W...T.......W",
+      "W.LR....RRR.W",
+      "W...h..M....W",
+      "WWWWWWWWWWWWW"] },
+  { name: "Compass Rose", theme: "castle",
+    hint: "Opening moves: push the middle-right framer up, then push the right one of the bottom framers right 2 squares.",
+    map: [
+      "WWWWDWWWWWWWW",
+      "W...C.......W",
+      "W..T.......MW",
       "WR.........RW",
-      "WRR.......RRW",
-      "WM..........W",
-      "W.E.T...T...W",
-      "W..R..h..R..W",
-      "W.hE..R.....W",
-      "W.RT..R.ETR.W",
-      "W...L.......W",
+      "Wv.h.h.T.h.^W",
+      "WM.TT.^.TT^.W",
+      "W.ThRh....E.W",
+      "WR.........RW",
+      "WRL.RR.....MW",
+      "W......R.h.RW",
+      "W..T.E..E...W",
+      "W...RR.vT.E.W",
+      "WWWWWWWWWWWWW"] },
+  { name: "Glare", theme: "castle",
+    hint: "Opening moves: push the top-left framer right 4 squares, then push that framer down 2 squares.",
+    map: [
+      "WWWWWWWWDWWWW",
+      "W.......C...W",
+      "W.RT.....MM.W",
+      "WR..........W",
+      "W..E.h..E.TTW",
+      "WT..R......TW",
+      "W.hR.......MW",
+      "W...h.Eh...MW",
+      "W.RhR...T...W",
+      "W.T..RRTRTT.W",
+      "W...T...E.h.W",
+      "WTR.L.R...RTW",
+      "WWWWWWWWWWWWW"] },
+  { name: "High Water", theme: "castle",
+    hint: "Each teal heart is a Bridge for one square of water or lava. Framers can roll over bridges too. Opening moves: push the left one of the bottom framers left, then push the bottom-left framer left 2 squares.",
+    map: [
+      "WWWWDWWWWWWWW",
+      "W...C.......W",
+      "WT........hRW",
+      "WR.TT...TRT.W",
+      "W....h..h..MW",
+      "WR...R..h..MW",
+      "WR...T......W",
+      "W~~~~~~~~~~~W",
+      "WM..EbR.....W",
+      "W.T..E......W",
+      "W....ERT.L.RW",
+      "W...T..h....W",
+      "WWWWWWWWWWWWW"] },
+  { name: "Firewatch", theme: "castle",
+    hint: "Gol wakes when the last heart is taken, so plan the last heart around its fire. Opening moves: push the left one of the middle-right framers left 2 squares, then push that framer down.",
+    map: [
+      "WWWWWWWWDWWWW",
+      "W.......C...W",
+      "WT.T.G....ETW",
+      "WM.RR.R...R.W",
+      "WMR..h..TR..W",
+      "W.....R..h.LW",
+      "Wh..R.T..E..W",
+      "W..hTh..TE.TW",
+      "WT.ETTTRR..TW",
+      "W.h..R.RTR..W",
+      "W.......RT..W",
+      "W.R.T.M.MR..W",
+      "WWWWWWWWWWWWW"] },
+  { name: "Petrified", theme: "castle",
+    hint: "With no magic hearts here, Snakeys are just statues, and they block Medusa's view like a framer. Opening moves: push the centre framer right 3 squares, then push that framer up 4 squares.",
+    map: [
+      "WWWDWWWWWWWWW",
+      "W..C........W",
+      "W..RR.M..Ms.W",
+      "W.....T....MW",
+      "WRRRE....TRMW",
+      "WE.R....h.T.W",
+      "W.....RL..s.W",
+      "WERR.E..h...W",
+      "W.......h..hW",
+      "WhRThR.RT.R.W",
+      "W...R.......W",
+      "W...T.......W",
+      "WWWWWWWWWWWWW"] },
+  { name: "Labyrinth", theme: "castle",
+    hint: "Gol wakes when the last heart is taken, so plan the last heart around its fire. Opening moves: push the right one of the middle-right framers down 2 squares, then push the left one of the middle-right framers right.",
+    map: [
+      "WWWDWWWWWWWWW",
+      "W..C........W",
+      "W.E.hG......W",
+      "WR...RRTT.TRW",
+      "W.Rh.T.T.Th.W",
+      "W...T....E.EW",
+      "W.R..<......W",
+      "W..ER.hRL.^hW",
+      "W.........<RW",
+      "W.T..R....R.W",
+      "W..R.R....h.W",
+      "WRMM.M.>G.R.W",
+      "WWWWWWWWWWWWW"] },
+  { name: "Summit", theme: "castle",
+    hint: "Opening moves: push the right one of the bottom framers up, then push that framer right 3 squares.",
+    map: [
+      "WWWWDWWWWWWWW",
+      "W...C.......W",
+      "Wh.......R.TW",
+      "W.......T..MW",
+      "WMRE..R..Rh.W",
+      "WTER.hT.T.h.W",
+      "W....R......W",
+      "W...Rh..E...W",
+      "WMR........MW",
+      "W.RhT.ETTh..W",
+      "W.TT.E...TT.W",
+      "WRT.R.L.R.R.W",
       "WWWWWWWWWWWWW"] },
 ];
 
@@ -1534,7 +1542,7 @@ const ETYPE = {
   B: { kind: "boss", shoot: true, speed: 0.45, dir: "right" },
 };
 
-const VERSION = "3.13";
+const VERSION = "4.0";
 // On the games site: link back to the menu and save everything for offline play
 if (location.pathname.includes("/ponchos-adventure/")) {
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -1548,8 +1556,18 @@ const $ = id => document.getElementById(id);
 let g = null;
 let deaths = 0;
 let done = new Set();
-try { done = new Set(JSON.parse(localStorage.getItem("ponchos.done") || localStorage.getItem("jewelkeep.done") || "[]")); } catch (e) {}
-function saveDone() { try { localStorage.setItem("ponchos.done", JSON.stringify([...done])); } catch (e) {} }
+// Version 4 rebuilt most rooms as harder puzzles. Rooms that kept their old layout carry over as cleared (old index: new index).
+const DONE_KEY = "ponchos.done.v4";
+const MIGRATE = { 0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5, 6: 6, 13: 11, 20: 15, 22: 18, 29: 25, 30: 27, 31: 30, 34: 32, 36: 35, 38: 37, 39: 40, 48: 45, 51: 48, 53: 53, 59: 59 };
+try {
+  const saved = localStorage.getItem(DONE_KEY);
+  if (saved) done = new Set(JSON.parse(saved));
+  else {
+    const old = JSON.parse(localStorage.getItem("ponchos.done") || localStorage.getItem("jewelkeep.done") || "[]");
+    done = new Set(old.filter(i => i in MIGRATE).map(i => MIGRATE[i]));
+  }
+} catch (e) {}
+function saveDone() { try { localStorage.setItem(DONE_KEY, JSON.stringify([...done])); } catch (e) {} }
 
 const key = (r, c) => r * N + c;
 
@@ -1584,6 +1602,7 @@ function loadLevel(idx, retry) {
   g = { idx, grid, hearts, spawns, bossHPMax: lv.bossHP || 4, bossFire: (lv.bossFire || 1.6) * tune().bossFire, theme: lv.theme || "garden", heartsTotal: hearts.size, heartsLeft: hearts.size, chest, framers, enemies, lolo,
         shot: null, fireballs: [], particles: [], doorOpen: false, jewel: false, cleared: false,
         time: 0, beam: null, paused: false, flash: 0 };
+  stuckToken++; $("stuck").hidden = true;
   $("levelName").innerHTML = `<b>Room ${idx + 1}</b>${lv.name.replace(/[&<>]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[ch])}`;
   if (!retry) {
     const bn = $("roomBanner"); bn.querySelector("b").textContent = `Room ${idx + 1}`; bn.querySelector("span").textContent = lv.name;
@@ -1609,6 +1628,339 @@ function framerAt(r, c) { return g.framers.find(f => f.r === r && f.c === c); }
 function enemyAt(r, c, ex) { return g.enemies.find(e => e !== ex && (e.state !== "gone" && e.state !== "vanished") && e.r === r && e.c === c); }
 function chestAt(r, c) { return g.chest && g.chest.r === r && g.chest.c === c; }
 const SOLID = "WDRT";
+
+// ---------- Room solver ----------
+// Searches the puzzle side of a room: Poncho walking, framer pushes, hearts, tools and Medusa / Gol sight lines.
+// strict: the exact rules, for designing rooms (Medusa always deadly, Gol deadly once the hearts are gone).
+// relaxed: gives the player every benefit of the doubt (moving monsters, eggs, rafts and unused tools all count
+// as already solved), so "impossible" in relaxed mode really means the room can no longer be finished.
+const Solver = (() => {
+  const N = 13, NN = N * N, DR = [-1, 1, 0, 0], DC = [0, 0, -1, 1], OPPD = [1, 0, 3, 2];
+  const ARR = { "^": 0, "v": 1, "<": 2, ">": 3 }, FLIP = { "^": "v", "v": "^", "<": ">", ">": "<" };
+  const WATER = "~8246";
+  const STATIC = { medusa: 1, snakey: 1, gol: 1 };
+  const SHOOTABLE = { snakey: 1, gol: 1 };
+  const NB = new Int16Array(NN * 4);
+  for (let k = 0; k < NN; k++) for (let d = 0; d < 4; d++) {
+    const r = (k / N | 0) + DR[d], c = k % N + DC[d];
+    NB[k * 4 + d] = r < 0 || c < 0 || r >= N || c >= N ? -1 : r * N + c;
+  }
+  const border = k => { const r = k / N | 0, c = k % N; return r === 0 || c === 0 || r === N - 1 || c === N - 1; };
+
+  // room = { grid: 13 rows, framers: [[r,c]], hearts: [[r,c,kind]], chest: [r,c] | null, poncho: [r,c],
+  //          enemies: [{ kind, r, c }], tools: { shots, hammer, bridges, arrows } }
+  function create(room, opts) {
+    opts = opts || {};
+    const strict = !!opts.strict, wantGraph = !!opts.graph, maxStates = opts.maxStates || 200000;
+    const base = [];
+    for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) base.push(room.grid[r][c]);
+    const nH = room.hearts.length, heartIdx = new Int8Array(NN).fill(-1), heartKind = room.hearts.map(h => h[2]);
+    room.hearts.forEach(([r, c], i) => { heartIdx[r * N + c] = i; });
+    const tools = Object.assign({ shots: 0, hammer: 0, bridges: 0, arrows: 0 }, room.tools || {});
+    const shootables = room.enemies.some(e => SHOOTABLE[e.kind]);
+    const moving = room.enemies.some(e => !STATIC[e.kind]);
+    const shotsPossible = tools.shots > 0 || heartKind.includes("m");
+    const eggs = !strict && shotsPossible && shootables;
+    const gazeOn = strict || (!moving && !eggs);
+    const toolHearts = heartKind.some(k => "kbf".includes(k));
+    const relaxRock = !strict && (tools.hammer > 0 || heartKind.includes("k"));
+    const relaxLava = !strict && (tools.bridges > 0 || heartKind.includes("b"));
+    const relaxWater = relaxLava || eggs;
+    const relaxArrow = !strict && (tools.arrows > 0 || heartKind.includes("f"));
+    const useTools = strict && (toolHearts || tools.hammer + tools.bridges + tools.arrows > 0);
+    const blockEnemy = new Uint8Array(NN), seers = [], gols = [];
+    for (const e of room.enemies) {
+      const k = e.r * N + e.c;
+      if (!STATIC[e.kind]) { if (strict) blockEnemy[k] = 1; continue; }
+      if (eggs && SHOOTABLE[e.kind]) continue;
+      blockEnemy[k] = 1;
+      if (e.kind === "medusa") seers.push(k);
+      if (e.kind === "gol" && strict) gols.push(k);
+    }
+    const allSeers = seers.concat(gols);
+    const chest = room.chest ? room.chest[0] * N + room.chest[1] : -1;
+    const nF = room.framers.length;
+    const numericKey = !useTools && nF <= 5 && nH <= 8;
+
+    // terrain codes: 0 floor, 1 never passable, 2 rock (sight blocker), 3 door
+    const PASS = new Uint8Array(NN), ARROWT = new Int8Array(NN), SIGHT = new Uint8Array(NN);
+    let grid = base;
+    function loadGrid(g) {
+      grid = g;
+      for (let k = 0; k < NN; k++) {
+        const t = g[k];
+        let pass = 1;
+        if (t === "W" || t === "T" || t === "D") pass = 0;
+        else if (t === "R") pass = relaxRock && !border(k) ? 1 : 0;
+        else if (t === "X") pass = relaxLava ? 1 : 0;
+        else if (WATER.includes(t)) pass = relaxWater ? 1 : 0;
+        PASS[k] = pass && !blockEnemy[k] && k !== chest ? 1 : 0;
+        ARROWT[k] = relaxArrow || ARR[t] === undefined ? -1 : ARR[t];
+        SIGHT[k] = t === "W" || t === "D" || t === "R" || k === chest || blockEnemy[k] ? 1 : 0;
+      }
+    }
+    loadGrid(base);
+    const arrowOK = (k, d) => ARROWT[k] < 0 || ARROWT[k] !== OPPD[d];
+    // Walking into the chest: the chest no longer shields Poncho once he steps onto it
+    function chestGazed() {
+      if (!gazeOn) return false;
+      for (const s of allSeers) for (let d = 0; d < 4; d++) {
+        let k = NB[s * 4 + d];
+        while (k >= 0 && k !== chest && !SIGHT[k] && !occ[k]) k = NB[k * 4 + d];
+        if (k === chest) return true;
+      }
+      return false;
+    }
+    const occ = new Uint8Array(NN), gz = new Uint8Array(NN), gz2 = new Uint8Array(NN);
+    const vis = new Uint32Array(NN); let stamp = 0;
+    const queue = new Int16Array(NN);
+    function gaze(out, hm) {
+      out.fill(0);
+      if (!gazeOn) return;
+      const n = hm === 0 ? allSeers.length : seers.length;
+      for (let i = 0; i < n; i++) {
+        const s = allSeers[i];
+        for (let d = 0; d < 4; d++) {
+          let k = NB[s * 4 + d];
+          while (k >= 0 && !SIGHT[k] && !occ[k]) { out[k] = 1; k = NB[k * 4 + d]; }
+        }
+      }
+    }
+    // Poncho's walkable region from p (fills queue, returns its length and the smallest cell)
+    let regMin = 0;
+    function region(p, hm, g) {
+      stamp++; vis[p] = stamp; queue[0] = p; let n = 1; regMin = p;
+      for (let i = 0; i < n; i++) {
+        const k = queue[i];
+        for (let d = 0; d < 4; d++) {
+          const k2 = NB[k * 4 + d]; if (k2 < 0 || vis[k2] === stamp) continue;
+          if (!PASS[k2] || occ[k2] || g[k2]) continue;
+          const hi = heartIdx[k2]; if (hi >= 0 && (hm >> hi) & 1) continue;
+          if (!arrowOK(k, d) || !arrowOK(k2, d)) continue;
+          vis[k2] = stamp; queue[n++] = k2; if (k2 < regMin) regMin = k2;
+        }
+      }
+      return n;
+    }
+    const gridOf = mods => { if (!mods) return base; const g = base.slice(); for (const m of mods.split(",")) { const i = m.indexOf(":"); g[+m.slice(0, i)] = m.slice(i + 1); } return g; };
+    const addMod = (mods, k, ch) => { const m = new Map(mods ? mods.split(",").map(s => [s.slice(0, s.indexOf(":")), s.slice(s.indexOf(":") + 1)]) : []); m.set(String(k), ch); return [...m].sort((a, b) => a[0] - b[0]).map(x => x.join(":")).join(","); };
+
+    // state arrays
+    const SP = [], SF = [], SH = [], SM = [], STL = [], parent = [];
+    const seen = new Map(), edges = wantGraph ? [] : null, wins = [];
+    let head = 0, winIdx = -1, done = false, result = null, curMods = null;
+
+    function setState(i) {
+      if (useTools && SM[i] !== curMods) { curMods = SM[i]; loadGrid(gridOf(curMods)); }
+      occ.fill(0); const fr = SF[i]; for (let j = 0; j < fr.length; j++) occ[fr[j]] = 1;
+    }
+    function add(p, fr, hm, mods, tl, from) {
+      // occ must already hold fr, and the grid must match mods
+      gaze(gz2, hm);
+      region(p, hm, gz2);
+      let key;
+      if (numericKey) { key = regMin; for (let j = 0; j < fr.length; j++) key = key * 169 + fr[j]; key = key * 256 + hm; }
+      else key = regMin + "|" + fr.join(".") + "|" + hm + "|" + mods + "|" + tl.join(".");
+      const old = seen.get(key);
+      if (old !== undefined) { if (edges && from >= 0) edges.push(from, old); return; }
+      const id = SP.length; seen.set(key, id);
+      SP.push(p); SF.push(fr); SH.push(hm); SM.push(mods); STL.push(tl); parent.push(from);
+      if (edges && from >= 0) edges.push(from, id);
+    }
+    function doorReachable(from) {
+      stamp++; vis[from] = stamp; queue[0] = from; let n = 1;
+      for (let i = 0; i < n; i++) {
+        const k = queue[i];
+        for (let d = 0; d < 4; d++) {
+          const k2 = NB[k * 4 + d]; if (k2 < 0 || vis[k2] === stamp) continue;
+          if (!arrowOK(k, d) || !arrowOK(k2, d)) continue;
+          if (grid[k2] === "D") return true;
+          const t = grid[k2];
+          if (occ[k2] || t === "W" || t === "T" || (t === "R" && !(relaxRock && !border(k2))) || (t === "X" && !relaxLava) || (WATER.includes(t) && !relaxWater)) continue;
+          vis[k2] = stamp; queue[n++] = k2;
+        }
+      }
+      return false;
+    }
+    const regBuf = new Int16Array(NN), inReg = new Uint32Array(NN); let regStamp = 0;
+    // Poncho faces a tile by trying to walk into it; if he'd simply walk onto it, he has to arrive from behind instead
+    function canFace(k, d, k2) {
+      if (!arrowOK(k, d) || !arrowOK(k2, d) || !PASS[k2]) return true;
+      const kb = NB[k * 4 + OPPD[d]];
+      return kb >= 0 && inReg[kb] === regStamp && arrowOK(kb, d) && arrowOK(k, d);
+    }
+    function expand(i) {
+      setState(i);
+      const p = SP[i], fr = SF[i], hm = SH[i], mods = SM[i], tl = STL[i];
+      gaze(gz, hm);
+      const n = region(p, hm, gz);
+      regBuf.set(queue.subarray(0, n));
+      regStamp++; for (let j = 0; j < n; j++) inReg[regBuf[j]] = regStamp;
+      for (let ri = 0; ri < n; ri++) {
+        const k = regBuf[ri];
+        for (let d = 0; d < 4; d++) {
+          const k2 = NB[k * 4 + d]; if (k2 < 0) continue;
+          if (useTools) {          // a tool works on the tile Poncho faces, whatever the arrows say
+            const t = grid[k2];
+            let ch = null, slot = -1;
+            if (tl[0] > 0 && t === "R" && !border(k2)) { ch = "."; slot = 0; }
+            else if (tl[2] > 0 && FLIP[t] && !blockEnemy[k2] && !occ[k2] && canFace(k, d, k2)) { ch = FLIP[t]; slot = 2; }
+            else if (tl[1] > 0 && (WATER.includes(t) || t === "X") && !blockEnemy[k2]) { ch = "H"; slot = 1; }
+            if (ch) {
+              const tl2 = tl.slice(); tl2[slot]--;
+              const mods2 = addMod(mods, k2, ch);
+              loadGrid(gridOf(mods2)); curMods = mods2;
+              add(k, fr, hm, mods2, tl2, i);
+              loadGrid(gridOf(mods)); curMods = mods;
+              gaze(gz, hm);
+            }
+          }
+          if (!arrowOK(k, d) || !arrowOK(k2, d)) continue;
+          if (k2 === chest) {
+            if (hm === 0 && !chestGazed()) {
+              const ok = doorReachable(k2);
+              if (ok) { wins.push(i); if (winIdx < 0) winIdx = i; if (!wantGraph) return true; }
+            }
+            continue;
+          }
+          const hi = heartIdx[k2];
+          if (hi >= 0 && (hm >> hi) & 1) {
+            if (gz[k2]) continue;
+            const hm2 = hm & ~(1 << hi);
+            if (hm2 === 0 && gols.length) { gaze(gz2, 0); if (gz2[k2]) continue; }   // Gol wakes on the last heart
+            let tl2 = tl;
+            const kind = heartKind[hi];
+            if (useTools && "kbf".includes(kind)) { tl2 = tl.slice(); tl2["kbf".indexOf(kind)]++; }
+            add(k2, fr, hm2, mods, tl2, i);
+            continue;
+          }
+          if (occ[k2]) {
+            const k3 = NB[k2 * 4 + d];
+            if (k3 < 0 || !arrowOK(k3, d) || !PASS[k3] || occ[k3]) continue;
+            const h3 = heartIdx[k3]; if (h3 >= 0 && (hm >> h3) & 1) continue;
+            occ[k2] = 0; occ[k3] = 1;
+            gaze(gz2, hm);
+            if (!gz2[k] && !gz2[k2]) {
+              const fr2 = fr.slice(); fr2[fr2.indexOf(k2)] = k3; fr2.sort((a, b) => a - b);
+              add(k2, fr2, hm, mods, tl, i);
+            }
+            occ[k3] = 0; occ[k2] = 1;
+            continue;
+          }
+        }
+      }
+      return false;
+    }
+    function path(i) { const out = []; for (let j = i; j >= 0; j = parent[j]) out.push(j); return out.reverse(); }
+    function finish(i) {
+      const p = path(i);
+      let pushes = 0;
+      for (let j = 1; j < p.length; j++) if (SF[p[j]].join() !== SF[p[j - 1]].join()) pushes++;
+      return { status: "solved", pushes, moves: p.length - 1, states: SP.length,
+               steps: p.map(j => ({ p: SP[j], fr: SF[j], hm: SH[j], mods: SM[j] })) };
+    }
+    function graphStats() {
+      const res = finish(winIdx);
+      const n = SP.length, out = [], rev = [];
+      for (let i = 0; i < n; i++) { out.push([]); rev.push([]); }
+      for (let e = 0; e < edges.length; e += 2) { out[edges[e]].push(edges[e + 1]); rev[edges[e + 1]].push(edges[e]); }
+      const good = new Uint8Array(n), q = [...new Set(wins)];
+      for (const w of q) good[w] = 1;
+      for (let i = 0; i < q.length; i++) for (const a of rev[q[i]]) if (!good[a]) { good[a] = 1; q.push(a); }
+      let dead = 0, traps = 0, choices = 0, goodN = 0;
+      for (let i = 0; i < n; i++) {
+        if (!good[i]) { dead++; continue; }
+        goodN++;
+        for (const b of out[i]) { choices++; if (!good[b]) traps++; }
+      }
+      let pathTraps = 0, pathChoices = 0;
+      for (let j = winIdx; j >= 0; j = parent[j]) for (const b of out[j]) { pathChoices++; if (!good[b]) pathTraps++; }
+      return Object.assign(res, { dead, good: goodN, traps, choices, pathTraps, pathChoices });
+    }
+    occ.fill(0); for (const [r, c] of room.framers) occ[r * N + c] = 1;
+    const p0 = room.poncho[0] * N + room.poncho[1];
+    add(p0, room.framers.map(([r, c]) => r * N + c).sort((a, b) => a - b), (1 << nH) - 1, "", [tools.hammer, tools.bridges, tools.arrows], -1);
+    if (chest < 0) { done = true; result = { status: "solved", pushes: 0, moves: 0, states: 1 }; }
+    else { gaze(gz, (1 << nH) - 1); if (strict && gz[p0]) { done = true; result = { status: "impossible", reason: "start", states: 1 }; } }
+    // run(budget): explore up to `budget` more states; returns the result once finished, otherwise null
+    function run(budget) {
+      if (done) return result;
+      const stop = head + budget;
+      while (head < SP.length && head < stop) {
+        if (SP.length > maxStates) { done = true; return result = { status: "unknown", states: SP.length }; }
+        if (expand(head++) && !wantGraph) { done = true; return result = finish(winIdx); }
+      }
+      if (head < SP.length) return null;
+      done = true;
+      if (winIdx < 0) return result = { status: "impossible", states: SP.length };
+      return result = wantGraph ? graphStats() : finish(winIdx);
+    }
+    return { run };
+  }
+  const solve = (room, opts) => create(room, opts).run(Infinity);
+
+  // The live room, as the game holds it
+  function fromGame(g) {
+    const L = g.lolo;
+    return {
+      grid: g.grid.map(row => row.slice()),
+      hearts: [...g.hearts].map(([k, kind]) => [Math.floor(k / N), k % N, kind]),
+      // eggs, sleepers and monsters waiting to respawn will move again: the search treats them as moving monsters
+      enemies: g.enemies.filter(e => e.state !== "vanished")
+        .map(e => ({ kind: e.state === "normal" ? e.kind : "egg", r: e.r, c: e.c })),
+      framers: g.framers.map(f => [f.r, f.c]),
+      chest: g.chest && g.chest.state === "closed" ? [g.chest.r, g.chest.c] : null,
+      poncho: [g.lolo.r, g.lolo.c],
+      tools: { shots: L.shots, hammer: L.hammer, bridges: L.bridges, arrows: L.arrows },
+    };
+  }
+  function fromLevel(lv, ETYPE) {
+    const grid = [], hearts = [], enemies = [], framers = []; let chest = null, poncho = null;
+    for (let r = 0; r < N; r++) {
+      let row = "";
+      for (let c = 0; c < N; c++) {
+        const ch = lv.map[r][c]; let t = ".";
+        if ("WDTR~H^v<>SgX8246".includes(ch)) t = ch;
+        else if ("hmkbf".includes(ch)) hearts.push([r, c, ch]);
+        else if (ch === "C") chest = [r, c];
+        else if (ch === "E") framers.push([r, c]);
+        else if (ch === "L") poncho = [r, c];
+        else if (ETYPE[ch]) enemies.push({ kind: ETYPE[ch].kind, r, c });
+        row += t;
+      }
+      grid.push(row);
+    }
+    return { grid, hearts, enemies, framers, chest, poncho, tools: {} };
+  }
+  return { create, solve, fromGame, fromLevel };
+})();
+// ---------- end solver ----------
+
+// ---------- Stuck check ----------
+// After every push, shot or tool use, search the room in the background (a few milliseconds per frame).
+// The search is generous (monsters that move, eggs and spare tools count as solved), so it only speaks up
+// when the room truly can't be finished any more.
+let stuckJob = null, stuckToken = 0;
+function checkStuck() {
+  if (!g || g.cleared) return;
+  const token = ++stuckToken, idx = g.idx;
+  let job;
+  try { job = Solver.create(Solver.fromGame(g), { maxStates: 80000 }); } catch (e) { return; }
+  stuckJob = job;
+  const work = () => {
+    if (token !== stuckToken || !g || g.idx !== idx || g.cleared || g.lolo.dead) return;
+    const t0 = performance.now();
+    let res;
+    do { res = job.run(200); } while (!res && performance.now() - t0 < 6);   // ~6 ms a frame keeps the game smooth
+    if (!res) { setTimeout(work, 16); return; }
+    if (res.status === "impossible") showStuck(true);
+  };
+  setTimeout(work, 60);
+}
+function showStuck(on) {
+  $("stuck").hidden = !on;
+  if (on) { g.stuck = true; sfx("stuck"); }
+}
 
 // ---------- Poncho ----------
 function tryMove(dir) {
@@ -1644,7 +1996,7 @@ function usePower() {
   } else if (L.bridges > 0 && (isWater(t) || t === "X") && !enemyAt(r, c)) {
     g.grid[r][c] = "H"; L.bridges--; burst(c, r, "#c48a4a", 14); sfx("push");
   } else return;
-  updateHud();
+  updateHud(); checkStuck();
 }
 
 function tryPush(o, r, c, dir, isEgg) {
@@ -1656,6 +2008,7 @@ function tryPush(o, r, c, dir, isEgg) {
   if (t === "X") {
     if (!isEgg) return false;
     o.state = "gone"; o.raft = false; o.respawnT = tune().respawn; burst(c2, r2, "#ff7a1f", 14); sfx("push");
+    checkStuck();
     return true;
   }
   if (isWater(t)) {
@@ -1663,6 +2016,7 @@ function tryPush(o, r, c, dir, isEgg) {
     o.raft = true; o.timer = tune().raft; o.drift = 0.45;
   }
   startMove(o, r2, c2); sfx("push");
+  checkStuck();
   return true;
 }
 
@@ -1961,10 +2315,10 @@ function updateShot(dt) {
     const r = Math.round(s.y), c = Math.round(s.x);
     if (r === s.lr && c === s.lc) continue;
     s.lr = r; s.lc = c;
-    if (blocksProjectile(r, c)) { burst(s.x, s.y, "#8fd3ff", 5); g.shot = null; return; }
+    if (blocksProjectile(r, c)) { burst(s.x, s.y, "#8fd3ff", 5); g.shot = null; if (!g.lolo.shots) checkStuck(); return; }
     const e = g.enemies.find(e => (e.state === "normal" || e.state === "asleep" || (e.state === "egg" && !e.raft)) &&
       ((e.r === r && e.c === c) || (vtile(e).r === r && vtile(e).c === c)));
-    if (e) { hitEnemy(e, s.dir); g.shot = null; return; }
+    if (e) { hitEnemy(e, s.dir); g.shot = null; if (!g.lolo.shots) checkStuck(); return; }
   }
 }
 
@@ -2505,7 +2859,7 @@ $("btnReset").addEventListener("click", () => { $("resetAsk").hidden = false; $(
 $("btnResetNo").addEventListener("click", () => { $("resetAsk").hidden = true; $("btnReset").hidden = false; });
 $("btnResetYes").addEventListener("click", () => {
   done.clear();
-  try { localStorage.removeItem("ponchos.done"); localStorage.removeItem("jewelkeep.done"); } catch (e) {}
+  try { localStorage.removeItem(DONE_KEY); localStorage.removeItem("ponchos.done"); localStorage.removeItem("jewelkeep.done"); } catch (e) {}
   saveDone();
   for (const k in fails) delete fails[k];
   deaths = 0; livesFloor = -1;
@@ -2517,6 +2871,7 @@ $("difEasy").addEventListener("click", () => setDifficulty("easy"));
 $("btnStart").addEventListener("click", () => { showOverlay(null); });
 $("btnNext").addEventListener("click", () => { if (nextAction) nextAction(); });
 $("btnRetry").addEventListener("click", () => { retryRoom(); $("btnRetry").blur(); });
+$("btnStuckRetry").addEventListener("click", () => { retryRoom(); $("btnStuckRetry").blur(); });
 $("btnMenu").addEventListener("click", () => { openMenu(); $("btnMenu").blur(); });
 
 // ---------- Music & sound ----------
@@ -2633,6 +2988,7 @@ function sfx(name) {
     case "chest": [523, 659, 784, 1047].forEach((f, i) => tone(f, t + i * 0.07, 0.12, "square", 0.22)); break;
     case "jewel": [784, 988, 1175, 1568, 1976].forEach((f, i) => tone(f, t + i * 0.06, 0.15, "square", 0.22)); break;
     case "die": tone(600, t, 0.7, "square", 0.3, null, 80); break;
+    case "stuck": [392, 370, 349, 311].forEach((f, i) => tone(f, t + i * 0.16, 0.2, "triangle", 0.35)); break;
     case "clear": [523, 659, 784, 659, 784, 1047].forEach((f, i) => tone(f, t + i * 0.1, 0.16, "square", 0.25)); break;
   }
 }
@@ -2718,7 +3074,9 @@ function frame(now) {
 }
 
 let manual = false;
-window.__jk = { get g() { return g; }, loadLevel, tryMove, fire, usePower, setDifficulty, get lives() { return lives; }, held, sees, tick: dt => update(dt), setManual: v => { manual = v; } };
+window.__jk = { get g() { return g; }, loadLevel, tryMove, fire, usePower, setDifficulty, get lives() { return lives; }, held, sees, tick: dt => update(dt), setManual: v => { manual = v; },
+  // console checks: __jk.solve(roomIndex) solves a room with the exact rules, __jk.solve() checks the room as it stands now
+  solve: i => i === undefined ? Solver.solve(Solver.fromGame(g)) : Solver.solve(Solver.fromLevel(LEVELS[i], ETYPE), { strict: true }) };
 const firstOpen = LEVELS.findIndex((_, i) => !done.has(i));
 loadLevel(firstOpen < 0 ? 0 : firstOpen);
 requestAnimationFrame(frame);
