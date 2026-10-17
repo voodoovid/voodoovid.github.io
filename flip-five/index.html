@@ -484,7 +484,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.17";
+const VERSION = "v2.18";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
@@ -919,6 +919,13 @@ $("keys").addEventListener("click", e => {
   b.blur(); press(b.dataset.k);
 });
 addEventListener("keydown", e => {
+  // Testing: Cmd-T (or Ctrl-T) shows the word in the status line, never for Today's Wordle. A peeked word is a test game
+  // and doesn't count in the stats. Browsers keep Cmd-T for a new tab in a normal tab, so Ctrl-T is the sure one there.
+  if ((e.metaKey || e.ctrlKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === "t" && !document.querySelector("dialog[open]")) {
+    e.preventDefault();
+    if (G && !G.over && !G.daily && !G.test) { G.test = true; save("game", G); paintStatus(); }
+    return;
+  }
   if (e.metaKey || e.ctrlKey || e.altKey || document.querySelector("dialog[open]")) return;
   const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
   if (k === "Enter" || k === "Backspace" || k === "ArrowLeft" || k === "ArrowRight" || /^[a-z]$/.test(k)) {
