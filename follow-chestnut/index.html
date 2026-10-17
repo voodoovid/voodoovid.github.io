@@ -813,7 +813,7 @@ const LEVELS = [
 // Level groups shown in the level picker: [first level index, name]
 const WORLDS = [[0, "Garden Paths"], [8, "Planks and Plates"], [16, "Twilight Hops"], [22, "Long Way Round"], [28, "Crumbling Isles"], [34, "Night Garden"]];
 
-const VERSION = "v1.15";
+const VERSION = "v1.16";
 const KEY = "followchestnut.";
 const $ = id => document.getElementById(id);
 const store = {
@@ -842,10 +842,13 @@ const unlocked = n => n === 0 || (G.progress.stars[n - 1] || 0) > 0 || (G.progre
 
 function loadLevel(n) {
   G.n = n; G.level = LEVELS[n];
-  // commands placed last time, if they still fit this level
+  // commands placed last time, if they still fit this level.
+  // A completed level starts blank, except the most recently completed one.
   G.cmds = new Map();
   const blank = makeWorld(G.level, []);
-  for (const [i, c] of store.get("cmds." + n, [])) {
+  const solved = (G.progress.stars[n] || 0) > 0 && store.get("lastWon", -1) !== n;
+  if (solved) store.set("cmds." + n, []);
+  for (const [i, c] of solved ? [] : store.get("cmds." + n, [])) {
     const x = i % blank.w, y = (i / blank.w) | 0, kind = TOOL_KIND[c];
     if (kind && G.level.tools[kind] > used(kind) && i < blank.w * blank.h && canPlace(blank, x, y, c)) G.cmds.set(i, c);
   }
@@ -948,7 +951,7 @@ function finish() {
   const W = G.W, stars = starsFor(W);
   G.mode = "done";
   if (stars > (G.progress.stars[G.n] || 0)) { G.progress.stars[G.n] = stars; store.set("progress", G.progress); }
-  if (W.won) { G.cat.win = G.time; Sound.win(); }
+  if (W.won) { G.cat.win = G.time; Sound.win(); store.set("lastWon", G.n); }
   else Sound.lose();
   updateUI();
   clearTimeout(G.resultTimer);
