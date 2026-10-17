@@ -231,14 +231,18 @@ h1 span { color: var(--gold); display: block; }
   // Nudge the game's top row right so nothing sits under the button
   const fit = () => {
     for (const el of document.querySelectorAll("[data-pill-gap]")) {
-      el.style.paddingLeft = "";
-      const p = pill.getBoundingClientRect(), r = el.getBoundingClientRect();
+      el.style.paddingLeft = ""; el.style.paddingRight = "";
+      // the controller chip (lib/gamepad.js) sits just right of the button when it shows, so clear both
+      const p = pill.getBoundingClientRect(), r = el.getBoundingClientRect(), chip = document.getElementById("gpChip");
+      const right = chip && !chip.hidden && chip.classList.contains("by-pill") ? Math.max(p.right, chip.getBoundingClientRect().right) : p.right;
       if (r.height && r.top < p.bottom + 4 && r.bottom > p.top) {
-        const need = Math.ceil(p.right + 10 - r.left);
-        if (need > 0) { el.style.boxSizing = "border-box"; el.style.paddingLeft = need + "px"; }
+        const need = Math.ceil(right + 10 - r.left);
+        // a centred title gets the same room on both sides so it stays centred
+        if (need > 0) { el.style.boxSizing = "border-box"; el.style.paddingLeft = need + "px"; if (getComputedStyle(el).textAlign === "center") el.style.paddingRight = need + "px"; }
       }
     }
   };
+  window.__pillFit = fit;
   addEventListener("DOMContentLoaded", fit); addEventListener("load", fit); addEventListener("resize", fit);
   addEventListener("orientationchange", () => setTimeout(fit, 250));
   if (document.fonts) document.fonts.ready.then(fit);
@@ -814,7 +818,7 @@ const LEVELS = [
 // Level groups shown in the level picker: [first level index, name]
 const WORLDS = [[0, "Garden Paths"], [8, "Planks and Plates"], [16, "Twilight Hops"], [22, "Long Way Round"], [28, "Crumbling Isles"], [34, "Night Garden"]];
 
-const VERSION = "v1.24";
+const VERSION = "v1.25";
 const KEY = "followchestnut.";
 const $ = id => document.getElementById(id);
 const store = {
