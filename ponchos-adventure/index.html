@@ -1542,7 +1542,7 @@ const ETYPE = {
   B: { kind: "boss", shoot: true, speed: 0.45, dir: "right" },
 };
 
-const VERSION = "4.0";
+const VERSION = "4.0.1";
 // On the games site: link back to the menu and save everything for offline play
 if (location.pathname.includes("/ponchos-adventure/")) {
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -1660,7 +1660,8 @@ const Solver = (() => {
     const shootables = room.enemies.some(e => SHOOTABLE[e.kind]);
     const moving = room.enemies.some(e => !STATIC[e.kind]);
     const shotsPossible = tools.shots > 0 || heartKind.includes("m");
-    const eggs = !strict && shotsPossible && shootables;
+    // an egg, raft or monster waiting to respawn (fromGame calls these all "egg") already gives a way over water
+    const eggs = !strict && ((shotsPossible && shootables) || room.enemies.some(e => e.kind === "egg"));
     const gazeOn = strict || (!moving && !eggs);
     const toolHearts = heartKind.some(k => "kbf".includes(k));
     const relaxRock = !strict && (tools.hammer > 0 || heartKind.includes("k"));
