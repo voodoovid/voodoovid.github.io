@@ -60,9 +60,11 @@ canvas:focus-visible{box-shadow:0 0 0 3px var(--mint)}
   background:rgba(14,5,28,.62); text-align:center; padding:16px;
 }
 .overlay[hidden]{display:none}
-.lvlsel{z-index:5; gap:12px; background:#0e051c}
+.lvlsel{z-index:5; gap:10px; background:#0e051c}
+.lvlsel h2{font-size:clamp(18px,3.4vw,30px)}
+.stage:has(#lvlSel:not([hidden])) #overlay{visibility:hidden}
 .lvlgrid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; width:100%; max-width:560px}
-.lvlgrid .tog{padding:8px 4px; line-height:1.6}
+.lvlgrid .tog{padding:6px 4px; line-height:1.5}
 .lvlrow{display:flex; gap:10px; flex-wrap:wrap; justify-content:center}
 #hidTog[aria-pressed=true]{border-color:var(--mint); color:var(--mint)}
 .overlay h2{margin:0; font-family:var(--display); font-weight:400; font-size:clamp(20px,4vw,36px); color:var(--bulb); text-shadow:2px 2px 0 var(--red)}
@@ -190,7 +192,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <div class="wrap">
   <h1 data-pill-gap>Welcome to Scareisdale</h1>
   <p class="rotate-hint">TURN YOUR PHONE SIDEWAYS FOR A BIGGER SCREEN</p>
-  <p class="tag">PANCAKE'S EIGHT-COURSE DINNER IS SPREAD ACROSS SCAREISDALE.</p>
+  <p class="tag">PANCAKE'S SIXTEEN-COURSE DINNER IS SPREAD ACROSS SCAREISDALE.</p>
 
   <div class="stage" id="stage">
     <canvas id="game" width="768" height="480" tabindex="0" aria-label="Welcome to Scareisdale game screen"></canvas>
@@ -238,7 +240,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <script>
 (() => {
 'use strict';
-const VERSION = 'v4.1';
+const VERSION = 'v5.0';
 document.getElementById('verBar').textContent = VERSION;
 document.getElementById('verOverlay').textContent = VERSION;
 const TS = 16, VW = 384, VH = 240, ROWS = 15;
@@ -612,8 +614,7 @@ function drawBat(e) {
   ctx.fillStyle = '#ffffff'; ctx.fillRect(-0.8, -3, 0.5, 0.9); ctx.fillRect(0.4, -3, 0.5, 0.9);
 }
 // a furnace keeper: a hunched stone-and-iron brute with curling horns, folded wings and a furnace glowing in its chest.
-// The last one (fierce) is scorched black and red.
-function drawBoss(e) {
+function drawKeeper(e) {
   const fierce = e.fierce, stone = fierce ? '#3a2a2e' : '#6a6a7c', dark = fierce ? '#22181a' : '#4a4a5c', hi = fierce ? '#5a3a3a' : '#8a8a9c';
   const step = e.onGround && !e.dead ? Math.sin(e.anim * 8) * 1.4 : 0, charging = e.fireT < 0.45 && !e.dead;
   ctx.scale(e.face > 0 ? 1 : -1, 1);
@@ -650,6 +651,119 @@ function drawBoss(e) {
   for (const [hx, s] of [[2, -1], [7, 1]]) blob('#d8ccb0', () => { ctx.moveTo(hx - 1.6, hy - 4); ctx.quadraticCurveTo(hx + s * 2 - 3, hy - 13, hx + s * 4 + 1, hy - 11); ctx.quadraticCurveTo(hx + s * 1.4 - 1, hy - 9, hx + 1.6, hy - 4.2); ctx.closePath(); }, 0.6);
   ctx.globalAlpha = 1;
 }
+function drawBoss(e) {
+  if (e.kind === 'golem') drawGolem(e);
+  else if (e.kind === 'witch') drawWitch(e);
+  else if (e.kind === 'king') drawKing(e);
+  else drawKeeper(e);
+}
+// the magma golem: a hulk of black rock with lava glowing through its cracks; grey and steaming while it cools
+function drawGolem(e) {
+  const cool = e.mode === 'cool' && !e.dead, wind = e.mode === 'windup' || (e.mode === 'leap' && e.vy < 0);
+  const rock = cool ? '#6a6a76' : '#2e1e1c', rock2 = cool ? '#55555f' : '#3e2824', glow = cool ? 0 : 0.75 + 0.25 * Math.sin(clock * 7);
+  const crack = cool ? '#3a3a44' : `rgba(255,${130 + Math.round(70 * glow)},40,1)`;
+  const step = e.onGround && Math.abs(e.vx) > 1 ? Math.sin(e.anim * 6) * 1.6 : 0;
+  ctx.scale(e.face > 0 ? 1 : -1, 1);
+  if (e.flash > 0 && Math.floor(e.flash * 30) % 2) ctx.globalAlpha = 0.45;
+  if (!cool) { const g = ctx.createRadialGradient(0, -18, 2, 0, -18, 30); g.addColorStop(0, `rgba(255,110,30,${0.25 * glow})`); g.addColorStop(1, 'rgba(255,80,20,0)'); ctx.fillStyle = g; ctx.fillRect(-30, -48, 60, 50); }
+  for (const [lx, o] of [[-8, step], [7, -step]]) { blob(rock2, () => ctx.rect(lx - 5, -11 + Math.min(0, o), 10, 11 - Math.min(0, o)), 0.9); }
+  blob(rock, poly([-15, -9, -16, -24, -10, -31, 9, -32, 15, -25, 14, -9]));
+  ctx.strokeStyle = crack; ctx.lineWidth = 1.2; ctx.beginPath();
+  ctx.moveTo(-10, -26); ctx.lineTo(-6, -20); ctx.lineTo(-9, -14); ctx.moveTo(4, -29); ctx.lineTo(1, -22); ctx.lineTo(6, -15); ctx.lineTo(3, -11);
+  ctx.moveTo(10, -22); ctx.lineTo(7, -18); ctx.moveTo(-7, -7); ctx.lineTo(-8, -3); ctx.moveTo(8, -7); ctx.lineTo(7, -2); ctx.stroke();
+  // head sunk between the shoulders
+  blob(rock, poly([-2, -31, -1, -38, 9, -38, 11, -31]), 0.9);
+  if (e.dead) xEye(5, -35, 1.1);
+  else { const ec = cool ? '#9a9aa8' : '#ffe14a'; dot(ec, 3.5, -35, 1.1); dot(ec, 8, -35, 1.1); }
+  // arms: hanging at its sides, or raised for a slam
+  const ay = wind ? -42 : -6 + step * 0.5;
+  limb(-12, -25, -17, ay, rock2, 5.4); limb(11, -25, 17, ay, rock2, 5.4);
+  blob(rock, C(-17, ay, 4.2), 0.9); blob(rock, C(17, ay, 4.2), 0.9);
+  if (cool) { ctx.fillStyle = 'rgba(230,230,245,.25)'; ctx.beginPath(); ctx.ellipse(0, -36, 14, 4, 0, 0, 7); ctx.fill(); }
+  ctx.globalAlpha = 1;
+}
+// the witch: pointed hat, green face, ragged cloak; rides her broom, or stands on a perch stirring the air with it
+function drawWitch(e) {
+  const perched = e.mode === 'perch' && !e.dead, bob = perched ? 0 : Math.sin(clock * 5) * 1.2, tumble = e.mode === 'tumble';
+  ctx.scale(e.face > 0 ? 1 : -1, 1);
+  if (tumble) { ctx.translate(0, -11); ctx.rotate(Math.sin(clock * 30) * 0.5); ctx.translate(0, 11); }
+  if (e.flash > 0 && Math.floor(e.flash * 30) % 2) ctx.globalAlpha = 0.45;
+  const cloak = '#2a1438', skin = '#7ac85a';
+  if (!perched) {   // the broom under her
+    ctx.strokeStyle = '#6a4a2a'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.moveTo(-12, -3 + bob); ctx.lineTo(10, -5 + bob); ctx.stroke();
+    blob('#c8a040', poly([-12, -6 + bob, -20, -9 + bob, -21, 1 + bob, -12, -1 + bob]), 0.6);
+    ctx.strokeStyle = '#8a6a2a'; ctx.lineWidth = 0.5; ctx.beginPath(); for (let i = 0; i < 4; i++) { ctx.moveTo(-13, -5 + i * 1.3 + bob); ctx.lineTo(-20, -8 + i * 2.8 + bob); } ctx.stroke();
+  } else {   // stirring with the broom held upright
+    const sw = Math.sin(clock * 6) * 2;
+    ctx.strokeStyle = '#6a4a2a'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(7 + sw, -18); ctx.lineTo(8 + sw * 0.4, 0); ctx.stroke();
+    blob('#c8a040', poly([5.5 + sw * 0.4, 0, 10.5 + sw * 0.4, 0, 9 + sw * 0.4, -4, 7 + sw * 0.4, -4]), 0.5);
+  }
+  // cloak, ragged at the hem
+  blob(cloak, () => { ctx.moveTo(-5, -16 + bob); ctx.lineTo(5, -16 + bob); ctx.lineTo(8, -2 + bob); for (let i = 0; i < 5; i++) ctx.lineTo(8 - i * 3.2 - 1.6, -4 + (i % 2) * 2 + bob); ctx.lineTo(-8, -2 + bob); ctx.closePath(); });
+  limb(3, -13 + bob, perched ? 7 : 9, perched ? -11 : -7 + bob, cloak, 2.2);
+  dot(skin, perched ? 7.5 : 9, perched ? -11 : -7 + bob, 1.3);
+  // face: long nose, a wart, glowing eyes
+  blob(skin, E(1, -19 + bob, 4, 3.8), 0.7);
+  blob(skin, poly([4, -20 + bob, 8.5, -18 + bob, 4.2, -17.6 + bob]), 0.5);
+  dot('#3a6a2a', 6, -18.6 + bob, 0.5);
+  if (e.dead) xEye(2.4, -20 + bob, 0.8);
+  else { dot('#ffe14a', 2.6, -20.2 + bob, 0.9); dot('#14072e', 2.9, -20.2 + bob, 0.4); }
+  ctx.strokeStyle = INK; ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(0.5, -17 + bob); ctx.quadraticCurveTo(2.4, -16 + bob, 4, -17.2 + bob); ctx.stroke();
+  // hair and hat
+  ctx.strokeStyle = '#8a8a9c'; ctx.lineWidth = 0.8; ctx.beginPath(); for (let i = 0; i < 4; i++) { ctx.moveTo(-3 + i * 0.4, -21 + bob); ctx.quadraticCurveTo(-6 - i, -17 + bob, -5 - i * 0.8, -13 + bob + Math.sin(clock * 6 + i)); } ctx.stroke();
+  blob(cloak, poly([-7, -21.5 + bob, 7, -21.5 + bob, 4, -23 + bob, 1, -32 + bob, -5, -36 + bob + Math.sin(clock * 3) * 0.6, -2, -23 + bob]), 0.7);
+  ctx.fillStyle = '#7a3ab0'; ctx.fillRect(-4, -24 + bob, 8, 1.2);
+  ctx.globalAlpha = 1;
+}
+// the night king: a tall shadow in a crown and a cloak that ripples like smoke, with a violet aura
+function drawKing(e) {
+  const fade = e.mode === 'fadeout' ? Math.max(0, e.mt / 0.35) : e.mode === 'fadein' ? 1 - Math.max(0, e.mt / 0.4) : 1;
+  const casting = e.mode === 'cast' && !e.dead;
+  ctx.scale(e.face > 0 ? 1 : -1, 1);
+  ctx.globalAlpha = fade * (e.flash > 0 && Math.floor(e.flash * 30) % 2 ? 0.45 : 1);
+  if (!e.dead) { const g = ctx.createRadialGradient(0, -18, 3, 0, -18, 28); g.addColorStop(0, `rgba(176,106,255,${0.28 + 0.1 * Math.sin(clock * 4)})`); g.addColorStop(1, 'rgba(120,60,200,0)'); ctx.fillStyle = g; ctx.fillRect(-30, -50, 60, 54); }
+  // cloak
+  blob('#1a0e26', () => {
+    ctx.moveTo(-6, -27); ctx.lineTo(6, -27); ctx.quadraticCurveTo(12, -14, 12, 0);
+    for (let i = 0; i <= 6; i++) ctx.lineTo(12 - i * 4, -1.5 + Math.sin(clock * 6 + i * 1.3) * 1.5);
+    ctx.quadraticCurveTo(-12, -14, -6, -27); ctx.closePath();
+  });
+  ctx.strokeStyle = '#4a2a6a'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(-3, -24); ctx.quadraticCurveTo(-6, -12, -7, -2); ctx.moveTo(3, -24); ctx.quadraticCurveTo(5, -12, 6, -2); ctx.stroke();
+  // arm: raised when he casts
+  if (casting) { limb(4, -22, 13, -30, '#1a0e26', 2.6); dot('#d8b0ff', 13, -30, 2.4); dot('#ffffff', 13, -30, 1); }
+  else limb(4, -22, 9, -12, '#1a0e26', 2.6);
+  // face: a pale mask in the hood, two violet eyes
+  blob('#2a1a3a', E(0, -30, 5.5, 5.2), 0.8);
+  blob('#cfc6dc', E(1, -30, 3.6, 4), 0.6);
+  if (e.dead) { xEye(-0.2, -31, 0.8); xEye(2.6, -31, 0.8); }
+  else { dot('#b06aff', -0.2, -31, 1); dot('#b06aff', 2.6, -31, 1); dot('#ffffff', 0, -31.2, 0.35); dot('#ffffff', 2.8, -31.2, 0.35); }
+  // crown
+  blob('#ffd23f', poly([-5, -34.5, 5, -34.5, 5.5, -40, 3, -37, 1, -41.5, -1, -37, -3.5, -40.5, -5.5, -37]), 0.6);
+  dot('#e8304a', 0.5, -36, 0.8);
+  ctx.globalAlpha = 1;
+}
+function drawBossShot(e, x, y) {
+  if (e.type === 'shock') {
+    const hot = !e.cold, k = Math.sin(clock * 30) * 1.2;
+    ctx.fillStyle = hot ? 'rgba(255,90,20,.35)' : 'rgba(176,106,255,.35)'; ctx.beginPath(); ctx.ellipse(x + 5, y + 12, 9, 4, 0, 0, 7); ctx.fill();
+    blob(hot ? '#ff7a1a' : '#6a3ab0', () => { ctx.moveTo(x - 1, y + 12); ctx.quadraticCurveTo(x + 2, y + 2 + k, x + 5, y); ctx.quadraticCurveTo(x + 8, y + 2 - k, x + 11, y + 12); ctx.closePath(); }, 0.7);
+    ctx.fillStyle = hot ? '#ffe14a' : '#d8b0ff'; ctx.fillRect(x + 4, y + 3, 2, 6);
+  } else if (e.type === 'rock') {
+    const g = ctx.createRadialGradient(x + 4, y + 4, 1, x + 4, y + 4, 9); g.addColorStop(0, 'rgba(255,120,30,.5)'); g.addColorStop(1, 'rgba(255,80,20,0)'); ctx.fillStyle = g; ctx.fillRect(x - 6, y - 6, 20, 20);
+    blob('#2e1e1c', poly([x, y + 3, x + 3, y, x + 7, y + 1, x + 8, y + 5, x + 5, y + 8, x + 1, y + 7]), 0.7);
+    ctx.fillStyle = '#ff8a2a'; ctx.fillRect(x + 3, y + 3, 2, 1); ctx.fillRect(x + 4, y + 4, 1, 2);
+  } else if (e.type === 'wisp') {
+    const a = Math.min(1, e.life / 0.4, e.t / 0.25);
+    ctx.globalAlpha = a;
+    const g = ctx.createRadialGradient(x + 4, y + 4, 0.5, x + 4, y + 4, 10); g.addColorStop(0, 'rgba(200,255,140,.8)'); g.addColorStop(1, 'rgba(90,220,90,0)'); ctx.fillStyle = g; ctx.fillRect(x - 6, y - 6, 20, 20);
+    ctx.fillStyle = '#7ae04a'; ctx.beginPath(); ctx.moveTo(x + 4, y - 3 - Math.sin(clock * 20) * 1.5); ctx.quadraticCurveTo(x + 9, y + 4, x + 4, y + 8); ctx.quadraticCurveTo(x - 1, y + 4, x + 4, y - 3); ctx.fill();
+    ctx.fillStyle = '#e8ffd0'; ctx.beginPath(); ctx.arc(x + 4, y + 4.5, 1.6, 0, 7); ctx.fill();
+    ctx.globalAlpha = 1;
+  } else {
+    const g = ctx.createRadialGradient(x + 4, y + 4, 0.5, x + 4, y + 4, 9); g.addColorStop(0, 'rgba(200,150,255,.7)'); g.addColorStop(1, 'rgba(120,60,200,0)'); ctx.fillStyle = g; ctx.fillRect(x - 5, y - 5, 18, 18);
+    dot('#1a0e26', x + 4, y + 4, 3.4); dot('#b06aff', x + 3.2, y + 3.2, 1.2);
+  }
+}
 // the keeper's fire breath: a long tongue of flame
 function drawBossFire(e, x, y) {
   const d = e.vx > 0 ? 1 : -1, cy = y + 3;
@@ -667,14 +781,14 @@ function drawBossFire(e, x, y) {
 function drawLift(e, x, y) {
   const th = L.theme, w = e.w, sh = e.fall && e.fallT > 0 && e.fallT < 0.3 ? Math.round(Math.sin(clock * 80)) : 0;
   x = Math.round(x + sh); y = Math.round(y);
-  if (th === 'swamp') {
+  if (th === 'swamp' || th === 'harbor' || th === 'woods') {
     ctx.fillStyle = '#4a3020'; ctx.fillRect(x, y, w, 7); ctx.fillStyle = '#6a4a2c'; ctx.fillRect(x, y, w, 2);
     ctx.fillStyle = '#2a1a10'; for (let i = 6; i < w; i += 11) ctx.fillRect(x + i, y + 3, 4, 1);
     ctx.fillStyle = '#5a3a24'; ctx.beginPath(); ctx.ellipse(x, y + 3.5, 2, 3.5, 0, 0, 7); ctx.ellipse(x + w, y + 3.5, 2, 3.5, 0, 0, 7); ctx.fill();
     ctx.fillStyle = '#3e5a2a'; ctx.fillRect(x + 4, y - 1, 6, 1); ctx.fillRect(x + w - 12, y - 1, 4, 1);
     return;
   }
-  if (th === 'tower') {
+  if (th === 'tower' || th === 'mine') {
     ctx.strokeStyle = '#a8946a'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(x + 3, y); ctx.lineTo(x + 3, y - 240); ctx.moveTo(x + w - 3, y); ctx.lineTo(x + w - 3, y - 240); ctx.stroke();
     ctx.fillStyle = '#6a4a2a'; ctx.fillRect(x, y, w, 6); ctx.fillStyle = '#8a6a3a'; ctx.fillRect(x, y, w, 1);
     ctx.fillStyle = '#3a2614'; for (let i = 8; i < w; i += 8) ctx.fillRect(x + i, y, 1, 6);
@@ -716,12 +830,19 @@ function drawLever(px) {
   ctx.restore();
   if (!pulled) { const g = ctx.createRadialGradient(px, base - 22, 1, px, base - 22, 14); g.addColorStop(0, `rgba(255,210,63,${0.25 + 0.15 * Math.sin(clock * 5)})`); g.addColorStop(1, 'rgba(255,210,63,0)'); ctx.fillStyle = g; ctx.fillRect(px - 14, base - 36, 28, 28); }
 }
-// lava (or, in the swamp, bog water) with a wobbling surface and a glow
+// lava, or each level's own deadly liquid: bog water, black sea, sludge, witch's brew. A wobbling surface, and a glow if it glows.
+const LIQ = {
+  lava: { deep: '#a8260a', mid: '#ff5a14', hi: '#ffc23a', glow: '255,110,30', hot: true },
+  swamp: { deep: '#162410', mid: '#2c4420', hi: '#6a8a44' },
+  harbor: { deep: '#08121e', mid: '#14283e', hi: '#7a9ab8' },
+  sewer: { deep: '#141a06', mid: '#34421a', hi: '#7a9a3a' },
+  cauldron: { deep: '#0e2a08', mid: '#3a9a2a', hi: '#b0f080', glow: '110,230,80' },
+};
+const liq = () => LIQ[L.theme] || LIQ.lava;
 function drawLiquid(px, py, tx, ty) {
-  const bog = L.theme === 'swamp', top = !(ty > 0 && grid[ty - 1][tx] === 'L');
-  const deep = bog ? '#162410' : '#a8260a', mid = bog ? '#2c4420' : '#ff5a14', hi = bog ? '#6a8a44' : '#ffc23a';
-  if (!top) { ctx.fillStyle = deep; ctx.fillRect(px, py, 16, 16); if (!bog) { ctx.fillStyle = 'rgba(255,120,30,.35)'; ctx.fillRect(px + ((tx * 5 + Math.floor(clock * 2)) % 12), py + 5, 3, 2); } return; }
-  if (!bog) { const g = ctx.createLinearGradient(0, py - 14, 0, py + 8); g.addColorStop(0, 'rgba(255,110,30,0)'); g.addColorStop(1, `rgba(255,110,30,${0.22 + 0.06 * Math.sin(clock * 3 + tx)})`); ctx.fillStyle = g; ctx.fillRect(px, py - 14, 16, 22); }
+  const q = liq(), top = !(ty > 0 && grid[ty - 1][tx] === 'L'), { deep, mid, hi } = q;
+  if (!top) { ctx.fillStyle = deep; ctx.fillRect(px, py, 16, 16); if (q.glow) { ctx.fillStyle = `rgba(${q.glow},.35)`; ctx.fillRect(px + ((tx * 5 + Math.floor(clock * 2)) % 12), py + 5, 3, 2); } return; }
+  if (q.glow) { const g = ctx.createLinearGradient(0, py - 14, 0, py + 8); g.addColorStop(0, `rgba(${q.glow},0)`); g.addColorStop(1, `rgba(${q.glow},${0.22 + 0.06 * Math.sin(clock * 3 + tx)})`); ctx.fillStyle = g; ctx.fillRect(px, py - 14, 16, 22); }
   ctx.fillStyle = deep; ctx.fillRect(px, py + 8, 16, 8);
   for (let x = 0; x < 16; x += 2) {
     const wx = tx * 16 + x, h = 5 + Math.sin(clock * 2.6 + wx * 0.3) * 1.3 + Math.sin(clock * 1.7 - wx * 0.17) * 0.8;
@@ -854,6 +975,62 @@ const TT = {
     top: p => { p(0, 0, '#1e1012', 16, 16); p(0, 0, '#3a2224', 16, 3); p(0, 0, '#5a3434', 16, 1); p(5, 3, '#ff6a1a', 2, 1); p(12, 3, '#ff6a1a', 1, 1); p(9, 8, '#a8300a', 4, 1); p(4, 11, '#a8300a', 1, 3); },
     wall: p => { p(0, 0, '#160a0c', 16, 16); p(2, 3, '#24121a', 6, 3); p(9, 9, '#24121a', 5, 4); p(7, 6, '#6a1a0a', 1, 4); p(0, 15, '#0a0406', 16, 1); },
     pillar: { mid: '#3a2224', hi: '#5a3434', lo: '#2a1618', dark: '#0e0608', cap: '#7a2a14' },
+  }),
+  // the harbor: grey weathered dock boards on tarred pilings
+  harbor: themeSet({
+    ground: p => { p(0, 0, '#2a2e36', 16, 16); for (const y of [3, 7, 11, 15]) p(0, y, '#1a1c22', 16, 1); p(4, 0, '#1a1c22', 1, 3); p(11, 4, '#1a1c22', 1, 3); p(2, 8, '#1a1c22', 1, 3); p(9, 12, '#1a1c22', 1, 3); p(6, 1, '#3a3e48', 3, 1); },
+    top: p => { p(0, 0, '#4a4e5a', 16, 16); for (const y of [4, 8, 12]) p(0, y, '#2a2e36', 16, 1); p(0, 0, '#6a6e7c', 16, 1); p(5, 1, '#2a2e36', 1, 3); p(12, 5, '#2a2e36', 1, 3); p(3, 9, '#2a2e36', 1, 3); p(9, 13, '#2a2e36', 1, 3); p(7, 2, '#8a8e9c', 1, 1); },
+    wall: planks,
+    pillar: { mid: '#3a2a20', hi: '#5a4230', lo: '#2a1e16', dark: '#120c08', cap: '#5a5e6a', moss: '#2e5a4a' },
+  }),
+  // the mine: dark rock with flecks of ore, timber props
+  mine: themeSet({
+    ground: p => { p(0, 0, '#2a2220', 16, 16); p(3, 3, '#3a302c', 4, 3); p(10, 9, '#3a302c', 4, 3); p(5, 12, '#1a1412', 5, 1); p(12, 2, '#c8a040', 1, 1); p(2, 9, '#7ac8d8', 1, 1); },
+    top: p => { p(0, 0, '#2a2220', 16, 16); p(0, 0, '#4a3e36', 16, 3); p(0, 0, '#5e5046', 16, 1); p(3, 6, '#3a302c', 4, 3); p(11, 10, '#3a302c', 3, 2); p(9, 5, '#c8a040', 1, 1); },
+    wall: p => { p(0, 0, '#1c1614', 16, 16); p(2, 3, '#2a221e', 6, 3); p(9, 9, '#2a221e', 5, 4); p(12, 2, '#c8a040', 1, 1); p(0, 15, '#0e0a08', 16, 1); },
+    pillar: { mid: '#6a4a2a', hi: '#8a6a3a', lo: '#4a3420', dark: '#1e140a', cap: '#3a3a46' },
+  }),
+  // the wax museum: a black-and-white marble floor, dark panelled walls, marble columns
+  museum: themeSet({
+    ground: p => { p(0, 0, '#2a2232', 16, 16); p(1, 1, '#3a3044', 6, 6); p(9, 9, '#3a3044', 6, 6); },
+    top: p => { p(0, 0, '#d8d0e4', 8, 4); p(8, 0, '#1e1828', 8, 4); p(0, 4, '#8a2a3a', 16, 2); p(0, 6, '#2a2232', 16, 10); p(2, 9, '#3a3044', 5, 5); p(10, 8, '#3a3044', 4, 4); p(0, 0, '#ffffff', 8, 1); },
+    wall: p => { p(0, 0, '#2a1420', 16, 16); p(1, 1, '#3a1c2c', 14, 6); p(1, 9, '#3a1c2c', 14, 6); p(0, 8, '#c8a040', 16, 1); p(0, 15, '#160a10', 16, 1); },
+    pillar: { mid: '#d8d0e4', hi: '#f4eef8', lo: '#b8b0c8', dark: '#5a5268', cap: '#c8a040' },
+  }),
+  // the cauldron: mossy black stone lit green from below
+  cauldron: themeSet({
+    ground: stones('#2a2a26', '#141410', '#363630'),
+    top: p => { stones('#2a2a26', '#141410', '#363630')(p); p(0, 0, '#3a4a2a', 16, 2); p(0, 0, '#7ae04a', 16, 1); p(3, 2, '#2a3a1a', 3, 2); p(11, 2, '#2a3a1a', 2, 3); },
+    wall: stones('#1e1e1a', '#0c0c0a', '#28281e'),
+    pillar: { mid: '#36362e', hi: '#4a4a3e', lo: '#2a2a24', dark: '#0e0e0a', cap: '#3a4a2a', moss: '#4a7a2a' },
+  }),
+  // the dark woods: leaf litter over black earth and roots, mossy stumps
+  woods: themeSet({
+    ground: p => { p(0, 0, '#1a140e', 16, 16); p(2, 4, '#2a1e14', 6, 2); p(9, 10, '#2a1e14', 5, 2); p(4, 12, '#3a2a1a', 7, 1); p(12, 3, '#3a2a1a', 1, 4); },
+    top: p => { p(0, 0, '#1a140e', 16, 16); p(0, 0, '#3a2a14', 16, 3); for (const [x, c] of [[1, '#7a3a14'], [4, '#5a6a2a'], [7, '#8a5a1a'], [10, '#4a2a10'], [13, '#6a4a1a']]) p(x, 0, c, 2, 2); p(0, 3, '#2a1e14', 16, 1); p(3, 7, '#3a2a1a', 6, 1); p(10, 11, '#2a1e14', 4, 2); },
+    wall: p => { p(0, 0, '#140e08', 16, 16); p(2, 3, '#22180e', 6, 2); p(8, 10, '#22180e', 6, 2); p(11, 1, '#3a2614', 1, 6); p(4, 8, '#3a2614', 1, 5); },
+    pillar: { mid: '#3a2a1c', hi: '#4e3a26', lo: '#2a1e14', dark: '#100a06', cap: '#6a5a3a', moss: '#3a5a2a' },
+  }),
+  // the sewers: slimy brick
+  sewer: themeSet({
+    ground: stones('#3a3428', '#1e1a12', '#4a4232'),
+    top: p => { stones('#3a3428', '#1e1a12', '#4a4232')(p); p(0, 0, '#3a4a24', 16, 2); p(2, 2, '#4a6a2a', 2, 3); p(9, 2, '#4a6a2a', 1, 4); p(13, 2, '#4a6a2a', 2, 2); },
+    wall: stones('#2a2620', '#14120c', '#34302a'),
+    pillar: { mid: '#5a5a62', hi: '#7a7a84', lo: '#4a4a52', dark: '#1a1a20', cap: '#6a6a74', moss: '#4a6a2a' },
+  }),
+  // the clockworks: riveted brass plate
+  clock: themeSet({
+    ground: p => { p(0, 0, '#6a4a1a', 16, 16); p(0, 0, '#8a6a2a', 16, 1); p(0, 15, '#3a2a0a', 16, 1); for (const [x, y] of [[2, 2], [13, 2], [2, 13], [13, 13]]) { p(x, y, '#c8a040', 1, 1); p(x + 1, y + 1, '#3a2a0a', 1, 1); } p(5, 6, '#7a5a22', 6, 4); },
+    top: p => { p(0, 0, '#6a4a1a', 16, 16); p(0, 0, '#d8b050', 16, 2); p(0, 2, '#3a2a0a', 16, 1); for (let x = 1; x < 16; x += 4) p(x, 6, '#c8a040', 1, 1); p(0, 15, '#3a2a0a', 16, 1); },
+    wall: p => { p(0, 0, '#2a1e0a', 16, 16); p(0, 0, '#3a2a10', 16, 1); p(0, 8, '#1a1206', 16, 1); for (const [x, y] of [[2, 3], [13, 3], [2, 12], [13, 12]]) p(x, y, '#6a4a1a', 1, 1); },
+    pillar: { mid: '#8a6a2a', hi: '#c8a040', lo: '#6a4a1a', dark: '#2a1a06', cap: '#d8b050' },
+  }),
+  // the citadel: violet-black stone with gold trim
+  citadel: themeSet({
+    ground: stones('#2a1e36', '#140c1c', '#3a2a48'),
+    top: p => { stones('#2a1e36', '#140c1c', '#3a2a48')(p); p(0, 0, '#4a3a5e', 16, 2); p(0, 0, '#c8a040', 16, 1); },
+    wall: stones('#1e1428', '#0c0612', '#281c34'),
+    pillar: { mid: '#3a2a4a', hi: '#5a4470', lo: '#2a1e36', dark: '#0e0816', cap: '#c8a040' },
   }),
   // above the graveyard, up the ivy: puffs of moonlit cloud
   clouds: themeSet({
@@ -1017,6 +1194,12 @@ function sfx(k) {
     case 'lever': s.tone('square', 220, 440, 0.06, 0.1); s.tone('square', 660, 880, 0.08, 0.08, 0.06); break;
     case 'vine': [0, 2, 4, 5, 7, 9, 11, 12].forEach((n, i) => s.tone('triangle', mtof(67 + n), mtof(67 + n), 0.07, 0.1, i * 0.05)); break;
     case 'swoop': s.tone('sine', 900, 300, 0.25, 0.06); break;
+    case 'cackle': [0, 0.09, 0.18, 0.27].forEach((d, i) => s.tone('sawtooth', 900 - i * 60, 700 - i * 60, 0.07, 0.05, d)); break;
+    case 'slam': s.noise(0.5, 0.45, 260); s.tone('sine', 90, 35, 0.45, 0.25); break;
+    case 'rumble': s.noise(0.5, 0.2, 180); break;
+    case 'teleport': s.tone('sine', 300, 1200, 0.25, 0.06); s.tone('triangle', 1200, 300, 0.25, 0.04, 0.12); break;
+    case 'orb': s.tone('square', 220, 110, 0.2, 0.05); s.tone('sine', 440, 880, 0.2, 0.04); break;
+    case 'wisp': s.tone('sine', 700, 1100, 0.3, 0.05); s.tone('sine', 1050, 1500, 0.3, 0.03, 0.05); break;
     case 'warp': [24, 19, 12, 7, 0].forEach((n, i) => s.tone('square', mtof(48 + n), mtof(48 + n), 0.09, 0.08, i * 0.07)); break;
   }
 }
@@ -1191,8 +1374,104 @@ function towerBar(t0, b, beat) {
   playMel('lead', t0, TOWER_MEL[i], beat);
   return beat * 4;
 }
+// Night 3, the harbor: a rolling sea shanty in D minor, oom-pah bass and a squeezebox lead
+const SHANTY_CH = [[38, [62, 65, 69]], [38, [62, 65, 69]], [36, [60, 64, 67]], [33, [61, 64, 69]], [38, [62, 65, 69]], [34, [62, 65, 70]], [33, [61, 64, 69]], [38, [62, 65, 69]]];
+const SHANTY_MEL = [[[69, 1], [69, 0.5], [67, 0.5], [65, 1], [62, 1]], [[64, 1], [65, 1], [67, 2]], [[67, 1], [67, 0.5], [65, 0.5], [64, 1], [60, 1]], [[61, 1], [64, 1], [69, 2]],
+  [[74, 1], [72, 0.5], [70, 0.5], [69, 1], [65, 1]], [[70, 1], [69, 0.5], [67, 0.5], [65, 2]], [[64, 1], [65, 1], [67, 1], [61, 1]], [[62, 3], [0, 1]]];
+function shantyBar(t0, b, beat) {
+  const i = b % 8, [r, ch] = SHANTY_CH[i];
+  voice('bass', t0, r, beat * 0.8); voice('bass', t0 + beat * 2, r + 7, beat * 0.8);
+  [1, 3].forEach(k => ch.forEach(n => voice('stab', t0 + beat * k, n, beat * 0.4)));
+  playMel('call', t0, SHANTY_MEL[i], beat);
+  if (i % 4 === 3) voice('bell', t0 + beat * 3, 62, beat * 2);   // a ship's bell
+  return beat * 4;
+}
+// Night 3, the mine: a dark work song in A minor, a pickaxe ringing on the off-beats
+const MINE_BASS = [33, 33, 36, 31, 33, 33, 28, 31];
+const MINE_MEL = [[[69, 2], [67, 1], [64, 1]], [[62, 1], [64, 1], [57, 2]], [[60, 1], [62, 1], [64, 1], [67, 1]], [[69, 3], [0, 1]],
+  [[72, 2], [69, 1], [67, 1]], [[64, 2], [62, 2]], [[60, 1], [57, 1], [59, 1], [56, 1]], [[57, 4]]];
+function mineBar(t0, b, beat) {
+  const i = b % 8, r = MINE_BASS[i];
+  for (let k = 0; k < 4; k++) voice('pluck', t0 + k * beat, r + (k === 2 ? 7 : 0), beat * 0.7);
+  [1.5, 3.5].forEach(k => voice('box', t0 + beat * k, 93, beat * 0.2, 30));   // clink
+  playMel('organ', t0, MINE_MEL[i], beat); playMel('lead', t0, MINE_MEL[i], beat, -12);
+  return beat * 4;
+}
+// Night 3, the wax museum: a stiff little minuet in G minor on harpsichord and music box
+const MINUET_CH = [[43, [55, 58, 62]], [38, [54, 57, 62]], [43, [55, 58, 62]], [36, [55, 60, 63]], [41, [53, 57, 60]], [34, [53, 58, 62]], [38, [54, 57, 60]], [43, [55, 58, 62]]];
+const MINUET_MEL = [[[74, 1], [70, 0.5], [72, 0.5], [74, 1]], [[72, 1], [69, 1], [66, 1]], [[67, 1], [70, 1], [74, 1]], [[75, 2], [72, 1]],
+  [[72, 1], [69, 0.5], [70, 0.5], [72, 1]], [[70, 1], [74, 1], [77, 1]], [[74, 1], [72, 1], [69, 1]], [[67, 3]]];
+function minuetBar(t0, b, beat) {
+  const i = b % 8, [r, ch] = MINUET_CH[i];
+  voice('pluck', t0, r, beat); [1, 2].forEach(k => ch.forEach(n => voice('harpsi', t0 + beat * k, n - 12, beat * 0.5)));
+  playMel('harpsi', t0, MINUET_MEL[i], beat);
+  if (Math.floor(b / 8) % 2) playMel('box', t0 + beat * 0.02, MINUET_MEL[i], beat, -12);
+  return beat * 3;
+}
+// Night 3, the cauldron: a bubbling chromatic ostinato in E minor with a theremin witch's tune
+const WITCH_BASS = [40, 40, 41, 40, 40, 40, 46, 45];
+const WITCH_MEL = [[[76, 1], [79, 1], [78, 1], [75, 1]], [[76, 3], [0, 1]], [[71, 1], [72, 1], [75, 1], [76, 1]], [[79, 2], [78, 2]],
+  [[83, 1], [82, 1], [81, 1], [79, 1]], [[78, 2], [75, 2]], [[76, 1], [72, 1], [71, 1], [67, 1]], [[64, 3], [0, 1]]];
+function witchBar(t0, b, beat) {
+  const i = b % 8, r = WITCH_BASS[i];
+  for (let k = 0; k < 8; k++) voice('pluck', t0 + k * beat / 2, r + [0, 12, 1, 12, 0, 12, 3, 11][k], beat * 0.35);
+  if (i % 2 === 0) [64, 67, 70].forEach(n => voice('organ', t0, n, beat * 1.8));
+  playMel('theremin', t0, WITCH_MEL[i], beat);
+  if (i === 3 || i === 7) [0, 0.25, 0.5].forEach(d => voice('stab', t0 + beat * (3 + d), 88 - d * 8, beat * 0.2));   // a cackle
+  return beat * 4;
+}
+// Night 4, the dark woods: slow and hushed in C minor, a soft organ, an owl hooting, a lonely whistle
+const WOODS_CH = [[36, [60, 63, 67]], [32, [60, 63, 68]], [34, [58, 62, 65]], [31, [59, 62, 67]], [36, [60, 63, 67]], [29, [60, 65, 68]], [31, [59, 62, 65]], [36, [60, 63, 67]]];
+const WOODS_MEL = [[[72, 2], [75, 1], [74, 1]], [[72, 3], [0, 1]], [[70, 1], [72, 1], [74, 2]], [[71, 4]], [[79, 2], [77, 1], [75, 1]], [[77, 2], [72, 2]], [[74, 1], [71, 1], [67, 2]], [[72, 4]]];
+function woodsBar(t0, b, beat) {
+  const i = b % 8, [r, ch] = WOODS_CH[i];
+  ch.forEach(n => voice('organ', t0, n, beat * 3.9));
+  voice('bass', t0, r, beat * 1.8); voice('bass', t0 + beat * 2, r + 7, beat * 1.8);
+  playMel('call', t0, WOODS_MEL[i], beat);
+  if (i % 4 === 1) { voice('theremin', t0 + beat * 2, 67, beat * 0.6); voice('theremin', t0 + beat * 2.8, 63, beat); }   // an owl
+  return beat * 4;
+}
+// Night 4, the sewers: a slinking walking bass in F minor, drips and a gliding theremin
+const SEWER_WALK = [[41, 44, 46, 47], [48, 47, 46, 44], [41, 44, 46, 47], [48, 51, 49, 48], [46, 49, 51, 52], [53, 52, 51, 49], [48, 46, 44, 43], [41, 41, 41, 40]];
+const SEWER_MEL = [[[77, 2], [80, 2]], [[79, 3], [77, 1]], [[77, 1], [80, 1], [82, 1], [83, 1]], [[84, 4]], [[82, 2], [80, 2]], [[79, 2], [77, 1], [76, 1]], [[77, 1], [75, 1], [72, 2]], [[77, 4]]];
+function sewerBar(t0, b, beat) {
+  const i = b % 8;
+  SEWER_WALK[i].forEach((n, k) => voice('pluck', t0 + k * beat, n - 12, beat * 0.8));
+  playMel('theremin', t0, SEWER_MEL[i], beat, -12);
+  for (let k = 0; k < 2; k++) if (Math.random() < 0.6) voice('box', t0 + beat * (Math.random() * 4), 88 + Math.floor(Math.random() * 6), beat * 0.3, 20);   // drips
+  return beat * 4;
+}
+// Night 4, the clockworks: tick-tock, a harpsichord turning like a mechanism, a bright lead in A minor
+const CLOCK_CH = [[45, [57, 60, 64]], [41, [57, 60, 65]], [43, [55, 59, 62]], [40, [56, 59, 64]], [45, [57, 60, 64]], [38, [57, 62, 65]], [40, [56, 59, 62]], [45, [57, 60, 64]]];
+const CLOCK_MEL = [[[76, 1], [72, 1], [69, 1], [72, 1]], [[77, 2], [76, 2]], [[74, 1], [71, 1], [67, 1], [71, 1]], [[76, 3], [0, 1]],
+  [[81, 1], [79, 1], [77, 1], [76, 1]], [[74, 2], [77, 2]], [[76, 1], [74, 1], [71, 1], [68, 1]], [[69, 3], [0, 1]]];
+function clockBar(t0, b, beat) {
+  const i = b % 8, [r, ch] = CLOCK_CH[i];
+  for (let k = 0; k < 4; k++) voice('box', t0 + k * beat, k % 2 ? 96 : 91, beat * 0.2, 10);
+  for (let k = 0; k < 8; k++) voice('harpsi', t0 + k * beat / 2, ch[[0, 1, 2, 1][k % 4]], beat * 0.4);
+  voice('pluck', t0, r, beat * 1.6); voice('pluck', t0 + beat * 2, r + 7, beat * 1.6);
+  playMel('lead', t0, CLOCK_MEL[i], beat);
+  if (i === 0) voice('bell', t0, 57, beat * 4);
+  return beat * 4;
+}
+// Night 4, the citadel: the finale: a driving ostinato in D minor, full organ, bells and a soaring lead
+const FINALE_BASS = [38, 38, 34, 36, 38, 38, 33, 37];
+const FINALE_CH = [[62, 65, 69], [62, 65, 69], [58, 62, 65], [60, 64, 67], [62, 65, 69], [62, 65, 70], [61, 64, 69], [61, 65, 68]];
+const FINALE_MEL = [[[74, 1.5], [72, 0.5], [74, 1], [77, 1]], [[76, 2], [74, 2]], [[74, 1], [77, 1], [82, 2]], [[81, 3], [0, 1]],
+  [[86, 1.5], [84, 0.5], [82, 1], [81, 1]], [[82, 2], [77, 2]], [[76, 1], [77, 1], [79, 1], [76, 1]], [[74, 3], [73, 1]]];
+function finaleBar(t0, b, beat) {
+  const i = b % 8, r = FINALE_BASS[i];
+  for (let k = 0; k < 8; k++) voice('pluck', t0 + k * beat / 2, r + (k % 4 === 3 ? 7 : k % 2 ? 12 : 0), beat * 0.35);
+  FINALE_CH[i].forEach(n => voice('organ', t0, n, beat * 3.8));
+  playMel('lead', t0, FINALE_MEL[i], beat);
+  if (Math.floor(b / 8) % 2) playMel('call', t0, FINALE_MEL[i], beat, -12);
+  if (i % 4 === 0) voice('bell', t0, 38, beat * 4);
+  return beat * 4;
+}
 const TRACKS = { waltz: { bpm: 138, bar: waltzBar }, dirge: { bpm: 84, bar: dirgeBar }, house: { bpm: 112, bar: houseBar }, crypt: { bpm: 92, bar: cryptBar }, star: { bpm: 170, bar: starBar },
-  castle: { bpm: 126, bar: castleBar }, swamp: { bpm: 92, bar: swampBar }, tower: { bpm: 100, bar: towerBar } };
+  castle: { bpm: 126, bar: castleBar }, swamp: { bpm: 92, bar: swampBar }, tower: { bpm: 100, bar: towerBar },
+  shanty: { bpm: 116, bar: shantyBar }, mine: { bpm: 96, bar: mineBar }, minuet: { bpm: 126, bar: minuetBar }, witch: { bpm: 132, bar: witchBar },
+  woods: { bpm: 76, bar: woodsBar }, sewer: { bpm: 104, bar: sewerBar }, clock: { bpm: 120, bar: clockBar }, finale: { bpm: 138, bar: finaleBar } };
 function scheduleBar(t0, barIdx) { const tr = TRACKS[Snd.track] || TRACKS.waltz; return tr.bar(t0, barIdx, 60 / (tr.bpm * Snd.tempoMul)); }
 
 // ---------- input ----------
@@ -1269,13 +1548,16 @@ const ENTRIES = {
   hollow: { 19: { main: 106 } },
   belfry: { 19: { main: 97 } },
   forge: { 19: { main: 102 } },
+  hold: { 19: { main: 96 } }, vein: { 19: { main: 100 } }, gallery: { 19: { main: 110 } }, cellar: { 19: { main: 96 } },
+  den: { 19: { main: 100 } }, cistern: { 19: { main: 106 } }, gearbox: { 19: { main: 100 } }, throne: { 19: { main: 104 } },
   // up the ivy above the graveyard: a pillar back down, then the shortcuts to night 2
   sky: { 44: { main: 156 }, 52: { warp: 4 }, 58: { warp: 6 }, 64: { warp: 7 } },
 };
 const ROOM_NAMES = { mirrors: 'HALL OF MIRRORS', vault: 'THE PRIZE VAULT', tomb: 'THE FAMILY TOMB', library: 'THE SECRET LIBRARY', treasury: 'THE PIRATE TREASURY',
-  boiler: 'THE BOILER ROOM', hollow: 'THE HOLLOW CYPRESS', belfry: 'THE BELL CHAMBER', forge: 'THE OLD FORGE', sky: 'THE MOONLIT CLOUDS' };
+  boiler: 'THE BOILER ROOM', hollow: 'THE HOLLOW CYPRESS', belfry: 'THE BELL CHAMBER', forge: 'THE OLD FORGE', sky: 'THE MOONLIT CLOUDS',
+  hold: "THE SHIP'S HOLD", vein: 'THE CRYSTAL VEIN', gallery: 'THE LOCKED GALLERY', cellar: 'THE POTION CELLAR', den: "THE BADGER'S DEN", cistern: 'THE OLD CISTERN', gearbox: 'THE GEARBOX', throne: 'THE THRONE VAULT' };
 const ROOM_TT = { sky: 'clouds' };   // rooms with their own tiles (the rest use their level's)
-// The eight courses of Pancake's dinner, four to a night; after the inferno the nights start again, faster.
+// The sixteen courses of Pancake's dinner, four to a night; after the citadel the nights start again, faster.
 // pole: flagpole column (the exit stands just past it); mid: checkpoint column; ceiling: a solid roof over rows 0-1
 // castle: a lava level with no flagpole: a keeper guards a bridge, and the lever at the pole column drops the bridge
 const LEVELS = [
@@ -1286,7 +1568,15 @@ const LEVELS = [
   { name: 'THE SWAMP', theme: 'swamp', track: 'swamp', pole: 189, mid: 96, build: buildSwamp, entries: { 47: { room: 'hollow' } }, sign: 'BAIT SHACK', course: 'THE SALAD IS SERVED!', omen: "DON'T STEP IN THE BOG" },
   { name: 'THE CRYPT', theme: 'crypt', track: 'crypt', pole: 185, mid: 100, build: buildCrypt, entries: { 68: { room: 'treasury' } }, ceiling: true, sign: 'PANTRY', course: 'THE CHEESE IS SERVED!' },
   { name: 'THE BELL TOWER', theme: 'tower', track: 'tower', pole: 164, mid: 84, build: buildTower, entries: { 71: { room: 'belfry' } }, sign: 'BELFRY', course: 'THE SORBET IS SERVED!', omen: "DON'T LOOK DOWN" },
-  { name: 'THE INFERNO', theme: 'inferno', track: 'castle', pole: 147, mid: 80, build: buildInferno, entries: { 63: { room: 'forge' } }, ceiling: true, castle: true, sign: 'BANQUET HALL', course: 'CREME BRULEE IS SERVED!', omen: 'THE LAST KEEPER IS WAITING' },
+  { name: 'THE INFERNO', theme: 'inferno', track: 'castle', pole: 147, mid: 80, build: buildInferno, entries: { 63: { room: 'forge' } }, ceiling: true, castle: true, sign: 'BANQUET HALL', course: 'CREME BRULEE IS SERVED!', omen: 'IT COOLS AFTER IT SLAMS' },
+  { name: 'THE HARBOR', theme: 'harbor', track: 'shanty', pole: 185, mid: 96, build: buildHarbor, entries: { 52: { room: 'hold' } }, sign: 'CHOWDER HOUSE', course: 'THE OYSTERS ARE SERVED!', omen: 'MIND THE TIDE' },
+  { name: 'THE MINE', theme: 'mine', track: 'mine', pole: 176, mid: 92, build: buildMine, entries: { 60: { room: 'vein' } }, ceiling: true, sign: 'COOKHOUSE', course: 'THE BREAD IS SERVED!' },
+  { name: 'THE WAX MUSEUM', theme: 'museum', track: 'minuet', pole: 173, mid: 88, build: buildMuseum, entries: { 64: { room: 'gallery' } }, ceiling: true, sign: 'TEA ROOM', course: 'THE PIE IS SERVED!', omen: 'THE FIGURES ARE WATCHING' },
+  { name: 'THE CAULDRON', theme: 'cauldron', track: 'witch', pole: 140, mid: 70, build: buildCauldron, entries: { 58: { room: 'cellar' } }, ceiling: true, castle: true, sign: 'SCULLERY', course: 'THE SALMON IS SERVED!', omen: 'BONK HER PERCH FROM BELOW' },
+  { name: 'THE DARK WOODS', theme: 'woods', track: 'woods', pole: 185, mid: 96, build: buildWoods, entries: { 54: { room: 'den' } }, sign: 'CABIN', course: 'THE GRAVY IS SERVED!' },
+  { name: 'THE SEWERS', theme: 'sewer', track: 'sewer', pole: 181, mid: 93, build: buildSewer, entries: { 68: { room: 'cistern' } }, ceiling: true, sign: 'BAKERY', course: 'THE FRUIT IS SERVED!', omen: 'HOLD YOUR NOSE' },
+  { name: 'THE CLOCKWORKS', theme: 'clock', track: 'clock', pole: 162, mid: 84, build: buildClock, entries: { 71: { room: 'gearbox' } }, sign: 'PARLOR', course: 'THE COFFEE IS SERVED!', omen: "DON'T BE LATE" },
+  { name: 'THE CITADEL', theme: 'citadel', track: 'finale', pole: 156, mid: 78, build: buildCitadel, entries: { 66: { room: 'throne' } }, ceiling: true, castle: true, sign: 'GREAT HALL', course: 'THE CAKE IS SERVED!', omen: 'ONLY IRON PIERCES HIS CLOAK' },
 ];
 let levelIdx = 0, L = LEVELS[0];
 const entriesFor = () => area === 'main' ? (L.entries || {}) : ENTRIES[roomKey];
@@ -1445,7 +1735,7 @@ function buildFurnace({ Sx, ground, col, drum, row, en, fire, lava }) {
   ground(106, 124); row(108, 9, '?P?'); en('scarab', 112, 12); en('bat', 114, 2); fire(118, 8); Sx(121, 9, 'H');
   // the keeper's bridge over the lava, and the lever just past it
   for (let x = 124; x < 140; x++) { Sx(x, 13, 'R'); Sx(x, 14, 'L'); }
-  en('boss', 134, 12, { hp: 6, min: 126, max: 137 });
+  en('boss', 134, 12, { kind: 'keeper', hp: 6, min: 126, max: 137 });
   ground(140, COLS);
 }
 
@@ -1511,8 +1801,149 @@ function buildInferno({ Sx, ground, col, drum, row, en, fire, lava }) {
   lava(106, 112); ground(108, 110); en('flameskull', 107, 14); en('flameskull', 111, 14);
   ground(112, 128); en('bat', 115, 2); en('bat', 120, 2); row(117, 9, '?P?'); fire(124, 8, 8); Sx(113, 9, 'H');
   for (let x = 128; x < 147; x++) { Sx(x, 13, 'R'); Sx(x, 14, 'L'); }
-  en('boss', 140, 12, { hp: 10, min: 130, max: 144, fierce: true });
+  en('boss', 140, 12, { kind: 'golem', hp: 7, min: 130, max: 144 });
   ground(147, COLS);
+}
+
+// Night 3, level 1: the harbor, ending at the chowder house. Foggy piers over black water: drowned sailors, crabs-in-iron, rafts.
+function buildHarbor({ Sx, ground, col, drum, row, en, lava }) {
+  ground(0, 22); row(8, 9, '?P?'); Sx(4, 9, 'H'); en('zombie', 16, 12); row(13, 6, 'ooo');
+  lava(22, 26);
+  ground(26, 56); row(30, 9, 'B?BMB'); row(31, 5, 'ooo'); en('scarab', 36, 12); en('zombie', 40, 12); en('spider', 43, 2); Sx(46, 9, 'H'); en('ghoul', 48, 12);
+  drum(52, 3);   // down into the ship's hold
+  lava(56, 66); en('lift', 56, 12, { len: 3, ax: 7, per: 4 });
+  ground(66, 102); en('ghost', 70, 6); row(72, 9, '?B?B?'); row(74, 5, 'G'); en('zombie', 78, 12); en('zombie', 82, 12); en('bat', 86, 2);
+  col(88, 2); col(89, 3); row(88, 6, 'oo'); Sx(84, 9, 'h'); en('ghoul', 92, 12);
+  drum(96, 2);   // the hold comes out here
+  lava(102, 105);
+  ground(105, 130); row(108, 9, 'BSB'); en('scarab', 112, 12); en('scarab', 116, 12); en('ghost', 118, 5); row(120, 5, 'BBBBB'); row(121, 3, 'ooo'); en('jack', 124, 12); Sx(127, 9, 'H');
+  lava(130, 145); ground(133, 136); ground(139, 142); en('bat', 137, 3);
+  ground(145, COLS); row(148, 9, '?P?'); en('zombie', 152, 12); en('ghoul', 158, 12); en('spider', 162, 2); Sx(155, 9, 'H'); row(160, 8, 'o o o');
+  for (let i = 0; i < 8; i++) col(170 + i, i + 1);
+  col(178, 8);
+}
+
+// Night 3, level 2: the old mine, ending at the cookhouse. Under the rock: lanterns on chains, bats, ore buckets over a shaft.
+function buildMine({ Sx, ground, col, drum, row, en, fire }) {
+  ground(0, 26); row(8, 9, '?G?'); Sx(14, 9, 'H'); en('bat', 18, 2); en('scarab', 22, 12);
+  ground(29, 52); fire(34, 8); row(38, 9, 'BMB'); en('ghoul', 44, 12); en('spider', 47, 2); row(40, 6, 'oooo');
+  ground(55, 80); drum(60, 3); en('zombie', 66, 12); en('zombie', 70, 12); row(67, 9, 'B?B'); row(72, 5, '====='); row(73, 3, 'ooo'); Sx(76, 9, 'H');
+  // a deep shaft with two ore buckets riding up and down
+  en('lift', 80, 11, { len: 2, ay: -4, per: 3.5 }); en('lift', 85, 7, { len: 2, ay: 4, per: 3.5 });
+  ground(90, 108); en('bat', 94, 2); row(96, 9, '?P?'); en('scarab', 103, 12); Sx(92, 9, 'h');
+  drum(100, 2);   // the crystal vein comes out here
+  ground(111, 134); fire(116, 8); en('ghoul', 120, 12); en('ghoul', 127, 12); row(122, 9, 'BSB'); en('spider', 130, 2); Sx(113, 9, 'H');
+  ground(137, 150); en('scarab', 142, 12); row(140, 9, '???'); en('bat', 146, 2);
+  ground(153, COLS); en('zombie', 156, 12); en('jack', 160, 12); Sx(158, 9, 'H');
+  for (let i = 0; i < 6; i++) col(164 + i, i + 1);
+  col(170, 6);
+}
+
+// Night 3, level 3: the wax museum, ending at the tea room. Wax clowns and figures that wake up, marionettes, candles.
+function buildMuseum({ Sx, ground, col, drum, row, en, fire }) {
+  ground(0, 48); row(9, 9, 'B?BPB'); en('clown', 20, 12); en('puppet', 24, 3); en('jack', 30, 12); Sx(16, 9, 'H');
+  row(34, 6, 'BBBBBB'); row(35, 4, 'oooo'); en('ghost', 40, 6); en('zombie', 44, 12);
+  ground(51, 90); fire(55, 8); en('puppet', 59, 3); drum(64, 3); en('clown', 70, 12); en('clown', 73, 12); row(70, 9, '?S?'); en('jack', 78, 12); fire(82, 8); Sx(86, 9, 'H');
+  ground(93, 132); en('ghost', 96, 5); row(98, 9, 'B?B'); row(99, 5, 'G'); en('zombie', 102, 12); en('puppet', 106, 3);
+  drum(110, 2);   // the hidden gallery comes out here
+  en('ghoul', 116, 12); row(118, 8, 'BMB'); en('puppet', 122, 3); en('clown', 126, 12); Sx(114, 9, 'h'); fire(129, 7);
+  ground(135, COLS); en('jack', 139, 12); en('ghost', 144, 6); row(142, 9, '?P?'); en('zombie', 150, 12); en('puppet', 153, 3); Sx(147, 9, 'H');
+  for (let i = 0; i < 8; i++) col(158 + i, i + 1);
+  col(166, 8);
+}
+
+// Night 3, level 4: the cauldron, ending at the scullery. A witch's lair over bubbling brew; she guards the last bridge.
+function buildCauldron({ Sx, ground, col, drum, row, en, fire, lava }) {
+  ground(0, 16); row(6, 9, '?P?'); Sx(11, 9, 'H');
+  lava(16, 22); ground(18, 20); en('flameskull', 17, 14); en('flameskull', 21, 14);
+  ground(22, 40); fire(26, 8, 7); en('bat', 30, 2); row(32, 9, 'BMB'); en('scarab', 36, 12);
+  lava(40, 50); en('lift', 40, 11, { len: 2, ax: 8, per: 3.6 }); en('flameskull', 43, 14); en('flameskull', 47, 14);
+  ground(50, 72); en('ghoul', 54, 12); drum(58, 3); fire(64, 8, 8); en('scarab', 67, 12); Sx(62, 9, 'h');
+  lava(72, 84); en('lift', 73, 10, { len: 2, fall: true }); en('lift', 77, 9, { len: 2, fall: true }); en('lift', 81, 10, { len: 2, fall: true });
+  en('flameskull', 75, 14); en('flameskull', 79, 14);
+  ground(84, 114); row(88, 9, '?P?'); en('bat', 92, 2); Sx(90, 5, 'H');
+  drum(96, 2);   // the potion cellar comes out here
+  fire(102, 8, 8); en('ghoul', 106, 12); row(108, 9, '?G?');
+  // the witch's bridge over the brew: three stone perches above it, and the lever past it
+  for (let x = 114; x < 140; x++) { Sx(x, 13, 'R'); Sx(x, 14, 'L'); }
+  for (const x of [118, 126, 134]) row(x, 9, '==');
+  en('boss', 130, 6, { kind: 'witch', hp: 8, min: 115, max: 137 });
+  ground(140, COLS);
+}
+
+// Night 4, level 1: the dark woods, ending at the cabin. Pines too thick for the moon: ghouls, bats and gaps between the roots.
+function buildWoods({ Sx, ground, col, drum, row, en, ledge }) {
+  ground(0, 30); row(10, 9, '?B?'); row(11, 5, 'P'); en('zombie', 18, 12); en('spider', 22, 2); en('ghoul', 26, 12); Sx(6, 9, 'H');
+  ground(33, 60); ledge(36, 9, 4); row(37, 6, 'oo'); en('bat', 42, 2); en('ghoul', 48, 12); Sx(44, 9, 'H');
+  drum(54, 3);   // down into the badger's den
+  ground(63, 86); en('ghost', 66, 6); row(68, 9, 'BSB?B'); en('zombie', 74, 12); en('zombie', 78, 12); en('spider', 80, 2); ledge(82, 8, 3); row(82, 6, 'ooo');
+  ground(90, 112); en('bat', 94, 2); row(95, 9, '?M?'); en('ghoul', 106, 12); Sx(109, 9, 'h');
+  drum(100, 2);   // the den comes out here
+  ground(115, 124); ledge(127, 10, 4); ledge(133, 8, 3); en('bat', 129, 4); row(133, 6, 'ooo');
+  ground(139, 160); row(143, 9, '?G?'); en('zombie', 148, 12); en('ghoul', 153, 12); en('ghost', 156, 5); Sx(146, 9, 'H');
+  ground(163, COLS); en('scarab', 166, 12);
+  for (let i = 0; i < 8; i++) col(170 + i, i + 1);
+  col(178, 8);
+}
+
+// Night 4, level 2: the sewers, ending at the bakery. Brick tunnels over green sludge, with scarabs, ghouls and dripping spiders.
+function buildSewer({ Sx, ground, col, drum, row, en, lava, fire }) {
+  ground(0, 24); row(8, 9, '?P?'); Sx(4, 9, 'H'); en('scarab', 18, 12);
+  lava(24, 28);
+  ground(28, 54); en('spider', 32, 2); row(36, 9, 'BMB'); Sx(37, 5, 'h'); en('ghoul', 42, 12); en('scarab', 46, 12); fire(50, 8);
+  lava(54, 64); en('lift', 54, 12, { len: 3, ax: 7, per: 4 });
+  ground(64, 90); drum(68, 3); en('zombie', 74, 12); en('zombie', 78, 12); row(76, 9, '?S?'); en('bat', 82, 2); Sx(86, 9, 'H');
+  lava(90, 93);
+  ground(93, 118); en('ghoul', 98, 12); row(100, 9, 'B?B?B'); row(102, 5, 'G'); en('spider', 110, 2); fire(114, 8);
+  drum(106, 2);   // the cistern comes out here
+  lava(118, 131); ground(121, 124); en('lift', 126, 11, { len: 2, ay: -2, per: 3 });
+  ground(131, COLS); en('scarab', 134, 12); en('ghoul', 140, 12); row(138, 9, '?P?'); en('zombie', 146, 12); en('spider', 150, 2); Sx(143, 9, 'H'); en('scarab', 156, 12);
+  for (let i = 0; i < 8; i++) col(166 + i, i + 1);
+  col(174, 8);
+}
+
+// Night 4, level 3: the clockworks, ending at the parlor. Inside the great clock: platforms ride on gears over a long drop.
+function buildClock({ Sx, ground, col, drum, row, en, ledge, spire, fire }) {
+  ground(0, 16); row(8, 9, '?P?'); Sx(4, 9, 'H');
+  en('lift', 17, 11, { len: 2, ax: 4, per: 3 });
+  ledge(25, 9, 5); fire(27, 5, 4);
+  spire(33, 4);
+  en('lift', 37, 8, { len: 3, ay: 4, per: 3.5 }); Sx(38, 4, 'h');
+  ledge(43, 8, 5); row(44, 4, '?M?'); en('ghost', 46, 3);
+  en('lift', 50, 9, { len: 2, fall: true }); en('lift', 54, 8, { len: 2, fall: true }); en('lift', 58, 9, { len: 2, fall: true });
+  ledge(62, 9, 6); row(63, 5, 'B?BSB'); en('scarab', 66, 8);
+  spire(71, 4);   // down into the gearbox
+  en('lift', 75, 9, { len: 3, ax: 5, per: 3.2 });
+  ground(84, 104); row(88, 9, '?P?'); en('scarab', 92, 12); en('ghoul', 96, 12); Sx(90, 9, 'H'); en('bat', 94, 2);
+  drum(100, 2);   // the gearbox comes out here
+  spire(107, 3);
+  en('lift', 112, 8, { len: 2, ay: 4, per: 3 });
+  ledge(117, 8, 4); fire(119, 4, 4);
+  en('lift', 123, 9, { len: 3, ax: 6, per: 3.6 });
+  ledge(133, 7, 4); row(134, 4, 'ooo'); en('ghost', 135, 3);
+  en('lift', 139, 9, { len: 2, fall: true });
+  ground(143, COLS); en('scarab', 146, 12);
+  for (let i = 0; i < 6; i++) col(150 + i, i + 1);
+  col(156, 6);
+}
+
+// Night 4, level 4: the citadel, ending at the great hall. The night king's castle: lava, firebars, crumbling lifts, and the king himself.
+function buildCitadel({ Sx, ground, col, drum, row, en, fire, lava }) {
+  ground(0, 16); row(6, 9, '?P?'); Sx(11, 9, 'H');
+  lava(16, 22); ground(18, 20); en('flameskull', 17, 14); en('flameskull', 21, 14);
+  ground(22, 40); fire(28, 8, 8); fire(35, 8, 8); en('bat', 31, 2); en('scarab', 38, 12);
+  lava(40, 54); en('lift', 41, 10, { len: 2, ax: 4, per: 2.8 }); ground(48, 50); en('lift', 50, 9, { len: 2, fall: true });
+  en('flameskull', 44, 14); en('flameskull', 47, 14); en('flameskull', 52, 14);
+  ground(54, 80); row(58, 9, 'BMB'); Sx(59, 5, 'h'); en('ghoul', 62, 12); fire(72, 8, 8); en('scarab', 76, 12);
+  drum(66, 3);   // down to the throne vault
+  lava(80, 95); en('lift', 80, 10, { len: 2, ax: 5, per: 2.8 }); ground(87, 89); en('lift', 90, 10, { len: 2, fall: true });
+  en('flameskull', 83, 14); en('flameskull', 91, 14); en('flameskull', 93, 14);
+  ground(95, 128); row(98, 9, '?P?'); Sx(96, 5, 'H'); en('ghoul', 108, 12); fire(112, 8, 8); en('bat', 116, 2); row(120, 9, '?G?');
+  drum(104, 2);   // the throne vault comes out here
+  // the night king's bridge over the lava, and the lever at the far end
+  for (let x = 128; x < 156; x++) { Sx(x, 13, 'R'); Sx(x, 14, 'L'); }
+  en('boss', 148, 12, { kind: 'king', hp: 9, min: 129, max: 152 });
+  ground(156, COLS);
 }
 
 function buildRoom(key) {
@@ -1565,6 +1996,29 @@ function buildRoom(key) {
     row(3, 8, 'BHBBHBB');
     row(3, 6, 'ooooooo');
     Sx(6, 4, 'h'); Sx(12, 9, 'H'); Sx(15, 9, 'S');
+  } else if (key === 'hold') {   // a ship's hold: crates, barrels and a split sack of kibble
+    row(2, 11, 'oooooooo'); row(4, 9, 'BMB'); Sx(9, 9, 'H');
+    row(11, 6, '====='); row(11, 4, 'ooooo'); Sx(13, 3, 'h'); Sx(16, 9, 'P');
+  } else if (key === 'vein') {   // a cave of glowing crystals
+    for (const x of [3, 6, 9, 12, 15]) Sx(x, 10, 'o'); for (const x of [4, 7, 10, 13]) Sx(x, 8, 'o');
+    Sx(5, 9, 'H'); row(10, 9, 'BSB'); row(4, 6, '===='); row(4, 4, 'oooo'); Sx(6, 3, 'h'); Sx(16, 9, 'G');
+  } else if (key === 'gallery') {   // the museum's locked gallery: portraits, and a golden mouse on a plinth
+    row(3, 11, 'oooooooooooo'); Sx(6, 9, 'H'); row(9, 9, 'B?B');
+    row(11, 6, '====='); row(11, 4, 'ooooo'); Sx(13, 3, 'h'); Sx(16, 9, 'P');
+  } else if (key === 'cellar') {   // shelves of potions; one bottle is catnip
+    row(3, 11, 'oooooooooo'); row(4, 9, 'BSB'); Sx(9, 9, 'H');
+    row(11, 6, '====='); row(11, 4, 'ooooo'); Sx(13, 3, 'h'); Sx(16, 9, 'P');
+  } else if (key === 'den') {   // a badger's den under the roots
+    row(2, 11, 'oooooo'); Sx(5, 9, 'H'); row(9, 9, 'BMB');
+    row(3, 6, '===='); row(3, 4, 'oooo'); Sx(5, 3, 'h'); row(11, 7, 'ooooo'); Sx(16, 9, 'G');
+  } else if (key === 'cistern') {   // a dry cistern with kibble washed into heaps
+    row(3, 11, 'oooooooooooooo'); row(3, 8, 'BHBBHBB'); row(3, 6, 'ooooooo'); Sx(6, 4, 'h'); Sx(12, 9, 'H'); Sx(15, 9, 'P');
+  } else if (key === 'gearbox') {   // between the great gears
+    for (const x of [3, 6, 9, 12, 15]) for (const y of [5, 7, 9]) Sx(x, y, 'o');
+    row(4, 11, 'oooooooooooo'); Sx(8, 9, 'H'); Sx(13, 3, 'h'); row(11, 6, '==='); Sx(16, 9, 'S');
+  } else if (key === 'throne') {   // the night king's vault, heaped with gold
+    row(3, 11, 'oooooooooooooo'); row(4, 9, 'BMB'); Sx(9, 9, 'H');
+    row(11, 6, '====='); row(11, 4, 'ooooo'); Sx(13, 3, 'h'); Sx(16, 9, 'P');
   } else {
     Sx(5, 10, 'H'); Sx(8, 7, 'H');
     row(11, 6, '=====');
@@ -1591,7 +2045,10 @@ function makeEnt(s) {
   if (s.type === 'flameskull') return { type: 'flameskull', x: s.x * TS + 3, y: 14 * TS + 8, lavaY: 14 * TS + 8, w: 10, h: 10, vy: 0, t: 0.4 + (s.x % 3) * 0.7, spd, active: false, dead: null };
   if (s.type === 'lift') { const w = (s.len || 3) * TS; return { type: 'lift', x0: s.x * TS, y0: s.y * TS, x: s.x * TS, y: s.y * TS, w, h: 6, ax: (s.ax || 0) * TS, ay: (s.ay || 0) * TS, per: s.per || 4, lt: 0, fall: !!s.fall, fallT: 0, vy: 0, active: false }; }
   if (s.type === 'bat') return { type: 'bat', x: s.x * TS + 2, y: s.y * TS, hangY: s.y * TS, w: 12, h: 9, vx: 0, vy: 0, mode: 'hang', t: 0, spd, active: false, dead: null };
-  if (s.type === 'boss') return { type: 'boss', x: s.x * TS, y: 13 * TS - 30, w: 26, h: 30, hp: s.hp || 6, maxHp: s.hp || 6, minX: s.min * TS, maxX: s.max * TS, dir: -1, vx: 0, vy: 0, t: 0, fireT: 1.6, jumpT: 2.5, flash: 0, fierce: !!s.fierce, spd, active: false, dead: null, onGround: true, anim: 0 };
+  if (s.type === 'boss') {
+    const kind = s.kind || 'keeper', [w, h] = BOSS_SIZE[kind], hp = (s.hp || 6) + Math.floor((night - 1) / 4) * 2;   // later laps: tougher still
+    return { type: 'boss', kind, x: s.x * TS, y: kind === 'witch' ? 4 * TS : 13 * TS - h, w, h, hp, maxHp: hp, minX: s.min * TS, maxX: s.max * TS, dir: -1, face: -1, vx: 0, vy: 0, t: 0, mt: 2.2, fireT: 1.6, jumpT: 2.5, flash: 0, mode: 'idle', spd, active: false, dead: null, onGround: true, anim: 0 };
+  }
   if (s.type === 'balloon') return { type: 'balloon', x: s.x * TS + 2, y: s.y * TS, baseY: s.y * TS, w: 12, h: 14, vx: -14 * spd, active: false, ph: Math.random() * 6, col: ['#ff4f8b', '#5ef2ff', '#3ddc84', '#ffd23f'][s.x % 4] };
 }
 
@@ -1680,6 +2137,7 @@ function dust(x, y, n = 4) { for (let i = 0; i < n; i++) parts.push({ x: x + (Ma
 
 function bumpBlock(tx, ty) {
   const c = grid[ty][tx], px = tx * TS, py = ty * TS;
+  bonkPerch(tx, ty);
   if (c === 'H' || c === 'h') sfx('reveal');
   if (c === 'h') { grid[ty][tx] = 'U'; bumps.push({ tx, ty, t: 0 }); spawnItem('gold', px, py); }
   else if (c === 'G' || c === 'S') { grid[ty][tx] = 'U'; bumps.push({ tx, ty, t: 0 }); spawnItem(c === 'S' ? 'catnip' : P.big ? 'wings' : 'mouse', px, py); }
@@ -1743,7 +2201,7 @@ function updateFireball(e, dt) {
     if (!o.active || o.dead || o.remove || !overlap(e, o)) continue;
     const pop = cols => { e.remove = true; burst(e.x + 3, e.y + 3, 6, cols, 80, 0, 0.3, 1); };
     if (o.type === 'scarab') { pop(['#c8d0dc', '#ffe14a']); sfx('clank'); return; }   // iron shell: the fire bounces off
-    if (o.type === 'boss') { pop(['#ff7a1a', '#ffe14a']); hitBoss(o); return; }
+    if (o.type === 'boss') { if (fireHitsBoss(o, e)) return; continue; }
     if (!canBurn(o)) continue;   // ghosts and flame skulls: the fire passes right through
     if (TOUGH.has(o.type) && !o.scorched) { o.scorched = true; o.flash = 0.35; pop(['#ff7a1a', '#ffe14a']); sfx('clank'); addScore(100, o.x, o.y - 8); return; }
     burnEnemy(o, Math.sign(e.vx)); pop(['#ff7a1a', '#ffe14a']); return;
@@ -1763,16 +2221,255 @@ function shellPts(e, x, y) {
   if (e.chain > SHELL_PTS.length) { lives++; sfx('oneup'); pops.push({ x, y: y - 8, text: '1UP', t: 0 }); }
   else addScore(SHELL_PTS[e.chain - 1], x, y - 8);
 }
-function hitBoss(o) {
-  if (o.dead) return;
-  o.hp--; o.flash = 0.25; sfx('bosshit');
-  if (o.hp <= 0) { o.dead = 'flip'; o.vy = -240; o.vx = 0; addScore(5000, o.x, o.y - 8); sfx('roar'); pops.push({ x: o.x - 20, y: o.y - 20, text: 'KEEPER DOWN!', t: 0 }); burst(o.x + 13, o.y + 15, 20, ['#ff7a1a', '#ffe14a', '#8a8a9c'], 160, 300, 0.8); }
-}
 function breathe(o, face) {
   const low = 13 * TS - 10, mid = 13 * TS - 26, high = 13 * TS - 40;
-  const pick = o.fierce ? [low, mid, high, low] : [low, mid, low];
-  ents.push({ type: 'bossfire', x: face > 0 ? o.x + o.w - 4 : o.x - 12, y: o.y + 6, w: 16, h: 6, vx: face * (o.fierce ? 132 : 105), ty: pick[Math.floor(Math.random() * pick.length)], active: true });
+  const pick = bossAngry(o) ? [low, mid, high, low] : [low, mid, low];
+  ents.push({ type: 'bossfire', x: face > 0 ? o.x + o.w - 4 : o.x - 12, y: o.y + 6, w: 16, h: 6, vx: face * (bossAngry(o) ? 125 : 105) * o.spd, ty: pick[Math.floor(Math.random() * pick.length)], active: true });
   sfx('breath');
+}
+
+// ---------- the four castle bosses ----------
+// Each is tougher than the last, and each has its own attacks and its own weakness:
+//  keeper (furnace): paces and hops, breathes fire at three heights. Only ghost-pepper fire hurts it.
+//  golem (inferno): living magma, so fire just fizzles on it. It lumbers after you, lobs lava rocks and leaps to slam
+//         the bridge, sending a shockwave each way (jump them). After a slam it cools to grey stone for a moment:
+//         stomp it then (a pounce counts double).
+//  witch (cauldron): flies above the bridge throwing homing will-o'-wisps and swooping low across it. Fire and paws
+//         go straight through her, but she lands on the stone perches to cast: bonk her perch from below.
+//  king (citadel): his shadow cloak swallows fire and turns stomps. He teleports, fires fans of shadow orbs and calls
+//         iron scarabs down through portals. Only iron gets through: stomp a scarab and kick its shell into him.
+// Every boss gets faster and nastier at half health. The lever behind each one still drops the bridge.
+const BOSS_NAMES = { keeper: 'KEEPER', golem: 'GOLEM', witch: 'WITCH', king: 'NIGHT KING' };
+const BOSS_SIZE = { keeper: [26, 30], golem: [30, 34], witch: [18, 22], king: [22, 34] };
+const BOSS_SHOTS = new Set(['shock', 'rock', 'wisp', 'orb']);
+const bossAngry = e => e.hp <= Math.ceil(e.maxHp / 2);
+function hitBoss(o, n = 1) {
+  if (o.dead) return;
+  o.hp -= n; o.flash = 0.35; sfx('bosshit');
+  if (o.hp <= 0) {
+    o.hp = 0; o.dead = 'flip'; o.vy = -240; o.vx = 0; addScore(5000, o.x, o.y - 8); sfx('roar');
+    pops.push({ x: o.x - 24, y: o.y - 20, text: BOSS_NAMES[o.kind] + ' DOWN!', t: 0 });
+    const cols = { keeper: ['#ff7a1a', '#ffe14a', '#8a8a9c'], golem: ['#ff5a14', '#ffc23a', '#5a5a66'], witch: ['#7ae04a', '#3a1a5a', '#ffffff'], king: ['#b06aff', '#3a1a5a', '#ffd23f'] }[o.kind];
+    burst(o.x + o.w / 2, o.y + o.h / 2, 24, cols, 160, 300, 0.8);
+    ents.forEach(s => { if (BOSS_SHOTS.has(s.type) || s.type === 'bossfire') s.remove = true; });
+  }
+}
+// a ghost-pepper fireball reaching a boss; true if it was used up
+function fireHitsBoss(o, f) {
+  if (o.kind === 'witch') return false;   // straight through her
+  f.remove = true;
+  if (o.kind === 'keeper') { burst(f.x + 3, f.y + 3, 6, ['#ff7a1a', '#ffe14a'], 80, 0, 0.3, 1); hitBoss(o); }
+  else if (o.kind === 'golem') { sfx('fizz'); burst(f.x + 3, f.y + 3, 6, ['#d8d8e8', '#8a8a9c'], 50, -80, 0.5, 2); }
+  else { sfx('clank'); burst(f.x + 3, f.y + 3, 8, ['#b06aff', '#3a1a5a'], 70, 0, 0.35, 1); }
+  return true;
+}
+// a kicked scarab shell reaching a boss: only the night king feels it; the shell shatters either way on him
+function shellHitsBoss(o, s) {
+  if (o.kind === 'witch' && o.mode !== 'perch') return false;
+  if (o.kind === 'king') {
+    if (o.mode === 'fadeout' || o.mode === 'fadein') return false;
+    hitBoss(o); addScore(1000, o.x, o.y - 8); flipKill(s, -Math.sign(s.vx) || 1);
+    burst(o.x + o.w / 2, o.y + o.h / 2, 14, ['#c8d0dc', '#b06aff', '#ffffff'], 140, 200, 0.5);
+    if (!o.dead) { o.mode = 'fadeout'; o.mt = 0.35; sfx('teleport'); }
+    return true;
+  }
+  s.vx = -s.vx; s.x += Math.sign(s.vx) * 6; sfx('clank'); return true;   // bounces off everything else
+}
+// Pancake touching a boss
+function bossTouch(e) {
+  if (P.star > 0) return;
+  const prevBottom = P.y + P.h - P.vy * (1 / 120), fromAbove = P.vy > 0 && prevBottom <= e.y + 8;
+  if (e.kind === 'golem' && fromAbove && e.mode === 'cool') {
+    const n = P.pound ? 2 : 1;
+    hitBoss(e, n); sfx('stomp'); shakeT = 0.25; P.y = e.y - P.h; P.vy = -460; P.pound = false; P.sx = 0.8; P.sy = 1.2;
+    burst(e.x + e.w / 2, e.y + 4, 12, ['#d8d8e8', '#8a8a9c', '#ff7a1a'], 120, 300, 0.5, 2);
+    if (n === 2) pops.push({ x: e.x, y: e.y - 14, text: 'CRACK!', t: 0 });
+    if (!e.dead) { e.mode = 'walk'; e.mt = 2.4; e.inv = 0.6; }
+    return;
+  }
+  if (e.kind === 'king' && fromAbove && e.mode !== 'fadeout' && e.mode !== 'fadein') {   // the cloak turns her paws
+    sfx('clank'); P.y = e.y - P.h; P.vy = -380; burst(P.x + P.w / 2, P.y + P.h, 8, ['#b06aff', '#3a1a5a'], 80, 0, 0.3, 1);
+    return;
+  }
+  if (e.kind === 'king' && (e.mode === 'fadeout' || e.mode === 'fadein')) return;
+  hurt();
+}
+// the witch's perch was bonked from below
+function bonkPerch(tx, ty) {
+  for (const e of ents) {
+    if (e.type !== 'boss' || e.kind !== 'witch' || e.dead || e.mode !== 'perch') continue;
+    const l = Math.floor(e.x / TS), r = Math.floor((e.x + e.w - 0.01) / TS);
+    if (ty === Math.round((e.y + e.h) / TS) && tx >= l - 0 && tx <= r) {
+      hitBoss(e); addScore(1000, e.x, e.y - 8);
+      if (!e.dead) { e.mode = 'tumble'; e.mt = 0.8; e.vy = -200; e.vx = 0; sfx('cackle'); }
+    }
+  }
+}
+function bossShot(type, x, y, vx, vy, o = {}) { ents.push({ type, x, y, vx, vy, w: 8, h: 8, life: 4, active: true, t: 0, ...o }); }
+function updateBossShot(e, dt) {
+  e.t += dt; e.life -= dt;
+  if (e.life <= 0) { e.remove = true; return; }
+  if (e.type === 'shock') {   // a ripple running along the bridge
+    e.x += e.vx * dt;
+    if (Math.random() < 0.5) parts.push({ x: e.x + 4, y: e.y + e.h, vx: (Math.random() - 0.5) * 40, vy: -60 - Math.random() * 60, g: 500, life: 0.4, max: 0.4, col: e.cold ? '#b06aff' : '#ff7a1a', size: 2 });
+    if (e.x < camX - 40 || e.x > camX + VW + 40) e.remove = true;
+  } else if (e.type === 'rock') {   // a lava rock lobbed in an arc
+    e.vy += 900 * dt; e.x += e.vx * dt; e.y += e.vy * dt;
+    const tx = Math.floor((e.x + 4) / TS), ty = Math.floor((e.y + 8) / TS);
+    if (e.vy > 0 && (solidAt(tx, ty) || e.y > 15 * TS)) { e.remove = true; sfx('fizz'); burst(e.x + 4, e.y + 6, 8, ['#ff5a14', '#ffc23a', '#2a1a18'], 90, 500, 0.4, 2); }
+  } else if (e.type === 'wisp') {   // a will-o'-wisp that drifts after Pancake
+    const dx = P.x + P.w / 2 - (e.x + 4), dy = P.y + P.h / 2 - (e.y + 4), d = Math.hypot(dx, dy) || 1, top = e.spd || 55;
+    e.vx += dx / d * 140 * dt; e.vy += dy / d * 140 * dt;
+    const s = Math.hypot(e.vx, e.vy); if (s > top) { e.vx *= top / s; e.vy *= top / s; }
+    e.x += e.vx * dt; e.y += e.vy * dt;
+  } else { e.x += e.vx * dt; e.y += e.vy * dt; if (e.x < camX - 40 || e.x > camX + VW + 40 || e.y < -20 || e.y > VH + 20) e.remove = true; }
+}
+// is a shot still dangerous? (wisps fade out harmlessly at the end)
+const shotLive = e => !(e.type === 'wisp' && (e.life < 0.4 || e.t < 0.25));
+
+function updateBoss(e, dt) {
+  e.anim += dt; if (e.inv > 0) e.inv -= dt;
+  const fight = state === 'play' && !P.dead, px = P.x + P.w / 2, py = P.y + P.h / 2, cx = e.x + e.w / 2, dx = px - cx, near = Math.abs(dx) < VW * 0.75;
+  const mad = bossAngry(e), sp = e.spd;
+  const gravity = () => { e.vy = Math.min(450, e.vy + 1300 * dt); };
+  const move = () => { moveX(e, e.vx * dt); moveY(e, e.vy * dt); if (!e.falling) e.x = clamp(e.x, e.minX, e.maxX); };
+  if (state === 'finish' || e.falling) {   // the lever was pulled: everyone falls with the bridge, fliers included
+    if (!e.falling) { e.falling = true; e.vx = 0; if (e.kind === 'witch' || e.kind === 'king') e.vy = 0; }
+    gravity(); moveY(e, e.vy * dt);
+    if (!e.onGround && !e.roared) { e.roared = true; sfx(e.kind === 'witch' ? 'cackle' : 'roar'); }
+  } else if (e.kind === 'keeper') {
+    // paces its bridge, hops, and breathes fire at three heights
+    gravity(); e.face = Math.sign(dx) || -1;
+    if (fight && e.onGround) {
+      e.t -= dt; if (e.t <= 0) { e.dir = Math.random() < 0.5 ? -1 : 1; e.t = 0.8 + Math.random() * 1.2; }
+      if (e.x <= e.minX) e.dir = 1; if (e.x >= e.maxX) e.dir = -1;
+      e.vx = e.dir * (mad ? 32 : 24) * sp;
+      e.jumpT -= dt; if (e.jumpT <= 0) { e.vy = -320; e.jumpT = 1.8 + Math.random() * 2.4; }
+    } else if (!fight) e.vx = 0;
+    if (fight && near) { e.fireT -= dt; if (e.fireT <= 0) { breathe(e, e.face); e.fireT = (mad ? 1.5 : 2.1) + Math.random() * 1.2; } }
+    move();
+  } else if (e.kind === 'golem') {
+    gravity(); e.mt -= dt;
+    if (!fight) { if (e.onGround) e.vx = 0; }
+    else if (e.mode === 'idle' || e.mode === 'walk') {
+      e.mode = 'walk'; e.face = Math.sign(dx) || -1;
+      e.vx = Math.abs(dx) > 20 ? e.face * (mad ? 30 : 20) * sp : 0;
+      if (near) { e.fireT -= dt; if (e.fireT <= 0) { lobRock(e); e.fireT = (mad ? 1.3 : 2) + Math.random() * 1.2; } }
+      if (e.mt <= 0 && e.onGround) { e.mode = 'windup'; e.mt = mad ? 0.4 : 0.6; e.vx = 0; sfx('rumble'); }
+    } else if (e.mode === 'windup') {
+      e.vx = 0; if (Math.random() < 0.4) parts.push({ x: e.x + Math.random() * e.w, y: e.y + e.h, vx: 0, vy: -30, g: 0, life: 0.3, max: 0.3, col: '#ff7a1a', size: 1 });
+      if (e.mt <= 0) { e.mode = 'leap'; e.vy = mad ? -430 : -380; e.vx = clamp(dx * 1.4, -120, 120) * sp; e.air = true; sfx('swoop'); }
+    } else if (e.mode === 'leap') {
+      if (e.air && e.onGround && e.vy >= 0) {   // slam: shockwaves both ways, then it cools for a moment
+        e.air = false; e.vx = 0; shakeT = 0.35; sfx('slam');
+        const v = (mad ? 170 : 140) * sp;
+        for (const d of [-1, 1]) bossShot('shock', cx - 5 + d * 10, 13 * TS - 12, d * v, 0, { w: 10, h: 12, life: 2.6 });
+        burst(cx, e.y + e.h, 16, ['#ff5a14', '#ffc23a', '#4a2a20'], 150, 600, 0.6, 2);
+        e.mode = 'cool'; e.mt = mad ? 1.3 : 1.8;
+      }
+    } else if (e.mode === 'cool') {
+      e.vx = 0; if (Math.random() < 0.35) parts.push({ x: e.x + 4 + Math.random() * (e.w - 8), y: e.y + 4, vx: (Math.random() - 0.5) * 10, vy: -40, g: -10, life: 0.8, max: 0.8, col: 'rgba(220,220,235,.6)', size: 2 });
+      if (e.mt <= 0) { e.mode = 'walk'; e.mt = (mad ? 2 : 2.8) + Math.random(); sfx('breath'); burst(cx, e.y + e.h / 2, 10, ['#ff5a14', '#ffc23a'], 100, 0, 0.4, 2); }
+    }
+    move();
+  } else if (e.kind === 'witch') {
+    if (!e.perches) {   // the hard-block perches standing over her bridge
+      e.perches = [];
+      for (let tx = Math.floor(e.minX / TS) - 2; tx <= Math.floor(e.maxX / TS) + 2; tx++) if (grid[9] && grid[9][tx] === '=' && grid[9][tx - 1] !== '=') e.perches.push(tx);
+      e.mode = 'fly'; e.mt = 1.5; e.hx = e.x; e.hy = 4 * TS; e.perchN = 0;
+    }
+    e.mt -= dt; e.face = Math.sign(dx) || -1;
+    const flyTo = (tx, ty, v) => { const ddx = tx - e.x, ddy = ty - e.y, d = Math.hypot(ddx, ddy); if (d < 2) { e.x = tx; e.y = ty; return true; } const s = Math.min(d, v * dt); e.x += ddx / d * s; e.y += ddy / d * s; return false; };
+    if (!fight) { e.y += Math.sin(clock * 3) * 0.2; }
+    else if (e.mode === 'fly') {
+      if (Math.abs(e.hx - e.x) < 4) e.hx = clamp(P.x + (Math.random() < 0.5 ? -1 : 1) * (60 + Math.random() * 60), e.minX, e.maxX);
+      flyTo(e.hx, e.hy + Math.sin(clock * 2.4) * 12, (mad ? 95 : 70) * sp);
+      e.fireT -= dt; if (e.fireT <= 0 && near) { castWisps(e, 1); e.fireT = mad ? 1.2 : 1.8; }
+      if (e.mt <= 0 && e.perches.length) {
+        const opts = e.perches.filter(p => p !== e.perch); e.perch = opts[Math.floor(Math.random() * opts.length)] ?? e.perches[0];
+        e.mode = 'toperch';
+      }
+    } else if (e.mode === 'toperch') {
+      if (flyTo(e.perch * TS + 16 - e.w / 2, 9 * TS - e.h, (mad ? 120 : 95) * sp)) { e.mode = 'perch'; e.mt = mad ? 1.9 : 2.6; e.cast = false; }
+    } else if (e.mode === 'perch') {
+      if (!e.cast && e.mt < (mad ? 1.2 : 1.5)) {
+        e.cast = true; castWisps(e, mad ? 5 : 3); sfx('cackle');
+        if (mad && Math.random() < 0.5 && ents.filter(o => o.type === 'bat' && !o.dead).length < 2) { const b = makeEnt({ type: 'bat', x: Math.floor(P.x / TS) + (Math.random() < 0.5 ? -4 : 4), y: 2 }); b.active = true; ents.push(b); }
+      }
+      if (e.mt <= 0) {
+        e.perchN++;
+        if (e.perchN % 2 === 0) { e.mode = 'swoopPrep'; e.side = P.x < (e.minX + e.maxX) / 2 ? 1 : -1; }
+        else { e.mode = 'fly'; e.mt = 2 + Math.random(); e.hy = (3 + Math.random() * 2) * TS; }
+      }
+    } else if (e.mode === 'swoopPrep') {   // out to one end of the bridge, then a dive along it
+      if (flyTo(e.side > 0 ? e.maxX + 32 : e.minX - 32, 6 * TS, 130 * sp)) { e.mode = 'swoop'; sfx('swoop'); }
+    } else if (e.mode === 'swoop') {
+      e.x -= e.side * (mad ? 175 : 145) * sp * dt; e.y = approach(e.y, 13 * TS - e.h - 2, 240 * dt);
+      if (Math.random() < 0.5) parts.push({ x: cx, y: e.y + e.h - 4, vx: 0, vy: 0, g: 0, life: 0.4, max: 0.4, col: '#7ae04a', size: 2 });
+      if ((e.side > 0 && e.x < e.minX - 24) || (e.side < 0 && e.x > e.maxX + 24)) { e.mode = 'fly'; e.mt = 2 + Math.random(); e.hy = 4 * TS; e.hx = clamp(e.x, e.minX, e.maxX); }
+    } else if (e.mode === 'tumble') {
+      e.vy += 600 * dt; e.y += e.vy * dt; if (e.vy > 0) e.vy *= 0.9;
+      if (e.mt <= 0) { e.mode = 'fly'; e.mt = 1.4 + Math.random(); e.hy = 3 * TS; }
+    }
+    if (e.mode !== 'swoop' && e.mode !== 'swoopPrep') e.x = clamp(e.x, e.minX - 32, e.maxX + 32);
+  } else if (e.kind === 'king') {
+    gravity(); e.mt -= dt;
+    if (!fight) { e.vx = 0; }
+    else if (e.mode === 'idle' || e.mode === 'walk') {
+      e.mode = 'walk'; e.face = Math.sign(dx) || -1;
+      const want = Math.abs(dx) < 90 ? -e.face : Math.abs(dx) > 150 ? e.face : 0;   // keeps his distance
+      e.vx = want * (mad ? 40 : 28) * sp;
+      e.fireT -= dt; if (e.fireT <= 0 && near) { e.mode = 'cast'; e.ct = 0.45; e.fireT = (mad ? 1.6 : 2.4) + Math.random() * 0.6; }
+      e.jumpT -= dt;
+      if (e.jumpT <= 0) {   // call down iron scarabs (they're also his weakness)
+        e.jumpT = (mad ? 4.5 : 6) + Math.random();
+        const n = ents.filter(o => o.type === 'scarab' && !o.dead && !o.remove && o.x > e.minX - 64 && o.x < e.maxX + 64).length;
+        if (n < (mad ? 3 : 2)) summonScarab(e);
+      }
+      if (e.mt <= 0) { e.mode = 'fadeout'; e.mt = 0.35; sfx('teleport'); }
+    } else if (e.mode === 'cast') {
+      e.vx = 0; e.ct -= dt;
+      if (e.ct <= 0) {
+        const n = mad ? 5 : 3, a0 = Math.atan2(py - (e.y + 10), dx), v = (mad ? 140 : 110) * sp;
+        for (let i = 0; i < n; i++) { const a = a0 + (i - (n - 1) / 2) * 0.22; bossShot('orb', cx - 4 + Math.cos(a) * 10, e.y + 6, Math.cos(a) * v, Math.sin(a) * v, { life: 5 }); }
+        sfx('orb'); e.mode = 'walk';
+      }
+    } else if (e.mode === 'fadeout') {
+      e.vx = 0;
+      if (e.mt <= 0) {
+        let x = e.x, tries = 0;
+        do { x = e.minX + Math.random() * (e.maxX - e.minX); } while (Math.abs(x + e.w / 2 - px) < 120 && ++tries < 20);
+        e.x = x; e.mode = 'fadein'; e.mt = 0.4; burst(e.x + e.w / 2, e.y + e.h / 2, 14, ['#b06aff', '#3a1a5a'], 90, 0, 0.4, 2);
+      }
+    } else if (e.mode === 'fadein') {
+      e.vx = 0;
+      if (e.mt <= 0) {
+        e.mode = 'walk'; e.mt = (mad ? 3.4 : 5) + Math.random() * 1.5;
+        if (mad) { const d = Math.sign(dx) || -1; bossShot('shock', e.x + e.w / 2 - 5, 13 * TS - 12, d * 150 * sp, 0, { w: 10, h: 12, life: 2.6, cold: true }); sfx('slam'); }
+      }
+    }
+    move();
+  }
+  if (e.y > 13 * TS + 4 && !e.sunk) {
+    e.sunk = true; e.dead = e.dead || 'sunk'; sfx('lava'); burst(e.x + e.w / 2, 13 * TS + 6, 24, ['#ff5a14', '#ffc23a', '#ffe14a'], 160, 500, 0.8, 2);
+    addScore(5000, e.x, 12 * TS); pops.push({ x: e.x - 24, y: 10 * TS, text: BOSS_NAMES[e.kind] + ' SINKS!', t: 0 });
+  }
+}
+function lobRock(e) {
+  const sx = e.x + e.w / 2 + e.face * 8, sy = e.y + 4, T = 0.95, tx = P.x + P.w / 2 + P.vx * 0.3, ty = P.y + P.h - 4;
+  bossShot('rock', sx - 4, sy, (tx - sx) / T, (ty - sy) / T - 0.5 * 900 * T, { life: 3 });
+  sfx('breath');
+}
+function castWisps(e, n) {
+  const sp = (bossAngry(e) ? 70 : 55) * e.spd;
+  for (let i = 0; i < n; i++) { const a = -Math.PI / 2 + (i - (n - 1) / 2) * 0.7; bossShot('wisp', e.x + e.w / 2 - 4, e.y + 6, Math.cos(a) * 60, Math.sin(a) * 60, { life: 4.2, spd: sp }); }
+  sfx('wisp');
+}
+function summonScarab(e) {
+  const x = clamp(P.x + (Math.random() < 0.5 ? -1 : 1) * (40 + Math.random() * 40), e.minX + 8, e.maxX + 8), tx = Math.floor(x / TS);
+  const s = makeEnt({ type: 'scarab', x: tx, y: 12 }); s.y = 4 * TS; s.active = true; s.vx = (Math.sign(P.x - x) || -1) * Math.abs(s.vx);
+  ents.push(s); sfx('teleport');
+  for (let i = 0; i < 18; i++) { const a = i / 18 * Math.PI * 2; parts.push({ x: tx * TS + 8 + Math.cos(a) * 10, y: 4 * TS + 6 + Math.sin(a) * 6, vx: -Math.cos(a) * 20, vy: -Math.sin(a) * 12, g: 0, life: 0.5, max: 0.5, col: i % 2 ? '#b06aff' : '#3a1a5a', size: 2 }); }
 }
 
 function hurt() {
@@ -1873,8 +2570,8 @@ function updatePlayer(dt) {
   if (!P.dead) {   // lava (or bog water) is deadly, power-ups or not
     const ly = Math.floor((P.y + P.h - 5) / TS);
     for (let tx = l; tx <= r; tx++) if (ly >= 0 && ly < ROWS && grid[ly][tx] === 'L') {
-      const bog = L.theme === 'swamp';
-      sfx(bog ? 'hiss' : 'lava'); burst(P.x + P.w / 2, ly * TS + 6, 14, bog ? ['#3e5a2a', '#24361a', '#8aa060'] : ['#ff5a14', '#ffc23a', '#ffe14a'], 120, 500, 0.6, 2);
+      const q = liq();
+      sfx(q.hot ? 'lava' : 'hiss'); burst(P.x + P.w / 2, ly * TS + 6, 14, [q.mid, q.hi, q.deep], 120, 500, 0.6, 2);
       P.star = 0; die(); break;
     }
   }
@@ -1898,6 +2595,7 @@ function updateEnts(dt) {
     if (e.flash > 0) e.flash -= dt;
     if (e.type === 'firebar') { e.ang += e.spin * dt; continue; }
     if (e.type === 'vine') { growVine(e, dt); continue; }
+    if (BOSS_SHOTS.has(e.type)) { updateBossShot(e, dt); continue; }
     if (e.type === 'bossfire') { e.x += e.vx * dt; e.y = approach(e.y, e.ty, 50 * dt); if (e.x < camX - 40 || e.x > camX + VW + 40) e.remove = true; continue; }
     if (e.type === 'lift') {
       const ox = e.x, oy = e.y;
@@ -1982,7 +2680,8 @@ function updateEnts(dt) {
       if (e.hitWall) { e.vx = -e.vx; if (e.mode === 'slide' && Math.abs(e.x - camX - VW / 2) < VW / 2 + 16) sfx('bump'); }
       moveY(e, e.vy * dt);
       if (e.mode === 'slide') for (const o of ents) {
-        if (o === e || !o.active || o.dead || o.remove || !SHELL_HITS.has(o.type) || (o.type === 'ghoul' && o.mode === 'hidden') || !overlap(e, o)) continue;
+        if (o === e || !o.active || o.dead || o.remove || (!SHELL_HITS.has(o.type) && o.type !== 'boss') || (o.type === 'ghoul' && o.mode === 'hidden') || !overlap(e, o)) continue;
+        if (o.type === 'boss') { if (shellHitsBoss(o, e)) break; continue; }
         shellPts(e, o.x, o.y); sfx('kick');
         if (o.type === 'scarab' && o.mode === 'slide') flipKill(e, -Math.sign(e.vx) || 1);
         burnEnemy(o, Math.sign(e.vx) || 1, 0);
@@ -2008,19 +2707,7 @@ function updateEnts(dt) {
         if (e.x < camX - 60 || e.x > camX + VW + 60 || e.y < -20) e.remove = true;
       }
     } else if (e.type === 'boss') {
-      // a furnace keeper: paces its bridge, hops, and breathes fire at three heights
-      e.vy = Math.min(450, e.vy + 1300 * dt); e.anim += dt;
-      const dx = P.x + P.w / 2 - (e.x + e.w / 2); e.face = Math.sign(dx) || -1;
-      if (state === 'play' && e.onGround) {
-        e.t -= dt; if (e.t <= 0) { e.dir = Math.random() < 0.5 ? -1 : 1; e.t = 0.8 + Math.random() * 1.2; }
-        if (e.x <= e.minX) e.dir = 1; if (e.x >= e.maxX) e.dir = -1;
-        e.vx = e.dir * (e.fierce ? 34 : 24) * e.spd;
-        e.jumpT -= dt; if (e.jumpT <= 0) { e.vy = e.fierce ? -360 : -320; e.jumpT = 1.8 + Math.random() * 2.4; }
-      } else if (state !== 'play') e.vx = 0;
-      if (state === 'play' && !P.dead && Math.abs(dx) < VW * 0.75) { e.fireT -= dt; if (e.fireT <= 0) { breathe(e, e.face); e.fireT = (e.fierce ? 1.35 : 2.1) + Math.random() * 1.2; } }
-      moveX(e, e.vx * dt); moveY(e, e.vy * dt);
-      if (!e.onGround && state === 'finish' && !e.roared) { e.roared = true; sfx('roar'); }
-      if (e.y > 13 * TS + 4 && !e.sunk) { e.sunk = true; sfx('lava'); burst(e.x + 13, 13 * TS + 6, 24, ['#ff5a14', '#ffc23a', '#ffe14a'], 160, 500, 0.8, 2); addScore(5000, e.x, 12 * TS); pops.push({ x: e.x - 24, y: 10 * TS, text: 'KEEPER SINKS!', t: 0 }); }
+      updateBoss(e, dt);
     } else if (e.type === 'balloon') {
       e.x += e.vx * dt; e.y = e.baseY + Math.sin(clock * 2 + e.ph) * 18;
     } else if (e.type === 'candy') {
@@ -2056,7 +2743,8 @@ function updateEnts(dt) {
       if (e.type === 'flameskull' && e.t > 0) continue;   // still under the lava
       if (e.type === 'candy') { if (e.emerge) continue; e.remove = true; powerUp(e); continue; }
       // fire creatures and keepers can't be stomped or burned by catnip; catnip just lets you pass through them
-      if (e.type === 'flameskull' || e.type === 'bossfire' || e.type === 'boss') { if (P.star <= 0) hurt(); continue; }
+      if (e.type === 'boss') { bossTouch(e); continue; }
+      if (e.type === 'flameskull' || e.type === 'bossfire' || BOSS_SHOTS.has(e.type)) { if (P.star <= 0 && shotLive(e)) hurt(); continue; }
       if (P.star > 0) { comboPts(e.x, e.y); burnEnemy(e, Math.sign(e.x - P.x) || 1, 0); continue; }
       const prevBottom = P.y + P.h - P.vy * (1 / 120);
       if (e.type === 'scarab' && e.mode !== 'walk') {
@@ -2162,7 +2850,7 @@ function startFinish() {
     state = 'finish'; fin = { phase: 'lever', t: 0, fw: 0, shots: 0, fwN: [1, 3, 6].includes(digit) ? digit : 0, bridge: [], ct: 0 };
     for (let x = POLE_TX - 1; x >= 0 && grid[13][x] === 'R'; x--) fin.bridge.push(x);
     P.x = Math.max(P.x, POLE_TX * TS + 2); P.vx = 0; P.star = 0; P.face = 1; Snd.stop(); sfx('lever'); fin.pulled = clock;
-    ents = ents.filter(e => e.type !== 'bossfire');
+    ents = ents.filter(e => e.type !== 'bossfire' && !BOSS_SHOTS.has(e.type));
     return;
   }
   state = 'finish'; fin = { phase: 'slide', t: 0, fw: 0, shots: 0, fwN: [1, 3, 6].includes(digit) ? digit : 0 };
@@ -2705,7 +3393,182 @@ function drawBGInferno() {
   ctx.fillStyle = `rgba(255,60,20,${0.08 + 0.03 * Math.sin(clock * 2)})`; ctx.fillRect(0, 0, VW, VH);
   embers(26, 34, camX * 0.5);
 }
-const BGS = { midway: () => drawBG(), graveyard: drawBGGraveyard, house: drawBGHouse, crypt: drawBGCrypt, furnace: drawBGFurnace, swamp: drawBGSwamp, tower: drawBGTower, inferno: drawBGInferno };
+// ---------- night 3 and night 4 backgrounds ----------
+// repeat a scenery piece every `gap` px across the screen at parallax `par`; f(x, k) draws one at screen x
+function scenery(par, gap, off, f, pad = 120) {
+  const p = camX * par;
+  for (let k = Math.floor((p - pad - off) / gap); k <= Math.floor((p + VW + pad - off) / gap); k++) f(Math.round(k * gap + off - p), k);
+}
+function fogBand(y, h, a) { const g = ctx.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, 'rgba(160,170,190,0)'); g.addColorStop(1, `rgba(160,170,190,${a})`); ctx.fillStyle = g; ctx.fillRect(0, y, VW, h); }
+let harborGrad = null;
+// Night 3, level 1: a foggy harbor: a lighthouse sweeping its beam, moored ships, black water
+function drawBGHarbor() {
+  if (!harborGrad) { harborGrad = ctx.createLinearGradient(0, 0, 0, VH); harborGrad.addColorStop(0, '#04060e'); harborGrad.addColorStop(0.6, '#16203a'); harborGrad.addColorStop(1, '#2e3a50'); }
+  drawSky(harborGrad);
+  const lx = Math.round(330 - camX * 0.04);   // the lighthouse
+  const a = clock * 0.9, bx = Math.cos(a), g = ctx.createLinearGradient(lx, 64, lx + bx * 260, 80);
+  g.addColorStop(0, 'rgba(255,240,180,.35)'); g.addColorStop(1, 'rgba(255,240,180,0)');
+  if (Math.abs(bx) > 0.05) { ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(lx, 64); ctx.lineTo(lx + bx * 260, 44); ctx.lineTo(lx + bx * 260, 92); ctx.closePath(); ctx.fill(); }
+  ctx.fillStyle = '#10141e'; ctx.beginPath(); ctx.moveTo(lx - 8, 176); ctx.lineTo(lx - 5, 70); ctx.lineTo(lx + 5, 70); ctx.lineTo(lx + 8, 176); ctx.fill();
+  ctx.fillStyle = '#5a1a1a'; for (const y of [90, 120, 150]) ctx.fillRect(lx - 6, y, 12, 8);
+  ctx.fillStyle = '#ffe9a0'; ctx.fillRect(lx - 4, 60, 8, 8); ctx.fillStyle = '#10141e'; ctx.beginPath(); ctx.moveTo(lx - 7, 60); ctx.lineTo(lx, 52); ctx.lineTo(lx + 7, 60); ctx.fill();
+  scenery(0.3, 260, 40, (x, k) => {   // moored ships with bare masts
+    const h = hash(k, 3);
+    ctx.fillStyle = '#0c1018'; ctx.beginPath(); ctx.moveTo(x, 168); ctx.lineTo(x + 90, 168); ctx.lineTo(x + 78, 182); ctx.lineTo(x + 8, 182); ctx.fill();
+    ctx.fillRect(x + 60, 156, 24, 12);
+    ctx.fillRect(x + 28, 92 + h * 20, 2, 76); ctx.fillRect(x + 54, 104, 2, 64); ctx.fillRect(x + 18, 112, 22, 1); ctx.fillRect(x + 46, 120, 18, 1);
+    ctx.strokeStyle = '#0c1018'; ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(x + 29, 94 + h * 20); ctx.lineTo(x + 2, 168); ctx.moveTo(x + 29, 94 + h * 20); ctx.lineTo(x + 55, 104); ctx.lineTo(x + 88, 168); ctx.stroke();
+    if (h < 0.6) { ctx.fillStyle = `rgba(255,200,90,${0.5 + 0.3 * Math.sin(clock * 2 + k)})`; ctx.fillRect(x + 66, 160, 3, 3); }
+  });
+  ctx.fillStyle = '#0a1220'; ctx.fillRect(0, 180, VW, 40);   // the water
+  for (let i = 0; i < 14; i++) { const x = ((i * 47 - camX * 0.35 + Math.sin(clock + i) * 6) % VW + VW) % VW; ctx.fillStyle = 'rgba(180,200,230,.18)'; ctx.fillRect(Math.round(x), 186 + (i % 4) * 6, 10 + (i % 3) * 4, 1); }
+  fogBand(120, 96, 0.35);
+  ctx.fillStyle = 'rgba(170,180,200,.08)'; for (let i = 0; i < 4; i++) { const x = ((i * 160 + clock * 12 - camX * 0.6) % 640 + 640) % 640 - 120; ctx.beginPath(); ctx.ellipse(x, 150 + i * 12, 90, 8, 0, 0, 7); ctx.fill(); }
+}
+// Night 3, level 2: deep in an old mine: timber frames, hanging lanterns, rails and dripping water
+function drawBGMine() {
+  const g0 = ctx.createLinearGradient(0, 0, 0, VH); g0.addColorStop(0, '#0c0806'); g0.addColorStop(1, '#241a14'); ctx.fillStyle = g0; ctx.fillRect(0, 0, VW, VH);
+  scenery(0.2, 70, 0, (x, k) => { ctx.fillStyle = hash(k, 1) < 0.5 ? '#16100c' : '#1c1410'; ctx.beginPath(); ctx.moveTo(x, 32); ctx.lineTo(x + 40 + hash(k, 2) * 30, 32); ctx.lineTo(x + 30, 60 + hash(k, 3) * 40); ctx.fill(); }, 80);
+  scenery(0.5, 150, 30, (x, k) => {   // a timber frame holding up the rock, with a lantern
+    ctx.fillStyle = '#3a2614'; ctx.fillRect(x, 50, 8, 160); ctx.fillRect(x + 92, 50, 8, 160); ctx.fillRect(x - 4, 44, 108, 9);
+    ctx.fillStyle = '#4e3420'; ctx.fillRect(x + 1, 50, 2, 160); ctx.fillRect(x - 4, 44, 108, 2);
+    const lx = x + 50, sw = Math.sin(clock * 1.2 + k) * 3, fl = 0.8 + 0.2 * Math.sin(clock * 9 + k);
+    const lg = ctx.createRadialGradient(lx + sw, 76, 2, lx + sw, 76, 40); lg.addColorStop(0, `rgba(255,190,90,${0.35 * fl})`); lg.addColorStop(1, 'rgba(255,190,90,0)'); ctx.fillStyle = lg; ctx.fillRect(lx - 44, 34, 88, 84);
+    ctx.strokeStyle = '#1a1208'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(lx, 53); ctx.lineTo(lx + sw, 70); ctx.stroke();
+    ctx.fillStyle = '#1a1208'; ctx.fillRect(lx + sw - 3, 70, 6, 10); ctx.fillStyle = '#ffd27a'; ctx.fillRect(lx + sw - 2, 72, 4, 6);
+  });
+  ctx.fillStyle = '#2a1e14'; ctx.fillRect(0, 196, VW, 3);   // the old rails
+  ctx.fillStyle = '#5a5a66'; ctx.fillRect(0, 194, VW, 1); ctx.fillRect(0, 200, VW, 1);
+  scenery(0.75, 22, 0, x => { ctx.fillStyle = '#3a2614'; ctx.fillRect(x, 193, 4, 9); }, 30);
+  for (let i = 0; i < 6; i++) { const x = ((i * 71 - camX * 0.5) % VW + VW) % VW, y = 36 + ((clock * 90 + i * 40) % 170); ctx.fillStyle = 'rgba(140,190,220,.5)'; ctx.fillRect(Math.round(x), Math.round(y), 1, 3); }
+}
+// Night 3, level 3: the wax museum: portraits whose eyes follow Pancake, busts on plinths, velvet ropes
+function drawBGMuseum() {
+  ctx.fillStyle = '#1e0e16'; ctx.fillRect(0, 0, VW, VH);
+  scenery(0.5, 40, 0, (x, k) => { ctx.fillStyle = k % 2 ? '#26121c' : '#2a1420'; ctx.fillRect(x, 32, 40, 140); }, 40);
+  ctx.fillStyle = '#3a1a26'; ctx.fillRect(0, 172, VW, 40); ctx.fillStyle = '#c8a040'; ctx.fillRect(0, 171, VW, 2);
+  scenery(0.5, 120, 20, (x, k) => {   // a portrait
+    const fx = x, fy = 58, w = 46, h = 60;
+    ctx.fillStyle = '#c8a040'; ctx.fillRect(fx - 4, fy - 4, w + 8, h + 8); ctx.fillStyle = '#8a6a1a'; ctx.fillRect(fx - 2, fy - 2, w + 4, h + 4);
+    ctx.fillStyle = ['#2a3a4a', '#3a2a3a', '#2a3a2a'][((k % 3) + 3) % 3]; ctx.fillRect(fx, fy, w, h);
+    ctx.fillStyle = '#1a1214'; ctx.beginPath(); ctx.ellipse(fx + w / 2, fy + h, 18, 18, 0, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#d8b898'; ctx.beginPath(); ctx.ellipse(fx + w / 2, fy + 28, 9, 11, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = '#2a1a14'; ctx.beginPath(); ctx.ellipse(fx + w / 2, fy + 20, 10, 6, 0, Math.PI, 0); ctx.fill();
+    const look = P ? clamp((P.x - camX - (fx + w / 2)) / 160, -1, 1) * 1.6 : 0;   // the eyes follow you
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(fx + w / 2 - 5, fy + 26, 4, 3); ctx.fillRect(fx + w / 2 + 1, fy + 26, 4, 3);
+    ctx.fillStyle = '#14072e'; ctx.fillRect(Math.round(fx + w / 2 - 4 + look), fy + 26, 2, 3); ctx.fillRect(Math.round(fx + w / 2 + 2 + look), fy + 26, 2, 3);
+  });
+  scenery(0.7, 170, 90, (x, k) => {   // a bust on a plinth, and a velvet rope
+    ctx.fillStyle = '#4a4258'; ctx.fillRect(x - 8, 172, 16, 40); ctx.fillStyle = '#5a5268'; ctx.fillRect(x - 10, 170, 20, 4);
+    ctx.fillStyle = '#8a8296'; ctx.beginPath(); ctx.ellipse(x, 160, 6, 8, 0, 0, 7); ctx.fill(); ctx.fillRect(x - 9, 164, 18, 6);
+    ctx.fillStyle = '#c8a040'; for (const sx of [x + 30, x + 80]) { ctx.fillRect(sx - 1, 184, 2, 28); ctx.fillRect(sx - 3, 182, 6, 3); }
+    ctx.strokeStyle = '#a81a3a'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + 30, 186); ctx.quadraticCurveTo(x + 55, 198, x + 80, 186); ctx.stroke();
+  }, 140);
+}
+// Night 3, level 4: the witch's lair: bubbling cauldrons, shelves of potions, herbs drying from the beams
+function drawBGCauldron() {
+  const g0 = ctx.createLinearGradient(0, 0, 0, VH); g0.addColorStop(0, '#060a06'); g0.addColorStop(1, '#14240e'); ctx.fillStyle = g0; ctx.fillRect(0, 0, VW, VH);
+  scenery(0.35, 110, 10, (x, k) => {   // shelves of potion bottles
+    ctx.fillStyle = '#2a1e12'; for (const y of [70, 110]) ctx.fillRect(x, y, 70, 4);
+    for (let i = 0; i < 6; i++) for (const y of [70, 110]) {
+      const c = ['#7ae04a', '#b06aff', '#ff5a7a', '#5ac8ff'][Math.floor(hash(k * 7 + i, y) * 4)], h = 8 + hash(i, k + y) * 8, bx = x + 4 + i * 11;
+      ctx.fillStyle = 'rgba(200,220,200,.25)'; ctx.fillRect(bx, y - h, 7, h); ctx.fillStyle = c; ctx.globalAlpha = 0.7 + 0.3 * Math.sin(clock * 2 + i + k); ctx.fillRect(bx + 1, y - h * 0.6, 5, h * 0.6); ctx.globalAlpha = 1; ctx.fillStyle = '#5a3a1a'; ctx.fillRect(bx + 2, y - h - 2, 3, 2);
+    }
+  }, 80);
+  scenery(0.5, 190, 60, (x, k) => {   // a great cauldron on a fire
+    const fl = 0.7 + 0.3 * Math.sin(clock * 8 + k);
+    const g = ctx.createRadialGradient(x, 160, 4, x, 160, 60); g.addColorStop(0, `rgba(120,230,80,${0.3 * fl})`); g.addColorStop(1, 'rgba(80,200,60,0)'); ctx.fillStyle = g; ctx.fillRect(x - 60, 100, 120, 110);
+    ctx.fillStyle = '#ff7a1a'; for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(x + i * 7 - 4, 210); ctx.lineTo(x + i * 7, 196 - Math.abs(Math.sin(clock * 9 + i)) * 6); ctx.lineTo(x + i * 7 + 4, 210); ctx.fill(); }
+    ctx.fillStyle = '#16140e'; ctx.beginPath(); ctx.ellipse(x, 176, 34, 24, 0, 0, 7); ctx.fill(); ctx.fillRect(x - 30, 154, 60, 10);
+    ctx.fillStyle = '#3a8a2a'; ctx.beginPath(); ctx.ellipse(x, 156, 28, 5, 0, 0, 7); ctx.fill();
+    for (let i = 0; i < 4; i++) { const t = (clock * 0.8 + i * 0.27 + k * 0.1) % 1, bx = x - 18 + hash(i, k) * 36; ctx.fillStyle = `rgba(150,240,110,${1 - t})`; ctx.beginPath(); ctx.arc(bx, 154 - t * 40, 2 + t * 3, 0, 7); ctx.fill(); }
+  });
+  scenery(0.6, 70, 0, (x, k) => { ctx.strokeStyle = '#2a3a1a'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, 32); ctx.lineTo(x, 46 + hash(k, 5) * 10); ctx.stroke(); ctx.fillStyle = '#3a5a22'; ctx.beginPath(); ctx.ellipse(x, 52 + hash(k, 5) * 10, 4, 8, Math.sin(clock + k) * 0.1, 0, 7); ctx.fill(); }, 40);
+}
+let woodsGrad = null;
+function drawPine(x, base, h, col) {
+  ctx.fillStyle = col; ctx.fillRect(x - 2, base - 12, 4, 12);
+  for (let i = 0; i < 4; i++) { const w = 22 - i * 4, y = base - 8 - i * h / 4; ctx.beginPath(); ctx.moveTo(x - w, y); ctx.lineTo(x, y - h / 3); ctx.lineTo(x + w, y); ctx.fill(); }
+}
+// Night 4, level 1: the dark woods: pines too thick for the moon, and eyes blinking in the dark between them
+function drawBGWoods() {
+  if (!woodsGrad) { woodsGrad = ctx.createLinearGradient(0, 0, 0, VH); woodsGrad.addColorStop(0, '#020406'); woodsGrad.addColorStop(0.6, '#0a1610'); woodsGrad.addColorStop(1, '#16261c'); }
+  drawSky(woodsGrad);
+  scenery(0.15, 46, 0, (x, k) => drawPine(x, 196, 90 + hash(k, 1) * 40, '#0a1410'), 60);
+  scenery(0.3, 70, 20, (x, k) => {
+    drawPine(x, 206, 110 + hash(k, 2) * 50, '#06100a');
+    if (hash(k, 4) < 0.45) {   // eyes in the dark
+      const blink = Math.sin(clock * 0.7 + k * 3) > 0.92, ex = x + 22, ey = 150 + hash(k, 6) * 30;
+      if (!blink) { ctx.fillStyle = hash(k, 7) < 0.5 ? '#ffe14a' : '#ff5a3a'; ctx.fillRect(ex, ey, 2, 1.5); ctx.fillRect(ex + 5, ey, 2, 1.5); }
+    }
+  }, 80);
+  fogBand(150, 66, 0.3);
+  scenery(0.55, 120, 60, (x, k) => drawPine(x, 214, 150 + hash(k, 3) * 40, '#030806'), 80);
+}
+// Night 4, level 2: the sewers: brick arches, pipes dribbling sludge, light falling through a street grate
+function drawBGSewer() {
+  ctx.fillStyle = '#100e0a'; ctx.fillRect(0, 0, VW, VH);
+  scenery(0.4, 120, 0, (x, k) => {
+    ctx.fillStyle = '#1e1a14'; ctx.beginPath(); ctx.moveTo(x, 210); ctx.lineTo(x, 90); ctx.arc(x + 60, 90, 60, Math.PI, 0); ctx.lineTo(x + 120, 210); ctx.lineTo(x + 108, 210); ctx.lineTo(x + 108, 92); ctx.arc(x + 60, 92, 48, 0, Math.PI, true); ctx.lineTo(x + 12, 210); ctx.fill();
+    ctx.fillStyle = '#2a241a'; for (let a = 0; a <= 8; a++) { const t = Math.PI + a * Math.PI / 8; ctx.fillRect(Math.round(x + 60 + Math.cos(t) * 54) - 2, Math.round(90 + Math.sin(t) * 54) - 1, 4, 2); }
+    ctx.fillStyle = '#0a0806'; ctx.beginPath(); ctx.moveTo(x + 12, 210); ctx.lineTo(x + 12, 92); ctx.arc(x + 60, 92, 48, Math.PI, 0); ctx.lineTo(x + 108, 210); ctx.fill();
+    if (k % 2 === 0) {   // light from a street grate far above
+      const g = ctx.createLinearGradient(0, 40, 0, 200); g.addColorStop(0, 'rgba(200,210,170,.18)'); g.addColorStop(1, 'rgba(200,210,170,0)'); ctx.fillStyle = g;
+      ctx.beginPath(); ctx.moveTo(x + 50, 44); ctx.lineTo(x + 70, 44); ctx.lineTo(x + 84, 200); ctx.lineTo(x + 36, 200); ctx.fill();
+      ctx.fillStyle = '#3a3a30'; for (let i = 0; i < 5; i++) ctx.fillRect(x + 50 + i * 4, 44, 2, 3);
+    }
+  });
+  scenery(0.6, 160, 40, (x, k) => {   // a pipe dribbling sludge
+    ctx.fillStyle = '#3a3a42'; ctx.fillRect(x - 6, 32, 12, 70 + hash(k, 1) * 30); ctx.fillStyle = '#4e4e58'; ctx.fillRect(x - 6, 32, 3, 70 + hash(k, 1) * 30);
+    const py = 102 + hash(k, 1) * 30; ctx.fillStyle = '#2a2a30'; ctx.fillRect(x - 8, py - 4, 16, 6);
+    ctx.fillStyle = '#5a7a2a'; ctx.fillRect(x - 2, py + 2, 4, 2); for (let i = 0; i < 3; i++) { const y = py + 4 + ((clock * 80 + i * 30) % 100); ctx.fillRect(x - 1, y, 2, 4); }
+  }, 60);
+  ctx.fillStyle = '#1a240e'; ctx.fillRect(0, 200, VW, 14);
+  for (let i = 0; i < 10; i++) { const x = ((i * 53 - camX * 0.7 + clock * 14) % VW + VW) % VW; ctx.fillStyle = 'rgba(120,160,60,.3)'; ctx.fillRect(Math.round(x), 203 + (i % 3) * 3, 8, 1); }
+}
+function drawGear(x, y, r, teeth, ang, col, hub) {
+  ctx.fillStyle = col; ctx.beginPath();
+  for (let i = 0; i < teeth * 2; i++) { const a = ang + i * Math.PI / teeth, rr = i % 2 ? r : r + 5; ctx.lineTo(x + Math.cos(a - 0.12) * rr, y + Math.sin(a - 0.12) * rr); ctx.lineTo(x + Math.cos(a + 0.12) * rr, y + Math.sin(a + 0.12) * rr); }
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = hub; ctx.beginPath(); ctx.arc(x, y, r * 0.35, 0, 7); ctx.fill();
+  ctx.strokeStyle = hub; ctx.lineWidth = 2; ctx.beginPath(); for (let i = 0; i < 4; i++) { const a = ang + i * Math.PI / 2; ctx.moveTo(x, y); ctx.lineTo(x + Math.cos(a) * r * 0.85, y + Math.sin(a) * r * 0.85); } ctx.stroke();
+}
+// Night 4, level 3: inside the great clock: turning gears, a swinging pendulum, the clock face's back with light through it
+function drawBGClock() {
+  const g0 = ctx.createLinearGradient(0, 0, 0, VH); g0.addColorStop(0, '#0c0806'); g0.addColorStop(1, '#2a1c0c'); ctx.fillStyle = g0; ctx.fillRect(0, 0, VW, VH);
+  const fx = Math.round(200 - camX * 0.05);   // the back of the clock face, moonlight through the numerals
+  ctx.fillStyle = 'rgba(220,210,170,.08)'; ctx.beginPath(); ctx.arc(fx, 90, 80, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(230,220,180,.25)'; for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2; ctx.fillRect(Math.round(fx + Math.cos(a) * 68) - 3, Math.round(90 + Math.sin(a) * 68) - 4, 6, 8); }
+  scenery(0.25, 150, 0, (x, k) => drawGear(x, 70 + hash(k, 1) * 100, 30 + hash(k, 2) * 14, 10, clock * 0.3 * (k % 2 ? 1 : -1), '#2a1e0e', '#1a1206'), 80);
+  const pa = Math.sin(clock * 1.6) * 0.45, ppx = Math.round(((140 - camX * 0.4) % 600 + 600) % 600) - 100;   // the pendulum
+  ctx.save(); ctx.translate(ppx, 0); ctx.rotate(pa); ctx.fillStyle = '#4a3a1a'; ctx.fillRect(-1.5, 0, 3, 150); ctx.fillStyle = '#c8a040'; ctx.beginPath(); ctx.arc(0, 156, 14, 0, 7); ctx.fill(); ctx.fillStyle = '#8a6a2a'; ctx.beginPath(); ctx.arc(0, 156, 9, 0, 7); ctx.fill(); ctx.restore();
+  scenery(0.55, 210, 80, (x, k) => drawGear(x, 120 + hash(k, 4) * 70, 40 + hash(k, 5) * 16, 12, -clock * 0.5 * (k % 2 ? 1 : -1), '#3e2c12', '#241a08'), 100);
+}
+// Night 4, level 4: the night king's great hall: stained-glass moons, banners, braziers burning violet
+function drawBGCitadel() {
+  const g0 = ctx.createLinearGradient(0, 0, 0, VH); g0.addColorStop(0, '#08040e'); g0.addColorStop(1, '#1e1030'); ctx.fillStyle = g0; ctx.fillRect(0, 0, VW, VH);
+  scenery(0.3, 140, 30, (x, k) => {   // a tall stained-glass window
+    ctx.fillStyle = '#140a20'; ctx.fillRect(x - 4, 44, 48, 150);
+    const cols = ['#3a2a7a', '#6a2a5a', '#2a4a7a', '#5a3a8a'];
+    for (let r = 0; r < 6; r++) for (let c = 0; c < 3; c++) { ctx.fillStyle = cols[(r + c + k) % 4]; ctx.globalAlpha = 0.55 + 0.15 * Math.sin(clock + r + c); ctx.fillRect(x + c * 14, 60 + r * 20, 12, 18); }
+    ctx.globalAlpha = 1; ctx.fillStyle = '#140a20'; ctx.beginPath(); ctx.arc(x + 20, 60, 22, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#fff0c0'; ctx.globalAlpha = 0.7; ctx.beginPath(); ctx.arc(x + 20, 58, 9, 0, 7); ctx.fill(); ctx.fillStyle = '#140a20'; ctx.beginPath(); ctx.arc(x + 24, 55, 8, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+    const g = ctx.createLinearGradient(0, 60, 0, 210); g.addColorStop(0, 'rgba(150,110,220,.12)'); g.addColorStop(1, 'rgba(150,110,220,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(x, 190); ctx.lineTo(x + 40, 190); ctx.lineTo(x + 70, 210); ctx.lineTo(x + 20, 210); ctx.fill();
+  }, 80);
+  scenery(0.5, 180, 100, (x, k) => {   // a banner and a violet brazier
+    const sw = Math.sin(clock * 1.3 + k) * 2;
+    ctx.fillStyle = '#4a1a5a'; ctx.beginPath(); ctx.moveTo(x - 12, 36); ctx.lineTo(x + 12, 36); ctx.lineTo(x + 12 + sw, 110); ctx.lineTo(x + sw, 100); ctx.lineTo(x - 12 + sw, 110); ctx.fill();
+    ctx.fillStyle = '#c8a040'; ctx.fillRect(x - 13, 34, 26, 3); ctx.beginPath(); ctx.arc(x + sw * 0.5, 66, 5, 0, 7); ctx.fill();
+    const bx = x + 60, fl = Math.sin(clock * 11 + k);
+    const bg = ctx.createRadialGradient(bx, 160, 2, bx, 160, 36); bg.addColorStop(0, 'rgba(176,106,255,.4)'); bg.addColorStop(1, 'rgba(176,106,255,0)'); ctx.fillStyle = bg; ctx.fillRect(bx - 36, 124, 72, 72);
+    ctx.fillStyle = '#2a1e36'; ctx.fillRect(bx - 2, 172, 4, 40); ctx.fillRect(bx - 8, 168, 16, 5);
+    ctx.fillStyle = '#b06aff'; ctx.beginPath(); ctx.moveTo(bx - 7, 168); ctx.quadraticCurveTo(bx - 4, 156 - fl * 2, bx, 148 - fl * 3); ctx.quadraticCurveTo(bx + 5, 158, bx + 7, 168); ctx.fill();
+    ctx.fillStyle = '#e8d0ff'; ctx.beginPath(); ctx.moveTo(bx - 3, 168); ctx.quadraticCurveTo(bx, 160, bx, 156 - fl); ctx.quadraticCurveTo(bx + 2, 162, bx + 3, 168); ctx.fill();
+  }, 100);
+  ctx.globalAlpha = 0.8; embers(14, 22, camX * 0.5); ctx.globalAlpha = 1;
+}
+const BGS = { midway: () => drawBG(), graveyard: drawBGGraveyard, house: drawBGHouse, crypt: drawBGCrypt, furnace: drawBGFurnace, swamp: drawBGSwamp, tower: drawBGTower, inferno: drawBGInferno,
+  harbor: drawBGHarbor, mine: drawBGMine, museum: drawBGMuseum, cauldron: drawBGCauldron, woods: drawBGWoods, sewer: drawBGSewer, clock: drawBGClock, citadel: drawBGCitadel };
 
 // the doorway every exit shares, so Pancake can walk in and peek out of it
 function doorPath(cx, base) { ctx.beginPath(); ctx.moveTo(cx - 11, base); ctx.lineTo(cx - 11, base - 29); ctx.arc(cx, base - 29, 11, Math.PI, 0); ctx.lineTo(cx + 11, base); ctx.closePath(); }
@@ -2748,14 +3611,15 @@ function drawExit(x0) {
       ctx.fillStyle = '#ffd23f'; ctx.fillRect(lx - 3, base - 51, 6, 8); ctx.fillStyle = '#ff7a1a'; ctx.beginPath(); ctx.ellipse(lx, base - 46 + fl, 1.4, 2.4, 0, 0, 7); ctx.fill();
     }
     plaque(L.sign, cx, base - 112, '#c8a040', '#2a1408');
-  } else if (th === 'furnace' || th === 'inferno') {   // a great iron door in a brick arch, glowing from inside
-    const hot = th === 'inferno';
-    ctx.fillStyle = hot ? '#2a1214' : '#3a2420'; ctx.fillRect(cx - 34, base - 84, 68, 84); ctx.beginPath(); ctx.arc(cx, base - 84, 34, Math.PI, 0); ctx.fill();
-    ctx.strokeStyle = hot ? '#160608' : '#1a0e0c'; ctx.lineWidth = 1; for (let y = base - 8; y > base - 112; y -= 8) { ctx.beginPath(); ctx.moveTo(cx - 34, y); ctx.lineTo(cx + 34, y); ctx.stroke(); }
-    const g = ctx.createRadialGradient(cx, base - 18, 2, cx, base - 18, 40); g.addColorStop(0, 'rgba(255,140,40,.55)'); g.addColorStop(1, 'rgba(255,90,20,0)'); ctx.fillStyle = g; ctx.fillRect(cx - 40, base - 58, 80, 58);
+  } else if (th === 'furnace' || th === 'inferno' || th === 'cauldron' || th === 'citadel') {   // a great iron door in a stone arch, glowing from inside
+    const [wall, line, glow, pb, pf] = { furnace: ['#3a2420', '#1a0e0c', '255,140,40', '#2a1410', '#ffd23f'], inferno: ['#2a1214', '#160608', '255,140,40', '#6a1a0a', '#ffd23f'],
+      cauldron: ['#26281e', '#121410', '120,230,80', '#1e2a14', '#b8f08a'], citadel: ['#2a1e36', '#140c1c', '176,106,255', '#3a1a5a', '#ffd23f'] }[th];
+    ctx.fillStyle = wall; ctx.fillRect(cx - 34, base - 84, 68, 84); ctx.beginPath(); ctx.arc(cx, base - 84, 34, Math.PI, 0); ctx.fill();
+    ctx.strokeStyle = line; ctx.lineWidth = 1; for (let y = base - 8; y > base - 112; y -= 8) { ctx.beginPath(); ctx.moveTo(cx - 34, y); ctx.lineTo(cx + 34, y); ctx.stroke(); }
+    const g = ctx.createRadialGradient(cx, base - 18, 2, cx, base - 18, 40); g.addColorStop(0, `rgba(${glow},.55)`); g.addColorStop(1, `rgba(${glow},0)`); ctx.fillStyle = g; ctx.fillRect(cx - 40, base - 58, 80, 58);
     ctx.fillStyle = '#0b0416'; doorPath(cx, base); ctx.fill();
     ctx.fillStyle = '#4a4858'; for (const sd of [-1, 1]) { ctx.fillRect(cx + sd * 15 - 2, base - 44, 4, 44); for (let y = base - 40; y < base; y += 10) { ctx.fillStyle = '#6a6a7c'; ctx.fillRect(cx + sd * 15 - 1, y, 2, 2); ctx.fillStyle = '#4a4858'; } }
-    plaque(L.sign, cx, base - 104, hot ? '#6a1a0a' : '#2a1410', '#ffd23f');
+    plaque(L.sign, cx, base - 104, pb, pf);
   } else if (th === 'swamp') {   // a bait shack on stilts with a lamp in the window
     ctx.fillStyle = '#2a1e12'; for (const sx of [cx - 40, cx - 14, cx + 14, cx + 40]) ctx.fillRect(sx - 2, base - 16, 4, 16);
     ctx.fillStyle = '#4a3420'; ctx.fillRect(cx - 46, base - 72, 92, 58);
@@ -2772,6 +3636,51 @@ function drawExit(x0) {
     ctx.fillStyle = '#a8742a'; ctx.beginPath(); ctx.moveTo(-3, 0); ctx.quadraticCurveTo(-5, 10, -10, 18); ctx.lineTo(10, 18); ctx.quadraticCurveTo(5, 10, 3, 0); ctx.closePath(); ctx.fill(); ctx.restore();
     ctx.fillStyle = '#0b0416'; doorPath(cx, base); ctx.fill();
     plaque(L.sign, cx, base - 62, '#2a2c38', '#d0d4e8');
+  } else if (th === 'harbor') {   // a chowder house on the pier: clapboard, a round window and a hanging lantern
+    ctx.fillStyle = '#3a4250'; ctx.fillRect(cx - 44, base - 70, 88, 70);
+    ctx.fillStyle = '#2e3440'; for (let y = base - 66; y < base; y += 6) ctx.fillRect(cx - 44, y, 88, 1);
+    ctx.fillStyle = '#5a2a2a'; ctx.beginPath(); ctx.moveTo(cx - 52, base - 68); ctx.lineTo(cx, base - 96); ctx.lineTo(cx + 52, base - 68); ctx.fill();
+    ctx.fillStyle = '#c8a040'; ctx.beginPath(); ctx.arc(cx + 28, base - 44, 7, 0, 7); ctx.fill(); ctx.fillStyle = `rgba(255,210,120,${0.6 + 0.2 * Math.sin(clock * 3)})`; ctx.beginPath(); ctx.arc(cx + 28, base - 44, 5, 0, 7); ctx.fill();
+    ctx.fillStyle = '#0b0416'; doorPath(cx, base); ctx.fill();
+    const lx = cx - 30, sw = Math.sin(clock * 1.5) * 2;
+    const g = ctx.createRadialGradient(lx + sw, base - 42, 2, lx + sw, base - 42, 20); g.addColorStop(0, 'rgba(255,200,90,.4)'); g.addColorStop(1, 'rgba(255,200,90,0)'); ctx.fillStyle = g; ctx.fillRect(lx - 20, base - 62, 40, 40);
+    ctx.fillStyle = '#1a1a1a'; ctx.fillRect(lx - 3 + sw, base - 48, 6, 9); ctx.fillStyle = '#ffd23f'; ctx.fillRect(lx - 2 + sw, base - 46, 4, 6);
+    plaque(L.sign, cx, base - 88, '#1e2430', '#d0e0f0');
+  } else if (th === 'mine') {   // a cookhouse door framed in heavy timbers, a lantern on a hook
+    ctx.fillStyle = '#2a1e14'; ctx.fillRect(cx - 40, base - 72, 80, 72);
+    ctx.fillStyle = '#5a3a1e'; ctx.fillRect(cx - 32, base - 64, 8, 64); ctx.fillRect(cx + 24, base - 64, 8, 64); ctx.fillRect(cx - 38, base - 70, 76, 9);
+    ctx.fillStyle = '#7a5228'; ctx.fillRect(cx - 38, base - 70, 76, 2);
+    ctx.fillStyle = '#0b0416'; doorPath(cx, base); ctx.fill();
+    const g = ctx.createRadialGradient(cx + 32, base - 50, 2, cx + 32, base - 50, 22); g.addColorStop(0, 'rgba(255,190,90,.45)'); g.addColorStop(1, 'rgba(255,190,90,0)'); ctx.fillStyle = g; ctx.fillRect(cx + 10, base - 72, 44, 44);
+    ctx.fillStyle = '#1a1208'; ctx.fillRect(cx + 29, base - 54, 6, 9); ctx.fillStyle = '#ffd27a'; ctx.fillRect(cx + 30, base - 52, 4, 6);
+    plaque(L.sign, cx, base - 88, '#3a2614', '#ffd27a');
+  } else if (th === 'museum') {   // the tea room: tall double doors between marble columns, a gold pediment
+    ctx.fillStyle = '#d8d0e4'; ctx.beginPath(); ctx.moveTo(cx - 46, base - 76); ctx.lineTo(cx, base - 100); ctx.lineTo(cx + 46, base - 76); ctx.fill();
+    ctx.fillStyle = '#c8a040'; ctx.fillRect(cx - 46, base - 78, 92, 4);
+    for (const sd of [-1, 1]) { ctx.fillStyle = '#e8e0f0'; ctx.fillRect(cx + sd * 34 - 5, base - 74, 10, 74); ctx.fillStyle = '#b8b0c8'; for (let i = -3; i <= 3; i += 3) ctx.fillRect(cx + sd * 34 + i, base - 72, 1, 70); }
+    ctx.fillStyle = '#4a1a2a'; ctx.fillRect(cx - 22, base - 64, 44, 64);
+    ctx.fillStyle = '#0b0416'; doorPath(cx, base); ctx.fill();
+    plaque(L.sign, cx, base - 120, '#2a1420', '#e8c870');
+  } else if (th === 'woods') {   // a woodcutter's cabin of round logs, smoke from the chimney, a warm window
+    ctx.fillStyle = '#3a2614'; ctx.fillRect(cx + 26, base - 98, 10, 30);
+    for (let i = 0; i < 4; i++) { const t = (clock * 0.4 + i * 0.25) % 1; ctx.fillStyle = `rgba(150,150,160,${0.3 * (1 - t)})`; ctx.beginPath(); ctx.arc(cx + 31 + Math.sin(t * 6) * 4, base - 100 - t * 40, 4 + t * 6, 0, 7); ctx.fill(); }
+    for (let y = base - 66; y < base; y += 7) { ctx.fillStyle = '#5a3a1e'; ctx.fillRect(cx - 46, y, 92, 6); ctx.fillStyle = '#7a5228'; ctx.fillRect(cx - 46, y, 92, 1); ctx.fillStyle = '#c8a070'; ctx.beginPath(); ctx.arc(cx - 46, y + 3, 3, 0, 7); ctx.arc(cx + 46, y + 3, 3, 0, 7); ctx.fill(); }
+    ctx.fillStyle = '#2a1a0e'; ctx.beginPath(); ctx.moveTo(cx - 54, base - 64); ctx.lineTo(cx, base - 92); ctx.lineTo(cx + 54, base - 64); ctx.fill();
+    ctx.fillStyle = `rgba(255,200,90,${0.6 + 0.2 * Math.sin(clock * 3)})`; ctx.fillRect(cx - 38, base - 50, 12, 10); ctx.fillStyle = '#2a1a0e'; ctx.fillRect(cx - 33, base - 50, 1, 10);
+    ctx.fillStyle = '#0b0416'; doorPath(cx, base); ctx.fill();
+    plaque(L.sign, cx, base - 82, '#2a1a0e', '#e8c890');
+  } else if (th === 'sewer') {   // an iron hatchway with a ladder, and the bakery's warm light above
+    const g = ctx.createRadialGradient(cx, base - 60, 4, cx, base - 60, 50); g.addColorStop(0, 'rgba(255,200,120,.3)'); g.addColorStop(1, 'rgba(255,200,120,0)'); ctx.fillStyle = g; ctx.fillRect(cx - 50, base - 110, 100, 100);
+    ctx.fillStyle = '#3a3a42'; ctx.fillRect(cx - 30, base - 66, 60, 66); ctx.beginPath(); ctx.arc(cx, base - 66, 30, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#5a5a64'; for (let a = 0; a < 9; a++) { const t = Math.PI + a * Math.PI / 8; ctx.beginPath(); ctx.arc(cx + Math.cos(t) * 26, base - 66 + Math.sin(t) * 26, 1.4, 0, 7); ctx.fill(); }
+    ctx.fillStyle = '#0b0416'; doorPath(cx, base); ctx.fill();
+    ctx.fillStyle = '#6a6a74'; for (const sd of [-1, 1]) ctx.fillRect(cx + sd * 38 - 1, base - 100, 2, 100); for (let y = base - 96; y < base; y += 8) ctx.fillRect(cx - 39, y, 2, 1), ctx.fillRect(cx + 37, y, 2, 1);
+    plaque(L.sign, cx, base - 116, '#2a2620', '#ffd8a0');
+  } else if (th === 'clock') {   // a little brass door under a turning gear
+    drawGear(cx, base - 84, 22, 10, clock * 0.8, '#8a6a2a', '#4a3a12');
+    ctx.fillStyle = '#6a4a1a'; ctx.fillRect(cx - 30, base - 60, 60, 60); ctx.fillStyle = '#c8a040'; ctx.fillRect(cx - 30, base - 60, 60, 2); ctx.fillRect(cx - 30, base - 60, 2, 60); ctx.fillRect(cx + 28, base - 60, 2, 60);
+    ctx.fillStyle = '#0b0416'; doorPath(cx, base); ctx.fill();
+    plaque(L.sign, cx, base - 124, '#3a2a0a', '#ffe7a0');
   } else {   // a stone archway with a raised portcullis and torches
     ctx.fillStyle = '#4a4858'; ctx.beginPath(); ctx.moveTo(cx - 30, base); ctx.lineTo(cx - 30, base - 44); ctx.arc(cx, base - 44, 30, Math.PI, 0); ctx.lineTo(cx + 30, base); ctx.fill();
     ctx.strokeStyle = '#2a2834'; ctx.lineWidth = 1;
@@ -2823,6 +3732,62 @@ function candle(x, y) {
 }
 // the secret rooms below the graveyard, the haunted house and the crypt
 const ROOM_BGS = {
+  hold() {   // a ship's hold: curved ribs, crates and barrels, a lantern swinging with the swell
+    ctx.fillStyle = '#1a1410'; ctx.fillRect(0, 0, VW, VH);
+    for (let x = 10; x < VW; x += 34) { ctx.strokeStyle = '#3a2a1a'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(x, 210); ctx.quadraticCurveTo(x - 14, 110, x + 6, 32); ctx.stroke(); }
+    for (const [x, w, h] of [[30, 30, 26], [64, 24, 20], [250, 34, 30], [292, 26, 22]]) { ctx.fillStyle = '#5a3e22'; ctx.fillRect(x, 208 - h, w, h); ctx.strokeStyle = '#2a1a0e'; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, 208.5 - h, w - 1, h - 1); ctx.beginPath(); ctx.moveTo(x, 208 - h); ctx.lineTo(x + w, 208); ctx.stroke(); }
+    for (const x of [130, 160]) { ctx.fillStyle = '#4a3020'; ctx.beginPath(); ctx.ellipse(x, 194, 13, 15, 0, 0, 7); ctx.fill(); ctx.fillStyle = '#2a1a0e'; ctx.fillRect(x - 13, 186, 26, 2); ctx.fillRect(x - 13, 200, 26, 2); }
+    const sw = Math.sin(clock * 1.2) * 0.3; ctx.save(); ctx.translate(200, 32); ctx.rotate(sw);
+    const g = ctx.createRadialGradient(0, 40, 2, 0, 40, 60); g.addColorStop(0, 'rgba(255,200,90,.35)'); g.addColorStop(1, 'rgba(255,200,90,0)'); ctx.fillStyle = g; ctx.fillRect(-60, -20, 120, 120);
+    ctx.strokeStyle = '#2a1a0e'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 34); ctx.stroke(); ctx.fillStyle = '#1a1208'; ctx.fillRect(-4, 34, 8, 11); ctx.fillStyle = '#ffd27a'; ctx.fillRect(-3, 36, 6, 7); ctx.restore();
+  },
+  vein() {   // a cave of glowing crystals
+    ctx.fillStyle = '#0a0c16'; ctx.fillRect(0, 0, VW, VH);
+    for (let i = 0; i < 16; i++) {
+      const x = 12 + i * 24 + hash(i, 1) * 10, h = 20 + hash(i, 2) * 40, up = i % 2, y = up ? 210 : 32, c = ['#5ac8ff', '#b06aff', '#7ae0c8'][i % 3], pulse = 0.5 + 0.4 * Math.sin(clock * 2 + i);
+      const g = ctx.createRadialGradient(x, y + (up ? -h / 2 : h / 2), 2, x, y + (up ? -h / 2 : h / 2), 30); g.addColorStop(0, `rgba(140,200,255,${0.2 * pulse})`); g.addColorStop(1, 'rgba(140,200,255,0)'); ctx.fillStyle = g; ctx.fillRect(x - 30, y - 60, 60, 120);
+      ctx.fillStyle = c; ctx.globalAlpha = 0.6 + 0.3 * pulse; ctx.beginPath(); ctx.moveTo(x - 6, y); ctx.lineTo(x, y + (up ? -h : h)); ctx.lineTo(x + 6, y); ctx.fill(); ctx.globalAlpha = 1;
+    }
+  },
+  gallery() {   // the museum's locked gallery: gilt frames, the eyes all on Pancake
+    ctx.fillStyle = '#1e0e16'; ctx.fillRect(0, 0, VW, VH);
+    for (let i = 0; i < 6; i++) {
+      const x = 22 + i * 60, y = 56 + (i % 2) * 20, w = 40, h = 50;
+      ctx.fillStyle = '#c8a040'; ctx.fillRect(x - 4, y - 4, w + 8, h + 8); ctx.fillStyle = ['#2a3a4a', '#3a2a3a', '#2a3a2a'][i % 3]; ctx.fillRect(x, y, w, h);
+      ctx.fillStyle = '#d8b898'; ctx.beginPath(); ctx.ellipse(x + w / 2, y + 24, 8, 10, 0, 0, 7); ctx.fill();
+      const look = P ? clamp((P.x - camX - (x + w / 2)) / 120, -1, 1) * 1.5 : 0;
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(x + w / 2 - 5, y + 22, 4, 3); ctx.fillRect(x + w / 2 + 1, y + 22, 4, 3);
+      ctx.fillStyle = '#14072e'; ctx.fillRect(Math.round(x + w / 2 - 4 + look), y + 22, 2, 3); ctx.fillRect(Math.round(x + w / 2 + 2 + look), y + 22, 2, 3);
+    }
+  },
+  cellar() {   // the witch's potion cellar: racks of glowing bottles
+    ctx.fillStyle = '#0a1008'; ctx.fillRect(0, 0, VW, VH);
+    for (let s = 0; s < 4; s++) { const y = 70 + s * 38; ctx.fillStyle = '#2a1e12'; ctx.fillRect(0, y, VW, 4);
+      for (let i = 0; i < 22; i++) { const x = 6 + i * 17, h = 10 + hash(i, s) * 12, c = ['#7ae04a', '#b06aff', '#ff5a7a', '#5ac8ff', '#ffd23f'][Math.floor(hash(s, i) * 5)];
+        ctx.fillStyle = 'rgba(200,220,200,.2)'; ctx.fillRect(x, y - h, 9, h); ctx.fillStyle = c; ctx.globalAlpha = 0.6 + 0.3 * Math.sin(clock * 2 + i + s); ctx.fillRect(x + 1, y - h * 0.6, 7, h * 0.6); ctx.globalAlpha = 1; } }
+  },
+  den() {   // a badger's den under the roots
+    ctx.fillStyle = '#140e08'; ctx.fillRect(0, 0, VW, VH);
+    ctx.strokeStyle = '#3a2614'; for (let i = 0; i < 14; i++) { ctx.lineWidth = 2 + hash(i, 1) * 4; ctx.beginPath(); const x = hash(i, 2) * VW; ctx.moveTo(x, 32); ctx.bezierCurveTo(x + 20, 70, x - 30, 110, x + hash(i, 3) * 40 - 20, 150 + hash(i, 4) * 40); ctx.stroke(); }
+    ctx.fillStyle = '#2a1e10'; ctx.beginPath(); ctx.ellipse(300, 200, 60, 20, 0, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#c8a070'; for (let i = 0; i < 10; i++) { ctx.beginPath(); ctx.ellipse(270 + i * 6, 192 - (i % 3) * 3, 3, 2, 0.4, 0, 7); ctx.fill(); }
+  },
+  cistern() {   // a dry brick cistern with light from a grate far above
+    ctx.fillStyle = '#100e0a'; ctx.fillRect(0, 0, VW, VH);
+    for (let r = 0; r < 15; r++) for (let x = -(r % 2) * 12; x < VW; x += 24) { ctx.fillStyle = hash(x, r) < 0.5 ? '#1e1a14' : '#24201a'; ctx.fillRect(x + 1, 32 + r * 12 + 1, 22, 10); }
+    const g = ctx.createLinearGradient(0, 32, 0, 210); g.addColorStop(0, 'rgba(200,210,170,.22)'); g.addColorStop(1, 'rgba(200,210,170,0)'); ctx.fillStyle = g;
+    ctx.beginPath(); ctx.moveTo(176, 32); ctx.lineTo(208, 32); ctx.lineTo(240, 210); ctx.lineTo(144, 210); ctx.fill();
+  },
+  gearbox() {   // between the great gears
+    ctx.fillStyle = '#140e06'; ctx.fillRect(0, 0, VW, VH);
+    drawGear(70, 100, 46, 12, clock * 0.4, '#3e2c12', '#241a08'); drawGear(170, 150, 30, 9, -clock * 0.62, '#4a3416', '#241a08'); drawGear(300, 90, 54, 14, -clock * 0.34, '#3e2c12', '#241a08');
+  },
+  throne() {   // the night king's vault: a dark throne, heaps of gold
+    ctx.fillStyle = '#0e0816'; ctx.fillRect(0, 0, VW, VH);
+    ctx.fillStyle = '#2a1e36'; ctx.fillRect(300, 80, 50, 130); ctx.beginPath(); ctx.moveTo(296, 80); ctx.lineTo(325, 46); ctx.lineTo(354, 80); ctx.fill();
+    ctx.fillStyle = '#4a1a5a'; ctx.fillRect(308, 120, 34, 60); ctx.fillStyle = '#c8a040'; ctx.fillRect(296, 78, 58, 3);
+    for (const [x, w] of [[40, 70], [130, 60], [220, 50]]) { ctx.fillStyle = '#c8a040'; ctx.beginPath(); ctx.ellipse(x, 210, w / 2, 18, 0, Math.PI, 0); ctx.fill(); ctx.fillStyle = '#ffe07a'; for (let i = 0; i < 8; i++) ctx.fillRect(x - w / 2 + 6 + i * w / 9, 200 - Math.sin(i) * 6, 3, 2); }
+  },
   tomb() {   // burial niches with coffins and skulls
     ctx.fillStyle = '#100e1a'; ctx.fillRect(0, 0, VW, VH);
     for (let r = 0; r < 4; r++) for (let c = 0; c < 8; c++) {
@@ -3067,7 +4032,7 @@ function drawHUD() {
   txt('NIGHT', 180, 8, '#ff9ad6'); txt(night + '-' + (levelIdx % 4 + 1), 188, 19);
   const boss = area === 'main' && ents && ents.find(e => e.type === 'boss' && e.active && !e.dead && !e.sunk);
   if (boss && boss.x - camX < VW + 10) {   // the keeper's health
-    txt('KEEPER', 268, 34, '#ff7a1a');
+    txt(BOSS_NAMES[boss.kind], 268, 34, { keeper: '#ff7a1a', golem: '#ffc23a', witch: '#7ae04a', king: '#c89aff' }[boss.kind]);
     for (let i = 0; i < boss.maxHp; i++) { ctx.fillStyle = '#14072e'; ctx.fillRect(268 + i * 8 + 1, 47, 6, 5); ctx.fillStyle = i < boss.hp ? '#ff5a14' : '#3a1a20'; ctx.fillRect(268 + i * 8, 46, 6, 5); }
   }
   txt('TIME', 256, 8, '#ff9ad6'); txt(String(Math.max(0, Math.ceil(timeLeft))).padStart(3, '0'), 260, 19, timeLeft < 100 && Math.floor(clock * 4) % 2 ? '#ff3d6e' : '#ffe7c2');
@@ -3151,6 +4116,7 @@ function render() {
     if (e.type === 'lift') { drawLift(e, ex, ey); continue; }
     if (e.type === 'vine') { drawVine(e, cx); continue; }
     if (e.type === 'bossfire') { drawBossFire(e, ex, ey); continue; }
+    if (BOSS_SHOTS.has(e.type)) { drawBossShot(e, ex, ey); continue; }
     if (e.type === 'flameskull') { if (e.t <= 0) drawFlameskull(e, ex, ey); continue; }
     if (e.type === 'candy') {
       if (e.emerge) { ctx.save(); ctx.beginPath(); ctx.rect(ex - 2, 0, 16, e.clipY); ctx.clip(); }
