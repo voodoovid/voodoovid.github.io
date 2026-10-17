@@ -250,7 +250,10 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 .ghost:hover { border-color: var(--dim); }
 .ghost:disabled { opacity: .4; cursor: default; }
 .ask { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-.nums { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; text-align: center; }
+.nums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 8px; text-align: center; }
+.sheet h3.sec { margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--flap-line); color: var(--amber); font-size: 17px; }
+.sheet h3.sec:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
+.sheet h3.sec.daily { color: var(--hit); }
 .nums b { display: block; font: 700 38px/1 var(--font-display); font-variant-numeric: tabular-nums; }
 .nums span { font: 600 13px/1.15 var(--font-display); letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
 .dist { display: flex; flex-direction: column; gap: 5px; font: 600 16px/1 var(--font-display); font-variant-numeric: tabular-nums; }
@@ -395,14 +398,28 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <dialog id="dlgStats" aria-labelledby="hStats">
   <div class="sheet">
     <header><h2 id="hStats">Statistics</h2><button class="ib" type="button" data-close>Close</button></header>
+    <h3 class="sec">New words</h3>
     <div class="nums">
       <div><b id="nPlayed">0</b><span>Played</span></div>
+      <div><b id="nWins">0</b><span>Wins</span></div>
+      <div><b id="nLoss">0</b><span>Losses</span></div>
       <div><b id="nWin">0</b><span>Win %</span></div>
       <div><b id="nStreak">0</b><span>Streak</span></div>
       <div><b id="nBest">0</b><span>Best streak</span></div>
     </div>
     <h3>Guesses needed</h3>
     <div class="dist" id="dist"></div>
+    <h3 class="sec daily">Today's Wordle</h3>
+    <div class="nums">
+      <div><b id="wTried">0</b><span>Attempted</span></div>
+      <div><b id="wSolved">0</b><span>Completed</span></div>
+      <div><b id="wLost">0</b><span>Losses</span></div>
+      <div><b id="wWin">0</b><span>Win %</span></div>
+      <div><b id="wStreak">0</b><span>Day streak</span></div>
+      <div><b id="wBest">0</b><span>Best streak</span></div>
+    </div>
+    <h3>Guesses needed</h3>
+    <div class="dist" id="wDist"></div>
     <button class="ghost" id="btnReset" type="button">Reset statistics</button>
     <div class="ask" id="resetAsk" hidden>
       <span>Erase every result on this device?</span>
@@ -467,7 +484,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.16";
+const VERSION = "v2.17";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
@@ -703,14 +720,27 @@ function paintOpts() {
   $("btnMusic").setAttribute("aria-pressed", String(opts.music));
   $("btnMusic").setAttribute("aria-label", opts.music ? "Music on" : "Music off");
 }
+function paintDist(id, dist, now) {
+  const top = Math.max(1, ...dist);
+  $(id).innerHTML = dist.map((n, i) =>
+    '<div><i>' + (i + 1) + '</i><span' + (now === i + 1 ? ' class="now"' : '') + ' style="width:' + Math.round(n / top * 88) + '%">' + n + '</span></div>').join("");
+}
 function paintStats() {
+  const pct = (a, b) => b ? Math.round(a / b * 100) : 0, now = G.over && G.won ? G.guesses.length : 0;
   $("nPlayed").textContent = stats.played;
-  $("nWin").textContent = stats.played ? Math.round(stats.wins / stats.played * 100) : 0;
+  $("nWins").textContent = stats.wins;
+  $("nLoss").textContent = stats.played - stats.wins;
+  $("nWin").textContent = pct(stats.wins, stats.played);
   $("nStreak").textContent = stats.streak;
   $("nBest").textContent = stats.best;
-  const top = Math.max(1, ...stats.dist), now = G.over && G.won ? G.guesses.length : 0;
-  $("dist").innerHTML = stats.dist.map((n, i) =>
-    '<div><i>' + (i + 1) + '</i><span' + (now === i + 1 ? ' class="now"' : '') + ' style="width:' + Math.round(n / top * 88) + '%">' + n + '</span></div>').join("");
+  paintDist("dist", stats.dist, G.daily ? 0 : now);
+  $("wTried").textContent = wstats.tried;
+  $("wSolved").textContent = wstats.solved;
+  $("wLost").textContent = wstats.lost;
+  $("wWin").textContent = pct(wstats.solved, wstats.solved + wstats.lost);
+  $("wStreak").textContent = wstats.last === today() || wstats.last === yesterday() ? wstats.streak : 0;
+  $("wBest").textContent = wstats.best;
+  paintDist("wDist", wstats.dist, G.daily ? now : 0);
 }
 
 // ---------- Playing ----------
@@ -767,7 +797,7 @@ $("board").addEventListener("click", e => {
   if (c >= 0) pick(c);
 });
 function record() {
-  if (G.daily) { save("dailyDone", G.daily); dailyDone = G.daily; }
+  if (G.daily) { save("dailyDone", G.daily); dailyDone = G.daily; return recordDaily(); }   // Wordles have their own stats
   if (G.test) return;   // test games don't count towards stats
   stats.played++;
   if (G.won) { stats.wins++; stats.streak++; stats.best = Math.max(stats.best, stats.streak); stats.dist[G.guesses.length - 1]++; }
@@ -804,6 +834,35 @@ function submit() {
 // screen while today's puzzle is there and not yet played to the end on this device.
 let daily = {}, dailyDone = load("dailyDone", "");
 const today = () => new Date().toLocaleDateString("en-CA");   // YYYY-MM-DD on this device's clock
+const yesterday = () => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toLocaleDateString("en-CA"); };
+// Wordle stats: attempted counts each day's puzzle once when started; the streak is days in a row solved
+const freshW = () => ({ tried: 0, solved: 0, lost: 0, streak: 0, best: 0, last: "", dist: [0, 0, 0, 0, 0, 0], days: {} });
+let wstats = Object.assign(freshW(), load("wstats", {}));
+// v2.16 counted a finished Wordle in the main stats: move it across once
+if (!load("wstats", null)) {
+  const g = load("game", null);
+  if (g && g.daily && g.over && stats.played > 0) {
+    stats.played--;
+    if (g.won) { stats.wins--; stats.dist[g.guesses.length - 1] = Math.max(0, stats.dist[g.guesses.length - 1] - 1); stats.streak = Math.max(0, stats.streak - 1); }
+    save("stats", stats);
+    wstats.tried = 1; wstats.days[g.daily] = g.won ? g.guesses.length : 0;
+    if (g.won) { wstats.solved = 1; wstats.streak = wstats.best = 1; wstats.last = g.daily; wstats.dist[g.guesses.length - 1] = 1; } else wstats.lost = 1;
+  }
+  save("wstats", wstats);
+}
+function recordDaily() {
+  const d = G.daily;
+  if (wstats.days[d] > 0 || wstats.days[d] === 0) return;   // already finished this day's puzzle
+  if (!(d in wstats.days)) wstats.tried++;
+  wstats.days[d] = G.won ? G.guesses.length : 0;
+  if (G.won) {
+    wstats.solved++; wstats.dist[G.guesses.length - 1]++;
+    const prev = new Date(d + "T12:00"); prev.setDate(prev.getDate() - 1);
+    wstats.streak = wstats.last === prev.toLocaleDateString("en-CA") ? wstats.streak + 1 : 1;
+    wstats.best = Math.max(wstats.best, wstats.streak); wstats.last = d;
+  } else { wstats.lost++; wstats.streak = 0; }
+  save("wstats", wstats);
+}
 const dailyReady = () => !!daily[today()] && dailyDone !== today();
 async function fetchDaily() {
   try {
@@ -818,6 +877,7 @@ function playDaily() {
   if (G) setTrack(opts.track + 1);
   valid.add(p.w);
   G = { answer: p.w, guesses: [], cur: EMPTY, over: false, won: false, test: false, daily: d, num: p.n };
+  if (!(d in wstats.days)) { wstats.tried++; wstats.days[d] = -1; save("wstats", wstats); }
   note = null; busy = false; sel = null;
   save("game", G); paint();
 }
@@ -1291,7 +1351,7 @@ for (const d of document.querySelectorAll("dialog")) {
 }
 $("btnReset").addEventListener("click", () => { $("btnReset").hidden = true; $("resetAsk").hidden = false; });
 $("btnResetNo").addEventListener("click", () => { $("btnReset").hidden = false; $("resetAsk").hidden = true; });
-$("btnResetYes").addEventListener("click", () => { stats = freshStats(); save("stats", stats); paintStats(); $("btnReset").hidden = false; $("resetAsk").hidden = true; });
+$("btnResetYes").addEventListener("click", () => { stats = freshStats(); save("stats", stats); wstats = freshW(); save("wstats", wstats); paintStats(); $("btnReset").hidden = false; $("resetAsk").hidden = true; });
 $("btnGiveUp").addEventListener("click", () => { $("btnGiveUp").hidden = true; $("giveAsk").hidden = false; });
 $("btnGiveNo").addEventListener("click", () => { $("btnGiveUp").hidden = false; $("giveAsk").hidden = true; });
 $("btnGiveYes").addEventListener("click", () => { giveUp(); $("dlgOpts").close(); });
