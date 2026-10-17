@@ -813,7 +813,7 @@ const LEVELS = [
 // Level groups shown in the level picker: [first level index, name]
 const WORLDS = [[0, "Garden Paths"], [8, "Planks and Plates"], [16, "Twilight Hops"], [22, "Long Way Round"], [28, "Crumbling Isles"], [34, "Night Garden"]];
 
-const VERSION = "v1.13";
+const VERSION = "v1.14";
 const KEY = "followchestnut.";
 const $ = id => document.getElementById(id);
 const store = {
@@ -899,7 +899,7 @@ function tapTile(x, y) {
   if (!tool || tool === "X") { flash(x, y, "no"); Sound.no(); return; }
   const kind = TOOL_KIND[tool];
   const room = left(kind) + (had && TOOL_KIND[had] === kind ? 1 : 0);
-  if (had && room <= 0) { selectTool(had); return; }   // none left: pick up the command already on this square
+  if (had && (room <= 0 || !canPlace(W, x, y, tool))) { selectTool(had); return; }   // can't swap: pick up the command already here (tap again removes it)
   if (!canPlace(W, x, y, tool)) { flash(x, y, "no"); Sound.no(); return; }
   if (room <= 0) { flash(x, y, "no"); Sound.no(); nudgeCount(kind); return; }
   G.cmds.set(i, tool); setCmd(W, x, y, tool); saveCmds();
