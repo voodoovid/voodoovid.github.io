@@ -60,6 +60,11 @@ canvas:focus-visible{box-shadow:0 0 0 3px var(--mint)}
   background:rgba(14,5,28,.62); text-align:center; padding:16px;
 }
 .overlay[hidden]{display:none}
+.lvlsel{z-index:5; gap:12px; background:#0e051c}
+.lvlgrid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; width:100%; max-width:560px}
+.lvlgrid .tog{padding:8px 4px; line-height:1.6}
+.lvlrow{display:flex; gap:10px; flex-wrap:wrap; justify-content:center}
+#hidTog[aria-pressed=true]{border-color:var(--mint); color:var(--mint)}
 .overlay h2{margin:0; font-family:var(--display); font-weight:400; font-size:clamp(20px,4vw,36px); color:var(--bulb); text-shadow:2px 2px 0 var(--red)}
 .overlay p{margin:0; font-size:clamp(7px,1.3vw,10px); line-height:1.9; color:var(--ink); max-width:46ch}
 .ticket{
@@ -103,7 +108,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 .phone-land .touch .grp{pointer-events:auto}
 .phone-land .touch button{background:rgba(43,15,69,.45); border-color:rgba(255,231,194,.35); width:56px; height:56px}
 .phone-land .touch button.act{background:rgba(232,48,74,.55)}
-.touch button[data-k=left],.touch button[data-k=right],.touch button[data-k=down]{font-size:18px}
+.touch button[data-k=left],.touch button[data-k=right],.touch button[data-k=down],.touch button[data-k=climb]{font-size:18px}
 .ver{font-size:8px; color:var(--dim); opacity:.8}
 .phone-land .overlay{gap:10px; padding:8px}
 .phone-land .overlay p:not(.homehint){display:none}
@@ -195,7 +200,12 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
       <button class="ticket" id="startBtn">ADMIT ONE &#9656; START</button>
       <p class="homehint">For true full screen: tap Share &rarr; Add to Home Screen, then play from the icon.</p>
       <span class="ver" id="verOverlay"></span>
-      <p class="keys-only" style="color:var(--dim)">Hold jump longer to jump higher. Run to jump farther.<br>Some drums go deeper, some prizes hide in thin air, and ivy climbs to shortcuts.</p>
+      <p class="keys-only" style="color:var(--dim)">Hold jump longer to jump higher. Run to jump farther.<br>Some drums go deeper, some prizes hide in thin air, and ivy (press up) climbs to shortcuts.</p>
+    </div>
+    <div class="overlay lvlsel" id="lvlSel" hidden>
+      <h2>Level Select</h2>
+      <div class="lvlgrid" id="lvlGrid"></div>
+      <div class="lvlrow"><button class="tog" id="hidTog" aria-pressed="false">SHOW HIDDEN ITEMS: OFF</button><button class="tog" id="lvlClose">CLOSE</button></div>
     </div>
   </div>
 
@@ -203,6 +213,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
     <div class="grp">
       <button data-k="left" aria-label="Move left">&#9664;</button>
       <button data-k="right" aria-label="Move right">&#9654;</button>
+      <button data-k="climb" aria-label="Climb ivy">&#9650;</button>
       <button data-k="down" aria-label="Enter drum">&#9660;</button>
     </div>
     <div class="grp">
@@ -216,6 +227,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
     <span class="keys-only"><kbd>Z</kbd> / <kbd>Space</kbd> jump</span>
     <span class="keys-only"><kbd>X</kbd> / <kbd>Shift</kbd> run / throw fire</span>
     <span class="keys-only"><kbd>&darr;</kbd> enter drum / pounce</span>
+    <span class="keys-only"><kbd>&uarr;</kbd> climb ivy</span>
     <span class="keys-only"><kbd>P</kbd> pause</span>
     <button class="tog" id="muteBtn" aria-pressed="false">MUSIC: ON</button>
     <span class="ver" id="verBar"></span>
@@ -226,7 +238,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <script>
 (() => {
 'use strict';
-const VERSION = 'v4.0';
+const VERSION = 'v4.1';
 document.getElementById('verBar').textContent = VERSION;
 document.getElementById('verOverlay').textContent = VERSION;
 const TS = 16, VW = 384, VH = 240, ROWS = 15;
@@ -672,6 +684,15 @@ function drawLift(e, x, y) {
   ctx.fillStyle = '#3a3a46'; ctx.fillRect(x, y, w, 6); ctx.fillStyle = '#6a6a7c'; ctx.fillRect(x, y, w, 1);
   ctx.fillStyle = '#16141e'; for (let i = 3; i < w - 1; i += 4) ctx.fillRect(x + i, y + 2, 2, 3);
   if (e.fall) { ctx.fillStyle = 'rgba(255,120,40,.5)'; ctx.fillRect(x + 2, y + 6, w - 4, 1); }
+}
+// testing aid (level select switch): outline hidden blocks and mark the bricks that hold something
+const HIDDEN_TAG = { H: 'KIB', h: '1UP', S: 'NIP', M: 'K10', V: 'IVY' };
+function drawHiddenTag(px, py, tag) {
+  ctx.save();
+  ctx.strokeStyle = '#3ddc84'; ctx.lineWidth = 1; ctx.setLineDash([2, 2]); ctx.strokeRect(px + 0.5, py + 0.5, TS - 1, TS - 1); ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(px + 1, py + 5, TS - 2, 7);
+  ctx.fillStyle = '#3ddc84'; ctx.font = 'bold 6px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(tag, px + TS / 2, py + 8.8);
+  ctx.restore();
 }
 // ivy twisting up out of its brick
 function drawVine(e, cx) {
@@ -1175,31 +1196,37 @@ const TRACKS = { waltz: { bpm: 138, bar: waltzBar }, dirge: { bpm: 84, bar: dirg
 function scheduleBar(t0, barIdx) { const tr = TRACKS[Snd.track] || TRACKS.waltz; return tr.bar(t0, barIdx, 60 / (tr.bpm * Snd.tempoMul)); }
 
 // ---------- input ----------
-const keys = { left: false, right: false, jump: false, run: false, down: false };
+const keys = { left: false, right: false, jump: false, run: false, down: false, up: false };
 let jumpQueued = false, runQueued = false, downQueued = false, shakeT = 0;
-const KEYMAP = { ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', Space: 'jump', ArrowUp: 'jump', KeyW: 'jump', KeyZ: 'jump', KeyK: 'jump', ShiftLeft: 'run', ShiftRight: 'run', KeyX: 'run', KeyJ: 'run' };
-function press(k, down) { if (k === 'jump' && down && !keys.jump) jumpQueued = true; if (k === 'run' && down && !keys.run) runQueued = true; if (k === 'down' && down && !keys.down) downQueued = true; keys[k] = down; }
+const KEYMAP = { ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', Space: 'jump', ArrowUp: 'up', KeyW: 'up', KeyZ: 'jump', KeyK: 'jump', ShiftLeft: 'run', ShiftRight: 'run', KeyX: 'run', KeyJ: 'run' };
+// up (↑ / W) climbs ivy when Pancake is at a vine and jumps everywhere else; 'climb' (the touch ▲ and the controller's up) only climbs
+function press(k, down) {
+  if (k === 'climb') { keys.up = down; return; }
+  if (k === 'up') { keys.up = down; if (!down || !atVine()) press('jump', down); return; }
+  if (k === 'jump' && down && !keys.jump) jumpQueued = true; if (k === 'run' && down && !keys.run) runQueued = true; if (k === 'down' && down && !keys.down) downQueued = true; keys[k] = down; }
 window.addEventListener('keydown', e => {
   const k = KEYMAP[e.code];
   if (k) { e.preventDefault(); if (!e.repeat) press(k, true); }
   if (e.code === 'KeyP' || e.code === 'Escape') { if (state !== 'title') setPaused(!paused); }
-  if (e.code === 'KeyM') toggleMute();
-  if (e.code === 'Enter' && state === 'title') startGame();
+  if (e.code === 'KeyM' && !e.metaKey && !e.ctrlKey) toggleMute();
+  if (e.code === 'Enter' && state === 'title' && lvlSel.hidden) startGame();
+  if (e.code === 'KeyT' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); lvlSel.hidden ? openLevelSelect() : closeLevelSelect(); }
 });
 window.addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) { e.preventDefault(); press(k, false); } });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
-// Bluetooth controller: stick / d-pad move (up does nothing; down during a jump pounds), A or Y jump, B or X run (X also resumes from pause), Start starts the game or pauses
+// Bluetooth controller: stick / d-pad move (up climbs ivy; down during a jump pounds), A or Y jump, B or X run (X also resumes from pause), Start starts the game or pauses
 {
   let xResumed = false;
   const K = GamePad.K, tap = spec => { window.dispatchEvent(new KeyboardEvent('keydown', spec)); window.dispatchEvent(new KeyboardEvent('keyup', spec)); };
-  GamePad.init({ map: { left: K('ArrowLeft'), right: K('ArrowRight'), down: K('ArrowDown'),
+  GamePad.init({ map: { left: K('ArrowLeft'), right: K('ArrowRight'), down: K('ArrowDown'), up: d => press('climb', d),
     a: K(' ', 'Space'), y: K('z', 'KeyZ'), b: K('x', 'KeyX'),
     // X runs, or ends the pause when the game is paused
     x: d => { if (d && paused) { setPaused(false); xResumed = true; return; } if (!d && xResumed) { xResumed = false; return; } window.dispatchEvent(new KeyboardEvent(d ? 'keydown' : 'keyup', { key: 'j', code: 'KeyJ' })); },
     start: d => { if (!d) return; if (state === 'title') { Snd.wake(); tap({ key: 'Enter', code: 'Enter' }); } else tap({ key: 'p', code: 'KeyP' }); } },
     autoStart: () => { if (state === 'title') { Snd.wake(); tap({ key: 'Enter', code: 'Enter' }); } },
+    menu: () => lvlSel.hidden ? null : lvlSel, menuBack: () => closeLevelSelect(),
     onHelp: open => { if (open && state !== 'title' && !paused) setPaused(true); },
-    help: ["Playing", ["← → / Stick", "Walk"], ["A / Y", "Jump (hold to jump higher, glide with wings)"], ["B", "Run / throw fire"], ["X", "Run / throw fire (resumes when paused)"], ["↓", "Enter a drum, or pound during a jump"], ["Start", "Start the game / Pause"], ["Select", "This screen"]] });
+    help: ["Playing", ["← → / Stick", "Walk"], ["A / Y", "Jump (hold to jump higher, glide with wings)"], ["B", "Run / throw fire"], ["X", "Run / throw fire (resumes when paused)"], ["↓", "Enter a drum, or pound during a jump"], ["↑", "Climb ivy"], ["Start", "Start the game / Pause"], ["Select", "This screen"]] });
   document.getElementById('startBtn').after(GamePad.settingsButton('tog gpSet'));
   document.getElementById('muteBtn').before(GamePad.settingsButton('tog', '🎮'));
 }
@@ -1592,6 +1619,38 @@ function startGame() {
 }
 document.getElementById('startBtn').addEventListener('click', startGame);
 
+// ---------- level select (Cmd-T / Ctrl-T, for testing) ----------
+const lvlSel = document.getElementById('lvlSel'), hidTog = document.getElementById('hidTog');
+let showHidden = false, lvlWasPaused = false;
+try { showHidden = localStorage.getItem('scareisdale.showHidden') === '1'; } catch (e) {}
+function syncHidTog() { hidTog.textContent = 'SHOW HIDDEN ITEMS: ' + (showHidden ? 'ON' : 'OFF'); hidTog.setAttribute('aria-pressed', String(showHidden)); }
+syncHidTog();
+hidTog.addEventListener('click', () => { showHidden = !showHidden; syncHidTog(); try { localStorage.setItem('scareisdale.showHidden', showHidden ? '1' : '0'); } catch (e) {} });
+LEVELS.forEach((lv, i) => {
+  const b = document.createElement('button'); b.className = 'tog';
+  b.textContent = `${Math.floor(i / 4) + 1}-${i % 4 + 1} ${lv.name.replace(/^THE /, '')}`;
+  b.addEventListener('click', () => pickLevel(i));
+  document.getElementById('lvlGrid').append(b);
+});
+function openLevelSelect() {
+  lvlWasPaused = paused;
+  if (state !== 'title' && !paused) setPaused(true);
+  lvlSel.hidden = false; for (const k in keys) keys[k] = false;
+}
+function closeLevelSelect() {
+  lvlSel.hidden = true;
+  if (state !== 'title' && !lvlWasPaused) setPaused(false);
+  cv.focus({ preventScroll: true });
+}
+function pickLevel(i) {
+  lvlSel.hidden = true;
+  if (state === 'title') { Snd.init(); document.getElementById('overlay').hidden = true; score = 0; coins = 0; lives = 3; }
+  if (paused) setPaused(false);
+  levelIdx = i; night = Math.floor(i / 4) + 1; checkpoint = 0; carryForm = null;
+  cv.focus({ preventScroll: true });
+  beginLife();
+}
+
 function solidAt(tx, ty) { if (tx < 0 || tx >= COLS) return true; if (ty < 0 || ty >= ROWS) return false; return SOLID.has(grid[ty][tx]); }
 function moveX(e, dx) {
   e.x += dx; e.hitWall = 0; if (!dx) return;
@@ -1838,7 +1897,7 @@ function updateEnts(dt) {
     if ((e.x < camX - VW * 2 && e.type !== 'lift') || e.y > ROWS * TS + 60) { e.remove = true; continue; }
     if (e.flash > 0) e.flash -= dt;
     if (e.type === 'firebar') { e.ang += e.spin * dt; continue; }
-    if (e.type === 'vine') { e.top = Math.max(-24, e.top - 110 * dt); e.y = e.top; e.h = e.base - e.top; continue; }
+    if (e.type === 'vine') { growVine(e, dt); continue; }
     if (e.type === 'bossfire') { e.x += e.vx * dt; e.y = approach(e.y, e.ty, 50 * dt); if (e.x < camX - 40 || e.x > camX + VW + 40) e.remove = true; continue; }
     if (e.type === 'lift') {
       const ox = e.x, oy = e.y;
@@ -1993,7 +2052,7 @@ function updateEnts(dt) {
       if (!e.active || e.dead || e.remove || !overlap(P, e)) continue;
       if (e.type === 'fireball' || e.type === 'firebar' || e.type === 'lift') continue;
       if (e.type === 'ghoul' && e.mode === 'hidden') continue;
-      if (e.type === 'vine') { if (Math.abs(P.x + P.w / 2 - (e.x + 4)) < 8) startClimb(e); continue; }
+      if (e.type === 'vine') { if (keys.up && Math.abs(P.x + P.w / 2 - (e.x + 4)) < 8) startClimb(e); continue; }
       if (e.type === 'flameskull' && e.t > 0) continue;   // still under the lava
       if (e.type === 'candy') { if (e.emerge) continue; e.remove = true; powerUp(e); continue; }
       // fire creatures and keepers can't be stomped or burned by catnip; catnip just lets you pass through them
@@ -2056,7 +2115,10 @@ function enterPipe(dest, left, topY) {
   state = 'pipe'; pipe = { phase: 'down', t: 0, clipY: topY, dest };
   P.vx = 0; P.vy = 0; P.x = left * TS + 16 - P.w / 2; P.y = topY - P.h; P.sx = P.sy = 1; sfx('pipe');
 }
-// touching the ivy: Pancake climbs it up past the top of the screen and into the clouds
+// is Pancake close enough to a vine to climb it?
+function atVine() { return state === 'play' && P && !P.dead && ents.some(e => e.type === 'vine' && e.active && overlap(P, e) && Math.abs(P.x + P.w / 2 - (e.x + 4)) < 8); }
+function growVine(e, dt) { e.top = Math.max(-24, e.top - 110 * dt); e.y = e.top; e.h = e.base - e.top; }
+// at the ivy, pressing up: Pancake climbs it up past the top of the screen and into the clouds
 function startClimb(v) {
   state = 'pipe'; pipe = { phase: 'climb', t: 0, clipY: 9999, dest: { room: 'sky' } };
   P.vx = 0; P.vy = 0; P.x = v.x + 4 - P.w / 2; P.star = 0; P.pound = false;
@@ -2087,7 +2149,7 @@ function goTo(dest) {
 }
 function updatePipe(dt) {
   pipe.t += dt;
-  if (pipe.phase === 'climb') { P.y -= 72 * dt; P.anim += 72 * dt; if (P.y + P.h < -4) { pipe.phase = 'fade'; pipe.t = 0; } }
+  if (pipe.phase === 'climb') { for (const e of ents) if (e.type === 'vine') growVine(e, dt); P.y -= 72 * dt; P.anim += 72 * dt; if (P.y + P.h < -4) { pipe.phase = 'fade'; pipe.t = 0; } }
   else if (pipe.phase === 'down') { P.y += 36 * dt; if (P.y > pipe.clipY + 2) { pipe.phase = 'fade'; pipe.t = 0; } }
   else if (pipe.phase === 'fade') { if (pipe.t > 0.35) goTo(pipe.dest); }
   else if (pipe.phase === 'fadeinDrop') { if (pipe.t > 0.3) { state = 'play'; pipe = null; } }
@@ -3064,6 +3126,7 @@ function render() {
       case 'W': ctx.drawImage(tset.wall, px, py); break;
       case 'o': drawKibble(px, py, clock * 4 + tx * 0.4); break;
     }
+    if (showHidden && HIDDEN_TAG[c]) drawHiddenTag(px, py, HIDDEN_TAG[c]);
   }
   // flagpole (or the keeper's lever) & the exit
   const pxp = POLE_X - cx;
