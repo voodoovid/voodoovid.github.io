@@ -452,7 +452,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.12";
+const VERSION = "v2.13";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
@@ -605,7 +605,7 @@ function placeLetter(cur, ch, f) {
 }
 // Spots with nothing typed and no green letter waiting in them
 const openSpots = (cur, f) => [0, 1, 2, 3, 4].filter(i => cur[i] === "." && !f[i]);
-let testMode = false;   // Shift-click New word to show the word while testing; test games are marked G.test and skip stats
+let testMode = false;   // true only for the word started by a Shift-click on New word; test games are marked G.test and skip stats
 let sel = null;   // the spot you tapped: the next letter goes there
 let selAuto = false;   // true once the highlight has moved on by itself after a letter (not tapped there)
 // Lay plain typed letters (or a row saved in the old format) into spots using the rule above
@@ -780,6 +780,7 @@ function submit() {
 function newGame() {
   if (G) setTrack(opts.track + 1);   // a new track with each new word (not when the page first opens)
   G = { answer: pickAnswer(), guesses: [], cur: EMPTY, over: false, won: false, test: testMode };
+  testMode = false;   // the switch lasts for this one word only
   note = null; busy = false; sel = null;
   save("game", G); paint();
 }
@@ -813,9 +814,9 @@ addEventListener("keydown", e => {
     e.preventDefault(); press(k);
   }
 });
-// Temporary test switch (Shift-click New word): shows the word in the status line
-$("btnNew").addEventListener("click", e => { e.currentTarget.blur(); if (e.shiftKey) testMode = !testMode; newGame(); });
-$("btnNew2").addEventListener("click", e => { e.currentTarget.blur(); if (e.shiftKey) testMode = !testMode; newGame(); });
+// Temporary test switch: Shift-click New word for one test game (shows the word); a plain click is a normal game
+$("btnNew").addEventListener("click", e => { e.currentTarget.blur(); testMode = e.shiftKey; newGame(); });
+$("btnNew2").addEventListener("click", e => { e.currentTarget.blur(); testMode = e.shiftKey; newGame(); });
 
 // ---------- Trip-hop background music and sound effects (synthesised in the browser, no sound files) ----------
 // Five tracks, a new one with each new word. Each has lazy, swung sixteenths, boom-bap drums, a warm sub bass,
