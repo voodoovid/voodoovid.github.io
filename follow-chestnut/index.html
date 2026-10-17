@@ -813,7 +813,7 @@ const LEVELS = [
 // Level groups shown in the level picker: [first level index, name]
 const WORLDS = [[0, "Garden Paths"], [8, "Planks and Plates"], [16, "Twilight Hops"], [22, "Long Way Round"], [28, "Crumbling Isles"], [34, "Night Garden"]];
 
-const VERSION = "v1.14";
+const VERSION = "v1.15";
 const KEY = "followchestnut.";
 const $ = id => document.getElementById(id);
 const store = {
@@ -1180,12 +1180,14 @@ function draw() {
   c.globalCompositeOperation = "lighter";
   for (let i = 0; i < W.tiles.length; i++) if (W.tiles[i] === "E") drawBeam(c, X(i % W.w), Y((i / W.w) | 0), s, t);
   c.globalCompositeOperation = "source-over";
-  // after a win Chestnut swells up, purring, then settles back down
+  // after a win Chestnut moves to the middle of the screen and swells up, purring, then settles back down
   const g = catGrow();
   if (g > 1) {
-    const cs = s * .52, cx = X(G.cat.x), cy = Y(G.cat.y);
-    const room = Math.max(1, Math.min((cy - 8) / (cs * 1.08), Math.min(cx, v.cw - cx) / (cs * .62)));
-    const big = 1 + (g - 1) * Math.min(1, (room - 1) / (CAT_BIG - 1));
+    const cs = s * .52, k = (g - 1) / (CAT_BIG - 1), m = Math.min(1, k);
+    const maxBig = Math.max(1, Math.min(v.ch * .62 / (cs * 1.08), v.cw * .8 / (cs * 1.24)));   // about 60% of the screen tall
+    const big = 1 + (maxBig - 1) * k;
+    const cx = X(G.cat.x) + (v.cw / 2 - X(G.cat.x)) * m;
+    const cy = Y(G.cat.y) + (v.ch / 2 + cs * big * .54 - Y(G.cat.y)) * m;   // feet below centre so her whole body is centred
     c.save(); c.globalAlpha = .35 * Math.min(1, (g - 1) * 2);
     const glow = c.createRadialGradient(cx, cy - cs * big * .5, 1, cx, cy - cs * big * .5, cs * big * 1.1);
     glow.addColorStop(0, "rgba(255,214,120,.9)"); glow.addColorStop(1, "rgba(255,214,120,0)");
