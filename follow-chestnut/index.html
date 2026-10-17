@@ -325,6 +325,7 @@ h1 span { color: var(--gold); display: block; }
 </div>
 <div id="version"></div>
 
+<script src="../lib/gamepad.js"></script>
 <script>
 (() => {
 "use strict";
@@ -813,7 +814,7 @@ const LEVELS = [
 // Level groups shown in the level picker: [first level index, name]
 const WORLDS = [[0, "Garden Paths"], [8, "Planks and Plates"], [16, "Twilight Hops"], [22, "Long Way Round"], [28, "Crumbling Isles"], [34, "Night Garden"]];
 
-const VERSION = "v1.17";
+const VERSION = "v1.18";
 const KEY = "followchestnut.";
 const $ = id => document.getElementById(id);
 const store = {
@@ -1041,6 +1042,55 @@ addEventListener("keydown", e => {
   else if (e.key === "r") resetRun();
   else if (e.key === "f") { G.fast = !G.fast; updateUI(); }
 });
+
+// ---------- Bluetooth controller ----------
+// Stick / d-pad move a gold cursor over the board, A places the chosen command (again to take it back),
+// B removes, LB / RB pick the command, Y Go / pause, X restart, Select fast, Start levels.
+G.gp = null;
+function gpCur() {
+  if (!G.W) return null;
+  const c = G.gp || (G.gp = { x: Math.floor(G.W.w / 2), y: Math.floor(G.W.h / 2) });
+  c.x = Math.max(0, Math.min(G.W.w - 1, c.x)); c.y = Math.max(0, Math.min(G.W.h - 1, c.y));
+  return c;
+}
+function gpMove(dx, dy) { const shown = !!G.gp, c = gpCur(); if (!c) return; if (shown) { c.x += dx; c.y += dy; gpCur(); } Sound.unlock(); }
+function gpTools() { return [...document.querySelectorAll("#panel .cmd")].filter(b => !b.closest("[hidden]")).map(b => b.dataset.cmd); }
+function gpCycle(step) {
+  const t = gpTools(); if (!t.length) return;
+  const i = t.indexOf(G.tool);
+  selectTool(t[i < 0 ? (step > 0 ? 0 : t.length - 1) : (i + step + t.length) % t.length]); Sound.unlock(); Sound.tick();
+}
+function gpTap(remove) {
+  if (!G.gp) { gpCur(); return; }   // the first press just shows the cursor
+  const c = gpCur(); if (!c || G.mode === "done") return;
+  Sound.unlock();
+  if (!remove) return tapTile(c.x, c.y);
+  if (!G.cmds.has(c.y * G.W.w + c.x)) return;
+  const t = G.tool; G.tool = "X"; tapTile(c.x, c.y); G.tool = t;
+}
+function drawGpCursor() {
+  const c = G.gp, v = G.view;
+  if (!c || !G.W || !GamePad.connected() || !$("menu").hidden || !$("result").hidden) return;
+  gpCur();
+  const s = v.s, x = v.ox + c.x * s, y = v.oy + c.y * s, p = 0.55 + 0.45 * Math.sin(G.time * 6);
+  ctx.save(); ctx.setTransform(v.dpr, 0, 0, v.dpr, 0, 0);
+  ctx.lineWidth = Math.max(2, s * 0.08); ctx.strokeStyle = `rgba(255,209,102,${p})`;
+  ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x + 2, y + 2, s - 4, s - 4, s * 0.18) : ctx.rect(x + 2, y + 2, s - 4, s - 4); ctx.stroke();
+  ctx.restore();
+}
+{
+  const step = (dx, dy) => ({ fn: d => { if (d) gpMove(dx, dy); }, repeat: true });
+  GamePad.init({
+    map: { up: step(0, -1), down: step(0, 1), left: step(-1, 0), right: step(1, 0),
+      a: d => { if (d) gpTap(false); }, b: d => { if (d) gpTap(true); },
+      lb: d => { if (d) gpCycle(-1); }, rb: d => { if (d) gpCycle(1); },
+      y: d => { if (d) go(); }, x: d => { if (d) { Sound.unlock(); resetRun(); } },
+      select: d => { if (d) { G.fast = !G.fast; updateUI(); } },
+      start: d => { if (!d) return; if ($("menu").hidden) openMenu(); else if (G.level) closeMenu(); } },
+    menu: () => !$("menu").hidden ? $("menu") : !$("result").hidden ? $("result") : null,
+    menuBack: d => { if (d && !$("menu").hidden && G.level) closeMenu(); }
+  });
+}
 
 // ---------- Menu ----------
 function openMenu() {
@@ -1437,6 +1487,7 @@ function frame(now) {
   const cat = G.cat, dx = cat.tx - cat.x, dy = cat.ty - cat.y, d = Math.hypot(dx, dy);
   if (d > .01) { const sp = Math.min(d, dt * 9); cat.x += dx / d * sp; cat.y += dy / d * sp; } else { cat.x = cat.tx; cat.y = cat.ty; }
   draw();
+  drawGpCursor();
   if (!$("menu").hidden) drawMenuCat();
   if (!$("hint").classList.contains("gone")) drawHintCat();
   requestAnimationFrame(frame);

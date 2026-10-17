@@ -348,6 +348,7 @@ canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; 
           <span><kbd>M</kbd> music</span>
           <span><kbd>V</kbd> 3D / 2D view</span>
           <span><kbd>L</kbd> / <kbd>ESC</kbd> level select</span>
+          <span>🎮 controller: A shot, B power, Y hint, X view, Select retry, Start levels</span>
         </div>
       </div>
     </div>
@@ -372,6 +373,7 @@ canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; 
   </div>
 </div>
 
+<script src="../lib/gamepad.js"></script>
 <script>
 (() => {
 "use strict";
@@ -1532,7 +1534,7 @@ const ETYPE = {
   B: { kind: "boss", shoot: true, speed: 0.45, dir: "right" },
 };
 
-const VERSION = "3.7";
+const VERSION = "3.8";
 // On the games site: link back to the menu and save everything for offline play
 if (location.pathname.includes("/ponchos-adventure/")) {
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -2680,6 +2682,17 @@ window.addEventListener("keydown", ev => {
 });
 window.addEventListener("keyup", ev => { const d = KEYMAP[ev.key]; if (d) release(d); });
 window.addEventListener("blur", () => { held.length = 0; });
+// Bluetooth controller: stick / d-pad move, A shot, B power, Y hint, X 3D/2D view, Select retry, Start level select
+{
+  const K = GamePad.K;
+  const openOv = () => ["ovMenu", "ovIntro", "ovClear", "ovHint"].map($).find(o => !o.hidden) || null;
+  GamePad.init({
+    map: { up: K("ArrowUp"), down: K("ArrowDown"), left: K("ArrowLeft"), right: K("ArrowRight"),
+      a: K(" ", "Space"), b: K("x", "KeyX"), y: K("h", "KeyH"), x: K("v", "KeyV"), select: K("r", "KeyR"), start: K("Escape") },
+    menu: openOv,
+    menuBack: d => { if (d && (!$("ovMenu").hidden || !$("ovHint").hidden)) closeMenu(); }
+  });
+}
 
 document.querySelectorAll(".dpad button").forEach(b => {
   const d = b.dataset.dir;

@@ -211,8 +211,9 @@ h1 { flex: 1; margin: 0; font: 400 14px/1.3 var(--font-display); color: var(--go
     </div>
   </div>
 </div>
+<script src="../lib/gamepad.js"></script>
 <script>
-const VERSION = "v1.2";
+const VERSION = "v1.3";
 const $ = id => document.getElementById(id);
 $("version").textContent = VERSION;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -495,6 +496,16 @@ addEventListener("keydown", e => {
   if (k && !e.repeat) keyDown(k);
 });
 addEventListener("keyup", e => { const k = KEYS[e.key]; if (k) keyUp(k); });
+// Bluetooth controller: d-pad / stick move and drop, A or Y turn right, B or X turn left, Start pause
+{
+  const K = GamePad.K;
+  GamePad.init({
+    map: { left: K("ArrowLeft"), right: K("ArrowRight"), down: K("ArrowDown"), up: K("ArrowUp"),
+      a: K(" ", "Space"), y: K("x", "KeyX"), b: K("z", "KeyZ"), x: K("z", "KeyZ"), start: K("p", "KeyP") },
+    menu: () => ["ovMenu", "ovPause", "ovClear", "ovOver"].map(id => document.getElementById(id)).find(o => !o.hidden) || null,
+    menuBack: d => { if (d && g.mode === "pause") resume(); }
+  });
+}
 for (const b of document.querySelectorAll("#pad button")) {
   const k = b.dataset.k;
   b.addEventListener("pointerdown", e => { e.preventDefault(); ensureAudio(); try { b.setPointerCapture(e.pointerId); } catch (err) {} b.classList.add("held"); keyDown(k); });

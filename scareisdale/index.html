@@ -221,10 +221,11 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
   </div>
 </div>
 
+<script src="../lib/gamepad.js"></script>
 <script>
 (() => {
 'use strict';
-const VERSION = 'v3.3';
+const VERSION = 'v3.4';
 document.getElementById('verBar').textContent = VERSION;
 document.getElementById('verOverlay').textContent = VERSION;
 const TS = 16, VW = 384, VH = 240, ROWS = 15;
@@ -929,6 +930,13 @@ window.addEventListener('keydown', e => {
 });
 window.addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) { e.preventDefault(); press(k, false); } });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+// Bluetooth controller: stick / d-pad move (down to pound), A or Y jump, B or X run, Start starts the game or pauses
+{
+  const K = GamePad.K, tap = spec => { window.dispatchEvent(new KeyboardEvent('keydown', spec)); window.dispatchEvent(new KeyboardEvent('keyup', spec)); };
+  GamePad.init({ map: { left: K('ArrowLeft'), right: K('ArrowRight'), down: K('ArrowDown'), up: K('ArrowUp'),
+    a: K(' ', 'Space'), y: K('z', 'KeyZ'), b: K('x', 'KeyX'), x: K('j', 'KeyJ'),
+    start: d => { if (!d) return; if (state === 'title') { Snd.wake(); tap({ key: 'Enter', code: 'Enter' }); } else tap({ key: 'p', code: 'KeyP' }); } } });
+}
 ['pointerdown', 'touchend', 'keydown'].forEach(t => window.addEventListener(t, () => { if (state !== 'title') Snd.wake(); }, { passive: true }));
 function setPaused(v) { paused = v; if (Snd.ctx) v ? Snd.ctx.suspend() : Snd.ctx.resume(); }
 // leaving the game (home screen, app switcher, another tab, minimized window) pauses it and silences everything; a tap resumes
