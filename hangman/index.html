@@ -446,7 +446,7 @@ html.three #gallows, html.three #dust { opacity: 0; }
 
 <script>
 (() => {
-const VERSION = "v2.1";
+const VERSION = "v2.2";
 document.getElementById("version").textContent = "Hangman " + VERSION;
 const WORDS = {
   "Animals": ["platypus", "armadillo", "chameleon", "flamingo", "hedgehog", "narwhal", "porcupine", "salamander", "wolverine", "jellyfish", "kangaroo", "octopus", "pelican", "raccoon", "walrus", "axolotl", "alligator", "antelope", "baboon", "badger", "beaver", "bison", "buffalo", "butterfly", "camel", "caterpillar", "cheetah", "chimpanzee", "chinchilla", "chipmunk", "cobra", "coyote", "crocodile", "dolphin", "donkey", "dragonfly", "eagle", "elephant", "falcon", "ferret", "gazelle", "gecko", "giraffe", "gorilla", "grasshopper", "hamster", "hippopotamus", "hummingbird", "hyena", "iguana", "jaguar", "koala", "ladybug", "lemur", "leopard", "lobster", "meerkat", "mongoose", "moose", "mosquito", "ostrich", "otter", "panther", "parrot", "peacock", "penguin", "pheasant", "piranha", "porpoise", "python", "rattlesnake", "reindeer", "rhinoceros", "scorpion", "seahorse", "squirrel", "starfish", "stingray", "tarantula", "tortoise", "toucan", "turtle", "vulture", "warthog", "weasel", "woodpecker", "yak", "zebra", "anteater", "bumblebee", "cockatoo", "cuttlefish", "manatee", "mandrill", "ocelot", "orangutan", "pangolin", "puffin", "quokka", "sloth", "tapir", "wombat"],
@@ -854,6 +854,8 @@ const Music = (() => {
     ac = new (window.AudioContext || window.webkitAudioContext)();
     master = ac.createGain(); master.gain.value = 0;
     master.connect(ac.destination);
+    // iOS can restart the context by itself in the background; keep it quiet while hidden
+    ac.addEventListener("statechange", () => { if (document.hidden && ac.state === "running") ac.suspend(); });
     // generated hall reverb
     verb = ac.createConvolver();
     const len = ac.sampleRate * 3.2, ir = ac.createBuffer(2, len, ac.sampleRate);
@@ -954,7 +956,7 @@ const Music = (() => {
   }
   document.addEventListener("visibilitychange", () => {
     if (!ac) return;
-    if (document.hidden) ac.suspend();
+    if (document.hidden) { ac.suspend(); keepAlive && keepAlive.pause(); }
     else { ac.resume(); keepAlive && keepAlive.play().catch(() => {}); }
   });
   // flawless solve: slot-machine payout, a bell fanfare then a cascade of clinking coins

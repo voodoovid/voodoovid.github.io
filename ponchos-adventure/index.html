@@ -1532,7 +1532,7 @@ const ETYPE = {
   B: { kind: "boss", shoot: true, speed: 0.45, dir: "right" },
 };
 
-const VERSION = "3.6";
+const VERSION = "3.7";
 // On the games site: link back to the menu and save everything for offline play
 if (location.pathname.includes("/ponchos-adventure/")) {
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -2559,6 +2559,8 @@ function ensureAudio() {
       actx = new (window.AudioContext || window.webkitAudioContext)();
       master = actx.createGain(); master.gain.value = 0.5; master.connect(actx.destination);
       musicBus = actx.createGain(); musicBus.gain.value = 0.22; musicBus.connect(master);
+      // iOS can restart the context by itself in the background; keep it quiet while hidden
+      actx.addEventListener("statechange", () => { if (document.hidden && actx.state === "running") actx.suspend(); });
     }
     iosUnlock();
     if (actx.state === "suspended") actx.resume();
@@ -2646,7 +2648,8 @@ window.addEventListener("pointerdown", ensureAudio);
 window.addEventListener("keydown", ensureAudio);
 document.addEventListener("visibilitychange", () => {
   if (!actx) return;
-  if (document.hidden) actx.suspend(); else if (soundOn) actx.resume();
+  if (document.hidden) { actx.suspend(); if (keepAlive) keepAlive.pause(); }
+  else if (soundOn) { actx.resume(); if (keepAlive) keepAlive.play().catch(() => {}); }
 });
 
 // ---------- Input ----------

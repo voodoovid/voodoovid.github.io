@@ -224,7 +224,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <script>
 (() => {
 'use strict';
-const VERSION = 'v3.2';
+const VERSION = 'v3.3';
 document.getElementById('verBar').textContent = VERSION;
 document.getElementById('verOverlay').textContent = VERSION;
 const TS = 16, VW = 384, VH = 240, ROWS = 15;
@@ -663,6 +663,8 @@ const Snd = {
     if (this.ctx) { this.ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
     const c = this.ctx = new AC();
+    // iOS can restart the context by itself in the background; keep it quiet while hidden
+    c.addEventListener('statechange', () => { if (document.hidden && c.state === 'running') c.suspend(); });
     const comp = c.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4; comp.connect(c.destination);
     this.master = c.createGain(); this.master.gain.value = 0.75; this.master.connect(comp);
     this.music = c.createGain(); this.music.gain.value = this.muted ? 0 : 0.55; this.music.connect(this.master);
@@ -929,7 +931,13 @@ window.addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) { e.pre
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 ['pointerdown', 'touchend', 'keydown'].forEach(t => window.addEventListener(t, () => { if (state !== 'title') Snd.wake(); }, { passive: true }));
 function setPaused(v) { paused = v; if (Snd.ctx) v ? Snd.ctx.suspend() : Snd.ctx.resume(); }
-document.addEventListener('visibilitychange', () => { if (document.hidden && state !== 'title') setPaused(true); });
+// leaving the game (home screen, app switcher, another tab, minimized window) pauses it and silences everything; a tap resumes
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) return;
+  if (state !== 'title') setPaused(true);
+  if (Snd.ctx) Snd.ctx.suspend();
+  if (Snd.silentEl) Snd.silentEl.pause();
+});
 document.querySelectorAll('#touch button').forEach(b => {
   const k = b.dataset.k;
   const on = e => { e.preventDefault(); b.setPointerCapture?.(e.pointerId); press(k, true); b.classList.add('on'); if (state === 'title') startGame(); };

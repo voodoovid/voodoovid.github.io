@@ -813,7 +813,7 @@ const LEVELS = [
 // Level groups shown in the level picker: [first level index, name]
 const WORLDS = [[0, "Garden Paths"], [8, "Planks and Plates"], [16, "Twilight Hops"], [22, "Long Way Round"], [28, "Crumbling Isles"], [34, "Night Garden"]];
 
-const VERSION = "v1.16";
+const VERSION = "v1.17";
 const KEY = "followchestnut.";
 const $ = id => document.getElementById(id);
 const store = {
@@ -1476,6 +1476,8 @@ const Sound = (() => {
       for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3); }
       verb.buffer = ir; const wet = ac.createGain(); wet.gain.value = .22;
       mus.connect(verb); verb.connect(wet); wet.connect(master);
+      // iOS can restart the context by itself in the background; keep it quiet while hidden
+      ac.addEventListener("statechange", () => { if (document.hidden && ac.state === "running") ac.suspend().catch(() => {}); });
       iosUnlock();
     }
     if (ac.state !== "running") ac.resume().catch(() => {});
@@ -1702,6 +1704,13 @@ const Sound = (() => {
       nextBar += step * T.steps; bar++;
     }
   }
+
+  // leaving the game (home screen, app switcher, another tab, minimized window) silences everything until it comes back
+  document.addEventListener("visibilitychange", () => {
+    if (!ac) return;
+    if (document.hidden) { ac.suspend().catch(() => {}); if (keepAlive) keepAlive.pause(); }
+    else if (mode !== "off") { ac.resume().catch(() => {}); if (keepAlive) keepAlive.play().catch(() => {}); }
+  });
 
   return {
     unlock, cycle, applyMode, setTrack, trackName: n => TRACKS[((n % TRACKS.length) + TRACKS.length) % TRACKS.length].name, count: TRACKS.length,

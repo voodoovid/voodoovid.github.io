@@ -217,7 +217,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
 <script>
 (() => {
 "use strict";
-const VERSION = "v1.8";
+const VERSION = "v1.9";
 const ROUNDS = 7, ROUND_SECS = 25, WRONG_PENALTY = 3, M_PER_POINT = 4;
 const $ = id => document.getElementById(id);
 const KEY = "fathom.";
@@ -1011,6 +1011,8 @@ const Sound = (() => {
       sfx = ac.createGain(); sfx.gain.value = .8; sfx.connect(master);
       const lp = ac.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 1400; lp.connect(master);
       mus = ac.createGain(); mus.gain.value = 0; mus.connect(lp);
+      // iOS can restart the context by itself in the background; keep it quiet while hidden
+      ac.addEventListener("statechange", () => { if (document.hidden && ac.state === "running") ac.suspend().catch(() => {}); });
       iosUnlock();
     }
     if (ac.state !== "running") ac.resume().catch(() => {});
@@ -1056,6 +1058,13 @@ const Sound = (() => {
       nextBeat += beat; step++;
     }
   }
+  // leaving the game (home screen, app switcher, another tab, minimized window) silences everything until it comes back
+  document.addEventListener("visibilitychange", () => {
+    if (!ac) return;
+    if (document.hidden) { ac.suspend().catch(() => {}); if (keepAlive) keepAlive.pause(); }
+    else if (mode !== "off") { ac.resume().catch(() => {}); if (keepAlive) keepAlive.play().catch(() => {}); }
+  });
+
   return {
     unlock, cycle, applyMode,
     depth(m) { depthM = m; },
