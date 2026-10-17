@@ -214,8 +214,9 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
     <p class="site-version" id="siteVersion"></p>
   </main>
 </div>
+<script src="lib/gamepad.js"></script>
 <script>
-const SITE_VERSION = "v1.18";
+const SITE_VERSION = "v1.19";
 // Lock the screen: no rubber-band bounce or drag when swiping, unless the page really needs to scroll (phones)
 document.documentElement.style.overscrollBehavior = "none"; document.body.style.overscrollBehavior = "none";
 document.addEventListener("touchmove", e => {
@@ -236,6 +237,26 @@ safeTop(); addEventListener("resize", safeTop); addEventListener("orientationcha
 // Hide the install tip inside the installed app
 if (window.navigator.standalone || matchMedia("(display-mode: standalone)").matches) {
   document.querySelector("#installHelp p:last-child").hidden = true;
+}
+// Bluetooth controller: the d-pad / stick moves a gold highlight between the games, A opens one.
+// A game with controller support that is opened this way starts straight away.
+{
+  const PAD_GAMES = ["ponchos-adventure/", "ponchos-pills/", "follow-chestnut/", "scareisdale/"];
+  const grid = document.querySelector(".games");
+  grid.addEventListener("click", e => {
+    const a = e.target.closest("a.game"); if (!a) return;
+    const href = a.getAttribute("href");
+    try {
+      sessionStorage.setItem("gp.lastGame", href);
+      if (GamePad.fromPad() && PAD_GAMES.includes(href)) sessionStorage.setItem("gp.autostart", href);
+    } catch (err) {}
+  });
+  GamePad.init({
+    menu: () => grid,
+    // come back to the highlight on the game you played last
+    menuFirst: () => { let h = null; try { h = sessionStorage.getItem("gp.lastGame"); } catch (e) {} return h && grid.querySelector(`a.game[href="${h}"]`); },
+    help: ["Games menu", ["↑ ↓ ← → / Stick", "Choose a game"], ["A", "Play it (controller games start right away)"], ["Select", "This screen"]]
+  });
 }
 const status = document.getElementById("offlineStatus");
 if ("serviceWorker" in navigator) {

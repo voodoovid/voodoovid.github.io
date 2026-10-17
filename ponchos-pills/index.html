@@ -213,7 +213,7 @@ h1 { flex: 1; margin: 0; font: 400 14px/1.3 var(--font-display); color: var(--go
 </div>
 <script src="../lib/gamepad.js"></script>
 <script>
-const VERSION = "v1.4";
+const VERSION = "v1.5";
 const $ = id => document.getElementById(id);
 $("version").textContent = VERSION;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -504,6 +504,7 @@ addEventListener("keyup", e => { const k = KEYS[e.key]; if (k) keyUp(k); });
       a: K(" ", "Space"), y: K("x", "KeyX"), b: K("z", "KeyZ"), x: K("z", "KeyZ"), start: K("p", "KeyP") },
     menu: () => ["ovMenu", "ovPause", "ovClear", "ovOver"].map(id => document.getElementById(id)).find(o => !o.hidden) || null,
     menuBack: d => { if (d && g.mode === "pause") resume(); },
+    autoStart: () => { if (!$("ovMenu").hidden) ($("btnContinue").hidden ? $("btnStart") : $("btnContinue")).click(); },
     onHelp: open => { if (open && g.mode === "play") { try { pause(); } catch (e) {} } },
     help: ["In the bottle", ["← →", "Move the pill"], ["↓", "Drop faster"], ["A / Y / ↑", "Turn right"], ["B / X", "Turn left"], ["Start", "Pause"], ["Select", "This screen"], "In menus", ["↑ ↓ ← →", "Move the highlight"], ["A", "Press"], ["B", "Back"]]
   });

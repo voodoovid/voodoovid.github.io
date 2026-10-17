@@ -1534,7 +1534,7 @@ const ETYPE = {
   B: { kind: "boss", shoot: true, speed: 0.45, dir: "right" },
 };
 
-const VERSION = "3.9";
+const VERSION = "3.10";
 // On the games site: link back to the menu and save everything for offline play
 if (location.pathname.includes("/ponchos-adventure/")) {
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -2691,6 +2691,7 @@ window.addEventListener("blur", () => { held.length = 0; });
       a: K(" ", "Space"), b: K("x", "KeyX"), y: K("h", "KeyH"), x: K("v", "KeyV"), select: K("r", "KeyR"), start: K("Escape") },
     menu: openOv,
     menuBack: d => { if (d && (!$("ovMenu").hidden || !$("ovHint").hidden)) closeMenu(); },
+    autoStart: () => { if (openOv()) showOverlay(null); },
     help: ["In the room", ["↑ ↓ ← → / Stick", "Move Poncho"], ["A", "Magic shot"], ["B", "Use power (hammer, bridge, arrow)"], ["Y", "Hint"], ["X", "3D / 2D view"], ["Select", "Retry the room"], ["Start", "Level Select"], "In menus", ["↑ ↓ ← →", "Move the highlight"], ["A", "Press"], ["B", "Back"]]
   });
   $("btnMenu").before(GamePad.settingsButton("btn", "🎮"));
