@@ -1,0 +1,46 @@
+# Saves the daily Wordle answer into flip-five/wordle.json so Flip Five's "Today's Wordle" button can read it
+# from this site (a browser page can't read the New York Times site directly). Runs every hour.
+name: Daily Wordle
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: wordle
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch the last few days' puzzles
+        run: |
+          python3 - <<'PY'
+          import json, datetime, urllib.request
+          path = "flip-five/wordle.json"
+          try: data = json.load(open(path))
+          except Exception: data = {}
+          days = data.get("days", {})
+          today = datetime.datetime.now(datetime.timezone.utc).date()
+          # UTC yesterday and today cover every time zone in the Americas
+          for d in (today - datetime.timedelta(days=1), today):
+              key = d.isoformat()
+              if key in days: continue
+              req = urllib.request.Request("https://www.nytimes.com/svc/wordle/v2/" + key + ".json",
+                                           headers={"User-Agent": "Mozilla/5.0 (Macintosh) FlipFive"})
+              try:
+                  j = json.load(urllib.request.urlopen(req, timeout=20))
+                  w = str(j["solution"]).lower()
+                  if len(w) == 5 and w.isalpha(): days[key] = {"w": w, "n": j.get("days_since_launch")}
+              except Exception as e: print(key, e)
+          keep = sorted(days)[-7:]
+          out = {"days": {k: days[k] for k in keep}}
+          open(path, "w").write(json.dumps(out, indent=1) + "\n")
+          print(out)
+          PY
+      - name: Save if changed
+        run: |
+          git add flip-five/wordle.json
+          git diff --cached --quiet && exit 0
+          git -c user.name="wordle-bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "Daily Wordle update"
+          git push
