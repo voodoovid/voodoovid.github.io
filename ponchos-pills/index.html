@@ -76,15 +76,19 @@ h1 { flex: 1; margin: 0; font: 400 14px/1.3 var(--font-display); color: var(--go
 .ov button.big { background: var(--red); border-color: #ffc2cf; color: #fff; font-size: 14px; padding: 14px 26px; }
 .ov .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .keys { font-size: 12px !important; }
-.pad { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; height: clamp(58px, 10dvh, 86px); flex: none; }
+/* Two thumbs: turning on the left, moving on the right */
+.pad { display: flex; justify-content: space-between; gap: 18px; height: clamp(84px, 13dvh, 108px); flex: none; }
+.pad .grp { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; }
+.pad .turn { flex: 2; }
+.pad .move { flex: 3; }
 .pad button {
-  border-radius: 14px; border: 2px solid var(--edge); background: linear-gradient(180deg, #2e2768, #1d1848); color: var(--fg);
-  font: 700 26px/1 system-ui, sans-serif; touch-action: none; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  min-width: 0; border-radius: 16px; border: 2px solid var(--edge); background: linear-gradient(180deg, #2e2768, #1d1848); color: var(--fg);
+  font: 700 32px/1 system-ui, sans-serif; touch-action: none; cursor: pointer; -webkit-tap-highlight-color: transparent;
 }
 .pad button.rot { color: var(--gold); }
 .pad button.held { background: var(--edge); transform: scale(.96); }
 /* Wide screens with a keyboard don't need the pad as much: keep it smaller */
-@media (min-width: 900px) and (hover: hover) { .pad { height: 56px; } }
+@media (min-width: 900px) and (hover: hover) { .pad { height: 60px; } }
 </style>
 </head>
 <body>
@@ -196,15 +200,19 @@ h1 { flex: 1; margin: 0; font: 400 14px/1.3 var(--font-display); color: var(--go
     </div>
   </div>
   <div class="pad" id="pad">
-    <button class="rot" data-k="ccw" aria-label="Turn left">⟲</button>
-    <button data-k="left" aria-label="Left">◀</button>
-    <button data-k="down" aria-label="Drop">▼</button>
-    <button data-k="right" aria-label="Right">▶</button>
-    <button class="rot" data-k="cw" aria-label="Turn right">⟳</button>
+    <div class="grp turn">
+      <button class="rot" data-k="ccw" aria-label="Turn left">⟲</button>
+      <button class="rot" data-k="cw" aria-label="Turn right">⟳</button>
+    </div>
+    <div class="grp move">
+      <button data-k="left" aria-label="Left">◀</button>
+      <button data-k="down" aria-label="Drop">▼</button>
+      <button data-k="right" aria-label="Right">▶</button>
+    </div>
   </div>
 </div>
 <script>
-const VERSION = "v1.1";
+const VERSION = "v1.2";
 const $ = id => document.getElementById(id);
 $("version").textContent = VERSION;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -213,7 +221,7 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", {
 const COLS = 8, ROWS = 16, C = 26;        // bottle is 8 x 16 cells
 const W = 420, H = 504;                    // canvas in logical pixels
 const BX = 16, BY = 76;                    // top-left of the bottle's inside
-const PX = 344, PY = 198;                  // Poncho's feet
+const PX0 = 344, PY0 = 198;                // Poncho's feet on his shelf
 const LX = 330, LY = 296, LR = 70;         // microscope lens
 const COL = [
   { main: "#ff4d6d", dark: "#a8123a", light: "#ffd0da" },   // red
@@ -263,6 +271,9 @@ function makeGerms(level) {
   }
 }
 
+// As in the original: you pick level 0-20, the count goes on to 24 and stays there; from level 20 every bottle has 84 germs
+const MAX_LEVEL = 24;
+const nextLevel = l => Math.min(MAX_LEVEL, l + 1);
 function gravInterval() { return Math.max(0.09, [0.72, 0.48, 0.3][g.speed] * Math.pow(0.94, Math.floor(g.pills / 10))); }
 
 function startGame() {
@@ -270,7 +281,7 @@ function startGame() {
   startLevel();
 }
 function startLevel() {
-  makeGerms(g.level); g.growT = null;
+  makeGerms(g.level); g.growT = null; g.celebrate = null; g.clearShowAt = null;
   g.germs = germCount(); g.pills = 0; g.cur = null; g.sparks = []; g.popups = []; g.confetti = [];
   g.lens.forEach(l => { l.hurt = 0; l.gone = false; l.poof = 0; });
   g.next = [rnd(3), rnd(3)];
@@ -293,7 +304,7 @@ function saveGame() {
   try {
     if (g.mode === "play" || g.mode === "pause")
       localStorage.setItem(SAVE_KEY, JSON.stringify({ level: g.level, speed: g.speed, score: g.score, pills: g.pills, grid: g.grid, next: g.next, cur: g.cur, tossPill: g.tossPill, phase: g.phase }));
-    else if (g.mode === "clear") localStorage.setItem(SAVE_KEY, JSON.stringify({ level: g.level + 1, speed: g.speed, score: g.score, fresh: true }));
+    else if (g.mode === "clear") localStorage.setItem(SAVE_KEY, JSON.stringify({ level: nextLevel(g.level), speed: g.speed, score: g.score, fresh: true }));
     else if (g.mode === "over") localStorage.removeItem(SAVE_KEY);
   } catch (e) {}
 }
@@ -303,7 +314,7 @@ function continueGame() {
   g.level = s.level; g.speed = s.speed; g.score = s.score;
   if (s.fresh || !s.grid) return startLevel();
   g.grid = s.grid; g.germs = germCount();
-  if (!g.germs) { g.level++; return startLevel(); }
+  if (!g.germs) { g.level = nextLevel(g.level); return startLevel(); }
   g.pills = s.pills || 0; g.next = s.next || [rnd(3), rnd(3)]; g.cur = s.cur; g.tossPill = s.tossPill; g.growT = null;
   g.sparks = []; g.popups = []; g.confetti = [];
   g.lens.forEach(l => { l.hurt = 0; l.poof = 0; l.gone = germCount(l.c) === 0; });
@@ -441,11 +452,16 @@ function stageClear() {
   // Poncho grows big and proud, and meows
   g.growT = g.time; setTimeout(() => { if (g.mode === "clear") ponchoMeow(); }, 450);
   for (let i = 0; i < 60; i++) g.confetti.push({ x: BX + Math.random() * COLS * C, y: BY - 20 - Math.random() * 200, vy: 60 + Math.random() * 80, vx: (Math.random() - .5) * 40, c: rnd(3), r: Math.random() * 6, life: 4 });
-  setTimeout(() => {
-    if (g.mode !== "clear") return;
-    $("clearText").innerHTML = `Level <b>${g.level}</b> is germ-free.<br>Score <b>${g.score}</b>`;
-    showOverlay("ovClear");
-  }, 1300);
+  // As in the original, clearing level 5, 10, 15 or 20 on Med or Hi earns a celebration: Poncho rides a pill rocket across the night sky
+  g.celebrate = g.speed >= 1 && [5, 10, 15, 20].includes(g.level) ? { t: g.time + 1.2, big: g.level === 20, pill: [rnd(3), rnd(3)], fw: 0 } : null;
+  g.clearShowAt = g.time + (g.celebrate ? 1.2 + CELEBRATE_LEN : 1.3);
+  if (g.celebrate) setTimeout(() => { if (g.mode === "clear" && g.celebrate) jingle("fanfare"); }, 1200);
+}
+const CELEBRATE_LEN = 5.5;
+function showClear() {
+  g.celebrate = null; g.clearShowAt = null;
+  $("clearText").innerHTML = `Level <b>${g.level}</b> is germ-free.<br>Score <b>${g.score}</b>` + (g.level >= MAX_LEVEL ? "<br>Top level: the next bottle is level 24 again." : "");
+  showOverlay("ovClear");
 }
 
 // ---------- Input ----------
@@ -470,6 +486,7 @@ addEventListener("keydown", e => {
   if (e.key === "Enter" || (e.key === " " && g.mode !== "play")) {
     if (e.repeat) return;
     if (g.mode === "menu") return (loadSave() ? $("btnContinue") : $("btnStart")).click();
+    if (g.mode === "clear" && $("ovClear").hidden && g.celebrate) return showClear();   // skip the celebration
     if (g.mode === "clear" && !$("ovClear").hidden) return $("btnNext").click();
     if (g.mode === "over" && !$("ovOver").hidden) return $("btnRetry").click();
     if (g.mode === "pause") return resume();
@@ -509,7 +526,7 @@ const stepMusic = d => {
 $("muDown").onclick = () => stepMusic(-1); $("muUp").onclick = () => stepMusic(1);
 $("btnStart").onclick = () => { ensureAudio(); startGame(); };
 $("btnContinue").onclick = () => { ensureAudio(); continueGame(); };
-$("btnNext").onclick = () => { g.level++; startLevel(); };
+$("btnNext").onclick = () => { g.level = nextLevel(g.level); startLevel(); };
 $("btnRetry").onclick = () => { g.score = 0; startLevel(); };   // try the same level again
 const toMenu = () => { saveGame(); g.mode = "menu"; g.cur = null; g.phase = ""; playMusic("off"); syncMenu(); showOverlay("ovMenu"); };
 $("btnMenu").onclick = toMenu; $("btnQuit").onclick = toMenu;
@@ -705,6 +722,14 @@ function schedule() {
 function jingle(name) {
   if (!soundOn || !actx || actx.state !== "running") return;
   const t = actx.currentTime + 0.05;
+  if (name === "fanfare") {
+    const mel = [[67, 0], [72, .18], [76, .36], [79, .54], [76, .9], [79, 1.08], [84, 1.26], [83, 1.8], [81, 1.98], [79, 2.16], [77, 2.34], [76, 2.52], [74, 2.7], [72, 2.88], [79, 3.4], [84, 3.6]];
+    mel.forEach(([n, d], i) => tone(mtof(n), t + d, i === mel.length - 1 ? 0.9 : 0.2, "square", 0.12));
+    [[48, 0], [55, .54], [53, 1.26], [52, 1.8], [50, 2.52], [55, 2.88], [48, 3.6]].forEach(([n, d]) => tone(mtof(n), t + d, 0.5, "triangle", 0.5));
+    for (let i = 0; i < 16; i++) noise(t + i * 0.24, 0.05, 0.08, "highpass", 7000);
+    setTimeout(() => { if (g.mode === "clear" && g.celebrate) ponchoMeow(); }, 2200);
+    return;
+  }
   if (name === "clear") {
     [[72, 0], [76, .12], [79, .24], [84, .36], [79, .6], [84, .72], [88, .84]].forEach(([n, d]) => tone(mtof(n), t + d, 0.22, "square", 0.14));
     [[48, 0], [55, .36], [60, .72]].forEach(([n, d]) => tone(mtof(n), t + d, 0.3, "triangle", 0.5));
@@ -777,12 +802,14 @@ document.addEventListener("visibilitychange", () => {
 function update(dt) {
   g.time += dt;
   for (const l of g.lens) { l.hurt = Math.max(0, l.hurt - dt); l.poof = Math.max(0, l.poof - dt); }
-  for (const s of g.sparks) { s.x += s.vx * dt; s.y += s.vy * dt; s.vy += 400 * dt; s.life -= dt; }
+  for (const s of g.sparks) { s.x += s.vx * dt; s.y += s.vy * dt; s.vy += (s.grav ?? 400) * dt; s.life -= dt; }
   g.sparks = g.sparks.filter(s => s.life > 0);
   for (const p of g.popups) { p.y -= 30 * dt; p.life -= dt; }
   g.popups = g.popups.filter(p => p.life > 0);
   for (const c of g.confetti) { c.x += c.vx * dt; c.y += c.vy * dt; c.r += dt * 6; c.life -= dt; }
   g.confetti = g.confetti.filter(c => c.life > 0 && c.y < H);
+  if (g.mode === "clear") updateCelebration(dt);
+  if (g.mode === "clear" && g.clearShowAt != null && g.time >= g.clearShowAt) showClear();
   if (g.mode !== "play") return;
   switch (g.phase) {
     case "toss": g.timer -= dt; if (g.timer <= 0) landToss(); break;
@@ -802,6 +829,8 @@ function update(dt) {
 
 // ---------- Drawing ----------
 const cv = $("cv"), ctx = cv.getContext("2d");
+// a tap on the board skips the celebration
+cv.addEventListener("pointerdown", () => { if (g.mode === "clear" && g.celebrate && g.time > g.celebrate.t + 0.5) showClear(); });
 function fit() {
   const st = $("stage"), s = Math.min(st.clientWidth / W, st.clientHeight / H), dpr = Math.min(3, devicePixelRatio || 1);
   cv.style.width = W * s + "px"; cv.style.height = H * s + "px";
@@ -941,7 +970,7 @@ function drawGrid() {
 }
 
 // Where Poncho's throwing paw holds the next pill
-const PAW = { x: PX - 50, y: PY - 102 };
+const PAW = { x: PX0 - 50, y: PY0 - 102 };
 function drawTossed() {
   if (g.mode !== "play" || g.phase !== "toss" || !g.tossPill) return;
   const k = 1 - Math.max(0, g.timer) / 0.42;
@@ -951,18 +980,22 @@ function drawTossed() {
 }
 
 // Poncho the black cat, sitting on a shelf beside the bottle in a doctor's head mirror and stethoscope
-function drawPoncho() {
+// ride: { x, y, sc, crown } draws him riding the celebration rocket instead of on his shelf
+function drawPoncho(ride) {
   const t = g.time, happy = g.mode === "clear", sad = g.mode === "over";
-  const tossing = g.mode === "play" && g.phase === "toss" ? 1 - Math.max(0, g.timer) / 0.42 : -1;
+  const tossing = !ride && g.mode === "play" && g.phase === "toss" ? 1 - Math.max(0, g.timer) / 0.42 : -1;
+  const PX = ride ? ride.x : PX0, PY = ride ? ride.y : PY0;
   // shelf
-  ctx.fillStyle = "#7a5434"; rr(PX - 82, PY, 154, 10, [3, 3, 3, 3]); ctx.fill();
-  ctx.fillStyle = "#4a311d"; ctx.fillRect(PX - 76, PY + 10, 142, 4);
+  if (!ride) {
+    ctx.fillStyle = "#7a5434"; rr(PX - 82, PY, 154, 10, [3, 3, 3, 3]); ctx.fill();
+    ctx.fillStyle = "#4a311d"; ctx.fillRect(PX - 76, PY + 10, 142, 4);
+  }
   ctx.save();
   // on a win he swells up big and proud, then breathes in and out
   const grow = happy && g.growT != null ? Math.min(1, (t - g.growT) / 0.7) : 0, ease = 1 - Math.pow(1 - grow, 3);
-  const sc = 2 + ease * 0.9 + (grow >= 1 ? Math.sin(t * 4) * 0.05 : 0);
-  const meowing = happy && g.growT != null && t - g.growT > 0.45 && t - g.growT < 1.35;
-  const hop = happy ? -Math.abs(Math.sin(t * 7)) * 12 * (1 - ease * 0.7) : 0;
+  const sc = ride ? ride.sc : 2 + ease * 0.9 + (grow >= 1 ? Math.sin(t * 4) * 0.05 : 0);
+  const meowing = !ride && happy && g.growT != null && t - g.growT > 0.45 && t - g.growT < 1.35;
+  const hop = ride ? 0 : happy ? -Math.abs(Math.sin(t * 7)) * 12 * (1 - ease * 0.7) : 0;
   ctx.translate(PX, PY + hop); ctx.scale(sc, sc);
   const fur = "#1c1b24", furHi = "#34323f";
   ell(0, 0, 18, 3, "rgba(0,0,0,.3)");
@@ -1007,6 +1040,12 @@ function drawPoncho() {
     else { ctx.moveTo(hx + s * 10, hy - 6); ctx.lineTo(hx + s * 9.5, hy - 13); ctx.lineTo(hx + s * 5, hy - 9); }
     ctx.closePath(); ctx.fill();
   }
+  if (ride && ride.crown) {
+    ctx.fillStyle = "#ffd166"; ctx.strokeStyle = "#b07a00"; ctx.lineWidth = 0.8;
+    ctx.beginPath(); ctx.moveTo(hx - 8, hy - 11); ctx.lineTo(hx - 9, hy - 21); ctx.lineTo(hx - 4, hy - 16); ctx.lineTo(hx, hy - 23);
+    ctx.lineTo(hx + 4, hy - 16); ctx.lineTo(hx + 9, hy - 21); ctx.lineTo(hx + 8, hy - 11); ctx.closePath(); ctx.fill(); ctx.stroke();
+    circle(hx, hy - 15, 1.5, "#ff4d6d"); circle(hx - 5, hy - 13.5, 1.1, "#3fa9ff"); circle(hx + 5, hy - 13.5, 1.1, "#3fa9ff");
+  }
   // head mirror on a band
   ctx.strokeStyle = "#5b6275"; ctx.lineWidth = 1.4;
   ctx.beginPath(); ctx.ellipse(hx, hy - 5, 12.6, 5, 0, Math.PI * 1.05, Math.PI * 1.95); ctx.stroke();
@@ -1041,9 +1080,62 @@ function drawPoncho() {
   }
   ctx.restore();
   // the pill in his paw is the next one
+  if (ride) return;
   const wx = PX + paw.x * sc, wy = PY + hop + paw.y * sc;
   if (g.mode === "play" && tossing < 0) drawCapsule(wx, wy - 4, -0.25, g.next[0], g.next[1], 20);
   else if (g.mode === "play" && tossing > 0.6) drawCapsule(wx, wy - 4, -0.25, g.next[0], g.next[1], 20 * Math.min(1, (tossing - 0.6) * 3));
+}
+
+// ---------- Celebration (after level 5, 10, 15 and 20 on Med or Hi) ----------
+const STARS = Array.from({ length: 50 }, () => [Math.random() * W, Math.random() * H * 0.8, Math.random() * 6]);
+function rocketPos(k) {   // k: seconds into the ride
+  const x = -90 + (W + 200) * (k / 4.2), y = 250 + Math.sin(k * 2.6) * 34;
+  return { x, y };
+}
+function updateCelebration(dt) {
+  const c = g.celebrate; if (!c) return;
+  const k = g.time - c.t; if (k < 0) return;
+  if (k < 4.4) {   // flames out of the back of the rocket
+    const r = rocketPos(k);
+    for (let i = 0; i < 3; i++) g.sparks.push({ x: r.x - 44, y: r.y + (Math.random() - .5) * 10, vx: -120 - Math.random() * 80, vy: (Math.random() - .5) * 40, grav: 0, life: .4, r: 3 + Math.random() * 2, col: ["#ffd166", "#ff8a3d", "#fff3c4"][rnd(3)] });
+  }
+  c.fw -= dt;
+  if (c.fw <= 0 && k < CELEBRATE_LEN - 1) {   // fireworks in the three pill colours
+    c.fw = c.big ? 0.3 : 0.55;
+    const x = 40 + Math.random() * (W - 80), y = 40 + Math.random() * 160, col = COL[rnd(3)];
+    for (let i = 0; i < 26; i++) { const a = i / 26 * Math.PI * 2, v = 80 + Math.random() * 50; g.sparks.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, grav: 60, life: 1.1, r: 2.2, col: i % 3 ? col.main : col.light }); }
+    sfx("pop");
+  }
+}
+function drawCelebration() {
+  const c = g.celebrate; if (!c) return;
+  const k = g.time - c.t; if (k < 0) return;
+  const fade = Math.min(1, k * 2, (CELEBRATE_LEN - k) * 2);
+  ctx.globalAlpha = Math.max(0, fade) * 0.85; ctx.fillStyle = "#070618"; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = Math.max(0, fade);
+  for (const [x, y, p] of STARS) circle(x, y, 1 + 0.6 * Math.sin(g.time * 3 + p), "#e8e4ff");
+  circle(70, 60, 22, "#fff3c4"); circle(80, 54, 20, "#070618");   // moon
+  // three germs run for it ahead of the rocket
+  if (k < 4.6) {
+    const r = rocketPos(k);
+    for (let i = 0; i < 3; i++) {
+      const gx = r.x + 110 + i * 46 + k * 20, gy = 300 + Math.abs(Math.sin(g.time * 9 + i)) * -16 + i * 6;
+      drawGerm(gx, gy, i, 40, Math.floor(g.time * 8) % 2, "hurt");
+    }
+    // Poncho on his pill rocket
+    ctx.save(); ctx.translate(r.x, r.y); ctx.rotate(Math.cos(k * 2.6) * 0.15);
+    drawCapsule(0, 0, 0, c.pill[0], c.pill[1], 44);
+    ctx.fillStyle = "#cfe9ff"; ctx.beginPath(); ctx.moveTo(-44, -10); ctx.lineTo(-58, -26); ctx.lineTo(-30, -10); ctx.closePath(); ctx.fill();   // fins
+    ctx.beginPath(); ctx.moveTo(-44, 10); ctx.lineTo(-58, 26); ctx.lineTo(-30, 10); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    drawPoncho({ x: r.x - 6, y: r.y - 14, sc: 1.4, crown: c.big });
+  }
+  const title = c.big ? "ALL GERMS BEATEN!" : `LEVEL ${g.level} CLEAR!`;
+  const sub = c.big ? "Dr. Poncho saves the day" : ["", "", "", "", "", "Poncho's on a roll!", "", "", "", "", "Purr-fect work!", "", "", "", "", "Unstoppable cat!"][g.level] || "";
+  const ty = 400 + Math.sin(g.time * 3) * 4;
+  text(title, W / 2, ty, c.big ? 15 : 16, "#ffd166", "center");
+  text(sub, W / 2, ty + 30, 10, "#f4f1ff", "center");
+  if (k > 0.5) text("tap to go on", W / 2, H - 22, 7, "#a9a2d8", "center");
+  ctx.globalAlpha = 1;
 }
 
 // The microscope lens: one big germ of each colour dances in a circle; hit ones wince, cleared colours vanish
@@ -1107,7 +1199,8 @@ function draw() {
     text(songToast.text, W - 10, 10, 8, "#ffd166", "right");
     ctx.globalAlpha = 1;
   }
-  for (const s of g.sparks) { ctx.globalAlpha = Math.max(0, s.life * 2); circle(s.x, s.y, 2.5, COL[s.c].light); }
+  drawCelebration();
+  for (const s of g.sparks) { ctx.globalAlpha = Math.max(0, Math.min(1, s.life * 2)); circle(s.x, s.y, s.r || 2.5, s.col || COL[s.c].light); }
   ctx.globalAlpha = 1;
   for (const p of g.popups) { ctx.globalAlpha = Math.min(1, p.life * 2); text(p.text, p.x, p.y, 8, "#fff", "center"); }
   ctx.globalAlpha = 1;
