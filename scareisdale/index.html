@@ -225,7 +225,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <script>
 (() => {
 'use strict';
-const VERSION = 'v3.4';
+const VERSION = 'v3.5';
 document.getElementById('verBar').textContent = VERSION;
 document.getElementById('verOverlay').textContent = VERSION;
 const TS = 16, VW = 384, VH = 240, ROWS = 15;
@@ -918,9 +918,9 @@ function scheduleBar(t0, barIdx) { const tr = TRACKS[Snd.track] || TRACKS.waltz;
 
 // ---------- input ----------
 const keys = { left: false, right: false, jump: false, run: false, down: false };
-let jumpQueued = false, runQueued = false;
+let jumpQueued = false, runQueued = false, downQueued = false;
 const KEYMAP = { ArrowDown: 'down', KeyS: 'down', ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right', Space: 'jump', ArrowUp: 'jump', KeyW: 'jump', KeyZ: 'jump', KeyK: 'jump', ShiftLeft: 'run', ShiftRight: 'run', KeyX: 'run', KeyJ: 'run' };
-function press(k, down) { if (k === 'jump' && down && !keys.jump) jumpQueued = true; if (k === 'run' && down && !keys.run) runQueued = true; keys[k] = down; }
+function press(k, down) { if (k === 'jump' && down && !keys.jump) jumpQueued = true; if (k === 'run' && down && !keys.run) runQueued = true; if (k === 'down' && down && !keys.down) downQueued = true; keys[k] = down; }
 window.addEventListener('keydown', e => {
   const k = KEYMAP[e.code];
   if (k) { e.preventDefault(); if (!e.repeat) press(k, true); }
@@ -930,11 +930,11 @@ window.addEventListener('keydown', e => {
 });
 window.addEventListener('keyup', e => { const k = KEYMAP[e.code]; if (k) { e.preventDefault(); press(k, false); } });
 window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
-// Bluetooth controller: stick / d-pad move (down to pound), A or Y jump, B or X run (X also resumes from pause), Start starts the game or pauses
+// Bluetooth controller: stick / d-pad move (up does nothing; down during a jump pounds), A or Y jump, B or X run (X also resumes from pause), Start starts the game or pauses
 {
   let xResumed = false;
   const K = GamePad.K, tap = spec => { window.dispatchEvent(new KeyboardEvent('keydown', spec)); window.dispatchEvent(new KeyboardEvent('keyup', spec)); };
-  GamePad.init({ map: { left: K('ArrowLeft'), right: K('ArrowRight'), down: K('ArrowDown'), up: K('ArrowUp'),
+  GamePad.init({ map: { left: K('ArrowLeft'), right: K('ArrowRight'), down: K('ArrowDown'),
     a: K(' ', 'Space'), y: K('z', 'KeyZ'), b: K('x', 'KeyX'),
     // X runs, or ends the pause when the game is paused
     x: d => { if (d && paused) { setPaused(false); xResumed = true; return; } if (!d && xResumed) { xResumed = false; return; } window.dispatchEvent(new KeyboardEvent(d ? 'keydown' : 'keyup', { key: 'j', code: 'KeyJ' })); },
@@ -1318,7 +1318,9 @@ function updatePlayer(dt) {
   } else if (P.form === 'wings' && P.jbuf > 0 && !P.onGround && P.flaps > 0) {   // bat wings: up to three flaps in the air
     P.vy = Math.min(P.vy, -290); P.flaps--; P.jbuf = 0; P.flapT = 0.3; sfx('flap');
   }
-  if (keys.down && !P.onGround && !P.pound && !P.dead && state === 'play') { P.pound = true; P.vx *= 0.4; P.sx = 0.8; P.sy = 1.2; }
+  if (P.onGround) P.jumped = false; else if (P.vy < 0) P.jumped = true;   // walking off a ledge isn't a jump
+  if (downQueued && P.jumped && !P.onGround && !P.pound && !P.dead && state === 'play') { P.pound = true; P.vx *= 0.4; P.sx = 0.8; P.sy = 1.2; }
+  downQueued = false;
   if (P.pound) { P.vy = Math.max(P.vy, 300); P.vx = approach(P.vx, 0, 300 * dt); }
   let g = (P.vy < 0 && keys.jump) ? G_HOLD : G_FALL;
   if (keys.jump && Math.abs(P.vy) < 55) g *= 0.5; // apex hang
@@ -1621,7 +1623,7 @@ function step(dt) {
     stateT += dt;
     if (stateT > 1.8 && jumpQueued) { jumpQueued = false; score = 0; coins = 0; lives = 3; night = 1; levelIdx = 0; checkpoint = 0; beginLife(); }
   }
-  if (state !== 'play') { jumpQueued = state === 'gameover' ? jumpQueued : false; runQueued = false; }
+  if (state !== 'play') { jumpQueued = state === 'gameover' ? jumpQueued : false; runQueued = false; downQueued = false; }
 }
 
 // ---------- rendering ----------
