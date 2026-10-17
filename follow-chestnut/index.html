@@ -814,7 +814,7 @@ const LEVELS = [
 // Level groups shown in the level picker: [first level index, name]
 const WORLDS = [[0, "Garden Paths"], [8, "Planks and Plates"], [16, "Twilight Hops"], [22, "Long Way Round"], [28, "Crumbling Isles"], [34, "Night Garden"]];
 
-const VERSION = "v1.19";
+const VERSION = "v1.20";
 const KEY = "followchestnut.";
 const $ = id => document.getElementById(id);
 const store = {
@@ -1046,9 +1046,10 @@ addEventListener("keydown", e => {
 // ---------- Bluetooth controller ----------
 // A pointer moves tile by tile over the board; pushing it off the board's edge toward the
 // command panel moves onto the panel's buttons, and pushing back returns to the board.
-// A places the chosen command (again takes it back) or presses the highlighted button, B removes / goes back,
-// LB / RB pick the command, Y Go / pause, X restart, Select fast, Start levels.
-G.gp = null;     // { x, y, n, zone: "board" | "panel" }
+// On a tile, A opens a picker around it: the d-pad places that arrow, A jump, X plank, B removes (or closes).
+// On the panel, A presses the highlighted button. B removes / goes back, LB / RB pick the command,
+// Y Go / pause, X restart, Select fast, Start levels. The Controller button lists all of this.
+G.gp = null;     // { x, y, n, zone: "board" | "panel", pick: null | { x, y } }
 function gpStartTile() {
   const W = G.W, i = W.tiles.indexOf("S");
   return i >= 0 ? { x: i % W.w, y: Math.floor(i / W.w) } : { x: Math.floor(W.w / 2), y: Math.floor(W.h / 2) };
@@ -1104,6 +1105,7 @@ function gpToBoard(el) {
 function gpMove(dx, dy, dir) {
   const c = gpCur(); if (!c) return;
   Sound.unlock();
+  if (c.pick) return gpPlace({ up: "U", right: "R", down: "D", left: "L" }[dir]);
   if (c.zone === "panel") {
     const cur = GamePad.current($("panel"));
     if (!cur) return gpToBoard($("panel"));
@@ -1120,14 +1122,41 @@ function gpCycle(step) {
   const i = t.indexOf(G.tool);
   selectTool(t[i < 0 ? (step > 0 ? 0 : t.length - 1) : (i + step + t.length) % t.length]); Sound.unlock(); Sound.tick();
 }
+// ---- the command picker that opens on a tile ----
+function gpHas(tool) { const k = TOOL_KIND[tool]; return (G.level.tools[k] || 0) > 0; }
+function gpCan(tool) {
+  const p = G.gp.pick, i = p.y * G.W.w + p.x, had = G.cmds.get(i);
+  if (!gpHas(tool) || !canPlace(G.W, p.x, p.y, tool)) return false;
+  return had === tool || left(TOOL_KIND[tool]) + (had && TOOL_KIND[had] === TOOL_KIND[tool] ? 1 : 0) > 0;
+}
+function gpOpenPick(c) {
+  if (G.mode === "done") return;
+  c.pick = { x: c.x, y: c.y, t: G.time }; Sound.tick(); $("hint").classList.add("gone");
+}
+function gpClosePick() { if (G.gp) G.gp.pick = null; }
+function gpPlace(tool) {
+  const c = G.gp, p = c && c.pick; if (!p) return;
+  if (!gpHas(tool)) return;                               // that command isn't in this level
+  const i = p.y * G.W.w + p.x;
+  if (G.cmds.get(i) === tool) { gpClosePick(); Sound.tick(); return; }   // already there
+  if (!gpCan(tool)) { flash(p.x, p.y, "no"); Sound.no(); if (left(TOOL_KIND[tool]) <= 0) nudgeCount(TOOL_KIND[tool]); return; }
+  selectTool(tool); tapTile(p.x, p.y); gpClosePick();
+}
 function gpA() {
   const c = gpCur(); if (!c) return;
   Sound.unlock();
+  if (c.pick) return gpPlace("J");
   if (c.zone === "panel") { const el = GamePad.current($("panel")); if (el) el.click(); else gpToBoard($("panel")); return; }
-  if (G.mode !== "done") tapTile(c.x, c.y);
+  gpOpenPick(c);
 }
 function gpB() {
   const c = gpCur(); if (!c) return;
+  if (c.pick) {
+    const p = c.pick, had = G.cmds.get(p.y * G.W.w + p.x);
+    gpClosePick();
+    if (had && G.mode !== "done") { const t = G.tool; G.tool = "X"; tapTile(p.x, p.y); G.tool = t; } else Sound.tick();
+    return;
+  }
   if (c.zone === "panel") { const el = GamePad.current($("panel")); return el ? gpToBoard(el) : (c.zone = "board"); }
   if (G.mode === "done" || !G.cmds.has(c.y * G.W.w + c.x)) return;
   const t = G.tool; G.tool = "X"; tapTile(c.x, c.y); G.tool = t;
@@ -1148,16 +1177,73 @@ function drawGpCursor() {
   ctx.fillStyle = "#fff"; ctx.fill();
   ctx.shadowColor = "transparent"; ctx.lineWidth = Math.max(1.5, s * 0.045); ctx.strokeStyle = "#1b2142"; ctx.lineJoin = "round"; ctx.stroke();
   ctx.restore();
+  if (c.pick) drawGpPicker(c.pick);
+}
+// the picker: four arrows around the tile, jump (A) and plank (X) below, remove (B) above when the tile has a command
+function drawGpPicker(p) {
+  const v = G.view, s = v.s, W = G.W;
+  if (p.x !== G.gp.x || p.y !== G.gp.y) { G.gp.pick = null; return; }
+  const cw = cv.clientWidth, ch = cv.clientHeight;
+  const r = Math.max(19, Math.min(30, s * 0.42)), d = Math.max(s, r * 2.25);
+  const grow = Math.min(1, (G.time - p.t) / 0.12);
+  let cx = v.ox + (p.x + 0.5) * s, cy = v.oy + (p.y + 0.5) * s;
+  cx = Math.max(d + r + 4, Math.min(cw - d - r - 4, cx)); cy = Math.max(d + r + 4, Math.min(ch - d - r - 4, cy));
+  const had = G.cmds.get(p.y * W.w + p.x);
+  const items = [["U", 0, -1], ["R", 1, 0], ["D", 0, 1], ["L", -1, 0]];
+  if (gpHas("J")) items.push(["J", 0.78, 0.78, "A"]);
+  if (gpHas("P")) items.push(["P", -0.78, 0.78, "X"]);
+  if (had) items.push(["X", 0.78, -0.78, "B"]);
+  ctx.save(); ctx.setTransform(v.dpr, 0, 0, v.dpr, 0, 0);
+  // dim the board a little and ring the tile
+  ctx.fillStyle = "rgba(10,12,30,.35)"; ctx.beginPath(); ctx.arc(cx, cy, (d + r + 6) * grow, 0, Math.PI * 2); ctx.fill();
+  for (const [t, ox, oy, btn] of items) {
+    const x = cx + ox * d * grow, y = cy + oy * d * grow, ok = t === "X" || gpCan(t) || had === t, on = had === t;
+    ctx.globalAlpha = ok ? 1 : 0.4;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = t === "X" ? "#7a2a3a" : on ? "#ffd166" : "#2b3160"; ctx.fill();
+    ctx.lineWidth = 2.5; ctx.strokeStyle = "#ffd166"; ctx.stroke();
+    ctx.fillStyle = on ? "#1b2142" : "#fff"; ctx.strokeStyle = ctx.fillStyle;
+    gpGlyph(t, x, y, r * 0.62);
+    // which button picks it
+    const label = btn || ({ U: "↑", R: "→", D: "↓", L: "←" })[t];
+    const bx = x + r * 0.72, by = y + r * 0.72, br = Math.max(8, r * 0.38);
+    ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2);
+    ctx.fillStyle = { A: "#2f9e5a", B: "#d64545", X: "#3d6fd6" }[btn] || "#ffd166"; ctx.fill();
+    ctx.fillStyle = btn ? "#fff" : "#1b2142"; ctx.font = `700 ${Math.round(br * 1.25)}px system-ui, sans-serif`;
+    ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(label, bx, by + 0.5);
+  }
+  ctx.globalAlpha = 1; ctx.restore();
+}
+function gpGlyph(t, x, y, u) {
+  ctx.save(); ctx.translate(x, y);
+  if (DIR[t]) {
+    ctx.rotate({ U: 0, R: Math.PI / 2, D: Math.PI, L: -Math.PI / 2 }[t]);
+    ctx.beginPath(); ctx.moveTo(0, -u); ctx.lineTo(u * 0.85, 0); ctx.lineTo(u * 0.35, 0); ctx.lineTo(u * 0.35, u);
+    ctx.lineTo(-u * 0.35, u); ctx.lineTo(-u * 0.35, 0); ctx.lineTo(-u * 0.85, 0); ctx.closePath(); ctx.fill();
+  } else if (t === "J") {
+    ctx.lineWidth = u * 0.22; ctx.lineCap = "round"; ctx.lineJoin = "round";
+    ctx.beginPath(); ctx.moveTo(-u, u * 0.6); ctx.quadraticCurveTo(-u * 0.2, -u * 1.1, u * 0.8, -u * 0.2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(u * 0.8, -u * 0.8); ctx.lineTo(u * 0.8, -u * 0.2); ctx.lineTo(u * 0.2, -u * 0.2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-u, u); ctx.lineTo(-u * 0.4, u); ctx.moveTo(u * 0.4, u); ctx.lineTo(u, u); ctx.stroke();
+  } else if (t === "P") {
+    ctx.fillStyle = "#c8945a"; ctx.fillRect(-u, -u * 0.35, u * 2, u * 0.7);
+    ctx.strokeStyle = "#5a3a1a"; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(-u * 0.35, -u * 0.35); ctx.lineTo(-u * 0.35, u * 0.35); ctx.moveTo(u * 0.35, -u * 0.35); ctx.lineTo(u * 0.35, u * 0.35); ctx.stroke();
+  } else {
+    ctx.lineWidth = u * 0.26; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(-u * 0.6, -u * 0.6); ctx.lineTo(u * 0.6, u * 0.6); ctx.moveTo(u * 0.6, -u * 0.6); ctx.lineTo(-u * 0.6, u * 0.6); ctx.stroke();
+  }
+  ctx.restore();
 }
 {
   const step = (dx, dy, dir) => ({ fn: d => { if (d) gpMove(dx, dy, dir); }, repeat: true });
   GamePad.init({
     map: { up: step(0, -1, "up"), down: step(0, 1, "down"), left: step(-1, 0, "left"), right: step(1, 0, "right"),
       a: d => { if (d) gpA(); }, b: d => { if (d) gpB(); },
-      lb: d => { if (d) gpCycle(-1); }, rb: d => { if (d) gpCycle(1); },
-      y: d => { if (d) go(); }, x: d => { if (d) { Sound.unlock(); resetRun(); } },
+      lb: d => { if (d) { gpClosePick(); gpCycle(-1); } }, rb: d => { if (d) { gpClosePick(); gpCycle(1); } },
+      y: d => { if (!d) return; if (G.gp && G.gp.pick) return gpClosePick(); go(); },
+      x: d => { if (!d) return; if (G.gp && G.gp.pick) return gpPlace("P"); Sound.unlock(); resetRun(); },
       select: d => { if (d) { G.fast = !G.fast; updateUI(); } },
-      start: d => { if (!d) return; if ($("menu").hidden) { if (G.gp) G.gp.zone = "board"; GamePad.mark(null); openMenu(); } else if (G.level) closeMenu(); } },
+      start: d => { if (!d) return; gpClosePick(); if ($("menu").hidden) { if (G.gp) G.gp.zone = "board"; GamePad.mark(null); openMenu(); } else if (G.level) closeMenu(); } },
     menu: () => !$("menu").hidden ? $("menu") : !$("result").hidden ? $("result") : null,
     // the level picker opens on the level Play / Continue / Resume would start
     menuFirst: box => {
@@ -1166,8 +1252,21 @@ function drawGpCursor() {
       const want = go === "resume" ? btns.find(b => b.classList.contains("cur")) : btns[+go];
       return want && !want.disabled ? want : null;
     },
-    menuBack: d => { if (d && !$("menu").hidden && G.level) closeMenu(); }
+    menuBack: d => { if (d && !$("menu").hidden && G.level) closeMenu(); },
+    onHelp: open => { if (open) { gpClosePick(); if (G.mode === "run") { G.mode = "pause"; if (G.level) updateUI(); } } },
+    help: ["On the board",
+      ["↑ ↓ ← → / Stick", "Move the pointer (push past the board's edge to reach the buttons)"],
+      ["A", "Open the command picker on the tile"],
+      ["B", "Remove the command on the tile"],
+      ["LB / RB", "Choose the command highlighted in the panel"],
+      ["Y", "Go / Pause"], ["X", "Restart the run"], ["Select", "Fast on / off"], ["Start", "Levels"],
+      "In the command picker",
+      ["↑ ↓ ← →", "Place that arrow"], ["A", "Jump"], ["X", "Plank"], ["B", "Remove (or close)"], ["Y", "Close"],
+      "In menus",
+      ["↑ ↓ ← →", "Move the highlight"], ["A", "Press"], ["B", "Back"]]
   });
+  $("btnLevels").after(GamePad.settingsButton("pill", '<span class="long">🎮 Controller</span><span class="short">🎮</span>'));
+  $("btnResetProgress").before(GamePad.settingsButton("pill"));
 }
 
 // ---------- Menu ----------
