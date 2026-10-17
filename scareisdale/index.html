@@ -226,7 +226,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <script>
 (() => {
 'use strict';
-const VERSION = 'v3.7';
+const VERSION = 'v3.8';
 document.getElementById('verBar').textContent = VERSION;
 document.getElementById('verOverlay').textContent = VERSION;
 const TS = 16, VW = 384, VH = 240, ROWS = 15;
@@ -1139,18 +1139,18 @@ function buildRoom(key) {
     row(3, 9, 'BBBBB  BBBBB');
     row(3, 11, 'oooooooooooo');
     Sx(11, 5, 'h'); Sx(16, 9, 'H'); Sx(17, 8, 'o');
-  } else if (key === 'tomb') {   // bump the hidden blocks to make steps up to the ledge
+  } else if (key === 'tomb') {   // bump the hidden blocks to make steps up to the ledge; golden mice sit a row below the roof so they can rise out
     row(3, 11, 'oooooo');
     Sx(4, 9, 'H'); Sx(8, 9, 'H'); Sx(12, 9, 'H');
-    row(10, 5, '=====');
-    row(10, 3, 'ooooo');
-    Sx(12, 2, 'h'); Sx(16, 9, 'G');
+    row(10, 6, '=====');
+    row(10, 4, 'ooooo');
+    Sx(12, 3, 'h'); Sx(16, 9, 'G');
   } else if (key === 'library') {
     row(2, 11, 'ooo');
     Sx(5, 9, 'H'); row(8, 9, 'B?B'); Sx(13, 9, 'H');
-    row(11, 5, '=====');
-    row(11, 3, 'ooooo');
-    Sx(13, 2, 'h'); Sx(16, 9, 'P');
+    row(11, 6, '=====');
+    row(11, 4, 'ooooo');
+    Sx(13, 3, 'h'); Sx(16, 9, 'P');
   } else if (key === 'treasury') {
     row(3, 11, 'oooooooooooooo');
     row(3, 8, 'BHBBHBB');
@@ -1160,7 +1160,7 @@ function buildRoom(key) {
     Sx(5, 10, 'H'); Sx(8, 7, 'H');
     row(11, 6, '=====');
     row(11, 4, 'ooooo');
-    Sx(13, 2, 'h');
+    Sx(13, 3, 'h');
     row(10, 11, 'ooooooo');
     Sx(16, 9, 'P');
   }
