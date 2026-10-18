@@ -411,7 +411,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 
     <div class="result" id="result" hidden>
       <p class="res-line" id="resLine">Out of guesses</p>
-      <p class="res-title">Final Word:</p>
+      <p class="res-title" id="resTitle">Final Word:</p>
       <div class="res-row">
         <p class="res-word" id="resWord"></p>
         <div class="res-btns">
@@ -539,7 +539,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.24";
+const VERSION = "v2.25";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
@@ -742,6 +742,7 @@ function paintStatus() {
   // wide screens show the result big, under the settings
   app.classList.toggle("ended", shown && !note);
   $("result").hidden = !shown;
+  $("resTitle").textContent = G.daily ? "Daily Wordle Word:" : "Final Word:";
   $("result").classList.toggle("won", !!G.won);
   $("resLine").textContent = G.won ? "Solved in " + G.guesses.length + (G.guesses.length === 1 ? " guess!" : " guesses!") : "Out of guesses";
   // build the word as separate letters once per finished game, so the pop-out plays when it first appears
