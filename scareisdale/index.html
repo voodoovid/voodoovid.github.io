@@ -244,7 +244,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <script>
 (() => {
 'use strict';
-const VERSION = 'v5.7';
+const VERSION = 'v5.8';
 document.getElementById('verBar').textContent = VERSION;
 document.getElementById('verOverlay').textContent = VERSION;
 const TS = 16, VW = 384, VH = 240, ROWS = 15;
@@ -944,12 +944,34 @@ function drawLift(e, x, y) {
   if (e.fall) { ctx.fillStyle = 'rgba(255,120,40,.5)'; ctx.fillRect(x + 2, y + 6, w - 4, 1); }
 }
 // testing aid (level select switch): outline hidden blocks and mark the bricks that hold something
+const pathTags = [];
 const HIDDEN_TAG = { H: 'KIB', h: '1UP', S: 'NIP', M: 'K10', V: 'IVY' };
 function drawHiddenTag(px, py, tag) {
   ctx.save();
   ctx.strokeStyle = '#3ddc84'; ctx.lineWidth = 1; ctx.setLineDash([2, 2]); ctx.strokeRect(px + 0.5, py + 0.5, TS - 1, TS - 1); ctx.setLineDash([]);
   ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(px + 1, py + 5, TS - 2, 7);
   ctx.fillStyle = '#3ddc84'; ctx.font = 'bold 6px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(tag, px + TS / 2, py + 8.8);
+  ctx.restore();
+}
+// test mode: name where each drum or pillar leads (or which one you climb out of)
+function pathTagText(tx) {
+  const dest = entriesFor()[tx];
+  if (dest) {
+    if (dest.room) return '\u2193 ' + dest.room.toUpperCase();
+    if (dest.warp !== undefined) return '\u2193 WARP ' + (Math.floor(dest.warp / 4) + 1) + '-' + (dest.warp % 4 + 1);
+    if (dest.main !== undefined) return '\u2193 BACK';
+    return '\u2193 SECRET';
+  }
+  if (area === 'main') for (const k in (L.entries || {})) { const r = L.entries[k].room, back = r && ENTRIES[r] && Object.values(ENTRIES[r]).find(v => v.main !== undefined); if (back && back.main === tx) return '\u2191 OUT OF ' + r.toUpperCase(); }
+  return null;
+}
+function drawPathTag(px, py, text) {
+  ctx.save();
+  ctx.strokeStyle = '#3ddc84'; ctx.lineWidth = 1; ctx.setLineDash([2, 2]); ctx.strokeRect(px + 0.5, py + 0.5, TS * 2 - 1, TS - 1); ctx.setLineDash([]);
+  ctx.font = 'bold 6px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const w = ctx.measureText(text).width + 4, cxp = px + TS;
+  ctx.fillStyle = 'rgba(0,0,0,.7)'; ctx.fillRect(Math.round(cxp - w / 2), py - 9, Math.ceil(w), 8);
+  ctx.fillStyle = '#3ddc84'; ctx.fillText(text, cxp, py - 4.6);
   ctx.restore();
 }
 // ivy twisting up out of its brick
@@ -4367,7 +4389,10 @@ function render() {
       case 'o': drawKibble(px, py, clock * 4 + tx * 0.4); break;
     }
     if (showHidden && HIDDEN_TAG[c]) drawHiddenTag(px, py, HIDDEN_TAG[c]);
+    if (showHidden && c === 'D' && grid[ty][tx - 1] !== 'D' && (ty === 0 || grid[ty - 1][tx] !== 'D')) { const t = pathTagText(tx); if (t) pathTags.push([px, py, t]); }
   }
+  for (const [px, py, t] of pathTags) drawPathTag(px, py, t);
+  pathTags.length = 0;
   // flagpole (or the keeper's lever) & the exit
   const pxp = POLE_X - cx;
   if (area === 'room' && roomKey === 'sky') drawWarpSigns(cx);
