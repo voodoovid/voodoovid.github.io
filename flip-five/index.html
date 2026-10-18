@@ -226,8 +226,14 @@ button { cursor: pointer; }
 .key.miss { background: var(--dead); color: #5f6676; box-shadow: inset 0 0 0 1px #23272f; }
 
 /* ---- dialogs ---- */
+/* Dialogs sit in the top layer, which ignores the page's safe-area padding, so keep them clear of the
+   Dynamic Island / notch, the home bar and the side insets in landscape, and centre them in what's left */
 dialog {
-  width: min(460px, calc(100% - 32px)); max-height: calc(100% - 24px); padding: 0; overflow: auto;
+  --dt: calc(var(--safe-top, env(safe-area-inset-top, 0px)) + 8px); --db: calc(env(safe-area-inset-bottom, 0px) + 8px);
+  --dl: calc(env(safe-area-inset-left, 0px) + 16px); --dr: calc(env(safe-area-inset-right, 0px) + 16px);
+  position: fixed; inset: var(--dt) var(--dr) var(--db) var(--dl); margin: auto;
+  width: min(460px, calc(100vw - var(--dl) - var(--dr))); max-height: calc(100dvh - var(--dt) - var(--db)); padding: 0; overflow: auto;
+  overscroll-behavior: contain;
   background: var(--housing); color: var(--ink); border: 1px solid var(--flap-line); border-radius: 10px;
   font: 16px/1.45 var(--font-body);
 }
@@ -261,6 +267,35 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 .dist i { font-style: normal; width: 1ch; color: var(--dim); }
 .dist span { min-width: 26px; padding: 4px 7px; text-align: right; background: var(--flap); border-radius: 3px; }
 .dist span.now { background: var(--hit); color: var(--hit-ink); }
+#dlgStats .cols { display: flex; flex-direction: column; gap: 14px; }
+#dlgStats section { display: flex; flex-direction: column; gap: inherit; }
+#dlgStats section + section h3.sec { margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--flap-line); }
+/* phones: tighten Statistics so it fits below the Dynamic Island without scrolling */
+@media (max-height: 1000px) {
+  #dlgStats .cols, #dlgStats section { gap: 9px; }
+  #dlgStats section + section h3.sec { margin-top: 4px; padding-top: 9px; }
+  #dlgStats .sheet { gap: 9px; padding: 14px 16px 16px; }
+  #dlgStats .sheet h2 { font-size: 22px; }
+  #dlgStats .sheet h3.sec { margin-top: 4px; padding-top: 9px; }
+  #dlgStats .nums { gap: 6px 8px; }
+  #dlgStats .nums b { font-size: 28px; }
+  #dlgStats .nums span { font-size: 11px; }
+  #dlgStats .dist { gap: 3px; font-size: 14px; }
+  #dlgStats .dist span { padding: 2px 7px; }
+  #dlgStats .ghost { height: 34px; }
+}
+/* phones in landscape: New words and Today's Wordle side by side */
+@media (orientation: landscape) and (max-height: 600px) {
+  #dlgStats { width: min(760px, calc(100vw - var(--dl) - var(--dr))); }
+  #dlgStats .sheet { gap: 8px; padding: 10px 16px 12px; }
+  #dlgStats .cols { flex-direction: row; gap: 24px; }
+  #dlgStats section { flex: 1; min-width: 0; gap: 7px; }
+  #dlgStats section + section h3.sec { margin-top: 0; padding-top: 0; border-top: 0; }
+  #dlgStats .nums b { font-size: 24px; }
+  #dlgStats .dist { gap: 2px; font-size: 13px; }
+  #dlgStats .dist span { padding: 1px 6px; }
+  #dlgStats .ghost { height: 30px; }
+}
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
@@ -402,6 +437,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <dialog id="dlgStats" aria-labelledby="hStats">
   <div class="sheet">
     <header><h2 id="hStats">Statistics</h2><button class="ib" type="button" data-close>Close</button></header>
+    <div class="cols"><section>
     <h3 class="sec">New words</h3>
     <div class="nums">
       <div><b id="nPlayed">0</b><span>Played</span></div>
@@ -413,6 +449,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
     </div>
     <h3>Guesses needed</h3>
     <div class="dist" id="dist"></div>
+    </section><section>
     <h3 class="sec daily">Today's Wordle</h3>
     <div class="nums">
       <div><b id="wTried">0</b><span>Attempted</span></div>
@@ -424,6 +461,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
     </div>
     <h3>Guesses needed</h3>
     <div class="dist" id="wDist"></div>
+    </section></div>
     <button class="ghost" id="btnReset" type="button">Reset statistics</button>
     <div class="ask" id="resetAsk" hidden>
       <span>Erase every result on this device?</span>
@@ -488,7 +526,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.19";
+const VERSION = "v2.20";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
