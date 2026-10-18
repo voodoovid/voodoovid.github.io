@@ -244,7 +244,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <script>
 (() => {
 'use strict';
-const VERSION = 'v5.4';
+const VERSION = 'v5.5';
 document.getElementById('verBar').textContent = VERSION;
 document.getElementById('verOverlay').textContent = VERSION;
 const TS = 16, VW = 384, VH = 240, ROWS = 15;
@@ -616,6 +616,146 @@ function drawBat(e) {
   blob('#4a2a66', poly([-2.2, -6.2, -1.6, -9, -0.6, -6.6]), 0.4); blob('#4a2a66', poly([2.2, -6.2, 1.6, -9, 0.6, -6.6]), 0.4);
   if (e.dead) { xEye(-1, -4.8, 0.6); xEye(1.2, -4.8, 0.6); } else { dot('#ff3d6e', -1, -4.8, 0.6); dot('#ff3d6e', 1.2, -4.8, 0.6); }
   ctx.fillStyle = '#ffffff'; ctx.fillRect(-0.8, -3, 0.5, 0.9); ctx.fillRect(0.4, -3, 0.5, 0.9);
+}
+// ---- nights 3 and 4: the newer monsters ----
+// a pale-eyed eel that arcs out of the water and back in (it tips with its leap)
+function drawEel(e) {
+  const dir = e.vx < 0 ? -1 : 1, ang = e.dead ? 0 : Math.atan2(e.vy, Math.abs(e.vx) || 1) * 0.8;
+  ctx.translate(0, -4); ctx.scale(dir, 1); ctx.rotate(ang);
+  const w = Math.sin(clock * 14) * 1.2;
+  blob('#2a5a5a', () => { ctx.moveTo(7, 0); ctx.quadraticCurveTo(3, -4.2, -3, -2.4 + w * 0.5); ctx.quadraticCurveTo(-7, -1 + w, -10, -2.6 + w); ctx.lineTo(-9, 0.4 + w); ctx.quadraticCurveTo(-5, 2.6, 0, 2.6); ctx.quadraticCurveTo(5, 2.6, 7, 0); });
+  ctx.fillStyle = '#9fe0c8'; ctx.beginPath(); ctx.moveTo(5, 1.2); ctx.quadraticCurveTo(0, 2.4, -6, 1.2); ctx.lineTo(-6, 0.6); ctx.quadraticCurveTo(0, 1.6, 5, 0.6); ctx.fill();
+  blob('#3f7a72', poly([-1, -3.2, 2, -5.4, 3.6, -3.4]), 0.5);
+  if (e.dead) xEye(4, -1.2, 0.8); else { dot('#e8f8ff', 4, -1.2, 1.1); dot(INK, 4.4, -1.2, 0.45); }
+  ctx.fillStyle = '#ffffff'; for (const x of [5.2, 6.2]) { ctx.beginPath(); ctx.moveTo(x, 0.6); ctx.lineTo(x + 0.5, 0.6); ctx.lineTo(x + 0.25, 1.6); ctx.fill(); }
+}
+// a ragged crow: hunched on its perch, wings wide when it dives
+function drawCrow(e) {
+  const dir = (e.mode === 'perch' ? Math.sign(P.x - e.x) : e.dir) || -1; ctx.scale(dir, 1);
+  if (e.mode === 'perch' && !e.dead) {
+    const bob = Math.sin(clock * 3 + e.x) * 0.4;
+    limb(-1, -2.4, -1.2, 0, '#c8a040', 0.6); limb(1, -2.4, 1.2, 0, '#c8a040', 0.6);
+    blob('#2c2640', poly([-6.6, -3, -2, -4, -2, -2.4]), 0.5);
+    blob('#3c3552', E(0, -5 + bob, 4, 3.4, -0.3));
+    blob('#3c3552', C(3, -8.6 + bob, 2.6));
+    blob('#c8a040', poly([5, -9.2 + bob, 8.6, -8.4 + bob, 5, -7.4 + bob]), 0.5);
+    dot('#ffe14a', 3.6, -9.2 + bob, 0.7); dot(INK, 3.8, -9.2 + bob, 0.3);
+    return;
+  }
+  const f = e.dead ? 0 : Math.sin(clock * (e.mode === 'dive' ? 10 : 20)) * 3.6;
+  blob('#2c2640', poly([-5.6, -5, -9, -6.4, -8.6, -3.6]), 0.5);
+  for (const s of [-1, 1]) blob(s < 0 ? '#2c2640' : '#463e5e', () => { ctx.moveTo(-2, -5.6); ctx.quadraticCurveTo(s * 1 - 2, -11 - f * s, 2.6, -12 - f * s); ctx.lineTo(1.6, -9 - f * 0.5 * s); ctx.lineTo(3, -7.6); ctx.closePath(); }, 0.5);
+  blob('#3c3552', E(0, -5, 4.4, 2.8));
+  blob('#3c3552', C(4.2, -6.2, 2.4));
+  blob('#c8a040', poly([6, -6.8, 9.6, -5.8, 6, -5]), 0.5);
+  if (e.dead) xEye(4.8, -6.8, 0.6); else { dot('#ffe14a', 4.8, -6.8, 0.7); dot(INK, 5, -6.8, 0.3); }
+}
+// a runaway mine cart: rusty iron box on rattling wheels, two eyes glowing from the ore heap inside
+function drawCart(e) {
+  const dir = e.vx < 0 ? -1 : 1, rattle = e.dead ? 0 : Math.sin(clock * 40) * 0.4; ctx.scale(dir, 1); ctx.translate(0, rattle);
+  for (const x of [-4.6, 4.6]) { blob('#3a3440', C(x, -2.6, 2.6), 0.8); ctx.save(); ctx.translate(x, -2.6); ctx.rotate(e.anim * 14 * dir); ctx.strokeStyle = '#8a8496'; ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(-1.8, 0); ctx.lineTo(1.8, 0); ctx.moveTo(0, -1.8); ctx.lineTo(0, 1.8); ctx.stroke(); ctx.restore(); }
+  blob('#4a3a46', () => { ctx.moveTo(-7.4, -4.4); ctx.lineTo(-8.2, -10.6); ctx.lineTo(8.2, -10.6); ctx.lineTo(7.4, -4.4); ctx.closePath(); }, 0.9);
+  blob('#5a4a4a', () => { ctx.moveTo(-6.6, -10.6); ctx.quadraticCurveTo(-3, -14.6, 0, -13); ctx.quadraticCurveTo(3, -15, 6.6, -10.6); ctx.closePath(); }, 0.6);
+  ctx.fillStyle = '#ffd23f'; for (const [x, y] of [[-3, -12.2], [2.6, -12.6], [4.6, -11.4]]) ctx.fillRect(x, y, 1, 1);
+  ctx.fillStyle = '#8a4a2a'; ctx.fillRect(-8, -9, 16, 1); ctx.fillRect(-7.6, -6.4, 15.2, 1);
+  ctx.fillStyle = '#c8a040'; for (const x of [-6.4, -2, 2, 6.4]) ctx.fillRect(x - 0.4, -10.2, 0.8, 0.8);
+  if (e.dead) { xEye(-1.6, -12.6, 0.7); xEye(1.8, -12.6, 0.7); }
+  else if ((clock * 1.3 + e.x) % 4 > 0.15) { dot('rgba(255,90,40,.35)', 0, -12.6, 3); dot('#ff5a28', -1.6, -12.6, 0.7); dot('#ff5a28', 1.8, -12.6, 0.7); }
+}
+// a wax figure: a waxwork gentleman with a melting face; it freezes in place whenever Pancake does
+function drawWax(e) {
+  ctx.scale(e.dir > 0 ? 1 : -1, 1);
+  const ph = e.moving ? e.anim * 7 : 0;
+  for (const s of [-1, 1]) limb(s * 1.6, -7, s * 1.6 + Math.sin(ph) * s * 1.6, -0.8, '#2a2236', 1.7);
+  blob('#3a2a4e', poly([-4, -13.4, 4, -13.4, 4.6, -6, -4.6, -6]));
+  ctx.fillStyle = '#e8304a'; ctx.fillRect(-0.6, -13, 1.2, 4.6);
+  limb(-3.4, -12.4, -4.4 + (e.moving ? 0 : 1), -7.6, '#3a2a4e', 1.4); limb(3.4, -12.4, 6.2, e.moving ? -13 : -9, '#3a2a4e', 1.4);
+  blob('#f3e2c0', C(6.4, e.moving ? -13.2 : -9, 1), 0.5);
+  blob('#f3e2c0', () => { ctx.moveTo(-3.6, -16); ctx.arc(0, -17.2, 3.8, Math.PI * 0.95, Math.PI * 2.05); ctx.lineTo(3.4, -15); ctx.quadraticCurveTo(2.4, -12.4, 1.6, -14.6); ctx.quadraticCurveTo(0.6, -12, -0.4, -14.4); ctx.quadraticCurveTo(-2, -13.4, -3.6, -15); ctx.closePath(); });
+  blob('#2a2236', () => { ctx.rect(-3.4, -24, 6.8, 3.6); }, 0.6); blob('#2a2236', E(0, -20.6, 4.8, 0.9), 0.5);
+  if (e.dead) { xEye(-1.4, -17.4, 0.7); xEye(1.6, -17.4, 0.7); }
+  else { const look = e.moving ? 0.4 : 0; dot(INK, -1.4 + look, -17.4, 0.7); dot(INK, 1.6 + look, -17.6, 0.55); dot('#ff3d6e', -1.4 + look, -17.4, 0.25); }
+  ctx.strokeStyle = '#8a0f2a'; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(-1.4, -15.2); ctx.lineTo(1.8, -15.6); ctx.stroke();
+  ctx.fillStyle = '#e8d2a8'; const d = (clock * 3 + e.x) % 4; ctx.fillRect(2.6, -15 + d, 0.8, 1.2);   // a drip
+}
+// a warty brew toad with bulging eyes; its tongue lashes out in front of it
+function drawToad(e) {
+  ctx.scale(e.dir > 0 ? 1 : -1, 1);
+  const air = !e.onGround && !e.dead, sq = e.cd < 0.2 && e.onGround ? 0.9 : 1;
+  ctx.scale(1, air ? 1.1 : sq);
+  if (e.tongue > 0 && !e.dead) {
+    const reach = 30 * Math.sin(Math.min(1, (0.42 - e.tongue) / 0.42) * Math.PI);
+    limb(5, -6.4, 7 + reach, -6.4, '#ff7ac8', 1.4); blob('#ff4f8b', C(7 + reach, -6.4, 1.6), 0.6);
+  }
+  for (const s of [-1, 1]) blob('#4a7a2a', E(s * 5, -1.4, 2.8, 1.6), 0.6);
+  blob('#5f8f36', () => { ctx.moveTo(-7, -1); ctx.quadraticCurveTo(-7.6, -10, 0, -10); ctx.quadraticCurveTo(7, -10, 7.2, -4); ctx.quadraticCurveTo(7, -0.4, 0, -0.4); ctx.closePath(); });
+  blob('#d8e0a0', E(1.4, -2.8, 4.6, 2.2), 0.4);
+  ctx.fillStyle = '#3f6a22'; for (const [x, y] of [[-4, -6], [-1.6, -8], [-5, -3.6], [1, -6.6]]) { ctx.beginPath(); ctx.arc(x, y, 0.7, 0, 7); ctx.fill(); }
+  for (const x of [1.4, 5]) { blob('#5f8f36', C(x, -9.6, 2), 0.6); if (e.dead) xEye(x, -9.8, 0.7); else { dot('#ffe14a', x, -9.8, 1.2); ctx.fillStyle = INK; ctx.fillRect(x - 0.9, -10.1, 1.8, 0.6); } }
+  ctx.strokeStyle = INK; ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(0.6, -6.6); ctx.quadraticCurveTo(4.4, -5.4, 7, -6.6); ctx.stroke();
+}
+// a lean grey wolf with burning eyes; it slinks, crouches, then leaps
+function drawWolf(e) {
+  ctx.scale(e.dir > 0 ? 1 : -1, 1);
+  const crouch = e.mode === 'crouch' ? 2 : 0, leap = e.mode === 'leap', ph = e.anim * (leap ? 0 : 8);
+  ctx.translate(0, crouch * 0.5);
+  if (leap && !e.dead) ctx.rotate(clamp(e.vy * 0.0012, -0.35, 0.35));
+  for (const [lx, o] of [[-5, 0], [-3.4, 2], [3.6, 1], [5.2, 3]]) {
+    const a = leap ? (lx > 0 ? -0.9 : 0.9) : e.dead ? 0 : Math.sin(ph + o) * 0.5;
+    limb(lx, -6.4 + crouch, lx + Math.sin(a) * 5, -6.4 + crouch + Math.cos(a) * (5.6 - crouch), '#5a5a6e', 1.3);
+  }
+  blob('#6a6a80', () => { ctx.moveTo(-7.4, -8 + crouch); ctx.quadraticCurveTo(-11, -11 + crouch, -11.6, -7 + crouch); ctx.quadraticCurveTo(-10, -8 + crouch, -7.4, -6 + crouch); ctx.closePath(); }, 0.6);
+  blob('#7a7a92', E(0, -8.2 + crouch, 7.4, 3.4));
+  ctx.strokeStyle = '#4a4a5e'; ctx.lineWidth = 0.5; ctx.beginPath(); for (let i = -4; i <= 3; i += 1.6) { ctx.moveTo(i, -11.4 + crouch); ctx.lineTo(i + 0.8, -10 + crouch); } ctx.stroke();
+  const hx = 7.4, hy = -11 + crouch * 1.4;
+  blob('#7a7a92', poly([hx - 3, hy - 2, hx - 2.4, hy - 6.6, hx - 0.4, hy - 2.6]), 0.6);
+  blob('#7a7a92', () => { ctx.moveTo(hx - 3.6, hy + 2); ctx.quadraticCurveTo(hx - 3.6, hy - 3.6, hx + 0.6, hy - 2.6); ctx.lineTo(hx + 5.6, hy + 0.6); ctx.lineTo(hx + 5, hy + 2.4); ctx.quadraticCurveTo(hx, hy + 3.6, hx - 3.6, hy + 2); });
+  dot(INK, hx + 5.4, hy + 0.8, 0.6);
+  if (e.dead) xEye(hx + 0.4, hy - 0.6, 0.8);
+  else { dot('rgba(255,90,40,.4)', hx + 0.4, hy - 0.6, 1.8); dot('#ff5a28', hx + 0.4, hy - 0.6, 0.8); }
+  if (e.mode !== 'prowl' && !e.dead) { ctx.fillStyle = '#ffffff'; for (const x of [hx + 2, hx + 3.6]) { ctx.beginPath(); ctx.moveTo(x, hy + 2.2); ctx.lineTo(x + 0.7, hy + 2.2); ctx.lineTo(x + 0.35, hy + 3.4); ctx.fill(); } }
+}
+// a sewer rat: small, fast, pink tail whipping behind it
+function drawRat(e) {
+  const dir = e.vx < 0 ? -1 : 1, ph = e.anim * 30; ctx.scale(dir, 1);
+  ctx.strokeStyle = '#e09aa8'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(-4, -2.6); ctx.quadraticCurveTo(-8, -5 + Math.sin(ph * 0.5) * 2, -11, -2 + Math.sin(ph * 0.5 + 1) * 1.6); ctx.stroke();
+  for (const s of [-1, 1]) limb(s * 2.4, -1.6, s * 2.4 + Math.sin(ph) * s * 1.2, 0, '#5a4a52', 0.8);
+  blob('#6a5a62', E(0, -3.4, 5, 2.8));
+  blob('#6a5a62', poly([3, -5.4, 7.4, -2.6, 3, -1.6]));
+  blob('#e09aa8', C(2.6, -5.6, 1.3), 0.5);
+  dot('#ff3d6e', 4.6, -4, 0.55); dot('#e09aa8', 7.4, -2.6, 0.6);
+  ctx.strokeStyle = INK; ctx.lineWidth = 0.3; ctx.beginPath(); ctx.moveTo(6.6, -2.8); ctx.lineTo(9, -3.8); ctx.moveTo(6.6, -2.4); ctx.lineTo(9, -1.8); ctx.stroke();
+}
+// a loose cog from the clockworks: brass teeth all round (never stomp it), a single sly eye at the hub
+function drawCog(e) {
+  ctx.translate(0, -7);
+  ctx.save(); ctx.rotate(e.rot);
+  ctx.fillStyle = '#b08a30'; ctx.strokeStyle = INK; ctx.lineWidth = 0.8; ctx.beginPath();
+  for (let i = 0; i < 16; i++) { const a = i / 16 * Math.PI * 2, r = i % 2 ? 5.4 : 7.2; ctx.lineTo(Math.cos(a - 0.12) * r, Math.sin(a - 0.12) * r); ctx.lineTo(Math.cos(a + 0.12) * r, Math.sin(a + 0.12) * r); }
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#d8b450'; ctx.beginPath(); ctx.arc(0, 0, 4, 0, 7); ctx.fill();
+  ctx.fillStyle = '#8a6a20'; for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + 0.6; ctx.beginPath(); ctx.arc(Math.cos(a) * 2.8, Math.sin(a) * 2.8, 0.7, 0, 7); ctx.fill(); }
+  ctx.restore();
+  blob('#2a2236', C(0, 0, 2), 0.5);
+  if (e.dead) xEye(0, 0, 0.9); else { dot('#ff3d6e', 0.4 * Math.sign(P.x - e.x), 0, 0.9); dot('#ffffff', 0.7 * Math.sign(P.x - e.x), -0.5, 0.3); }
+}
+// an empty suit of armor: tall, clanking, a round shield held out in front (fire can't pass it) and red light inside the visor
+function drawKnight(e) {
+  ctx.scale(e.dir > 0 ? 1 : -1, 1);
+  const ph = e.dead ? 0 : e.anim * 6;
+  for (const s of [-1, 1]) { const fx = s * 1.8 + Math.sin(ph) * s * 1.6; limb(s * 1.8, -8, fx, -1.2, '#8a96a8', 2); blob('#6a7688', E(fx + 0.8, -0.9, 2.2, 1.1), 0.6); }
+  blob('#9aa6b8', poly([-4.2, -15.6, 4.2, -15.6, 4.6, -8, 2.6, -6.6, -2.6, -6.6, -4.6, -8]));
+  ctx.fillStyle = '#e8304a'; ctx.fillRect(-4.2, -10, 8.4, 1.2);
+  ctx.strokeStyle = '#5a6678'; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(0, -15.2); ctx.lineTo(0, -10.4); ctx.stroke();
+  limb(-3.6, -14.6, -5.6, -8.8 + Math.sin(ph) * 0.5, '#8a96a8', 1.6);
+  blob('#9aa6b8', () => { ctx.moveTo(-3.4, -16); ctx.lineTo(-3.4, -20.6); ctx.quadraticCurveTo(0, -23.6, 3.6, -20.6); ctx.lineTo(3.6, -16); ctx.closePath(); });
+  blob('#e8304a', () => { ctx.moveTo(-1, -22.4); ctx.quadraticCurveTo(-5, -26, -6, -21.6); ctx.quadraticCurveTo(-3.6, -23, -1, -21.4); }, 0.5);
+  ctx.fillStyle = '#1a1424'; ctx.fillRect(0, -19.8, 3.8, 1.4);
+  if (e.dead) xEye(2, -19.1, 0.6);
+  else { dot('rgba(255,61,110,.45)', 2.2, -19.1, 1.4); dot('#ff3d6e', 1.6, -19.1, 0.45); dot('#ff3d6e', 3, -19.1, 0.45); }
+  blob('#7a5a2a', E(5.4, -11.4, 2.4, 5.2), 0.9);
+  blob('#c8a040', E(5.6, -11.4, 1.3, 3.6), 0.5);
+  blob('#e8304a', C(5.7, -11.4, 0.9), 0.4);
 }
 // a furnace keeper: a hunched stone-and-iron brute with curling horns, folded wings and a furnace glowing in its chest.
 function drawKeeper(e) {
@@ -1599,12 +1739,12 @@ const LEVELS = [
   { name: 'THE BELL TOWER', theme: 'tower', track: 'tower', pole: 164, mid: 84, build: buildTower, entries: { 71: { room: 'belfry' } }, sign: 'BELFRY', course: 'THE SORBET IS SERVED!', omen: "DON'T LOOK DOWN" },
   { name: 'THE INFERNO', theme: 'inferno', track: 'castle', pole: 147, mid: 80, build: buildInferno, entries: { 63: { room: 'forge' } }, ceiling: true, castle: true, sign: 'BANQUET HALL', course: 'CREME BRULEE IS SERVED!', omen: 'IT COOLS AFTER IT SLAMS' },
   { name: 'THE HARBOR', theme: 'harbor', track: 'shanty', pole: 185, mid: 96, build: buildHarbor, entries: { 52: { room: 'hold' } }, sign: 'CHOWDER HOUSE', course: 'THE OYSTERS ARE SERVED!', omen: 'MIND THE TIDE' },
-  { name: 'THE MINE', theme: 'mine', track: 'mine', pole: 176, mid: 92, build: buildMine, entries: { 60: { room: 'vein' } }, ceiling: true, sign: 'COOKHOUSE', course: 'THE BREAD IS SERVED!' },
+  { name: 'THE MINE', theme: 'mine', track: 'mine', pole: 176, mid: 92, build: buildMine, entries: { 60: { room: 'vein' } }, ceiling: true, sign: 'COOKHOUSE', course: 'THE BREAD IS SERVED!', omen: 'RUNAWAY CARTS ON THE RAILS' },
   { name: 'THE WAX MUSEUM', theme: 'museum', track: 'minuet', pole: 173, mid: 88, build: buildMuseum, entries: { 64: { room: 'gallery' } }, ceiling: true, sign: 'TEA ROOM', course: 'THE PIE IS SERVED!', omen: 'THE FIGURES ARE WATCHING' },
   { name: 'THE CAULDRON', theme: 'cauldron', track: 'witch', pole: 140, mid: 70, build: buildCauldron, entries: { 58: { room: 'cellar' } }, ceiling: true, castle: true, sign: 'SCULLERY', course: 'THE SALMON IS SERVED!', omen: 'BONK HER PERCH FROM BELOW' },
-  { name: 'THE DARK WOODS', theme: 'woods', track: 'woods', pole: 185, mid: 96, build: buildWoods, entries: { 54: { room: 'den' } }, sign: 'CABIN', course: 'THE GRAVY IS SERVED!' },
+  { name: 'THE DARK WOODS', theme: 'woods', track: 'woods', pole: 185, mid: 96, build: buildWoods, entries: { 54: { room: 'den' } }, sign: 'CABIN', course: 'THE GRAVY IS SERVED!', omen: 'WOLVES CROUCH BEFORE THEY POUNCE' },
   { name: 'THE SEWERS', theme: 'sewer', track: 'sewer', pole: 181, mid: 93, build: buildSewer, entries: { 68: { room: 'cistern' } }, ceiling: true, sign: 'BAKERY', course: 'THE FRUIT IS SERVED!', omen: 'HOLD YOUR NOSE' },
-  { name: 'THE CLOCKWORKS', theme: 'clock', track: 'clock', pole: 162, mid: 84, build: buildClock, entries: { 71: { room: 'gearbox' } }, sign: 'PARLOR', course: 'THE COFFEE IS SERVED!', omen: "DON'T BE LATE" },
+  { name: 'THE CLOCKWORKS', theme: 'clock', track: 'clock', pole: 162, mid: 84, build: buildClock, entries: { 71: { room: 'gearbox' } }, sign: 'PARLOR', course: 'THE COFFEE IS SERVED!', omen: 'NEVER STOMP A COG' },
   { name: 'THE CITADEL', theme: 'citadel', track: 'finale', pole: 156, mid: 78, build: buildCitadel, entries: { 66: { room: 'throne' } }, ceiling: true, castle: true, sign: 'GREAT HALL', course: 'THE CAKE IS SERVED!', omen: 'ONLY IRON PIERCES HIS CLOAK' },
 ];
 let levelIdx = 0, L = LEVELS[0];
@@ -1836,18 +1976,18 @@ function buildInferno({ Sx, ground, col, drum, row, en, fire, lava }) {
 
 // Night 3, level 1: the harbor, ending at the chowder house. Foggy piers over black water: drowned sailors, crabs-in-iron, rafts.
 function buildHarbor({ Sx, ground, col, drum, row, en, lava }) {
-  ground(0, 22); row(8, 9, '?P?'); Sx(4, 9, 'H'); en('zombie', 16, 12); row(13, 6, 'ooo');
-  lava(22, 26);
-  ground(26, 56); row(30, 9, 'B?BMB'); row(31, 5, 'ooo'); en('scarab', 36, 12); en('zombie', 40, 12); en('spider', 43, 2); Sx(46, 9, 'H'); en('ghoul', 48, 12);
+  ground(0, 22); row(8, 9, '?P?'); Sx(4, 9, 'H'); en('crow', 16, 12); row(13, 6, 'ooo');
+  lava(22, 26); en('eel', 22, 14, { span: 3 });
+  ground(26, 56); row(30, 9, 'B?BMB'); row(31, 5, 'ooo'); en('scarab', 36, 12); en('crow', 40, 12); en('spider', 43, 2); Sx(46, 9, 'H'); en('ghoul', 48, 12);
   drum(52, 3);   // down into the ship's hold
-  lava(56, 66); en('lift', 56, 12, { len: 3, ax: 7, per: 4 });
-  ground(66, 102); en('ghost', 70, 6); row(72, 9, '?B?B?'); row(74, 5, 'G'); en('zombie', 78, 12); en('zombie', 82, 12); en('bat', 86, 2);
+  lava(56, 66); en('lift', 56, 12, { len: 3, ax: 7, per: 4 }); en('eel', 58, 14, { span: 6 });
+  ground(66, 102); en('ghost', 70, 6); row(72, 9, '?B?B?'); row(74, 5, 'G'); en('zombie', 78, 12); en('crow', 82, 12); en('bat', 86, 2);
   col(88, 2); col(89, 3); row(88, 6, 'oo'); Sx(84, 9, 'h'); en('ghoul', 92, 12);
   drum(96, 2);   // the hold comes out here
-  lava(102, 105);
-  ground(105, 130); row(108, 9, 'BSB'); en('scarab', 112, 12); en('scarab', 116, 12); en('ghost', 118, 5); row(120, 5, 'BBBBB'); row(121, 3, 'ooo'); en('jack', 124, 12); Sx(127, 9, 'H');
-  lava(130, 145); ground(133, 136); ground(139, 142); en('bat', 137, 3);
-  ground(145, COLS); row(148, 9, '?P?'); en('zombie', 152, 12); en('ghoul', 158, 12); en('spider', 162, 2); Sx(155, 9, 'H'); row(160, 8, 'o o o');
+  lava(102, 105); en('eel', 102, 14, { span: 2 });
+  ground(105, 130); row(108, 9, 'BSB'); en('scarab', 112, 12); en('scarab', 116, 12); en('ghost', 118, 5); row(120, 5, 'BBBBB'); en('crow', 123, 4); row(121, 3, 'ooo'); en('jack', 124, 12); Sx(127, 9, 'H');
+  lava(130, 145); ground(133, 136); ground(139, 142); en('bat', 137, 3); en('eel', 130, 14, { span: 2 }); en('eel', 136, 14, { span: 2 }); en('eel', 142, 14, { span: 2 });
+  ground(145, COLS); row(148, 9, '?P?'); en('crow', 152, 12); en('ghoul', 158, 12); en('spider', 162, 2); Sx(155, 9, 'H'); row(160, 8, 'o o o');
   for (let i = 0; i < 8; i++) col(170 + i, i + 1);
   col(178, 8);
 }
@@ -1855,28 +1995,28 @@ function buildHarbor({ Sx, ground, col, drum, row, en, lava }) {
 // Night 3, level 2: the old mine, ending at the cookhouse. Under the rock: lanterns on chains, bats, ore buckets over a shaft.
 function buildMine({ Sx, ground, col, drum, row, en, fire }) {
   ground(0, 26); row(8, 9, '?G?'); Sx(14, 9, 'H'); en('bat', 18, 2); en('scarab', 22, 12);
-  ground(29, 52); fire(34, 8); row(38, 9, 'BMB'); en('ghoul', 44, 12); en('spider', 47, 2); row(40, 6, 'oooo');
-  ground(55, 80); drum(60, 3); en('zombie', 66, 12); en('zombie', 70, 12); row(67, 9, 'B?B'); row(72, 5, '====='); row(73, 3, 'ooo'); Sx(76, 9, 'H');
+  ground(29, 52); fire(34, 8); row(38, 9, 'BMB'); en('cart', 44, 12); en('spider', 47, 2); row(40, 6, 'oooo');
+  ground(55, 80); drum(60, 3); en('rat', 66, 12); en('rat', 68, 12); en('rat', 70, 12); row(67, 9, 'B?B'); row(72, 5, '====='); row(73, 3, 'ooo'); Sx(76, 9, 'H');
   // a deep shaft with two ore buckets riding up and down
   en('lift', 80, 11, { len: 2, ay: -4, per: 3.5 }); en('lift', 85, 7, { len: 2, ay: 4, per: 3.5 });
-  ground(90, 108); en('bat', 94, 2); row(96, 9, '?P?'); en('scarab', 103, 12); Sx(92, 9, 'h');
+  ground(90, 108); en('bat', 94, 2); row(96, 9, '?P?'); en('cart', 103, 12); Sx(92, 9, 'h');
   drum(100, 2);   // the crystal vein comes out here
-  ground(111, 134); fire(116, 8); en('ghoul', 120, 12); en('ghoul', 127, 12); row(122, 9, 'BSB'); en('spider', 130, 2); Sx(113, 9, 'H');
-  ground(137, 150); en('scarab', 142, 12); row(140, 9, '???'); en('bat', 146, 2);
-  ground(153, COLS); en('zombie', 156, 12); en('jack', 160, 12); Sx(158, 9, 'H');
+  ground(111, 134); fire(116, 8); en('ghoul', 120, 12); en('cart', 127, 12); row(122, 9, 'BSB'); en('spider', 130, 2); Sx(113, 9, 'H');
+  ground(137, 150); en('rat', 142, 12); en('rat', 145, 12); row(140, 9, '???'); en('bat', 146, 2);
+  ground(153, COLS); en('cart', 156, 12); en('jack', 160, 12); Sx(158, 9, 'H');
   for (let i = 0; i < 6; i++) col(164 + i, i + 1);
   col(170, 6);
 }
 
 // Night 3, level 3: the wax museum, ending at the tea room. Wax clowns and figures that wake up, marionettes, candles.
 function buildMuseum({ Sx, ground, col, drum, row, en, fire }) {
-  ground(0, 48); row(9, 9, 'B?BPB'); en('clown', 20, 12); en('puppet', 24, 3); en('jack', 30, 12); Sx(16, 9, 'H');
-  row(34, 6, 'BBBBBB'); row(35, 4, 'oooo'); en('ghost', 40, 6); en('zombie', 44, 12);
-  ground(51, 90); fire(55, 8); en('puppet', 59, 3); drum(64, 3); en('clown', 70, 12); en('clown', 73, 12); row(70, 9, '?S?'); en('jack', 78, 12); fire(82, 8); Sx(86, 9, 'H');
-  ground(93, 132); en('ghost', 96, 5); row(98, 9, 'B?B'); row(99, 5, 'G'); en('zombie', 102, 12); en('puppet', 106, 3);
+  ground(0, 48); row(9, 9, 'B?BPB'); en('wax', 20, 12); en('puppet', 24, 3); en('jack', 30, 12); Sx(16, 9, 'H');
+  row(34, 6, 'BBBBBB'); row(35, 4, 'oooo'); en('ghost', 40, 6); en('wax', 44, 12);
+  ground(51, 90); fire(55, 8); en('puppet', 59, 3); drum(64, 3); en('wax', 70, 12); en('clown', 73, 12); row(70, 9, '?S?'); en('jack', 78, 12); fire(82, 8); Sx(86, 9, 'H'); en('knight', 88, 12);
+  ground(93, 132); en('ghost', 96, 5); row(98, 9, 'B?B'); row(99, 5, 'G'); en('wax', 102, 12); en('puppet', 106, 3);
   drum(110, 2);   // the hidden gallery comes out here
-  en('ghoul', 116, 12); row(118, 8, 'BMB'); en('puppet', 122, 3); en('clown', 126, 12); Sx(114, 9, 'h'); fire(129, 7);
-  ground(135, COLS); en('jack', 139, 12); en('ghost', 144, 6); row(142, 9, '?P?'); en('zombie', 150, 12); en('puppet', 153, 3); Sx(147, 9, 'H');
+  en('ghoul', 116, 12); row(118, 8, 'BMB'); en('puppet', 122, 3); en('knight', 126, 12); Sx(114, 9, 'h'); fire(129, 7);
+  ground(135, COLS); en('jack', 139, 12); en('ghost', 144, 6); row(142, 9, '?P?'); en('wax', 150, 12); en('puppet', 153, 3); Sx(147, 9, 'H');
   for (let i = 0; i < 8; i++) col(158 + i, i + 1);
   col(166, 8);
 }
@@ -1885,14 +2025,14 @@ function buildMuseum({ Sx, ground, col, drum, row, en, fire }) {
 function buildCauldron({ Sx, ground, col, drum, row, en, fire, lava }) {
   ground(0, 16); row(6, 9, '?P?'); Sx(11, 9, 'H');
   lava(16, 22); ground(18, 20); en('flameskull', 17, 14); en('flameskull', 21, 14);
-  ground(22, 40); fire(26, 8, 7); en('bat', 30, 2); row(32, 9, 'BMB'); en('scarab', 36, 12);
+  ground(22, 40); fire(26, 8, 7); en('bat', 30, 2); row(32, 9, 'BMB'); en('toad', 36, 12);
   lava(40, 50); en('lift', 40, 11, { len: 2, ax: 8, per: 3.6 }); en('flameskull', 43, 14); en('flameskull', 47, 14);
-  ground(50, 72); en('ghoul', 54, 12); drum(58, 3); fire(64, 8, 8); en('scarab', 67, 12); Sx(62, 9, 'h');
+  ground(50, 72); en('toad', 54, 12); drum(58, 3); fire(64, 8, 8); en('scarab', 67, 12); Sx(62, 9, 'h');
   lava(72, 84); en('lift', 73, 10, { len: 2, fall: true }); en('lift', 77, 9, { len: 2, fall: true }); en('lift', 81, 10, { len: 2, fall: true });
-  en('flameskull', 75, 14); en('flameskull', 79, 14);
+  en('flameskull', 75, 14); en('eel', 73, 14, { span: 9 });
   ground(84, 114); row(88, 9, '?P?'); en('bat', 92, 2); Sx(90, 5, 'H');
   drum(96, 2);   // the potion cellar comes out here
-  fire(102, 8, 8); en('ghoul', 106, 12); row(108, 9, '?G?');
+  fire(102, 8, 8); en('toad', 106, 12); row(108, 9, '?G?');
   // the witch's bridge over the brew: three stone perches above it, and the lever past it
   for (let x = 114; x < 140; x++) { Sx(x, 13, 'R'); Sx(x, 14, 'L'); }
   for (const x of [118, 126, 134]) row(x, 9, '==');
@@ -1902,14 +2042,14 @@ function buildCauldron({ Sx, ground, col, drum, row, en, fire, lava }) {
 
 // Night 4, level 1: the dark woods, ending at the cabin. Pines too thick for the moon: ghouls, bats and gaps between the roots.
 function buildWoods({ Sx, ground, col, drum, row, en, ledge }) {
-  ground(0, 30); row(10, 9, '?B?'); row(11, 5, 'P'); en('zombie', 18, 12); en('spider', 22, 2); en('ghoul', 26, 12); Sx(6, 9, 'H');
-  ground(33, 60); ledge(36, 9, 4); row(37, 6, 'oo'); en('bat', 42, 2); en('ghoul', 48, 12); Sx(44, 9, 'H');
+  ground(0, 30); row(10, 9, '?B?'); row(11, 5, 'P'); en('crow', 18, 12); en('spider', 22, 2); en('wolf', 25, 12); Sx(6, 9, 'H');
+  ground(33, 60); ledge(36, 9, 4); row(37, 6, 'oo'); en('bat', 42, 2); en('wolf', 48, 12); Sx(44, 9, 'H');
   drum(54, 3);   // down into the badger's den
-  ground(63, 86); en('ghost', 66, 6); row(68, 9, 'BSB?B'); en('zombie', 74, 12); en('zombie', 78, 12); en('spider', 80, 2); ledge(82, 8, 3); row(82, 6, 'ooo');
-  ground(90, 112); en('bat', 94, 2); row(95, 9, '?M?'); en('ghoul', 106, 12); Sx(109, 9, 'h');
+  ground(63, 86); en('ghost', 66, 6); row(68, 9, 'BSB?B'); en('toad', 74, 12); en('wolf', 78, 12); en('spider', 80, 2); ledge(82, 8, 3); row(82, 6, 'ooo'); en('crow', 83, 7);
+  ground(90, 112); en('crow', 93, 12); row(95, 9, '?M?'); en('toad', 106, 12); Sx(109, 9, 'h');
   drum(100, 2);   // the den comes out here
   ground(115, 124); ledge(127, 10, 4); ledge(133, 8, 3); en('bat', 129, 4); row(133, 6, 'ooo');
-  ground(139, 160); row(143, 9, '?G?'); en('zombie', 148, 12); en('ghoul', 153, 12); en('ghost', 156, 5); Sx(146, 9, 'H');
+  ground(139, 160); row(143, 9, '?G?'); en('wolf', 148, 12); en('toad', 153, 12); en('ghost', 156, 5); Sx(146, 9, 'H');
   ground(163, COLS); en('scarab', 166, 12);
   for (let i = 0; i < 8; i++) col(170 + i, i + 1);
   col(178, 8);
@@ -1917,16 +2057,16 @@ function buildWoods({ Sx, ground, col, drum, row, en, ledge }) {
 
 // Night 4, level 2: the sewers, ending at the bakery. Brick tunnels over green sludge, with scarabs, ghouls and dripping spiders.
 function buildSewer({ Sx, ground, col, drum, row, en, lava, fire }) {
-  ground(0, 24); row(8, 9, '?P?'); Sx(4, 9, 'H'); en('scarab', 18, 12);
-  lava(24, 28);
-  ground(28, 54); en('spider', 32, 2); row(36, 9, 'BMB'); Sx(37, 5, 'h'); en('ghoul', 42, 12); en('scarab', 46, 12); fire(50, 8);
-  lava(54, 64); en('lift', 54, 12, { len: 3, ax: 7, per: 4 });
-  ground(64, 90); drum(68, 3); en('zombie', 74, 12); en('zombie', 78, 12); row(76, 9, '?S?'); en('bat', 82, 2); Sx(86, 9, 'H');
-  lava(90, 93);
-  ground(93, 118); en('ghoul', 98, 12); row(100, 9, 'B?B?B'); row(102, 5, 'G'); en('spider', 110, 2); fire(114, 8);
+  ground(0, 24); row(8, 9, '?P?'); Sx(4, 9, 'H'); en('rat', 16, 12); en('rat', 19, 12);
+  lava(24, 28); en('eel', 24, 14, { span: 3 });
+  ground(28, 54); en('spider', 32, 2); row(36, 9, 'BMB'); Sx(37, 5, 'h'); en('rat', 42, 12); en('rat', 44, 12); en('scarab', 46, 12); fire(50, 8);
+  lava(54, 64); en('lift', 54, 12, { len: 3, ax: 7, per: 4 }); en('eel', 56, 14, { span: 6 });
+  ground(64, 90); drum(68, 3); en('rat', 72, 12); en('rat', 74, 12); en('rat', 76, 12); en('toad', 80, 12); row(76, 9, '?S?'); en('bat', 82, 2); Sx(86, 9, 'H');
+  lava(90, 93); en('eel', 90, 14, { span: 2 });
+  ground(93, 118); en('rat', 116, 12); en('ghoul', 98, 12); row(100, 9, 'B?B?B'); row(102, 5, 'G'); en('spider', 110, 2); fire(114, 8);
   drum(106, 2);   // the cistern comes out here
-  lava(118, 131); ground(121, 124); en('lift', 126, 11, { len: 2, ay: -2, per: 3 });
-  ground(131, COLS); en('scarab', 134, 12); en('ghoul', 140, 12); row(138, 9, '?P?'); en('zombie', 146, 12); en('spider', 150, 2); Sx(143, 9, 'H'); en('scarab', 156, 12);
+  lava(118, 131); ground(121, 124); en('eel', 118, 14, { span: 2 }); en('eel', 125, 14, { span: 5 }); en('lift', 126, 11, { len: 2, ay: -2, per: 3 });
+  ground(131, COLS); en('scarab', 134, 12); en('rat', 140, 12); en('rat', 142, 12); row(138, 9, '?P?'); en('toad', 146, 12); en('spider', 150, 2); Sx(143, 9, 'H'); en('rat', 156, 12); en('rat', 158, 12);
   for (let i = 0; i < 8; i++) col(166 + i, i + 1);
   col(174, 8);
 }
@@ -1940,18 +2080,18 @@ function buildClock({ Sx, ground, col, drum, row, en, ledge, spire, fire }) {
   en('lift', 37, 8, { len: 3, ay: 4, per: 3.5 }); Sx(38, 4, 'h');
   ledge(43, 8, 5); row(44, 4, '?M?'); en('ghost', 46, 3);
   en('lift', 50, 9, { len: 2, fall: true }); en('lift', 54, 8, { len: 2, fall: true }); en('lift', 58, 9, { len: 2, fall: true });
-  ledge(62, 9, 6); row(63, 5, 'B?BSB'); en('scarab', 66, 8);
+  ledge(62, 9, 6); row(63, 5, 'B?BSB'); en('cog', 66, 8);
   spire(71, 4);   // down into the gearbox
   en('lift', 75, 9, { len: 3, ax: 5, per: 3.2 });
-  ground(84, 104); row(88, 9, '?P?'); en('scarab', 92, 12); en('ghoul', 96, 12); Sx(90, 9, 'H'); en('bat', 94, 2);
+  ground(84, 104); row(88, 9, '?P?'); en('cog', 92, 12); en('knight', 96, 12); Sx(90, 9, 'H'); en('crow', 86, 12);
   drum(100, 2);   // the gearbox comes out here
   spire(107, 3);
   en('lift', 112, 8, { len: 2, ay: 4, per: 3 });
-  ledge(117, 8, 4); fire(119, 4, 4);
+  ledge(117, 8, 4); fire(119, 4, 4); en('crow', 120, 7);
   en('lift', 123, 9, { len: 3, ax: 6, per: 3.6 });
   ledge(133, 7, 4); row(134, 4, 'ooo'); en('ghost', 135, 3);
   en('lift', 139, 9, { len: 2, fall: true });
-  ground(143, COLS); en('scarab', 146, 12);
+  ground(143, COLS); en('knight', 145, 12); en('cog', 148, 12);
   for (let i = 0; i < 6; i++) col(150 + i, i + 1);
   col(156, 6);
 }
@@ -1960,14 +2100,14 @@ function buildClock({ Sx, ground, col, drum, row, en, ledge, spire, fire }) {
 function buildCitadel({ Sx, ground, col, drum, row, en, fire, lava }) {
   ground(0, 16); row(6, 9, '?P?'); Sx(11, 9, 'H');
   lava(16, 22); ground(18, 20); en('flameskull', 17, 14); en('flameskull', 21, 14);
-  ground(22, 40); fire(28, 8, 8); fire(35, 8, 8); en('bat', 31, 2); en('scarab', 38, 12);
+  ground(22, 40); fire(28, 8, 8); fire(35, 8, 8); en('bat', 31, 2); en('knight', 38, 12);
   lava(40, 54); en('lift', 41, 10, { len: 2, ax: 4, per: 2.8 }); ground(48, 50); en('lift', 50, 9, { len: 2, fall: true });
   en('flameskull', 44, 14); en('flameskull', 47, 14); en('flameskull', 52, 14);
-  ground(54, 80); row(58, 9, 'BMB'); Sx(59, 5, 'h'); en('ghoul', 62, 12); fire(72, 8, 8); en('scarab', 76, 12);
+  ground(54, 80); row(58, 9, 'BMB'); Sx(59, 5, 'h'); en('knight', 62, 12); en('wolf', 70, 12); fire(72, 8, 8); en('scarab', 76, 12);
   drum(66, 3);   // down to the throne vault
   lava(80, 95); en('lift', 80, 10, { len: 2, ax: 5, per: 2.8 }); ground(87, 89); en('lift', 90, 10, { len: 2, fall: true });
   en('flameskull', 83, 14); en('flameskull', 91, 14); en('flameskull', 93, 14);
-  ground(95, 128); row(98, 9, '?P?'); Sx(96, 5, 'H'); en('ghoul', 108, 12); fire(112, 8, 8); en('bat', 116, 2); row(120, 9, '?G?');
+  ground(95, 128); row(98, 9, '?P?'); Sx(96, 5, 'H'); en('cog', 99, 12); en('wolf', 108, 12); fire(112, 8, 8); en('bat', 116, 2); row(120, 9, '?G?'); en('knight', 124, 12);
   drum(104, 2);   // the throne vault comes out here
   // the night king's bridge over the lava, and the lever at the far end
   for (let x = 128; x < 156; x++) { Sx(x, 13, 'R'); Sx(x, 14, 'L'); }
@@ -2078,6 +2218,16 @@ function makeEnt(s) {
     const kind = s.kind || 'keeper', [w, h] = BOSS_SIZE[kind], hp = (s.hp || 6) + Math.floor((night - 1) / 4) * 2;   // later laps: tougher still
     return { type: 'boss', kind, x: s.x * TS, y: kind === 'witch' ? 4 * TS : 13 * TS - h, w, h, hp, maxHp: hp, minX: s.min * TS, maxX: s.max * TS, dir: -1, face: -1, vx: 0, vy: 0, t: 0, mt: 2.2, fireT: 1.6, jumpT: 2.5, flash: 0, mode: 'idle', spd, active: false, dead: null, onGround: true, anim: 0 };
   }
+  // nights 3 and 4: newer monsters
+  if (s.type === 'eel') return { type: 'eel', x: s.x * TS + 2, y: 14 * TS + 8, lavaY: 14 * TS + 8, w: 14, h: 8, vx: 0, vy: 0, t: 0.6 + (s.x % 4) * 0.5, x0: s.x * TS + 2, span: (s.span || 4) * TS, side: 0, spd, active: false, dead: null };
+  if (s.type === 'crow') return { type: 'crow', x: s.x * TS + 2, y: (s.y + 1) * TS - 10, w: 12, h: 10, vx: 0, vy: 0, mode: 'perch', t: 0, spd, active: false, dead: null };
+  if (s.type === 'cart') return { type: 'cart', x: s.x * TS, y: (s.y + 1) * TS - 14, w: 16, h: 14, vx: -70 * spd, vy: 0, spd, active: false, dead: null, anim: 0 };
+  if (s.type === 'wax') return { type: 'wax', x: s.x * TS + 2, y: (s.y + 1) * TS - 18, w: 12, h: 18, vx: 0, vy: 0, dir: -1, spd, active: false, dead: null, anim: 0, moving: false };
+  if (s.type === 'toad') return { type: 'toad', x: s.x * TS + 1, y: (s.y + 1) * TS - 12, w: 14, h: 12, vx: 0, vy: 0, dir: -1, cd: 0.8 + Math.random(), tongue: 0, lick: 0, spd, active: false, dead: null, onGround: true };
+  if (s.type === 'wolf') return { type: 'wolf', x: s.x * TS, y: (s.y + 1) * TS - 13, w: 16, h: 13, vx: 0, vy: 0, dir: -1, mode: 'prowl', t: 0, spd, active: false, dead: null, anim: 0 };
+  if (s.type === 'rat') return { type: 'rat', x: s.x * TS + 3, y: (s.y + 1) * TS - 7, w: 10, h: 7, vx: -90 * spd, vy: 0, spd, active: false, dead: null, anim: Math.random(), squeak: 1 + Math.random() * 3 };
+  if (s.type === 'cog') return { type: 'cog', x: s.x * TS + 1, y: (s.y + 1) * TS - 14, w: 14, h: 14, vx: -46 * spd, vy: 0, rot: 0, spd, active: false, dead: null };
+  if (s.type === 'knight') return { type: 'knight', x: s.x * TS + 2, y: (s.y + 1) * TS - 20, w: 12, h: 20, vx: 0, vy: 0, dir: -1, t: 0, turnT: 0, spd, active: false, dead: null, anim: 0 };
   if (s.type === 'balloon') return { type: 'balloon', x: s.x * TS + 2, y: s.y * TS, baseY: s.y * TS, w: 12, h: 14, vx: -14 * spd, active: false, ph: Math.random() * 6, col: ['#ff4f8b', '#5ef2ff', '#3ddc84', '#ffd23f'][s.x % 4] };
 }
 
@@ -2155,6 +2305,8 @@ function moveY(e, dy) {
     if (hits.length) { e.head = { ty, hits }; e.y = (ty + 1) * TS; e.vy = 0; }
   }
 }
+// true when a walker standing on the ground is about to step off its edge (for monsters that turn back)
+const edgeAhead = (e, d) => e.onGround && d && !solidAt(Math.floor((d > 0 ? e.x + e.w + 1 : e.x - 1) / TS), Math.floor((e.y + e.h + 1) / TS));
 const overlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
 function addScore(n, x, y) { score += n; if (x !== undefined) pops.push({ x, y, text: String(n), t: 0 }); }
@@ -2187,7 +2339,7 @@ function bumpBlock(tx, ty) {
     } else { bumps.push({ tx, ty, t: 0 }); sfx('bump'); }
   } else sfx('bump');
   for (const e of ents) {
-    if (['clown', 'jack', 'horse', 'zombie', 'ghoul'].includes(e.type) && !(e.type === 'ghoul' && e.mode === 'hidden') && !e.dead && e.active && Math.abs(e.y + e.h - py) < 4 && e.x + e.w > px && e.x < px + TS) { flipKill(e, e.x + e.w / 2 < px + 8 ? -1 : 1); addScore(100, e.x, e.y - 8); }
+    if (['clown', 'jack', 'horse', 'zombie', 'ghoul', 'cart', 'wax', 'toad', 'wolf', 'rat', 'cog', 'knight'].includes(e.type) && !(e.type === 'ghoul' && e.mode === 'hidden') && !e.dead && e.active && Math.abs(e.y + e.h - py) < 4 && e.x + e.w > px && e.x < px + TS) { flipKill(e, e.x + e.w / 2 < px + 8 ? -1 : 1); addScore(100, e.x, e.y - 8); }
     if (e.type === 'scarab' && !e.dead && e.active && Math.abs(e.y + e.h - py) < 4 && e.x + e.w > px && e.x < px + TS) { e.mode = 'shell'; e.t = 0; e.vx = 0; e.vy = -220; sfx('kick'); addScore(100, e.x, e.y - 8); }
     if (e.type === 'candy' && !e.emerge && Math.abs(e.y + e.h - py) < 4 && e.x + e.w > px && e.x < px + TS) { e.vy = -260; e.vx = (e.x + e.w / 2 < px + 8 ? -1 : 1) * 55; }
   }
@@ -2202,8 +2354,11 @@ function spawnItem(kind, px, py) {
 }
 // What a ghost pepper fireball can burn. Ghosts and flame skulls let fire pass straight through, scarab shells
 // are iron (fire clanks off), carousel horses and ghouls take two, and a furnace keeper takes six (the last one ten).
-const BURNABLE = new Set(['clown', 'jack', 'horse', 'puppet', 'zombie', 'spider', 'ghoul', 'balloon', 'bat']);
-const TOUGH = new Set(['horse', 'ghoul']);
+// Newer monsters: eels, crows, rats, toads and wax figures burn (wax melts at once); wolves and knights take two, and a knight's
+// shield stops fire from the front; mine carts and clockwork cogs are iron and only a kicked shell or catnip stops them.
+const BURNABLE = new Set(['clown', 'jack', 'horse', 'puppet', 'zombie', 'spider', 'ghoul', 'balloon', 'bat', 'eel', 'crow', 'wax', 'toad', 'wolf', 'rat', 'knight']);
+const TOUGH = new Set(['horse', 'ghoul', 'wolf', 'knight']);
+const IRON = new Set(['scarab', 'cart', 'cog']);
 const canBurn = o => o.active && !o.dead && !o.remove && BURNABLE.has(o.type) && !(o.type === 'ghoul' && o.mode === 'hidden');
 // knocked out by a fireball or by Pancake on catnip
 function burnEnemy(o, dir, pts = 200) {
@@ -2229,7 +2384,10 @@ function updateFireball(e, dt) {
   for (const o of ents) {
     if (!o.active || o.dead || o.remove || !overlap(e, o)) continue;
     const pop = cols => { e.remove = true; burst(e.x + 3, e.y + 3, 6, cols, 80, 0, 0.3, 1); };
-    if (o.type === 'scarab') { pop(['#c8d0dc', '#ffe14a']); sfx('clank'); return; }   // iron shell: the fire bounces off
+    if (IRON.has(o.type)) { pop(['#c8d0dc', '#ffe14a']); sfx('clank'); return; }   // iron: the fire bounces off
+    if (o.type === 'eel' && o.t > 0) continue;   // still under the water
+    if (o.type === 'knight' && Math.sign(e.vx) === -o.dir) { pop(['#c8d0dc', '#ffe14a']); sfx('clank'); o.flash = 0.15; return; }   // the shield takes it
+    if (o.type === 'wax') { e.remove = true; addScore(200, o.x, o.y - 8); o.dead = 'squash'; o.t = 0.6; sfx('fizz'); burst(o.x + 6, o.y + 14, 10, ['#f3e2c0', '#e8304a', '#ffe14a'], 70, 300, 0.5); return; }   // wax melts
     if (o.type === 'boss') { if (fireHitsBoss(o, e)) return; continue; }
     if (!canBurn(o)) continue;   // ghosts and flame skulls: the fire passes right through
     if (TOUGH.has(o.type) && !o.scorched) { o.scorched = true; o.flash = 0.35; pop(['#ff7a1a', '#ffe14a']); sfx('clank'); addScore(100, o.x, o.y - 8); return; }
@@ -2735,6 +2893,83 @@ function updateEnts(dt) {
         e.x += e.vx * dt; e.y += e.vy * dt;
         if (e.x < camX - 60 || e.x > camX + VW + 60 || e.y < -20) e.remove = true;
       }
+    } else if (e.type === 'eel') {
+      // waits under the water (or sludge, or brew), then leaps across the gap in a long arc and dives back in
+      if (e.t > 0) { e.t -= dt; e.y = e.lavaY; if (e.t <= 0) { e.side = 1 - e.side; e.vx = (e.x0 + e.side * e.span - e.x) / 0.85; e.vy = -340; if (Math.abs(e.x - camX - VW / 2) < VW / 2) sfx('swoop'); burst(e.x + 7, 13 * TS + 6, 6, [liq().mid, liq().hi], 70, 400, 0.4, 2); } }
+      else {
+        e.vy += 800 * dt; e.x += e.vx * dt; e.y += e.vy * dt;
+        if (e.vy > 0 && e.y >= e.lavaY) { e.y = e.lavaY; e.vx = 0; e.t = 1.2 + Math.random() * 1.4; burst(e.x + 7, 13 * TS + 6, 6, [liq().mid, liq().hi], 70, 400, 0.4, 2); }
+      }
+    } else if (e.type === 'crow') {
+      // sits on a post or a ledge; when Pancake comes near it caws, lifts off and dives straight at where she was
+      if (e.mode === 'perch') {
+        const dx = P.x + P.w / 2 - (e.x + 6);
+        if (!P.dead && Math.abs(dx) < 120) { e.mode = 'lift'; e.t = 0.35; e.dir = Math.sign(dx) || -1; sfx('screech'); }
+      } else if (e.mode === 'lift') { e.y -= 60 * dt; e.t -= dt; if (e.t <= 0) { const dx = P.x + P.w / 2 - (e.x + 6), dy = P.y + P.h / 2 - (e.y + 5), d = Math.hypot(dx, dy) || 1, v = 150 * e.spd; e.vx = dx / d * v; e.vy = dy / d * v; e.dir = Math.sign(dx) || e.dir; e.mode = 'dive'; e.t = 0; sfx('swoop'); } }
+      else {
+        e.t += dt; if (e.mode === 'dive' && (e.t > 1.1 || e.y > 12 * TS - 12)) { e.mode = 'away'; e.vy = -90; }
+        if (e.mode === 'away') { e.vx = e.dir * 110 * e.spd; e.vy = Math.max(-120, e.vy - 120 * dt); }
+        e.x += e.vx * dt; e.y += e.vy * dt;
+        if (e.x < camX - 60 || e.x > camX + VW + 60 || e.y < -30) e.remove = true;
+      }
+    } else if (e.type === 'cart') {
+      // a runaway mine cart with something in it: rattles back and forth between walls; fire clanks off its iron
+      e.vy = Math.min(450, e.vy + 1500 * dt); e.anim += dt;
+      moveX(e, e.vx * dt); if (e.hitWall) { e.vx = -e.vx; if (Math.abs(e.x - camX - VW / 2) < VW / 2 + 16) sfx('clank'); }
+      moveY(e, e.vy * dt); if (edgeAhead(e, e.vx)) e.vx = -e.vx;
+      if (Math.random() < 0.25 && e.onGround) parts.push({ x: e.x + (e.vx > 0 ? 2 : 14), y: e.y + e.h - 1, vx: -Math.sign(e.vx) * 30, vy: -40, g: 300, life: 0.25, max: 0.25, col: '#ffd23f', size: 1 });
+    } else if (e.type === 'wax') {
+      // a wax figure: frozen while Pancake stands still, and it shuffles toward her whenever she moves
+      e.vy = Math.min(450, e.vy + 1500 * dt);
+      const was = e.moving; e.moving = !P.dead && Math.abs(P.vx) > 12;
+      if (e.moving) { e.dir = Math.sign(P.x - e.x) || e.dir; e.vx = e.dir * 46 * e.spd; e.anim += dt; if (!was && Math.abs(e.x - camX - VW / 2) < VW / 2) sfx('creak'); }
+      else e.vx = 0;
+      moveX(e, e.vx * dt); if (e.hitWall && e.onGround) e.vy = -260;
+      moveY(e, e.vy * dt);
+    } else if (e.type === 'toad') {
+      // a fat brew toad: hops toward Pancake and flicks its long tongue when she comes close in front of it
+      e.vy = Math.min(450, e.vy + 1300 * dt);
+      if (e.tongue > 0) { e.tongue -= dt; e.vx = 0; }
+      else if (e.onGround) {
+        e.vx = 0; e.cd -= dt; e.lick -= dt;
+        const dx = P.x + P.w / 2 - (e.x + e.w / 2);
+        e.dir = Math.sign(dx) || e.dir;
+        if (!P.dead && e.lick <= 0 && Math.abs(dx) < 52 && Math.abs(P.y + P.h - (e.y + e.h)) < 20) { e.tongue = 0.42; e.lick = 1.6; sfx('snap'); }
+        else if (e.cd <= 0) { e.vy = -250; e.vx = e.dir * 70 * e.spd; e.cd = 1.2 + Math.random() * 0.6; if (Math.abs(e.x - camX - VW / 2) < VW / 2) sfx('boing'); }
+      }
+      moveX(e, e.vx * dt); if (e.hitWall) e.vx = 0;
+      moveY(e, e.vy * dt);
+    } else if (e.type === 'wolf') {
+      // prowls slowly; when Pancake is level with it, it crouches and pounces in a long leap
+      e.vy = Math.min(450, e.vy + 1500 * dt);
+      const dx = P.x + P.w / 2 - (e.x + e.w / 2);
+      if (e.mode === 'prowl') {
+        e.vx = e.dir * 20 * e.spd; e.anim += dt;
+        e.t -= dt;
+        if (e.t <= 0 && !P.dead && e.onGround && Math.abs(dx) < 150 && Math.abs(P.y + P.h - (e.y + e.h)) < 34) { e.dir = Math.sign(dx) || e.dir; e.mode = 'crouch'; e.t = 0.45; sfx('screech'); }
+      } else if (e.mode === 'crouch') { e.vx = 0; e.t -= dt; if (e.t <= 0) { e.mode = 'leap'; e.vy = -330; e.vx = e.dir * clamp(Math.abs(dx) * 1.5, 90, 190) * e.spd; } }
+      else { e.anim += dt * 2; if (e.onGround && e.vy >= 0) { e.mode = 'prowl'; e.t = 1.2; e.vx = 0; } }
+      moveX(e, e.vx * dt); if (e.hitWall) { e.dir = -e.dir; if (e.mode === 'leap') e.vx = 0; }
+      moveY(e, e.vy * dt);
+    } else if (e.type === 'rat') {
+      // sewer rats run fast and low, turning at walls
+      e.vy = Math.min(450, e.vy + 1500 * dt); e.anim += dt;
+      moveX(e, e.vx * dt); if (e.hitWall) e.vx = -e.vx;
+      moveY(e, e.vy * dt);
+      e.squeak -= dt; if (e.squeak <= 0) { e.squeak = 3 + Math.random() * 4; if (Math.abs(e.x - camX - VW / 2) < VW / 2) sfx('squeak'); }
+    } else if (e.type === 'cog') {
+      // a loose clockwork cog, teeth out: it rolls and bounces; don't stomp it (only a kicked shell or catnip stops it)
+      e.vy = Math.min(450, e.vy + 1500 * dt);
+      moveX(e, e.vx * dt); if (e.hitWall) e.vx = -e.vx;
+      moveY(e, e.vy * dt); if (e.onGround && Math.random() < 0.01) e.vy = -200;
+      e.rot += e.vx * dt / 7;
+    } else if (e.type === 'knight') {
+      // an empty suit of armor: marches toward Pancake behind its shield (fire can't get past the front)
+      e.vy = Math.min(450, e.vy + 1500 * dt); e.t += dt; e.anim += dt;
+      e.turnT -= dt; if (e.turnT <= 0) { e.dir = Math.sign(P.x - e.x) || e.dir; e.turnT = 1.1; }
+      e.vx = e.dir * 30 * e.spd;
+      moveX(e, e.vx * dt); if (e.hitWall) { e.dir = -e.dir; e.turnT = 1.1; }
+      moveY(e, e.vy * dt); if (edgeAhead(e, e.dir)) { e.dir = -e.dir; e.turnT = 1.1; }
     } else if (e.type === 'boss') {
       updateBoss(e, dt);
     } else if (e.type === 'balloon') {
@@ -2747,7 +2982,7 @@ function updateEnts(dt) {
       if (e.kind === 'catnip' && e.onGround) e.vy = -320;   // catnip bounces along
     }
   }
-  const walkers = ents.filter(e => (e.type === 'clown' || e.type === 'horse' || e.type === 'zombie' || (e.type === 'scarab' && e.mode === 'walk')) && e.active && !e.dead);
+  const walkers = ents.filter(e => (e.type === 'clown' || e.type === 'horse' || e.type === 'zombie' || e.type === 'cart' || e.type === 'rat' || e.type === 'cog' || e.type === 'knight' || e.type === 'wax' || (e.type === 'scarab' && e.mode === 'walk')) && e.active && !e.dead);
   for (let i = 0; i < walkers.length; i++) for (let j = i + 1; j < walkers.length; j++) {
     const a = walkers[i], b = walkers[j];
     if (overlap(a, b)) {
@@ -2764,18 +2999,24 @@ function updateEnts(dt) {
         if ((bx - nx) ** 2 + (by - ny) ** 2 < 9) { hurt(); break; }
       }
     }
+    for (const e of ents) if (e.type === 'toad' && e.active && !e.dead && e.tongue > 0 && P.star <= 0) {
+      const reach = 30 * Math.sin(Math.min(1, (0.42 - e.tongue) / 0.42) * Math.PI), tx = e.dir > 0 ? e.x + e.w : e.x - reach;
+      if (overlap(P, { x: tx, y: e.y + 3, w: reach, h: 3 })) hurt();
+    }
     for (const e of ents) {
       if (!e.active || e.dead || e.remove || !overlap(P, e)) continue;
       if (e.type === 'fireball' || e.type === 'firebar' || e.type === 'lift') continue;
       if (e.type === 'ghoul' && e.mode === 'hidden') continue;
       if (e.type === 'vine') { if (keys.up && Math.abs(P.x + P.w / 2 - (e.x + 4)) < 8) startClimb(e); continue; }
       if (e.type === 'flameskull' && e.t > 0) continue;   // still under the lava
+      if (e.type === 'eel' && e.t > 0) continue;   // still under the water
       if (e.type === 'candy') { if (e.emerge) continue; e.remove = true; powerUp(e); continue; }
       // fire creatures and keepers can't be stomped or burned by catnip; catnip just lets you pass through them
       if (e.type === 'boss') { bossTouch(e); continue; }
       if (e.type === 'flameskull' || e.type === 'bossfire' || BOSS_SHOTS.has(e.type)) { if (P.star <= 0 && shotLive(e)) hurt(); continue; }
       if (P.star > 0) { comboPts(e.x, e.y); burnEnemy(e, Math.sign(e.x - P.x) || 1, 0); continue; }
       const prevBottom = P.y + P.h - P.vy * (1 / 120);
+      if (e.type === 'cog') { hurt(); continue; }   // all teeth: never stomp a cog
       if (e.type === 'scarab' && e.mode !== 'walk') {
         const fromAbove = P.vy > 0 && prevBottom <= e.y + 6;
         if (e.mode === 'shell' || (fromAbove && e.mode !== 'slide')) {   // kick a resting shell away from you
@@ -2793,6 +3034,8 @@ function updateEnts(dt) {
         else if (e.type === 'puppet' || e.type === 'spider') { e.dead = 'flip'; e.vy = 0; e.vx = 0; sfx('snap'); burst(e.x + 6, e.y + 4, 6, ['#f1cfa0', '#2bb3a8'], 80, 300, 0.4); }
         else if (e.type === 'scarab') { e.mode = 'shell'; e.t = 0; e.vx = 0; sfx('stomp'); }
         else if (e.type === 'bat') { e.dead = 'flip'; e.vy = 0; e.vx = 0; sfx('snap'); burst(e.x + 6, e.y + 4, 6, ['#3a1f52', '#ff3d6e'], 80, 300, 0.4); }
+        else if (e.type === 'crow' || e.type === 'eel') { e.dead = 'flip'; e.vy = 0; e.vx = 0; sfx('snap'); burst(e.x + 6, e.y + 4, 6, e.type === 'crow' ? ['#1a1626', '#ffe14a'] : ['#2a5a5a', '#9fe0c8'], 80, 300, 0.4); }
+        else if (e.type === 'knight') { e.dead = 'squash'; e.t = 0.5; sfx('clank'); burst(e.x + 6, e.y + 6, 8, ['#c8d0dc', '#7a8696', '#e8304a'], 100, 400, 0.5); }
         else if (e.type !== 'balloon') { e.dead = 'squash'; e.t = 0.5; sfx('stomp'); burst(e.x + e.w / 2, e.y + 6, 6, ['#3ddc84', '#ffd23f', '#ff4f8b'], 90, 300, 0.4); }
         else { e.remove = true; sfx('pop'); burst(e.x + 6, e.y + 7, 14, [e.col, '#ffffff'], 160, 200, 0.5); }
         P.y = e.y - P.h; P.vy = keys.jump ? -440 : -280; P.sx = 0.8; P.sy = 1.2;
@@ -2801,7 +3044,7 @@ function updateEnts(dt) {
   }
   ents = ents.filter(e => !e.remove);
 }
-const SHELL_HITS = new Set(['clown', 'jack', 'horse', 'puppet', 'zombie', 'ghost', 'spider', 'ghoul', 'balloon', 'bat', 'scarab']);
+const SHELL_HITS = new Set(['clown', 'jack', 'horse', 'puppet', 'zombie', 'ghost', 'spider', 'ghoul', 'balloon', 'bat', 'scarab', 'eel', 'crow', 'cart', 'wax', 'toad', 'wolf', 'rat', 'cog', 'knight']);
 function powerUp(e) {
   const k = e.kind || (e.life ? 'gold' : 'mouse');
   if (k === 'gold') { lives++; sfx('squeak'); sfx('oneup'); pops.push({ x: e.x, y: e.y - 8, text: '1UP', t: 0 }); burst(P.x + 5, P.y + 10, 12, ['#3ddc84', '#b8ffd6', '#ffffff'], 120, 100, 0.5); return; }
@@ -2860,7 +3103,7 @@ function goTo(dest) {
     const topY = ty * TS;
     P.x = tx * TS + 16 - P.w / 2; P.y = topY + 2; P.vx = 0; P.vy = 0;
     camX = clamp(P.x - VW * 0.4, 0, COLS * TS - VW);
-    ents = ents.filter(e => !(['clown', 'zombie', 'ghoul', 'jack', 'horse'].includes(e.type) && !e.dead && Math.abs(e.x - P.x) < 72));
+    ents = ents.filter(e => !(['clown', 'zombie', 'ghoul', 'jack', 'horse', 'cart', 'wax', 'toad', 'wolf', 'rat', 'cog', 'knight'].includes(e.type) && !e.dead && Math.abs(e.x - P.x) < 72));
     pipe.clipY = topY; pipe.phase = 'fadeinUp'; pipe.t = 0;
   }
 }
@@ -2883,8 +3126,8 @@ function startFinish() {
     return;
   }
   state = 'finish'; fin = { phase: 'slide', t: 0, fw: 0, shots: 0, fwN: [1, 3, 6].includes(digit) ? digit : 0 };
-  const h = 12 * TS - (P.y + P.h);
-  const pts = h > 130 ? 5000 : h > 96 ? 2000 : h > 64 ? 800 : h > 32 ? 400 : 100;
+  const h = 12 * TS - P.y;   // where she grabs the pole (her head), big or small; the top tile of the pole is worth 5000
+  const pts = h >= 128 ? 5000 : h >= 96 ? 2000 : h >= 64 ? 800 : h >= 36 ? 400 : 100;
   addScore(pts, POLE_X + 6, P.y);
   P.vx = 0; P.vy = 0; P.x = POLE_X - P.w + 1; P.face = 1; P.star = 0; Snd.stop(); sfx('flag');
 }
@@ -4147,6 +4390,7 @@ function render() {
     if (e.type === 'bossfire') { drawBossFire(e, ex, ey); continue; }
     if (BOSS_SHOTS.has(e.type)) { drawBossShot(e, ex, ey); continue; }
     if (e.type === 'flameskull') { if (e.t <= 0) drawFlameskull(e, ex, ey); continue; }
+    if (e.type === 'eel' && e.t > 0 && !e.dead) { if ((clock * 2 + e.x) % 3 < 0.4) { dot('rgba(255,255,255,.35)', ex + 5, 13 * TS + 4, 1.2); dot('rgba(255,255,255,.35)', ex + 9, 13 * TS + 2, 0.8); } continue; }
     if (e.type === 'candy') {
       if (e.emerge) { ctx.save(); ctx.beginPath(); ctx.rect(ex - 2, 0, 16, e.clipY); ctx.clip(); }
       if (e.kind === 'pepper') drawPepper(Math.round(ex), Math.round(ey));
@@ -4171,6 +4415,15 @@ function render() {
     else if (e.type === 'ghoul') drawGhoul(e);
     else if (e.type === 'scarab') drawScarab(e);
     else if (e.type === 'bat') drawBat(e);
+    else if (e.type === 'eel') drawEel(e);
+    else if (e.type === 'crow') drawCrow(e);
+    else if (e.type === 'cart') drawCart(e);
+    else if (e.type === 'wax') drawWax(e);
+    else if (e.type === 'toad') drawToad(e);
+    else if (e.type === 'wolf') drawWolf(e);
+    else if (e.type === 'rat') drawRat(e);
+    else if (e.type === 'cog') drawCog(e);
+    else if (e.type === 'knight') drawKnight(e);
     else if (e.type === 'boss') drawBoss(e);
     ctx.restore();
   }
