@@ -244,7 +244,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <script>
 (() => {
 'use strict';
-const VERSION = 'v5.5';
+const VERSION = 'v5.6';
 document.getElementById('verBar').textContent = VERSION;
 document.getElementById('verOverlay').textContent = VERSION;
 const TS = 16, VW = 384, VH = 240, ROWS = 15;
@@ -3128,7 +3128,8 @@ function startFinish() {
   state = 'finish'; fin = { phase: 'slide', t: 0, fw: 0, shots: 0, fwN: [1, 3, 6].includes(digit) ? digit : 0 };
   const h = 12 * TS - P.y;   // where she grabs the pole (her head), big or small; the top tile of the pole is worth 5000
   const pts = h >= 128 ? 5000 : h >= 96 ? 2000 : h >= 64 ? 800 : h >= 36 ? 400 : 100;
-  addScore(pts, POLE_X + 6, P.y);
+  addScore(pts);   // the flag bonus shows big and gold beside the pole (on screen even if she sailed over the top) while she slides
+  pops.push({ x: POLE_X + 6, y: clamp(P.y, 3 * TS + 10, 11 * TS), text: String(pts), t: 0, life: 2.2, gold: true });
   P.vx = 0; P.vy = 0; P.x = POLE_X - P.w + 1; P.face = 1; P.star = 0; Snd.stop(); sfx('flag');
 }
 function updateFinish(dt) {
@@ -3180,7 +3181,7 @@ function step(dt) {
   for (const p of parts) { p.vy += p.g * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; if (p.rot !== undefined) p.rot += dt * 12; }
   parts = parts.filter(p => p.life > 0);
   if (shakeT > 0) shakeT -= dt;
-  for (const p of pops) p.t += dt; pops = pops.filter(p => p.t < 0.9);
+  for (const p of pops) p.t += dt; pops = pops.filter(p => p.t < (p.life || 0.9));
   for (const b of bumps) b.t += dt; bumps = bumps.filter(b => b.t < 0.18);
 
   if (roomTitleT > 0) roomTitleT -= dt;
@@ -4440,7 +4441,12 @@ function render() {
     else { ctx.globalAlpha = Math.max(0, p.life / p.max); ctx.fillStyle = p.col; ctx.fillRect(x, y, p.size, p.size); ctx.globalAlpha = 1; }
   }
   ctx.font = '8px "Press Start 2P", monospace'; ctx.textBaseline = 'top';
-  for (const p of pops) { const x = Math.round(p.x - cx), y = Math.round(p.y - p.t * 30); ctx.fillStyle = '#14072e'; ctx.fillText(p.text, x + 1, y + 1); ctx.fillStyle = '#ffffff'; ctx.fillText(p.text, x, y); }
+  for (const p of pops) {
+    const x = Math.round(p.x - cx), y = Math.round(p.y - (p.gold ? Math.min(p.t, 0.5) * 24 : p.t * 30));
+    if (p.gold) { ctx.save(); ctx.font = ctx.font.replace(/\d+px/, m => Math.round(parseInt(m) * 1.5) + 'px'); ctx.globalAlpha = Math.min(1, (p.life - p.t) * 3); }
+    ctx.fillStyle = '#14072e'; ctx.fillText(p.text, x + 1, y + 1); ctx.fillStyle = p.gold ? '#ffd23f' : '#ffffff'; ctx.fillText(p.text, x, y);
+    if (p.gold) ctx.restore();
+  }
   ctx.restore();
   for (const sx of [1, -1]) {
     ctx.save(); ctx.translate(sx > 0 ? 0 : VW, 0); ctx.scale(sx, 1);
