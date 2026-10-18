@@ -217,7 +217,7 @@ h1 { flex: 1; margin: 0; font: 400 14px/1.3 var(--font-display); color: var(--go
 </div>
 <script src="../lib/gamepad.js"></script>
 <script>
-const VERSION = "v1.9";
+const VERSION = "v1.10";
 const $ = id => document.getElementById(id);
 $("version").textContent = VERSION;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -279,6 +279,7 @@ function makeGerms(level) {
 // As in the original: you pick level 0-20, the count goes on to 24 and stays there; from level 20 every bottle has 84 germs
 const MAX_LEVEL = 24;
 const nextLevel = l => Math.min(MAX_LEVEL, l + 1);
+const SOFT_SLOW = 0.2, SOFT_FAST = 0.035, SOFT_RAMP = 0.8;   // soft drop: seconds per row at first, at full speed, and time to reach it
 function gravInterval() { return Math.max(0.09, [0.72, 0.48, 0.3][g.speed] * Math.pow(0.94, Math.floor(g.pills / 10))); }
 
 function startGame() {
@@ -335,7 +336,7 @@ addEventListener("pagehide", saveGame);
 function landToss() {
   const [c1, c2] = g.tossPill;
   g.cur = { x: 3, y: 0, vert: false, c1, c2 };
-  g.pills++; g.chain = 0; g.grav = 0; g.downLock = input.down;
+  g.pills++; g.chain = 0; g.grav = 0; g.downLock = input.down; g.downT = 0;
   if (!fits(g.cur)) { g.cur = null; return gameOver(); }
   g.phase = "drop";
 }
@@ -475,12 +476,13 @@ function keyDown(k) {
   if (k === "cw" || k === "ccw") return rotate(k === "cw");
   if (input[k]) return;
   input[k] = true;
+  if (k === "down") g.downT = 0;
   if (k === "left" || k === "right") { input.last = k; tryMove(k === "left" ? -1 : 1); g.das = 0.17; }
 }
 function keyUp(k) {
   if (!(k in input)) return;
   input[k] = false;
-  if (k === "down") g.downLock = false;
+  if (k === "down") { g.downLock = false; g.downT = 0; }
 }
 const KEYS = { ArrowLeft: "left", ArrowRight: "right", ArrowDown: "down", ArrowUp: "cw", x: "cw", X: "cw", z: "ccw", Z: "ccw", a: "left", A: "left", d: "right", D: "right", s: "down", S: "down", " ": "cw" };
 addEventListener("keydown", e => {
@@ -837,7 +839,13 @@ function update(dt) {
     case "drop": {
       const d = input.left && input.right ? (input.last === "left" ? -1 : 1) : input.left ? -1 : input.right ? 1 : 0;
       if (d) { g.das -= dt; while (g.das <= 0) { tryMove(d); g.das += 0.055; } }
-      const iv = input.down && !g.downLock ? 0.035 : gravInterval();
+      // Holding down starts slow and speeds up, so the drop can be stopped in time
+      let iv = gravInterval();
+      if (input.down && !g.downLock) {
+        g.downT = (g.downT || 0) + dt;
+        const r = Math.max(0, 1 - g.downT / SOFT_RAMP);
+        iv = Math.min(iv, SOFT_FAST + (SOFT_SLOW - SOFT_FAST) * r * r);
+      }
       g.grav += dt;
       while (g.grav >= iv && g.phase === "drop") { g.grav -= iv; stepDown(); }
       break;
