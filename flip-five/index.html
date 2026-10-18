@@ -196,7 +196,7 @@ button { cursor: pointer; }
 }
 .res-line { margin: 0; font: 700 clamp(20px, min(20cqh, 6.5cqw), 46px)/1.05 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: #ff8f7a; }
 .result.won .res-line { color: var(--hit); }
-.res-title { margin: 0; font: 600 clamp(13px, 10cqh, 20px)/1.1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+.res-title { margin: 0; font: 600 clamp(18px, min(15cqh, 4.5cqw), 32px)/1.1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
 .res-word { margin: 0; min-width: 0; font: 700 clamp(28px, min(42cqh, 12cqw), 112px)/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--amber); white-space: nowrap; }
 .result.won .res-word { color: var(--hit); }
 .res-row { display: flex; align-items: center; justify-content: center; gap: clamp(32px, 8cqw, 84px); margin-top: 2px; }
@@ -539,7 +539,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.25";
+const VERSION = "v2.26";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
