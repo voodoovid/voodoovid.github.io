@@ -244,7 +244,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <script>
 (() => {
 'use strict';
-const VERSION = 'v5.6';
+const VERSION = 'v5.7';
 document.getElementById('verBar').textContent = VERSION;
 document.getElementById('verOverlay').textContent = VERSION;
 const TS = 16, VW = 384, VH = 240, ROWS = 15;
@@ -1655,7 +1655,8 @@ function press(k, down) {
 window.addEventListener('keydown', e => {
   const k = KEYMAP[e.code];
   if (k) { e.preventDefault(); if (!e.repeat) press(k, true); }
-  if (e.code === 'KeyP' || e.code === 'Escape') { if (state !== 'title') setPaused(!paused); }
+  if (e.code === 'Escape' && !lvlSel.hidden) { closeLevelSelect(); return; }   // Esc closes the level select
+  if (e.code === 'KeyP' || e.code === 'Escape') { if (state !== 'title' && lvlSel.hidden) setPaused(!paused); }
   if (e.code === 'KeyM' && !e.metaKey && !e.ctrlKey) toggleMute();
   if (e.code === 'Enter' && state === 'title' && lvlSel.hidden) startGame();
   if (e.code === 'KeyT' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); lvlSel.hidden ? openLevelSelect() : closeLevelSelect(); }
@@ -2261,6 +2262,7 @@ let showHidden = false, lvlWasPaused = false;
 try { showHidden = localStorage.getItem('scareisdale.showHidden') === '1'; } catch (e) {}
 function syncHidTog() { hidTog.textContent = 'SHOW HIDDEN ITEMS: ' + (showHidden ? 'ON' : 'OFF'); hidTog.setAttribute('aria-pressed', String(showHidden)); }
 syncHidTog();
+document.getElementById('lvlClose').addEventListener('click', () => closeLevelSelect());
 hidTog.addEventListener('click', () => { showHidden = !showHidden; syncHidTog(); try { localStorage.setItem('scareisdale.showHidden', showHidden ? '1' : '0'); } catch (e) {} });
 LEVELS.forEach((lv, i) => {
   const b = document.createElement('button'); b.className = 'tog';
