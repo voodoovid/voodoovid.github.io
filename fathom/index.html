@@ -221,7 +221,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
 <script>
 (() => {
 "use strict";
-const VERSION = "v1.10";
+const VERSION = "v1.11";
 const ROUNDS = 7, ROUND_SECS = 25, WRONG_PENALTY = 3, M_PER_POINT = 4;
 const $ = id => document.getElementById(id);
 const KEY = "fathom.";
@@ -671,11 +671,12 @@ const Sea = (() => {
     cx.fillText("F A _ H O M", 14, 30);
     cx.restore();
   }
-  const WORDS = ["FATHOM", "DEEPER", "ABYSS!", "PONCHO", "GO SUB", "BUBBLE"];
+  const WORDS = ["FATHOM", "CHESSIE", "DEEPER", "PANNY", "ABYSS!", "THTM", "PONCHO", "GO SUB", "CHESSIE", "BUBBLE", "PANNY", "THTM"]
+    .map(w => " ".repeat(Math.floor((7 - w.length) / 2)) + w + " ".repeat(Math.ceil((7 - w.length) / 2)));
   function flipBoard() {
     // the Flip Five departure board, sunk and still flipping
     if (!near(780)) return;
-    const y = wy(780), x = X(.86, .66), n = 6, s = wide() ? 26 : 22, w = n * (s + 4) + 16;
+    const y = wy(780), x = X(.84, .64), n = 7, s = wide() ? 26 : 22, w = n * (s + 4) + 16;
     cx.fillStyle = "rgba(30,34,40,.95)"; cx.fillRect(x - w / 2 - 4, y - 30, 8, 140); cx.fillRect(x + w / 2 - 4, y - 30, 8, 140);
     cx.fillStyle = "#0d0f13"; cx.strokeStyle = "#ffc23d"; cx.lineWidth = 2;
     cx.fillRect(x - w / 2, y - 26, w, s * 1.4 + 26); cx.strokeRect(x - w / 2, y - 26, w, s * 1.4 + 26);
