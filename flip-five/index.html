@@ -119,6 +119,19 @@ button { cursor: pointer; }
 .row.live .tile { cursor: pointer; }
 .tile.sel { box-shadow: inset 0 0 0 max(3px, calc(var(--tile) * 0.05)) var(--amber); }
 .tile.sel:empty { animation: blink 1.1s steps(1) infinite; }
+/* the highlight resting on a filled-in green letter: green outline on the top flap, amber only around the bottom flap */
+.tile.fixed.sel {
+  --gw: max(2px, calc(var(--tile) * 0.035)); --aw: max(3px, calc(var(--tile) * 0.05));
+  box-shadow: none;
+  background:
+    linear-gradient(var(--hit), var(--hit)) left top / var(--gw) 50% no-repeat,
+    linear-gradient(var(--hit), var(--hit)) right top / var(--gw) 50% no-repeat,
+    linear-gradient(var(--hit), var(--hit)) center top / 100% var(--gw) no-repeat,
+    linear-gradient(var(--amber), var(--amber)) left bottom / var(--aw) 50% no-repeat,
+    linear-gradient(var(--amber), var(--amber)) right bottom / var(--aw) 50% no-repeat,
+    linear-gradient(var(--amber), var(--amber)) center bottom / 100% var(--aw) no-repeat,
+    var(--flap);
+}
 @keyframes blink { 50% { box-shadow: inset 0 0 0 max(3px, calc(var(--tile) * 0.05)) rgba(244, 185, 66, .35); } }
 .tile.hit  { background: var(--hit);  color: var(--hit-ink);  box-shadow: none; }
 .tile.near { background: var(--near); color: var(--near-ink); box-shadow: none; }
@@ -526,7 +539,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.20";
+const VERSION = "v2.21";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
@@ -804,8 +817,8 @@ function type(ch) {
     if (at >= 5) at = openSpots(G.cur, f)[0] ?? -1;
     if (at < 0) return;
     n = { cur: G.cur.slice(0, at) + ch + G.cur.slice(at + 1), at };
-    const next = [0, 1, 2, 3, 4].find(i => i > at && n.cur[i] === ".");
-    sel = next ?? openSpots(n.cur, f)[0] ?? null; selAuto = true;
+    // the highlight steps to the very next spot, even one already typed in or holding a green letter
+    sel = at < 4 ? at + 1 : openSpots(n.cur, f)[0] ?? null; selAuto = true;
   } else n = placeLetter(G.cur, ch, fixedSlots());
   if (!n) return;
   G.cur = n.cur; note = null;
@@ -1549,7 +1562,11 @@ import * as THREE from "../lib/three.module.min.js";
     if (L.state === "blank") ring(S / 56, css("--flap-line"));
     if (L.state === "typed") ring(S / 56, "#5d6575");
     if (L.state === "fixed") ring(Math.max(2, S * 0.035), css("--hit"));
-    if (L.sel) ring(Math.max(3, S * 0.05), L.sel === 1 ? "rgba(244,185,66,.35)" : css("--amber"));
+    if (L.sel && L.state === "fixed") {   // resting on a green letter: amber only around the bottom flap
+      g.save(); g.beginPath(); g.rect(0, S / 2, S, S / 2); g.clip();
+      g.beginPath(); g.roundRect(0, 0, S, S, r); g.fillStyle = css("--flap"); g.fill();
+      ring(Math.max(3, S * 0.05), L.sel === 1 ? "rgba(244,185,66,.35)" : css("--amber")); g.restore();
+    } else if (L.sel) ring(Math.max(3, S * 0.05), L.sel === 1 ? "rgba(244,185,66,.35)" : css("--amber"));
     // a soft sheen on the top flap and shade on the bottom one, like painted metal
     const sh = g.createLinearGradient(0, 0, 0, S);
     sh.addColorStop(0, "rgba(255,255,255,.07)"); sh.addColorStop(.5, "rgba(255,255,255,0)"); sh.addColorStop(.5, "rgba(0,0,0,.06)"); sh.addColorStop(1, "rgba(0,0,0,0)");
