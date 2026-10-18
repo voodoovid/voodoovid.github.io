@@ -244,7 +244,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <script>
 (() => {
 'use strict';
-const VERSION = 'v5.9';
+const VERSION = 'v5.10';
 document.getElementById('verBar').textContent = VERSION;
 document.getElementById('verOverlay').textContent = VERSION;
 const TS = 16, VW = 384, VH = 240, ROWS = 15;
@@ -2048,9 +2048,9 @@ function buildHarbor({ Sx, ground, col, drum, row, en, lava }) {
   col(88, 2); col(89, 3); row(88, 6, 'oo'); Sx(84, 9, 'h'); en('ghoul', 92, 12);
   drum(96, 2);   // the hold comes out here
   lava(102, 105); en('eel', 102, 14, { span: 2 });
-  ground(105, 130); row(108, 9, 'BSB'); en('scarab', 112, 12); en('scarab', 116, 12); en('ghost', 118, 5); row(120, 5, 'BBBBB'); en('crow', 123, 4); row(121, 3, 'ooo'); row(126, 2, '=='); row(126, 1, 'oo');   // up off the top: the crow's nest en('jack', 124, 12); Sx(127, 9, 'H');
+  ground(105, 130); row(108, 9, 'BSB'); en('scarab', 112, 12); en('scarab', 116, 12); en('ghost', 118, 5); row(120, 5, 'BBBBB'); en('crow', 123, 4); row(121, 3, 'ooo'); row(117, 9, 'B?B'); row(126, 2, '=='); row(126, 1, 'oo'); en('jack', 124, 12); Sx(127, 9, 'H');   // step up 117 → bricks → perch, then up off the top: the crow's nest
   lava(130, 145); ground(133, 136); ground(139, 142); en('bat', 137, 3); en('eel', 130, 14, { span: 2 }); en('eel', 136, 14, { span: 2 }); en('eel', 142, 14, { span: 2 });
-  ground(145, COLS); drum(146, 2); row(148, 9, '?P?'); en('crow', 152, 12);   // the crow's nest comes out at 146 en('ghoul', 158, 12); en('spider', 162, 2); Sx(155, 9, 'H'); row(160, 8, 'o o o');
+  ground(145, COLS); drum(146, 2); row(148, 9, '?P?'); en('crow', 152, 12); en('ghoul', 158, 12); en('spider', 162, 2); Sx(155, 9, 'H'); row(160, 8, 'o o o');   // the crow's nest comes out at 146
   for (let i = 0; i < 8; i++) col(170 + i, i + 1);
   col(178, 8);
 }
@@ -2079,7 +2079,7 @@ function buildMuseum({ Sx, ground, col, drum, row, en, fire }) {
   ground(93, 132); en('ghost', 96, 5); row(98, 9, 'B?B'); row(99, 5, 'G'); en('wax', 102, 12); en('puppet', 106, 3);
   drum(110, 2);   // the hidden gallery comes out here
   en('ghoul', 116, 12); row(118, 8, 'BMB'); en('puppet', 122, 3); en('knight', 126, 12); Sx(114, 9, 'h'); fire(129, 7);
-  ground(135, COLS); drum(137, 2); en('jack', 140, 12); en('ghost', 144, 6);   // 137: out of the sculptor's studio row(142, 9, '?P?'); en('wax', 150, 12); en('puppet', 153, 3); Sx(147, 9, 'H');
+  ground(135, COLS); drum(137, 2); en('jack', 140, 12); en('ghost', 144, 6); row(142, 9, '?P?'); en('wax', 150, 12); en('puppet', 153, 3); Sx(147, 9, 'H');   // 137: out of the sculptor's studio
   for (let i = 0; i < 8; i++) col(158 + i, i + 1);
   col(166, 8);
 }
@@ -2108,7 +2108,7 @@ function buildWoods({ Sx, ground, col, drum, row, en, ledge }) {
   ground(0, 30); row(10, 9, '?B?'); row(11, 5, 'P'); en('crow', 18, 12); en('spider', 22, 2); en('wolf', 25, 12); Sx(6, 9, 'H');
   ground(33, 60); ledge(36, 9, 4); row(37, 6, 'oo'); en('bat', 42, 2); en('wolf', 48, 12); Sx(44, 9, 'H');
   drum(54, 3);   // down into the badger's den
-  ground(63, 86); en('ghost', 66, 6); row(68, 9, 'BSB?B'); en('toad', 74, 12); drum(76, 2); en('wolf', 78, 12); en('spider', 80, 2);   // 76: out of the lodge ledge(82, 8, 3); row(82, 6, 'ooo'); en('crow', 83, 7);
+  ground(63, 86); en('ghost', 66, 6); row(68, 9, 'BSB?B'); en('toad', 74, 12); drum(76, 2); en('wolf', 78, 12); en('spider', 80, 2); ledge(82, 8, 3); row(82, 6, 'ooo'); en('crow', 83, 7);   // 76: out of the lodge
   ground(90, 112); en('crow', 93, 12); row(95, 9, '?M?'); en('toad', 106, 12); Sx(109, 9, 'h');
   drum(100, 2);   // the den comes out here
   ground(115, 124); ledge(127, 10, 4); ledge(133, 8, 3); en('bat', 129, 4); row(133, 6, 'ooo');
@@ -2130,7 +2130,7 @@ function buildSewer({ Sx, ground, col, drum, row, en, lava, fire }) {
   ground(93, 118); en('rat', 116, 12); en('ghoul', 98, 12); row(100, 9, 'B?B?B'); row(102, 5, 'G'); en('spider', 110, 2); fire(114, 8);
   drum(106, 2);   // the cistern comes out here
   lava(118, 131); ground(121, 124); en('eel', 118, 14, { span: 2 }); en('eel', 125, 14, { span: 5 }); en('lift', 126, 11, { len: 2, ay: -2, per: 3 });
-  ground(131, COLS); drum(136, 2); en('scarab', 134, 12);   // 136: out of the catacombs en('rat', 140, 12); en('rat', 142, 12); row(138, 9, '?P?'); en('toad', 146, 12); en('spider', 150, 2); Sx(143, 9, 'H'); en('rat', 156, 12); en('rat', 158, 12);
+  ground(131, COLS); drum(136, 2); en('scarab', 134, 12); en('rat', 140, 12); en('rat', 142, 12); row(138, 9, '?P?'); en('toad', 146, 12); en('spider', 150, 2); Sx(143, 9, 'H'); en('rat', 156, 12); en('rat', 158, 12);   // 136: out of the catacombs
   for (let i = 0; i < 8; i++) col(166 + i, i + 1);
   col(174, 8);
 }
