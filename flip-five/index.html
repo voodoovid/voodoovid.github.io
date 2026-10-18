@@ -438,7 +438,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
     <p>With <b>Must keep greens</b> on, green letters you have found are filled into the next row for you, outlined in green. If you type that same letter it goes in its spot; any other letter jumps ahead to the next open spot.</p>
     <p>Tap any flap in the row you're typing to put the next letter there. It's outlined in amber; tap it again to let go. On a keyboard the arrow keys do the same. Green letters are locked and can't be changed.</p>
     <p>When a word ends, <b>Today's Wordle</b> plays the day's New York Times Wordle. It shows until you've played today's puzzle to the end, then comes back with the next one.</p>
-    <p>The music starts on a random track and changes with each new word; pick a track in Settings. Solve the word for a cheer (bigger the fewer guesses you needed), miss it for a raspberry.</p>
+    <p>The music plays a random track, and a different random one with each new word; pick a track in Settings. Solve the word for a cheer (bigger the fewer guesses you needed), miss it for a raspberry.</p>
     <h3>Must keep greens</h3>
     <p>Every green letter stays in its spot in every later guess, filled in for you. A letter you know is in the word but that has only one spot left it could go (every other spot is green, or you already tried it there) is filled into that spot too, outlined in green. Amber letters can be left out.</p>
     <h3>Words</h3>
@@ -495,7 +495,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
       </div>
       <div class="opt">
         <b id="lblMusic">Music</b>
-        <span class="fine">Trip-hop beats, a new track with each word. They start with your first tap or key press.</span>
+        <span class="fine">Trip-hop beats, a random track with each word. They start with your first tap or key press.</span>
         <button class="switch" id="optMusic" type="button" role="switch" aria-checked="true" aria-labelledby="lblMusic"><span class="track"></span></button>
       </div>
       <div class="opt">
@@ -539,7 +539,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.23";
+const VERSION = "v2.24";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
@@ -929,7 +929,7 @@ async function fetchDaily() {
 function playDaily() {
   const d = today(), p = daily[d];
   if (!p || dailyDone === d) return;
-  if (G) setTrack(opts.track + 1);
+  if (G) setTrack(randomTrack());
   valid.add(p.w);
   G = { answer: p.w, guesses: [], cur: EMPTY, over: false, won: false, test: false, daily: d, num: p.n };
   if (!(d in wstats.days)) { wstats.tried++; wstats.days[d] = -1; save("wstats", wstats); }
@@ -941,7 +941,7 @@ $("btnDaily2").addEventListener("click", e => { e.currentTarget.blur(); playDail
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") fetchDaily(); });
 setInterval(() => { if (document.visibilityState === "visible" && G && G.over) fetchDaily(); }, 5 * 60 * 1000);   // a new day while open
 function newGame() {
-  if (G) setTrack(opts.track + 1);   // a new track with each new word (not when the page first opens)
+  if (G) setTrack(randomTrack());   // a new track with each new word (not when the page first opens)
   G = { answer: pickAnswer(), guesses: [], cur: EMPTY, over: false, won: false, test: testMode };
   testMode = false;   // the switch lasts for this one word only
   note = null; busy = false; sel = null;
@@ -1008,11 +1008,11 @@ const TRACKS = [
     hat: [.6, 0, 0, .2, .6, 0, .3, 0, .6, 0, 0, .2, .6, .2, .3, 0],
     bass: { 0: [0, 3], 3: [0, 1], 6: [7, 2], 10: [0, 4], 14: [10, 2] }, hits: [[0, 6], [6, 2, "top"], [12, 4]],
     melody: [[4, 0, 67, 6], [4, 8, 70, 4], [4, 12, 72, 4], [5, 0, 75, 8], [5, 10, 72, 6], [6, 0, 68, 6], [6, 8, 67, 4], [6, 12, 65, 4], [7, 0, 62, 8], [7, 8, 67, 8]] },
-  { name: "Rain Delay", bpm: 86, swing: .1, inst: "pad", lead: "glass",
+  { name: "Rain Delay", bpm: 86, swing: .1, inst: "rhodes", soft: true, lead: "glass",
     chords: [[57, 60, 64, 67, 71], [53, 57, 60, 64], [50, 53, 57, 60, 64], [52, 56, 59, 62]], roots: [33, 29, 38, 28],
     kick: [1, 0, 0, 0, 0, 0, .6, 0, 1, 0, 0, 0, 0, 0, 0, 0], snare: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
     hat: [.6, .2, .4, .2, .6, .2, .4, .2, .6, .2, .4, .2, .6, .2, .4, .3],
-    bass: { 0: [0, 6], 8: [0, 3], 12: [7, 2], 14: [5, 2] }, hits: [[0, 16]],
+    bass: { 0: [0, 6], 8: [0, 3], 12: [7, 2], 14: [5, 2] }, hits: [[0, 10], [10, 6, "mid"]],
     melody: [[4, 0, 76, 4], [4, 4, 74, 4], [4, 8, 72, 8], [5, 0, 69, 6], [5, 8, 72, 8], [6, 0, 74, 4], [6, 4, 72, 4], [6, 8, 69, 8], [7, 0, 71, 6], [7, 8, 68, 8]] },
   { name: "Last Train", bpm: 70, swing: .14, inst: "rhodes", lead: "theremin",
     chords: [[52, 55, 59, 62, 66], [48, 52, 55, 59], [45, 48, 52, 55, 59], [47, 51, 54, 57]], roots: [40, 36, 33, 35],
@@ -1218,7 +1218,7 @@ const Music = (() => {
       if (drums && T.bass[s]) bass(root + T.bass[s][0], t, T.bass[s][1] * SIX);
       for (const [hs, len, part] of T.hits) if (hs === s) {
         const notes = part === "top" ? chord.slice(-3) : part === "mid" ? chord.slice(1, 4) : chord;
-        const vel = part ? 0.05 : 0.085;
+        const vel = (part ? 0.05 : 0.085) * (T.soft ? 0.7 : 1);
         if (T.inst === "vibes") vibes(notes, t, len * SIX, vel * 0.8);
         else if (T.inst === "pad") pad(notes, t, len * SIX, vel);
         else rhodes(notes, t, len * SIX, vel);
@@ -1360,15 +1360,18 @@ function setMusic(play) {
   try { play ? Music.play() : Music.pause(); } catch (e) {}
   opts.music = play; save("opts", opts); paintOpts();
 }
+// any track except the one playing now
+function randomTrack() {
+  let r; do r = Math.floor(Math.random() * TRACKS.length); while (r === opts.track && TRACKS.length > 1);
+  return r;
+}
 function setTrack(i) {
   opts.track = (i % TRACKS.length + TRACKS.length) % TRACKS.length; save("opts", opts);
   try { Music.setTrack(opts.track); } catch (e) {}
   paintOpts();
 }
 // a random track each time the page loads (never the same one as last time)
-{ const last = Number.isInteger(opts.track) ? opts.track : -1;
-  let r; do r = Math.floor(Math.random() * TRACKS.length); while (r === last && TRACKS.length > 1);
-  opts.track = r; save("opts", opts); }
+opts.track = randomTrack(); save("opts", opts);
 Music.setTrack(opts.track);
 $("btnMusic").addEventListener("click", e => { e.currentTarget.blur(); setMusic(!Music.on); });   // not playing yet counts as off
 $("optMusic").addEventListener("click", () => setMusic(!opts.music));
