@@ -539,7 +539,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.22";
+const VERSION = "v2.23";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
@@ -1169,12 +1169,11 @@ const Music = (() => {
       g.connect(trem);
     });
   }
-  // string pad: detuned saws, slow swell, lots of room. The filter opens as it swells, and the very first
-  // chord of a track fades in extra slowly, so the opening isn't a wall of bright saws.
+  // string pad: detuned saws through a fixed, mellow filter (no sweep, so no "wah"), lots of room.
+  // The very first chord of a track fades in slowly; after that each chord comes in smoothly.
   function pad(notes, t, dur, vel) {
-    const lp = ac.createBiquadFilter(), g = ac.createGain(), first = bar === 0, atk = first ? 2.4 : 1.1, v = vel * (first ? 0.32 : 0.42);
-    lp.type = "lowpass"; lp.Q.value = 0.3;
-    lp.frequency.setValueAtTime(320, t); lp.frequency.linearRampToValueAtTime(first ? 620 : 720, t + atk);
+    const lp = ac.createBiquadFilter(), g = ac.createGain(), first = bar === 0, atk = first ? 2.4 : 0.35, v = vel * (first ? 0.32 : 0.4);
+    lp.type = "lowpass"; lp.Q.value = 0; lp.frequency.value = 650;
     g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + atk);
     g.gain.setValueAtTime(v, t + Math.max(atk, dur - 0.3)); g.gain.linearRampToValueAtTime(0, t + dur + 0.8);
     lp.connect(g); route(g, 0.7, 0.6, 0);
