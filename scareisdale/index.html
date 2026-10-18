@@ -244,7 +244,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <script>
 (() => {
 'use strict';
-const VERSION = 'v5.3';
+const VERSION = 'v5.4';
 document.getElementById('verBar').textContent = VERSION;
 document.getElementById('verOverlay').textContent = VERSION;
 const TS = 16, VW = 384, VH = 240, ROWS = 15;
@@ -1083,6 +1083,8 @@ const Snd = {
     this.music.connect(verb); verb.connect(wet); wet.connect(this.master);
     this.sfx = c.createGain(); this.sfx.gain.value = 0.5; this.sfx.connect(this.master);
     const sfxWet = c.createGain(); sfxWet.gain.value = 0.12; this.sfx.connect(sfxWet); sfxWet.connect(verb);
+    // Pancake's meow is a real recording (meow.mp3); the synth meow below covers until it loads
+    fetch('meow.mp3').then(r => r.arrayBuffer()).then(b => new Promise((ok, no) => c.decodeAudioData(b, ok, no))).then(buf => { this.meowBuf = buf; }).catch(() => {});
     this.noiseBuf = c.createBuffer(1, c.sampleRate, c.sampleRate);
     const nd = this.noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
   },
@@ -1131,6 +1133,11 @@ const Snd = {
   // with a cheerful upturn, through gentle open-mouth formants; a little different each time
   meow() {
     if (!this.ctx) return;
+    if (this.meowBuf) {
+      const c = this.ctx, src = c.createBufferSource(), g = c.createGain();
+      src.buffer = this.meowBuf; src.playbackRate.value = 0.97 + Math.random() * 0.06; g.gain.value = 1;
+      src.connect(g); g.connect(this.sfx); src.start(); return;
+    }
     const c = this.ctx, t = c.currentTime + 0.01, k = 0.95 + Math.random() * 0.1, L = 0.4 + Math.random() * 0.06;
     const at = x => t + x * L;
     const src = c.createGain(), env = c.createGain(), mouth = c.createBiquadFilter(), out = c.createGain();
