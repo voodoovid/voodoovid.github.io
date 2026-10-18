@@ -244,7 +244,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <script>
 (() => {
 'use strict';
-const VERSION = 'v5.1';
+const VERSION = 'v5.2';
 document.getElementById('verBar').textContent = VERSION;
 document.getElementById('verOverlay').textContent = VERSION;
 const TS = 16, VW = 384, VH = 240, ROWS = 15;
@@ -1127,16 +1127,40 @@ const Snd = {
     g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
     o.connect(g); g.connect(this.sfx); o.start(t); o.stop(t + dur + 0.02);
   },
-  // a cat's meow: a buzzy voice through two mouth-like filters, sliding up and back down
+  // a cat's meow, "mi-aaa-ow": a slightly rough voice with a wobble and a breath of air, shaped by
+  // three mouth formants that go from closed (m/ee) to wide open (aa) and round off (ow); a little different each time
   meow() {
     if (!this.ctx) return;
-    const c = this.ctx, t = c.currentTime, o = c.createOscillator(), o2 = c.createOscillator(), g = c.createGain(), out = c.createGain();
-    o.type = 'sawtooth'; o2.type = 'triangle';
-    for (const [osc, m] of [[o, 1], [o2, 2.01]]) { const f = osc.frequency; f.setValueAtTime(420 * m, t); f.linearRampToValueAtTime(700 * m, t + 0.16); f.linearRampToValueAtTime(610 * m, t + 0.32); f.exponentialRampToValueAtTime(380 * m, t + 0.55); }
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5, t + 0.05); g.gain.setValueAtTime(0.5, t + 0.32); g.gain.exponentialRampToValueAtTime(0.001, t + 0.58);
-    o.connect(g); o2.connect(g);
-    for (const [fr, fr2, q] of [[900, 1500, 6], [2400, 2900, 8]]) { const b = c.createBiquadFilter(); b.type = 'bandpass'; b.frequency.setValueAtTime(fr, t); b.frequency.linearRampToValueAtTime(fr2, t + 0.18); b.frequency.linearRampToValueAtTime(fr * 0.8, t + 0.55); b.Q.value = q; g.connect(b); b.connect(out); }
-    out.gain.value = 0.55; out.connect(this.sfx); o.start(t); o2.start(t); o.stop(t + 0.62); o2.stop(t + 0.62);
+    const c = this.ctx, t = c.currentTime + 0.01, k = 0.92 + Math.random() * 0.16, L = 0.62 + Math.random() * 0.12;
+    const at = x => t + x * L;
+    const src = c.createGain(), env = c.createGain(), mouth = c.createBiquadFilter(), out = c.createGain();
+    // voice: two slightly detuned saws (a bit of rasp) with a pitch that rises, peaks and falls
+    const vib = c.createOscillator(), vg = c.createGain(); vib.frequency.value = 5.5 + Math.random() * 1.5; vg.gain.value = 0;
+    vg.gain.setValueAtTime(0, t); vg.gain.linearRampToValueAtTime(14 * k, at(0.45)); vib.connect(vg);
+    const oscs = [1, 1.004].map(d => {
+      const o = c.createOscillator(), f = o.frequency; o.type = 'sawtooth';
+      f.setValueAtTime(470 * k * d, t); f.linearRampToValueAtTime(650 * k * d, at(0.18)); f.linearRampToValueAtTime(700 * k * d, at(0.32));
+      f.linearRampToValueAtTime(600 * k * d, at(0.62)); f.exponentialRampToValueAtTime(390 * k * d, at(1));
+      vg.connect(f); o.connect(src); return o;
+    });
+    // breath
+    const n = c.createBufferSource(), nf = c.createBiquadFilter(), ng = c.createGain();
+    n.buffer = this.noiseBuf; nf.type = 'highpass'; nf.frequency.value = 1800; ng.gain.value = 0.12;
+    n.connect(nf); nf.connect(ng); ng.connect(src);
+    // formants: [start, open, held, closed] frequencies, Q, level
+    for (const [f, q, lv] of [[[550, 1000, 950, 520], 5, 1], [[2300, 1750, 1500, 950], 7, 0.7], [[3100, 2900, 2800, 2500], 9, 0.3]]) {
+      const b = c.createBiquadFilter(), bg = c.createGain(); b.type = 'bandpass'; b.Q.value = q; bg.gain.value = lv;
+      b.frequency.setValueAtTime(f[0] * k, t); b.frequency.linearRampToValueAtTime(f[1] * k, at(0.22));
+      b.frequency.linearRampToValueAtTime(f[2] * k, at(0.55)); b.frequency.linearRampToValueAtTime(f[3] * k, at(0.95));
+      src.connect(b); b.connect(bg); bg.connect(mouth);
+    }
+    // the mouth opening on the "m" and closing on the "ow"
+    mouth.type = 'lowpass'; mouth.Q.value = 0.7;
+    mouth.frequency.setValueAtTime(600, t); mouth.frequency.exponentialRampToValueAtTime(5200, at(0.16)); mouth.frequency.setValueAtTime(5200, at(0.5)); mouth.frequency.exponentialRampToValueAtTime(1300, at(1));
+    env.gain.setValueAtTime(0.0001, t); env.gain.exponentialRampToValueAtTime(1, at(0.1)); env.gain.setValueAtTime(1, at(0.55));
+    env.gain.linearRampToValueAtTime(0.6, at(0.82)); env.gain.exponentialRampToValueAtTime(0.001, at(1));
+    mouth.connect(env); env.connect(out); out.gain.value = 0.9; out.connect(this.sfx);
+    const end = at(1) + 0.03; [...oscs, vib, n].forEach(o => { o.start(t); o.stop(end); });
   },
   noise(dur, vol, freq, delay = 0) {
     if (!this.ctx) return;
