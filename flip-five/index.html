@@ -71,7 +71,7 @@ button { cursor: pointer; }
 /* ---- header ---- */
 .top { grid-area: top; width: var(--kbw); max-width: 100%; height: 100%; display: flex; align-items: center; gap: 10px; min-width: 0; }
 .top h1 {
-  margin: 0; flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px;
+  margin: 0; flex: 1; min-width: 0; display: flex; align-items: baseline; justify-content: center; gap: 8px;
   font: 700 var(--title)/1 var(--font-display);
   letter-spacing: .09em; text-transform: uppercase; white-space: nowrap;
 }
@@ -86,7 +86,7 @@ button { cursor: pointer; }
 }
 .ib:hover { border-color: var(--dim); }
 .tight .top { gap: 8px; }
-.tight .top h1 { flex-direction: column; align-items: flex-start; gap: 2px; letter-spacing: .06em; }
+.tight .top h1 { flex-direction: column; align-items: center; justify-content: center; gap: 2px; letter-spacing: .06em; }
 .tight .ver { font-size: 10px; }
 .tight .tools { gap: 4px; }
 .tight .ib { min-width: 36px; padding: 0 6px; font-size: 14px; letter-spacing: .05em; }
@@ -539,7 +539,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.26";
+const VERSION = "v2.27";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
@@ -1459,7 +1459,10 @@ function fit() {
   B.sh = 6 * B.tile + 5 * g + pillRoom; B.sw = bw + B.colGap + B.kbw;
   B.kh = Math.floor(clamp(Math.min((B.sh - topH - 64 - 2 * rowGap - 2 * B.kg) / 3, (B.kbw - 9 * B.kg) / 10 * 1.5, 72), 28, 72));
   const side = cw >= 520 && B.kbw >= 300 && B.tile > A.tile * 1.05;
+  // side by side, the right column usually has height to spare: give some of it to the title row
+  B.topH = topH + clamp(Math.floor((B.sh - topH - remH - 3 * B.kh - 2 * B.kg - 2 * rowGap) * 0.5), 0, 28);
   let { tile, kbw, kg, kh, sw, sh, colGap } = side ? B : A;
+  let topRow = side ? B.topH : topH;
   tile = Math.max(tile, 20);
   const set = (k, v) => root.style.setProperty(k, v + "px");
   app.classList.toggle("side", side);
@@ -1471,23 +1474,38 @@ function fit() {
   const kbH = 3 * W.kh + 2 * W.kg;
   W.tile = Math.floor(Math.min((ch - kbH - rowGap - pillRoom - 5 * g) / 6, (cw * 0.52 - 4 * g) / 5, 150));
   const roomy = cw >= 900 && ch >= 600 && cw / ch >= 1.15 && W.tile >= 60 && ch - kbH - rowGap >= topH + remH + 200 + 2 * rowGap;
-  if (roomy) { ({ tile, kbw, kg, kh, sw, sh, colGap } = W); app.classList.add("side"); }
+  if (roomy) { ({ tile, kbw, kg, kh, sw, sh, colGap } = W); app.classList.add("side"); topRow = topH + 28; }
   app.classList.toggle("roomy", roomy);
   app.classList.toggle("tight", kbw < 470);
   const home = roomy ? $("panel") : $("optsHome"), body = $("optsQuick");
   if (body.parentNode !== home) home.appendChild(body);
-  set("--title", Math.round(clamp(Math.min(kbw * 0.06, topH * 0.62), 19, 34)));
+  set("--title", Math.round(clamp(Math.min(kbw * 0.06, topRow * 0.62), 19, 34)));
   set("--tile", tile); set("--gap", g); set("--kh", kh); set("--kgap", kg); set("--kbw", kbw);
   const keyW = (kbw - 9 * kg) / 10;
   set("--kf", Math.round(clamp(Math.min(kh * 0.44, keyW * 0.62), 13, 36)));
   set("--sw", Math.floor(sw)); set("--sh", Math.floor(sh));
   set("--pill-room", side || roomy ? pillRoom : 0);
-  set("--top-h", topH); set("--rem-h", remH); set("--row-gap", rowGap); set("--col-gap", colGap);
+  set("--top-h", topRow); set("--rem-h", remH); set("--row-gap", rowGap); set("--col-gap", colGap);
 }
-addEventListener("resize", fit);
-addEventListener("orientationchange", () => { fit(); setTimeout(fit, 350); setTimeout(fit, 900); });
-window.visualViewport?.addEventListener("resize", fit);
-fit();
+// Size the Flip Five name to fill the space between the Games button (or the edge) and the buttons, centred there
+function fitTitle() {
+  const h1 = document.querySelector(".top h1"), name = h1.firstElementChild, ver = $("version");
+  const topRow = parseFloat(getComputedStyle(root).getPropertyValue("--top-h")) || 44;
+  const tight = app.classList.contains("tight");
+  const fs = parseFloat(getComputedStyle(h1).fontSize);
+  const perPx = name.getBoundingClientRect().width / fs;
+  if (!(perPx > 0 && h1.clientWidth > 0)) return;
+  const room = h1.clientWidth - (tight ? 0 : ver.getBoundingClientRect().width + 8) - 4;
+  const tall = tight ? topRow - 16 : topRow * 0.78;
+  const size = Math.floor(clamp(Math.min(room / perPx, tall, 64), 18, 64));
+  root.style.setProperty("--title", size + "px");
+}
+const fitAll = () => { fit(); window.__pillFit?.(); fitTitle(); requestAnimationFrame(() => { window.__pillFit?.(); fitTitle(); }); };
+addEventListener("resize", fitAll);
+addEventListener("orientationchange", () => { fitAll(); setTimeout(fitAll, 350); setTimeout(fitAll, 900); });
+if (document.fonts) document.fonts.ready.then(fitAll);
+window.visualViewport?.addEventListener("resize", fitAll);
+fitAll();
 
 // ---------- Start ----------
 function start(data) {
@@ -1498,7 +1516,7 @@ function start(data) {
   paintOpts();
   if (ok) { G = { answer: saved.answer, guesses: saved.guesses, cur: EMPTY, over: !!saved.over, won: !!saved.won, test: !!saved.test, daily: saved.daily || "", num: saved.num || 0 }; G.cur = layOut(String(saved.cur || "")); paint(); }
   else newGame();
-  fit();
+  fitAll();
   daily = load("daily", {}); fetchDaily();
 }
 // Pick up a newer version: whenever the game opens or comes back on screen, ask the site for the latest page and
