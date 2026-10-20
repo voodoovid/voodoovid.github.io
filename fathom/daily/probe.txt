@@ -1,0 +1,8 @@
+A full query (POST)      rc=28 http=000  50.0s rows=0 'curl: (28) Operation timed out after 50001 milliseconds with 0 bytes received\n'
+A2 full, limit 120       rc=28 http=000  50.0s rows=0 'curl: (28) Operation timed out after 50002 milliseconds with 0 bytes received\n'
+B no aliases             rc=28 http=000  50.0s rows=0 'curl: (28) Operation timed out after 50002 milliseconds with 0 bytes received\n'
+C subquery only          rc=0 http=200   0.2s rows=202 '{\n  "head" : {\n    "vars" : [ "item", "links" ]\n  },\n  "results" : {\n    "bindings" : [ {\n      "ite'
+D plain list             rc=0 http=200   0.1s rows=6 '{\n  "head" : {\n    "vars" : [ "item" ]\n  },\n  "results" : {\n    "bindings" : [ {\n      "item" : {\n  '
+E label service          rc=0 http=200   0.3s rows=21 '{\n  "head" : {\n    "vars" : [ "item", "itemLabel" ]\n  },\n  "results" : {\n    "bindings" : [ {\n      '
+A full query (GET)       rc=28 http=000  50.0s rows=0 'curl: (28) Operation timed out after 50002 milliseconds with 0 bytes received\n'
+D plain list (again)     rc=0 http=200   0.2s rows=6 '{\n  "head" : {\n    "vars" : [ "item" ]\n  },\n  "results" : {\n    "bindings" : [ {\n      "item" : {\n  '
