@@ -244,7 +244,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <script>
 (() => {
 'use strict';
-const VERSION = 'v5.10';
+const VERSION = 'v5.11';
 document.getElementById('verBar').textContent = VERSION;
 document.getElementById('verOverlay').textContent = VERSION;
 const TS = 16, VW = 384, VH = 240, ROWS = 15;
@@ -1260,6 +1260,9 @@ const Snd = {
     const sfxWet = c.createGain(); sfxWet.gain.value = 0.12; this.sfx.connect(sfxWet); sfxWet.connect(verb);
     // Pancake's meow is a real recording (meow.mp3); the synth meow below covers until it loads
     fetch('meow.mp3').then(r => r.arrayBuffer()).then(b => new Promise((ok, no) => c.decodeAudioData(b, ok, no))).then(buf => { this.meowBuf = buf; }).catch(() => {});
+    // Pancake's purrs are real recordings too (purr1-4.mp3): a few at the 10th kibble, longer ones when she peeks out of the exit
+    this.purrBufs = [];
+    for (let i = 1; i <= 4; i++) fetch('purr' + i + '.mp3').then(r => r.arrayBuffer()).then(b => new Promise((ok, no) => c.decodeAudioData(b, ok, no))).then(buf => { this.purrBufs[i - 1] = buf; }).catch(() => {});
     this.noiseBuf = c.createBuffer(1, c.sampleRate, c.sampleRate);
     const nd = this.noiseBuf.getChannelData(0); for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
   },
@@ -1338,6 +1341,18 @@ const Snd = {
     mouth.connect(env); env.connect(out); out.gain.value = 0.8; out.connect(this.sfx);
     const end = at(1) + 0.03; [...oscs, vib].forEach(o => { o.start(t); o.stop(end); });
   },
+  // a real purr from the recordings, never the same one twice running; max (seconds) cuts it short with a soft fade
+  purr(delay = 0, max = 0, vol = 1) {
+    if (!this.ctx) return;
+    const ok = this.purrBufs.map((buf, i) => buf ? i : -1).filter(i => i >= 0 && i !== this.lastPurr);
+    if (!ok.length) return;
+    const i = ok[Math.floor(Math.random() * ok.length)]; this.lastPurr = i;
+    const c = this.ctx, t = c.currentTime + delay, src = c.createBufferSource(), g = c.createGain(), buf = this.purrBufs[i];
+    const len = max ? Math.min(max, buf.duration) : buf.duration;
+    src.buffer = buf; src.playbackRate.value = 0.97 + Math.random() * 0.06;
+    g.gain.setValueAtTime(vol, t); if (len < buf.duration) { g.gain.setValueAtTime(vol, t + len - 0.3); g.gain.linearRampToValueAtTime(0, t + len); }
+    src.connect(g); g.connect(this.sfx); src.start(t, 0, len);
+  },
   noise(dur, vol, freq, delay = 0) {
     if (!this.ctx) return;
     const c = this.ctx, t = c.currentTime + delay, s = c.createBufferSource(), f = c.createBiquadFilter(), g = c.createGain();
@@ -1362,6 +1377,8 @@ function sfx(k) {
     case 'shrink': [12, 8, 5, 1, -3].forEach((n, i) => s.tone('square', mtof(60 + n), mtof(60 + n), 0.08, 0.07, i * 0.07)); break;
     case 'pop': s.noise(0.12, 0.4, 3000); s.tone('sine', 900, 200, 0.1, 0.15); break;
     case 'meow': s.meow(); break;
+    case 'purrShort': s.purr(0.3, 1.6, 0.9); break;
+    case 'purrLong': s.purr(0.3, 0, 1); break;
     case 'squeak': s.tone('sine', 2200, 3100, 0.07, 0.08); s.tone('sine', 2600, 3400, 0.06, 0.07, 0.09); break;
     case 'pounce': s.tone('square', 300, 120, 0.12, 0.08); break;
     case 'poundStart': s.tone('square', 500, 1100, 0.08, 0.06); break;
@@ -2408,7 +2425,7 @@ const edgeAhead = (e, d) => e.onGround && d && !solidAt(Math.floor((d > 0 ? e.x 
 const overlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
 function addScore(n, x, y) { score += n; if (x !== undefined) pops.push({ x, y, text: String(n), t: 0 }); }
-function addCoin() { coins++; score += 200; sfx('coin'); if (coins % 10 === 0) { sfx('meow'); pops.push({ x: P.x - 6, y: P.y - 10, text: 'MEOW!', t: 0 }); } if (coins >= 100) { coins -= 100; lives++; sfx('oneup'); pops.push({ x: P.x, y: P.y - 8, text: '1UP', t: 0 }); } }
+function addCoin() { coins++; score += 200; sfx('coin'); if (coins % 10 === 0) { sfx('meow'); sfx('purrShort'); pops.push({ x: P.x - 6, y: P.y - 10, text: 'MEOW!', t: 0 }); } if (coins >= 100) { coins -= 100; lives++; sfx('oneup'); pops.push({ x: P.x, y: P.y - 8, text: '1UP', t: 0 }); } }
 function burst(x, y, n, colors, spd = 120, g = 500, life = 0.6, size = 2) {
   for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, v = spd * (0.4 + Math.random() * 0.6); parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, g, life, max: life, col: colors[i % colors.length], size }); }
 }
@@ -3268,7 +3285,7 @@ function updateFinish(dt) {
   } else if (fin.phase === 'peek') {
     // a moment inside, then her head pops out of the doorway and she meows
     if (fin.t > 0.6 && !fin.peek) fin.peek = clock;
-    if (fin.t > 0.9 && !fin.meow) { fin.meow = clock; sfx('meow'); }
+    if (fin.t > 0.9 && !fin.meow) { fin.meow = clock; sfx('meow'); sfx('purrLong'); }
     if (fin.t > 1.9) { fin.phase = 'tally'; fin.t = 0; timeLeft = Math.ceil(timeLeft); fin.n = 0; }
   } else if (fin.phase === 'tally') {
     if (timeLeft > 0) { timeLeft--; score += 50; if (++fin.n % 4 === 0) sfx('tick'); }
