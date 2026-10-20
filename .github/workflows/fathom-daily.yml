@@ -1,11 +1,12 @@
-# Makes Fathom's daily dives: fathom/daily/YYYY-MM-DD.json for yesterday (UTC) through 7 days ahead, each with its
-# seven prompts and all their answers, so every player gets the same dive. Runs every day; a day's file is never
-# changed once made. Editing the script re-checks every Wikidata category (fathom/daily/check.txt); put
+# Makes Fathom's daily dives: fathom/daily/YYYY-MM-DD.json for yesterday (UTC) through 14 days ahead, each with its
+# seven prompts and all their answers, so every player gets the same dive. Runs every Monday; a day's file is never
+# changed once made. It also keeps fathom/freeplay.json (every Wikidata category, for Free dives) up to date.
+# Editing the script re-checks every Wikidata category (fathom/daily/check.txt) and rebuilds freeplay.json; put
 # [make days] in that commit's message to also make the days right away.
 name: Fathom daily dives
 on:
   schedule:
-    - cron: "41 8 * * *"
+    - cron: "41 8 * * 1"
   workflow_dispatch:
   push:
     branches: [main]
@@ -16,7 +17,7 @@ concurrency: fathom-daily
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
       - name: Test the connection to Wikidata
@@ -38,7 +39,7 @@ jobs:
         if: always()
         run: |
           mkdir -p fathom/daily
-          git add -A fathom/daily
+          git add -A fathom/daily fathom/freeplay.json
           git diff --cached --quiet && exit 0
           git -c user.name="fathom-bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "Fathom daily dives"
           git pull --rebase -q

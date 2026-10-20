@@ -221,7 +221,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
 <script>
 (() => {
 "use strict";
-const VERSION = "v1.12";
+const VERSION = "v1.13";
 const ROUNDS = 7, ROUND_SECS = 25, WRONG_PENALTY = 3, M_PER_POINT = 4;
 const $ = id => document.getElementById(id);
 const KEY = "fathom.";
@@ -358,7 +358,23 @@ function useDay(prompts) {
 }
 function prefetchDays() {
   const t = new Date(); t.setDate(t.getDate() + 1);
-  fetchDay(todayKey()).then(() => fetchDay(todayKey(t)));
+  fetchDay(todayKey()).then(() => fetchDay(todayKey(t))).then(fetchFree);
+}
+// fathom/freeplay.json holds every Wikidata category (made on GitHub with the daily dives) for Free dives, so they
+// draw from far more than the built-in prompts. It is separate from the daily files, so a free dive never shows a
+// coming day's prompts. Without it (offline and never fetched), Free dives use the built-in prompts alone.
+let FREE = null;
+async function fetchFree() {
+  if (FREE) return FREE;
+  try {
+    const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 8000);
+    const res = await fetch("freeplay.json", { cache: "no-cache", signal: ctl.signal });
+    clearTimeout(to);
+    if (!res.ok) return [];
+    const j = await res.json();
+    if (Array.isArray(j.prompts)) FREE = j.prompts.filter(p => Array.isArray(p) && p.length === 2 && p[0] && p[1]);
+  } catch (e) {}
+  return FREE || [];
 }
 
 // ---------- Game state ----------
@@ -429,13 +445,26 @@ async function startDaily() {
   G.round = G.results.length; G.depth = totalPts() * M_PER_POINT; Sea.target(G.depth, true);
   startRound();
 }
-function startFree() {
+async function startFree() {
+  if (G.loading) return;
+  G.loading = true;
+  const b = $("goFree"); if (b && !FREE) b.innerHTML = "<span>Loading prompts…</span>";
+  const extra = await fetchFree();
+  G.loading = false;
+  if (G.screen !== "home") return;
   G.mode = "free"; setMode(" · Free dive");
+  // the built-in prompts plus the downloaded categories (a built-in prompt wins when both have the same name)
+  const have = new Set(CATS.map(c => c[0]));
+  const all = [...CATS, ...extra.filter(c => !have.has(c[0]))];
   const avoid = new Set(store.get("recentFree", []));
-  let pool = shuffled(BASE, Math.random).filter(c => !avoid.has(c));
-  if (pool.length < ROUNDS) pool = shuffled(BASE, Math.random);
-  G.cats = pool.slice(0, ROUNDS); G.results = []; G.round = 0; G.depth = 0; Sea.target(0, true);
-  store.set("recentFree", [...G.cats, ...avoid].slice(0, Math.min(35, BASE - ROUNDS)));
+  const order = shuffled(all.length, Math.random).map(i => all[i]);
+  let fresh = order.filter(c => !avoid.has(c[0]));
+  if (fresh.length < ROUNDS) fresh = order;
+  const picks = [], names = new Set();
+  for (const c of fresh) { if (!names.has(c[0])) { names.add(c[0]); picks.push(c); } if (picks.length >= ROUNDS) break; }
+  G.dl = false;
+  G.cats = useDay(picks); G.results = []; G.round = 0; G.depth = 0; Sea.target(0, true);
+  store.set("recentFree", [...picks.map(c => c[0]), ...avoid].slice(0, Math.min(60, all.length - ROUNDS)));
   startRound();
 }
 

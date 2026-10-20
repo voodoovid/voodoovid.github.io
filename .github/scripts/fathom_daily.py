@@ -6,15 +6,22 @@ Each day mixes WD_PER_DAY prompts made fresh from Wikidata (answers ranked by ho
 on them, so famous answers sit near the surface and obscure ones sink deep) with curated prompts from prompts.js.
 A day's file is never rewritten once it exists, so everyone gets the same dive.
 
-  python3 .github/scripts/fathom_daily.py            make any missing days from yesterday (UTC) to DAYS_AHEAD ahead
-  python3 .github/scripts/fathom_daily.py --check    run every Wikidata category, write fathom/daily/check.txt
+Every Wikidata category with enough answers also goes into fathom/freeplay.json, the pool Free dives draw from. It is
+kept apart from the daily files so a free dive never shows a coming day's prompts.
+
+  python3 .github/scripts/fathom_daily.py            make any missing days from yesterday (UTC) to DAYS_AHEAD ahead,
+                                                     then add any category missing from freeplay.json
+  python3 .github/scripts/fathom_daily.py --check    run every Wikidata category, write fathom/daily/check.txt and
+                                                     rebuild fathom/freeplay.json
 """
 import datetime, json, os, random, re, subprocess, sys, time, urllib.parse, urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUT = os.path.join(ROOT, "fathom", "daily")
-ROUNDS, WD_PER_DAY, DAYS_AHEAD, KEEP_PAST = 7, 4, 7, 14
+FREE = os.path.join(ROOT, "fathom", "freeplay.json")
+ROUNDS, WD_PER_DAY, DAYS_AHEAD, KEEP_PAST = 7, 4, 14, 14
 MAX_ANSWERS, MIN_ANSWERS = 300, 20
+FREE_BUDGET = 20 * 60                          # seconds a weekly run may spend adding categories to freeplay.json
 EPOCH = datetime.date(2026, 10, 12)          # the game's day 0
 UA = "FathomDaily/1.0 (https://voodoovid.github.io/fathom/; daily word game prompts)"
 
@@ -28,6 +35,9 @@ def kind_of(q): return f"?item wdt:P31/wdt:P279* wd:{q} ."
 def variety(q): return f"?item (wdt:P31|wdt:P279)/wdt:P279* wd:{q} ."
 def country_in(*qs): return f"VALUES ?ct {{ {' '.join('wd:' + q for q in qs)} }} ?item wdt:P31 wd:Q3624078 ; wdt:P30 ?ct ."
 def team(league, cls): return f"?item wdt:P118 wd:{league} ; wdt:P31 wd:{cls} ."
+def city_in(q): return f"?item wdt:P17 wd:{q} ; wdt:P31/wdt:P279* wd:Q515 ."
+def of_country(q, c): return f"?item wdt:P31 wd:{q} ; wdt:P17 wd:{c} ."
+def sung_by(artist, kind="Q7366"): return f"?item wdt:P175 wd:{artist} ; wdt:P31/wdt:P279* wd:{kind} ."
 
 CATEGORIES = [
     # places
@@ -125,6 +135,123 @@ CATEGORIES = [
     ("Name an NFL team", team("Q1215884", "Q17156793"), 1, "team"),
     ("Name an MLB team", team("Q1163715", "Q13027888"), 1, "team"),
     ("Name a Premier League club", team("Q9448", "Q476028"), 1, "team"),
+    # more of everything (added to widen the free-play pool; a category with too few answers is skipped automatically)
+    ("Name a Bundesliga club", team("Q82595", "Q476028"), 1, "team"),
+    ("Name a La Liga club", team("Q324867", "Q476028"), 1, "team"),
+    ("Name a Serie A club", team("Q15804", "Q476028"), 1, "team"),
+    ("Name a Ligue 1 club", team("Q13394", "Q476028"), 1, "team"),
+    # more places
+    ("Name a US state capital", "?c wdt:P31 wd:Q35657 ; wdt:P36 ?item .", 1, None),
+    ("Name a UK city", city_in("Q145"), 20, None),
+    ("Name a French city", city_in("Q142"), 20, None),
+    ("Name a German city", city_in("Q183"), 20, None),
+    ("Name an Italian city", city_in("Q38"), 20, None),
+    ("Name a Spanish city", city_in("Q29"), 20, None),
+    ("Name a Japanese city", city_in("Q17"), 20, None),
+    ("Name an Australian city", city_in("Q408"), 15, None),
+    ("Name a Brazilian city", city_in("Q155"), 15, None),
+    ("Name a waterfall", inst("Q34038"), 15, None),
+    ("Name a peninsula", inst("Q34763"), 20, None),
+    ("Name a bay", inst("Q39594"), 25, None),
+    ("Name a strait", inst("Q37901"), 12, None),
+    ("Name a glacier", inst("Q35666"), 12, None),
+    ("Name a national park", inst("Q46169"), 25, None),
+    ("Name a zoo", inst("Q43501"), 15, None),
+    ("Name an airport", inst("Q1248784"), 40, None),
+    ("Name a castle", inst("Q23413"), 25, None),
+    ("Name a palace", inst("Q16560"), 25, None),
+    ("Name a cathedral", inst("Q2977"), 30, None),
+    ("Name a stadium", inst("Q483110"), 25, None),
+    ("Name a lighthouse", inst("Q39715"), 12, None),
+    ("Name a dam", inst("Q12323"), 25, None),
+    ("Name a canal", inst("Q12284"), 20, None),
+    ("Name a theme park", inst("Q194195"), 20, None),
+    ("Name a star", inst("Q523"), 25, None),
+    ("Name a galaxy", inst("Q318"), 20, None),
+    ("Name a Canadian university", of_country("Q3918", "Q16"), 8, None),
+    ("Name a US university", of_country("Q3918", "Q30"), 30, None),
+    # more science, food and things
+    ("Name a fruit", kind_of("Q3314483"), 10, None),
+    ("Name a vegetable", kind_of("Q11004"), 8, None),
+    ("Name a spice", kind_of("Q42527"), 8, None),
+    ("Name a herb", kind_of("Q207123"), 6, None),
+    ("Name a nut", kind_of("Q11009"), 5, None),
+    ("Name a metal", kind_of("Q11426"), 5, None),
+    ("Name a soup", kind_of("Q41425"), 6, None),
+    ("Name a cake", kind_of("Q13276"), 6, None),
+    ("Name a dessert", kind_of("Q182818"), 8, None),
+    ("Name a wine grape", kind_of("Q10978"), 8, None),
+    ("Name a type of tea", variety("Q6097"), 5, None),
+    ("Name a unit of measurement", inst("Q47574"), 20, None),
+    ("Name an academic subject", inst("Q11862829"), 30, None),
+    ("Name a sport", kind_of("Q349"), 25, None),
+    ("Name a martial art", kind_of("Q11417"), 10, None),
+    ("Name a kind of dance", variety("Q11639"), 10, None),
+    ("Name a music genre", inst("Q188451"), 40, None),
+    ("Name a color", kind_of("Q1075"), 8, None),
+    ("Name an operating system", inst("Q9135"), 25, None),
+    ("Name a record label", inst("Q18127"), 40, None),
+    ("Name a magazine", inst("Q41298"), 50, None),
+    ("Name a bank", inst("Q22687"), 35, None),
+    ("Name a festival", inst("Q132241"), 20, None),
+    # history
+    ("Name a battle", inst("Q178561"), 60, None),
+    ("Name a treaty", inst("Q131569"), 40, None),
+    ("Name a revolution", inst("Q10931"), 20, None),
+    ("Name a political party", inst("Q7278"), 70, None),
+    ("Name a dynasty", inst("Q164950"), 20, None),
+    # films, shows, books, music and games
+    ("Name a film", inst("Q11424"), 120, None),
+    ("Name an animated film", inst("Q202866"), 40, None),
+    ("Name a TV series", inst("Q5398426"), 90, None),
+    ("Name a video game", inst("Q7889"), 80, None),
+    ("Name a novel", inst("Q8261"), 80, None),
+    ("Name a play", inst("Q25379"), 40, None),
+    ("Name a musical", inst("Q2743"), 25, None),
+    ("Name a manga series", inst("Q21198342"), 25, None),
+    ("Name an album", inst("Q482994"), 80, None),
+    ("Name a song", inst("Q7366"), 60, None),
+    ("Name a Beatles song", sung_by("Q1299"), 12, None),
+    ("Name a fictional character", inst("Q95074"), 70, None),
+    ("Name a superhero", inst("Q188784"), 25, None),
+    ("Name a cartoon character", inst("Q15711870"), 30, None),
+    ("Name a Pokemon", inst("Q3966183"), 20, None),
+    # more people
+    ("Name a singer", occ("Q177220"), 80, "person"),
+    ("Name an actor", occ("Q33999"), 120, "person"),
+    ("Name a rapper", occ("Q2252262"), 50, "person"),
+    ("Name a guitarist", occ("Q855091"), 50, "person"),
+    ("Name a pianist", occ("Q486748"), 55, "person"),
+    ("Name a violinist", occ("Q1259917"), 40, "person"),
+    ("Name a conductor", occ("Q158852"), 45, "person"),
+    ("Name a soccer player", occ("Q937857"), 100, "person"),
+    ("Name a basketball player", occ("Q3665646"), 70, "person"),
+    ("Name a baseball player", occ("Q10871364"), 60, "person"),
+    ("Name a hockey player", occ("Q11774891"), 55, "person"),
+    ("Name an American football player", occ("Q19204627"), 60, "person"),
+    ("Name a golfer", occ("Q11303721"), 45, "person"),
+    ("Name a boxer", occ("Q11338576"), 50, "person"),
+    ("Name a swimmer", occ("Q10843402"), 50, "person"),
+    ("Name a cricketer", occ("Q12299841"), 60, "person"),
+    ("Name a racing driver", occ("Q378622"), 55, "person"),
+    ("Name an astronomer", occ("Q11063"), 40, "person"),
+    ("Name a biologist", occ("Q864503"), 45, "person"),
+    ("Name an economist", occ("Q188094"), 45, "person"),
+    ("Name a psychologist", occ("Q212980"), 45, "person"),
+    ("Name a historian", occ("Q201788"), 50, "person"),
+    ("Name a physician", occ("Q39631"), 55, "person"),
+    ("Name a playwright", occ("Q214917"), 55, "person"),
+    ("Name a screenwriter", occ("Q28389"), 60, "person"),
+    ("Name a photographer", occ("Q33231"), 45, "person"),
+    ("Name an entrepreneur", occ("Q131524"), 45, "person"),
+    ("Name a saint", occ("Q43115"), 50, "person"),
+    ("Name a US vice president", held("Q11699"), 1, "person"),
+    ("Name a president of France", held("Q191954"), 1, "person"),
+    ("Name a Nobel Peace Prize winner", won("Q35637"), 1, "person"),
+    ("Name a Nobel Prize in Chemistry winner", won("Q44585"), 1, "person"),
+    ("Name a Nobel Prize in Medicine winner", won("Q80061"), 1, "person"),
+    ("Name a Best Director Oscar winner", won("Q103360"), 1, "person"),
+    ("Name a Best Picture Oscar winner", won("Q102427"), 1, None),
 ]
 
 QUERY = """SELECT ?item ?label ?links (GROUP_CONCAT(DISTINCT ?alias; separator="\\t") AS ?aliases) (SAMPLE(?famL) AS ?fam) WHERE {
@@ -229,35 +356,73 @@ def make_day(date, cur, bad):
     random.Random(d).shuffle(picks)
     return {"date": date.isoformat(), "prompts": [[p, l] for p, l, _ in picks], "wikidata": [p for p, _, s in picks if s == "wd"]}
 
+def load_free():
+    try: return json.load(open(FREE))["prompts"]
+    except Exception: return []
+
+def save_free(prompts):
+    """fathom/freeplay.json: [prompt, answers] for every Wikidata category, in CATEGORIES order."""
+    order = {c[0]: i for i, c in enumerate(CATEGORIES)}
+    prompts = sorted((p for p in prompts if p[0] in order), key=lambda p: order[p[0]])
+    open(FREE, "w").write(json.dumps({"built": datetime.date.today().isoformat(), "prompts": prompts},
+                                     ensure_ascii=False, separators=(",", ":")) + "\n")
+    print("freeplay.json:", len(prompts), "categories", flush=True)
+
+def update_free():
+    """Add the categories freeplay.json doesn't have yet (a full rebuild happens with --check)."""
+    have = load_free()
+    names = {p[0] for p in have}
+    start = time.time()
+    for cat in CATEGORIES:
+        if cat[0] in names: continue
+        if time.time() - start > FREE_BUDGET: print("freeplay: out of time, the rest next run"); break
+        try:
+            entry, _ = fetch(cat)
+            if entry[1].count("|") + 1 >= MIN_ANSWERS: have.append(entry); print("freeplay: added", cat[0])
+            else: print("freeplay: skipped (too few answers)", cat[0])
+        except Exception as e:
+            print("freeplay: failed", cat[0], str(e)[:100])
+        time.sleep(2)
+    save_free(have)
+
+def low_categories():
+    """Categories the last --check found with too few answers (a script edit re-checks them)."""
+    try: lines = open(os.path.join(OUT, "check.txt")).read().splitlines()
+    except Exception: return set()
+    return {m[1] for m in (re.match(r"LOW\s+\d+\s+[\d.]+s\s+(.*)", l) for l in lines) if m}
+
 def check_one(cat):
-        t = time.time()
+        t = time.time(); entry_ok = None
         try:
             entry, items = fetch(cat)
             n = entry[1].count("|") + 1 if entry[1] else 0
             top = ", ".join(entry[1].split("|")[:8])
             low = ", ".join(entry[1].split("|")[-3:])
+            if n >= MIN_ANSWERS: entry_ok = entry
             line = f"{'OK ' if n >= MIN_ANSWERS else 'LOW'} {n:4d} {time.time() - t:5.1f}s  {cat[0]}\n      top: {top}\n      end: {low}"
         except Exception as e:
             line = f"ERR      {time.time() - t:5.1f}s  {cat[0]}: {str(e)[:200]}"
         print(line, flush=True)
-        return line
+        return line, entry_ok
 
 def check():
     # three at a time (Wikidata allows five per visitor); the report is saved as it goes, in category order
     from concurrent.futures import ThreadPoolExecutor
     os.makedirs(OUT, exist_ok=True)
-    lines = [None] * len(CATEGORIES)
+    lines, free = [None] * len(CATEGORIES), []
     with ThreadPoolExecutor(3) as pool:
         futs = {pool.submit(check_one, c): i for i, c in enumerate(CATEGORIES)}
         for f in __import__("concurrent.futures").futures.as_completed(futs):
-            lines[futs[f]] = f.result()
+            lines[futs[f]], entry = f.result()
+            if entry: free.append(entry)
             open(os.path.join(OUT, "check.txt"), "w").write("\n".join(l for l in lines if l) + "\n")
+            save_free(free)
 
 def main():
     if "--check" in sys.argv: return check()
     os.makedirs(OUT, exist_ok=True)
     today = datetime.datetime.now(datetime.timezone.utc).date()
-    cur, bad = curated(), set()
+    cur, bad = curated(), low_categories()
     for k in range(-1, DAYS_AHEAD + 1):            # UTC yesterday covers the Americas' "today"
         date = today + datetime.timedelta(days=k)
         path = os.path.join(OUT, date.isoformat() + ".json")
@@ -269,6 +434,7 @@ def main():
     for f in os.listdir(OUT):
         m = re.fullmatch(r"(\d{4}-\d\d-\d\d)\.json", f)
         if m and datetime.date.fromisoformat(m[1]) < cutoff: os.remove(os.path.join(OUT, f))
+    update_free()
 
 if __name__ == "__main__":
     main()
