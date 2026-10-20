@@ -221,7 +221,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--gold); outl
 <script>
 (() => {
 "use strict";
-const VERSION = "v1.11";
+const VERSION = "v1.12";
 const ROUNDS = 7, ROUND_SECS = 25, WRONG_PENALTY = 3, M_PER_POINT = 4;
 const $ = id => document.getElementById(id);
 const KEY = "fathom.";
@@ -265,19 +265,21 @@ function lev(a, b, max) {
 const SMALL = new Set(["and", "of", "the", "in", "on", "a", "an", "at", "to", "de", "del", "la", "le", "di", "da", "du", "von", "van", "s"]);
 const title = s => s.split(" ").map((w, i) => i && SMALL.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 // Build each prompt's answer table once: display name, rank (0 = most common) and lookup keys
-const TABLES = CATS.map(([prompt, list]) => {
+function makeTable([prompt, list]) {
   const answers = [], index = new Map();
   for (const entry of list.split("|")) {
     const names = entry.split("/").map(s => s.trim()).filter(Boolean);
     if (!names.length) continue;
     const keys = names.map(norm).filter(Boolean);
     if (keys.some(k => index.has(k))) continue;      // the same answer listed twice: keep the first (more common) spot
-    const a = { name: title(names[0]), rank: answers.length, keys };
+    const a = { name: names[0] === names[0].toLowerCase() ? title(names[0]) : names[0], rank: answers.length, keys };
     answers.push(a);
     for (const k of keys) for (const s of stems(k)) if (!index.has(s)) index.set(s, a);
   }
   return { prompt, answers, index };
-});
+}
+const TABLES = CATS.map(makeTable);
+const BASE = CATS.length;             // TABLES past this are the downloaded day's prompts
 function lookup(t, raw) {
   const k = norm(raw);
   if (!k) return null;
@@ -328,6 +330,37 @@ function dailyCats(key) {
   return out;
 }
 
+// ---------- Downloaded daily dives ----------
+// fathom/daily/YYYY-MM-DD.json is made on GitHub every day, a week ahead: that day's seven prompts with all their
+// answers, so everyone gets the same dive. Today's and tomorrow's are kept on the device for playing offline.
+// Without one (offline and never fetched), the daily falls back to the built-in prompts.
+async function fetchDay(key) {
+  const kept = store.get("days", {});
+  if (kept[key]) return kept[key];
+  try {
+    const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 6000);
+    const res = await fetch("daily/" + key + ".json", { cache: "no-cache", signal: ctl.signal });
+    clearTimeout(to);
+    if (!res.ok) return null;
+    const j = await res.json();
+    if (!Array.isArray(j.prompts) || j.prompts.length !== ROUNDS) return null;
+    const keep = {}, today = todayKey();
+    for (const k of Object.keys(kept).filter(k => k >= today)) keep[k] = kept[k];
+    keep[key] = j.prompts; store.set("days", keep);
+    return j.prompts;
+  } catch (e) { return null; }
+}
+// Put a day's prompts right after the built-in ones and return their indexes
+function useDay(prompts) {
+  TABLES.length = BASE;
+  for (const p of prompts) TABLES.push(makeTable(p));
+  return prompts.map((_, i) => BASE + i);
+}
+function prefetchDays() {
+  const t = new Date(); t.setDate(t.getDate() + 1);
+  fetchDay(todayKey()).then(() => fetchDay(todayKey(t)));
+}
+
 // ---------- Game state ----------
 const G = {
   screen: "home", mode: "daily", key: todayKey(), cats: [], round: 0,
@@ -337,7 +370,7 @@ const G = {
 };
 const totalPts = () => G.results.reduce((s, r) => s + r.pts, 0);
 const stats = () => store.get("stats", { played: 0, best: 0, streak: 0, lastDay: null, maxStreak: 0, tiers: [0, 0, 0, 0, 0, 0] });
-function saveDaily() { const all = store.get("daily", {}); all[G.key] = { cats: G.cats, results: G.results, done: G.results.length >= ROUNDS }; store.set("daily", all); }
+function saveDaily() { const all = store.get("daily", {}); all[G.key] = { cats: G.cats, results: G.results, done: G.results.length >= ROUNDS, dl: G.dl, base: BASE }; store.set("daily", all); }
 
 // ---------- Screens ----------
 const card = $("card");
@@ -368,14 +401,29 @@ function showHome() {
       <div style="margin-top:10px">A wrong guess costs ${WRONG_PENALTY} seconds, so keep trying. Spelling slips and plurals are fine. New daily prompts at midnight.</div>
     </div>`;
   $("goDaily").onclick = () => { Sound.unlock(); startDaily(); };
+  prefetchDays();
   $("goFree").onclick = () => { Sound.unlock(); startFree(); };
 }
 
-function startDaily() {
-  G.mode = "daily"; G.key = todayKey();
-  const saved = store.get("daily", {})[G.key];
-  G.cats = saved ? saved.cats : dailyCats(G.key);
-  G.results = saved ? saved.results : [];
+async function startDaily() {
+  if (G.loading) return;
+  const key = todayKey(), saved = store.get("daily", {})[key];
+  let cats = null;
+  if (!saved || saved.dl) {
+    G.loading = true;
+    const b = $("goDaily"); if (b) b.innerHTML = "<span>Loading today's prompts…</span>";
+    const prompts = await fetchDay(key);
+    G.loading = false;
+    if (G.screen !== "home") return;
+    if (prompts) cats = useDay(prompts);
+    else if (saved) { showHome(); toast("Can't load today's prompts. Check your connection."); return; }
+  }
+  G.mode = "daily"; G.key = key;
+  // a saved dive's downloaded prompts were stored past the built-in ones, which may have grown since
+  const shift = c => saved && saved.dl && c >= (saved.base ?? BASE) ? c - (saved.base ?? BASE) + BASE : c;
+  G.dl = saved ? !!saved.dl : !!cats;
+  G.cats = saved ? saved.cats.map(shift) : cats || dailyCats(key);
+  G.results = saved ? saved.results.map(r => ({ ...r, cat: shift(r.cat) })) : [];
   setMode(" · Today's dive");
   if (saved && saved.done) { G.depth = totalPts() * M_PER_POINT; Sea.target(G.depth, true); showEnd(); return; }
   G.round = G.results.length; G.depth = totalPts() * M_PER_POINT; Sea.target(G.depth, true);
@@ -384,10 +432,10 @@ function startDaily() {
 function startFree() {
   G.mode = "free"; setMode(" · Free dive");
   const avoid = new Set(store.get("recentFree", []));
-  let pool = shuffled(TABLES.length, Math.random).filter(c => !avoid.has(c));
-  if (pool.length < ROUNDS) pool = shuffled(TABLES.length, Math.random);
+  let pool = shuffled(BASE, Math.random).filter(c => !avoid.has(c));
+  if (pool.length < ROUNDS) pool = shuffled(BASE, Math.random);
   G.cats = pool.slice(0, ROUNDS); G.results = []; G.round = 0; G.depth = 0; Sea.target(0, true);
-  store.set("recentFree", [...G.cats, ...avoid].slice(0, Math.min(35, TABLES.length - ROUNDS)));
+  store.set("recentFree", [...G.cats, ...avoid].slice(0, Math.min(35, BASE - ROUNDS)));
   startRound();
 }
 
@@ -1116,7 +1164,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 setTimeout(checkForUpdate, 1500);
 
 showHome();
-window.__fathom = { G, Sea, TABLES, lookup, tierOf, dailyCats, startDaily, startFree, submit, timeUp, showHome, norm };   // used by the automated tests
+window.__fathom = { G, Sea, TABLES, lookup, tierOf, dailyCats, fetchDay, startDaily, startFree, submit, timeUp, showHome, norm };   // used by the automated tests
 })();
 </script>
 </body>
