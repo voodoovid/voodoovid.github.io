@@ -1,4 +1,0 @@
-Name a country         OK   2.3s answers=200 top='France/French Republic|United States/the States/the U.S./the U.S. of A'
-Name a painter         OK   7.5s answers=200 top='Leonardo da Vinci/da Vinci|George W. Bush/POTUS 43/Bush 43/Bush|Johann'
-Name a film            OK  41.1s answers=3 top='Titanic|The Godfather/Godfather Part I/Godfather Part 1/Godfather/The '
-Name a river           OK   9.6s answers=200 top='Nile/River Nile/The Nile/Nile River/Nahr an Nīl/Bahr en Nīl/Nahr an Ni'
