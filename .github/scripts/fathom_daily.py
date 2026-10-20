@@ -139,13 +139,14 @@ FAMILY = 'OPTIONAL { ?item wdt:P734 ?f . ?f rdfs:label ?famL . FILTER(LANG(?famL
 def sparql(q):
     url = "https://query.wikidata.org/sparql?" + urllib.parse.urlencode({"query": q, "format": "json"})
     last = None
-    for attempt in range(3):
+    for attempt in range(2):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/sparql-results+json"})
-            return json.load(urllib.request.urlopen(req, timeout=75))["results"]["bindings"]
+            return json.load(urllib.request.urlopen(req, timeout=65))["results"]["bindings"]
         except Exception as e:
             last = e
-            time.sleep(5 + attempt * 10)
+            if "timed out" in str(e) or "500" in str(e): break     # too heavy for Wikidata: trying again won't help
+            time.sleep(8)
     raise last
 
 def clean(s):
@@ -227,22 +228,29 @@ def make_day(date, cur, bad):
     random.Random(d).shuffle(picks)
     return {"date": date.isoformat(), "prompts": [[p, l] for p, l, _ in picks], "wikidata": [p for p, _, s in picks if s == "wd"]}
 
-def check():
-    lines = []
-    for cat in CATEGORIES:
+def check_one(cat):
         t = time.time()
         try:
             entry, items = fetch(cat)
             n = entry[1].count("|") + 1 if entry[1] else 0
             top = ", ".join(entry[1].split("|")[:8])
             low = ", ".join(entry[1].split("|")[-3:])
-            lines.append(f"{'OK ' if n >= MIN_ANSWERS else 'LOW'} {n:4d} {time.time() - t:5.1f}s  {cat[0]}\n      top: {top}\n      end: {low}")
+            line = f"{'OK ' if n >= MIN_ANSWERS else 'LOW'} {n:4d} {time.time() - t:5.1f}s  {cat[0]}\n      top: {top}\n      end: {low}"
         except Exception as e:
-            lines.append(f"ERR    {time.time() - t:5.1f}s  {cat[0]}: {str(e)[:200]}")
-        print(lines[-1], flush=True)
-        time.sleep(2)
+            line = f"ERR      {time.time() - t:5.1f}s  {cat[0]}: {str(e)[:200]}"
+        print(line, flush=True)
+        return line
+
+def check():
+    # three at a time (Wikidata allows five per visitor); the report is saved as it goes, in category order
+    from concurrent.futures import ThreadPoolExecutor
     os.makedirs(OUT, exist_ok=True)
-    open(os.path.join(OUT, "check.txt"), "w").write("\n".join(lines) + "\n")
+    lines = [None] * len(CATEGORIES)
+    with ThreadPoolExecutor(3) as pool:
+        futs = {pool.submit(check_one, c): i for i, c in enumerate(CATEGORIES)}
+        for f in __import__("concurrent.futures").futures.as_completed(futs):
+            lines[futs[f]] = f.result()
+            open(os.path.join(OUT, "check.txt"), "w").write("\n".join(l for l in lines if l) + "\n")
 
 def main():
     if "--check" in sys.argv: return check()

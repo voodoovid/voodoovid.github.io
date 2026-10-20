@@ -16,16 +16,19 @@ concurrency: fathom-daily
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - name: Check every category
         if: github.event_name == 'push'
         run: python3 .github/scripts/fathom_daily.py --check
+        timeout-minutes: 35
+        continue-on-error: true
       - name: Make missing days
         if: github.event_name != 'push' || contains(github.event.head_commit.message, '[make days]')
         run: python3 .github/scripts/fathom_daily.py
       - name: Save if changed
+        if: always()
         run: |
           git add -A fathom/daily
           git diff --cached --quiet && exit 0
