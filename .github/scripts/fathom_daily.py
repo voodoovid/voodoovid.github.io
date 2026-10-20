@@ -20,7 +20,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 OUT = os.path.join(ROOT, "fathom", "daily")
 FREE = os.path.join(ROOT, "fathom", "freeplay.json")
 ROUNDS, WD_PER_DAY, DAYS_AHEAD, KEEP_PAST = 7, 4, 14, 14
-MAX_ANSWERS, MIN_ANSWERS = 300, 20
+MAX_ANSWERS, MIN_ANSWERS = 200, 20
 FREE_BUDGET = 20 * 60                          # seconds a weekly run may spend adding categories to freeplay.json
 EPOCH = datetime.date(2026, 10, 12)          # the game's day 0
 UA = "FathomDaily/1.0 (https://voodoovid.github.io/fathom/; daily word game prompts)"
@@ -261,6 +261,15 @@ QUERY = """SELECT ?item ?label ?links (GROUP_CONCAT(DISTINCT ?alias; separator="
   OPTIONAL { ?item skos:altLabel ?alias . FILTER(LANG(?alias) = "en") }
   %s
 } GROUP BY ?item ?label ?links ORDER BY DESC(?links)"""
+# Wikidata chokes when one query both ranks the items and attaches their names, so it takes two small ones:
+# first the ranked item list (fast), then the names and aliases of just those items.
+RANK = """SELECT ?item ?links WHERE { %s ?item wikibase:sitelinks ?links . FILTER(?links >= %d) } ORDER BY DESC(?links) LIMIT %d"""
+NAMES = """SELECT ?item ?label (GROUP_CONCAT(DISTINCT ?alias; separator="\\t") AS ?aliases) (SAMPLE(?famL) AS ?fam) WHERE {
+  VALUES ?item { %s }
+  ?item rdfs:label ?label . FILTER(LANG(?label) = "en")
+  OPTIONAL { ?item skos:altLabel ?alias . FILTER(LANG(?alias) = "en") }
+  %s
+} GROUP BY ?item ?label"""
 FAMILY = 'OPTIONAL { ?item wdt:P734 ?f . ?f rdfs:label ?famL . FILTER(LANG(?famL) = "en") }'
 
 def sparql(q):
@@ -286,7 +295,14 @@ def key(s): return re.sub(r"[^a-z0-9]", "", s.lower())
 
 def fetch(cat):
     prompt, pattern, min_links, kind = cat
-    rows = sparql(QUERY % (pattern, min_links, MAX_ANSWERS + 40, FAMILY if kind == "person" else ""))
+    ranked = sparql(RANK % (pattern, min_links, MAX_ANSWERS + 40))
+    links = {r["item"]["value"].rsplit("/", 1)[1]: r["links"]["value"] for r in ranked}
+    named = {}
+    for r in sparql(NAMES % (" ".join("wd:" + q for q in links), FAMILY if kind == "person" else "")):
+        named.setdefault(r["item"]["value"].rsplit("/", 1)[1], r)
+    rows = []                                           # same shape the old single query gave, most linked first
+    for q, n in links.items():
+        if q in named: rows.append({**named[q], "links": {"value": n}})
     items = []
     for r in rows:
         label = clean(r["label"]["value"])
