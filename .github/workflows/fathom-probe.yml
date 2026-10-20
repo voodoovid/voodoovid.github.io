@@ -1,0 +1,10 @@
+# Temporary: times variants of the Fathom Wikidata query (delete once Fathom's daily run works).
+name: Fathom probe
+on: workflow_dispatch
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 .github/scripts/fathom_probe.py
