@@ -137,16 +137,17 @@ QUERY = """SELECT ?item ?label ?links (GROUP_CONCAT(DISTINCT ?alias; separator="
 FAMILY = 'OPTIONAL { ?item wdt:P734 ?f . ?f rdfs:label ?famL . FILTER(LANG(?famL) = "en") }'
 
 def sparql(q):
-    url = "https://query.wikidata.org/sparql?" + urllib.parse.urlencode({"query": q, "format": "json"})
+    # curl with a hard time limit: a stalled connection can't hang the run
     last = None
     for attempt in range(2):
-        try:
-            req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/sparql-results+json"})
-            return json.load(urllib.request.urlopen(req, timeout=65))["results"]["bindings"]
-        except Exception as e:
-            last = e
-            if "timed out" in str(e) or "500" in str(e): break     # too heavy for Wikidata: trying again won't help
-            time.sleep(8)
+        r = subprocess.run(["curl", "-sS", "--max-time", "60", "-A", UA, "-H", "Accept: application/sparql-results+json",
+                            "--data-urlencode", "query=" + q, "-w", "\\n%{http_code}", "https://query.wikidata.org/sparql"],
+                           capture_output=True, text=True)
+        body, _, code = r.stdout.rpartition("\n")
+        if r.returncode == 0 and code == "200": return json.loads(body)["results"]["bindings"]
+        last = RuntimeError(f"curl {r.returncode} http {code}: {(r.stderr or body)[:150]}")
+        if r.returncode == 28 or code in ("500", "502", "504"): break     # too heavy: trying again won't help
+        time.sleep(8)
     raise last
 
 def clean(s):

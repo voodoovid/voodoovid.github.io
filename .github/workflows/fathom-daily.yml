@@ -19,6 +19,13 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+      - name: Test the connection to Wikidata
+        if: github.event_name == 'push'
+        run: |
+          mkdir -p fathom/daily
+          { date -u; curl -sS -o /dev/null -w "ASK: http %{http_code} in %{time_total}s\n" --max-time 30 -A "FathomDaily/1.0 (https://voodoovid.github.io/fathom/)" \
+              --data-urlencode "query=ASK {}" -H "Accept: application/sparql-results+json" https://query.wikidata.org/sparql 2>&1; } > fathom/daily/diag.txt || true
+          cat fathom/daily/diag.txt
       - name: Check every category
         if: github.event_name == 'push'
         run: python3 .github/scripts/fathom_daily.py --check
@@ -30,6 +37,7 @@ jobs:
       - name: Save if changed
         if: always()
         run: |
+          mkdir -p fathom/daily
           git add -A fathom/daily
           git diff --cached --quiet && exit 0
           git -c user.name="fathom-bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "Fathom daily dives"
