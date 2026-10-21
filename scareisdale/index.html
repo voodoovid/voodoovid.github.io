@@ -249,7 +249,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <script>
 (() => {
 'use strict';
-const VERSION = 'v5.21';
+const VERSION = 'v5.22';
 document.getElementById('verBar').textContent = VERSION;
 document.getElementById('verOverlay').textContent = VERSION;
 const TS = 16, VW = 384, VH = 240, ROWS = 15;
@@ -2496,7 +2496,7 @@ function bumpBlock(tx, ty) {
   for (const e of ents) {
     if (['clown', 'jack', 'horse', 'zombie', 'ghoul', 'cart', 'wax', 'toad', 'wolf', 'rat', 'cog', 'knight'].includes(e.type) && !(e.type === 'ghoul' && e.mode === 'hidden') && !e.dead && e.active && Math.abs(e.y + e.h - py) < 4 && e.x + e.w > px && e.x < px + TS) { flipKill(e, e.x + e.w / 2 < px + 8 ? -1 : 1); addScore(100, e.x, e.y - 8); }
     if (e.type === 'scarab' && !e.dead && e.active && Math.abs(e.y + e.h - py) < 4 && e.x + e.w > px && e.x < px + TS) { e.mode = 'shell'; e.t = 0; e.vx = 0; e.vy = -220; sfx('kick'); addScore(100, e.x, e.y - 8); }
-    if (e.type === 'candy' && !e.emerge && Math.abs(e.y + e.h - py) < 4 && e.x + e.w > px && e.x < px + TS) { e.vy = -260; e.vx = (e.x + e.w / 2 < px + 8 ? -1 : 1) * 55; }
+    if (e.type === 'candy' && !e.emerge && Math.abs(e.y + e.h - py) < 4 && e.x + e.w > px && e.x < px + TS) { e.vy = -260; e.vx = (e.x + e.w / 2 < px + 8 ? -1 : 1) * (e.kind === 'gold' ? 80 : 55); }
   }
   if (ty > 0 && grid[ty - 1][tx] === 'o') { grid[ty - 1][tx] = '.'; addCoin(); parts.push({ kind: 'coin', x: px + 4, y: py - 16, vx: 0, vy: -320, g: 1100, life: 0.5, max: 0.5 }); }
 }
@@ -2504,7 +2504,7 @@ function flipKill(e, dir) { e.dead = 'flip'; e.vy = -260; e.vx = dir * 45; sfx('
 // items rise out of a block: mouse (grow), gold (extra life), pepper (fire), wings (glide), catnip (invincible)
 function spawnItem(kind, px, py) {
   const moves = kind === 'mouse' || kind === 'gold' || kind === 'catnip';
-  ents.push({ type: 'candy', kind, life: kind === 'gold', x: px + 2, y: py, w: 12, h: 14, vx: moves ? 55 : 0, vy: 0, emerge: 0.55, active: true, clipY: py });
+  ents.push({ type: 'candy', kind, life: kind === 'gold', x: px + 2, y: py, w: 12, h: 14, vx: moves ? (kind === 'gold' ? 80 : 55) : 0, vy: 0, emerge: 0.55, active: true, clipY: py });
   sfx('sprout');
 }
 // What a ghost pepper fireball can burn. Ghosts and flame skulls let fire pass straight through, scarab shells
@@ -3145,7 +3145,7 @@ function updateEnts(dt) {
       moveY(e, e.vy * dt);
       if (e.kind === 'catnip' && e.onGround) e.vy = -320;   // catnip bounces along
       if (e.kind === 'gold' && e.vx !== 0) {   // the golden mouse leaves a trail of gold sparkles as it runs
-        const n = (Math.random() < dt * 70 ? 1 : 0) + (Math.random() < dt * 40 ? 1 : 0);
+        const n = (Math.random() < dt * 26 ? 1 : 0) + (Math.random() < dt * 10 ? 1 : 0);
         for (let i = 0; i < n; i++) parts.push({ kind: 'spark', x: e.x + e.w / 2 - Math.sign(e.vx) * (2 + Math.random() * 6), y: e.y + 3 + Math.random() * (e.h - 2), vx: -Math.sign(e.vx) * (8 + Math.random() * 22), vy: -10 - Math.random() * 28, g: 40, life: 0.45 + Math.random() * 0.4, max: 0.85, col: ['#ffd23f', '#fff1a0', '#ffffff', '#ffb52e'][Math.floor(Math.random() * 4)], size: 1 + Math.random() * 1.8 });
       }
     }
