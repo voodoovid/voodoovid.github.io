@@ -249,7 +249,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <script>
 (() => {
 'use strict';
-const VERSION = 'v5.12';
+const VERSION = 'v5.13';
 document.getElementById('verBar').textContent = VERSION;
 document.getElementById('verOverlay').textContent = VERSION;
 const TS = 16, VW = 384, VH = 240, ROWS = 15;
@@ -2391,7 +2391,7 @@ LEVELS.forEach((lv, i) => {
 });
 // purr listening (menu only): plays each recording in full through its own audio context, so the game's sounds and its random purr pool are untouched.
 // To audition more purrs, drop the files next to purr1.mp3 and add their names here (they stay out of the game until added to Snd.init).
-const PURR_FILES = ['purr1.mp3', 'purr2.mp3', 'purr3.mp3', 'purr4.mp3'];
+const PURR_FILES = Array.from({ length: 16 }, (_, i) => 'purr' + (i + 1) + '.mp3');
 const purrTest = { ctx: null, out: null, bufs: {}, src: null, idx: -1, btns: [] };
 function purrTestStop() {
   const t = purrTest;
