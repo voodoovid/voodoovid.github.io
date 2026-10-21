@@ -70,7 +70,7 @@ canvas:focus-visible{box-shadow:0 0 0 3px var(--mint)}
 .purrlbl{font-size:8px; letter-spacing:.08em; color:var(--dim); margin-right:4px}
 .purrrow .tog{padding:6px 8px}
 .purrrow .tog.on{border-color:var(--mint); color:var(--mint)}
-#hidTog[aria-pressed=true]{border-color:var(--mint); color:var(--mint)}
+#hidTog[aria-pressed=true],#bossTog[aria-pressed=true]{border-color:var(--mint); color:var(--mint)}
 .overlay h2{margin:0; font-family:var(--display); font-weight:400; font-size:clamp(20px,4vw,36px); color:var(--bulb); text-shadow:2px 2px 0 var(--red)}
 .overlay p{margin:0; font-size:clamp(7px,1.3vw,10px); line-height:1.9; color:var(--ink); max-width:46ch}
 .ticket{
@@ -216,7 +216,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
       <h2>Level Select</h2>
       <div class="lvlgrid" id="lvlGrid"></div>
       <div class="purrrow" id="purrRow"><span class="purrlbl">PURRS</span></div>
-      <div class="lvlrow"><button class="tog" id="hidTog" aria-pressed="false">SHOW HIDDEN ITEMS: OFF</button><button class="tog" id="lvlClose">CLOSE</button></div>
+      <div class="lvlrow"><button class="tog" id="hidTog" aria-pressed="false">SHOW HIDDEN ITEMS: OFF</button><button class="tog" id="bossTog" aria-pressed="false">BOSS SAVE POINT: OFF</button><button class="tog" id="lvlClose">CLOSE</button></div>
     </div>
   </div>
 
@@ -249,7 +249,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <script>
 (() => {
 'use strict';
-const VERSION = 'v5.23';
+const VERSION = 'v5.24';
 document.getElementById('verBar').textContent = VERSION;
 document.getElementById('verOverlay').textContent = VERSION;
 const TS = 16, VW = 384, VH = 240, ROWS = 15;
@@ -1105,6 +1105,17 @@ function pillarTile(left, top, c, secret) {
       if (secret) { const gx = left ? 13 : 0; p(gx, 1, '#1e8a50', 3, 3); p(gx + 1, 1, '#3ddc84', 2, 2); p(gx + 1, 1, '#b8ffd6'); } }
   });
 }
+// one soft round puff of cloud: light fill, bright upper-left rim, soft shadow underneath (wraps sideways to tile)
+function cloudPuff(p, cx, cy, r, fill, hi, lo) {
+  for (const ox of [-16, 0, 16]) for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const dx = x + 0.5 - (cx + ox), dy = y + 0.5 - cy;
+    if (dx * dx + dy * dy > r * r) continue;
+    let col = fill;
+    if (dy < -r * 0.4 && dx < r * 0.3) col = hi;
+    else if (dy > r * 0.62) col = lo;
+    p(x, y, col);
+  }
+}
 function themeSet(f) {
   const S2 = { ground: tile(f.ground), groundTop: tile(f.top), wall: f.wall ? tile(f.wall) : T.wall };
   const pc = f.pillar;
@@ -1218,8 +1229,18 @@ const TT = {
   }),
   // above the graveyard, up the ivy: puffs of moonlit cloud
   clouds: themeSet({
-    ground: p => { p(0, 0, '#c8c8e8', 16, 16); p(3, 5, '#b4b4d8', 5, 3); p(10, 10, '#b4b4d8', 4, 3); },
-    top: p => { p(0, 0, '#c8c8e8', 16, 16); p(0, 4, '#e8e8ff', 16, 2); for (let x = 0; x < 16; x += 4) { p(x + 1, 1, '#e8e8ff', 2, 3); p(x, 2, '#e8e8ff', 4, 2); } p(0, 0, 'rgba(0,0,0,0)', 16, 1); },
+    ground: p => {
+      p(0, 0, '#d4d4f0', 16, 16);
+      // soft overlapping puffs (they wrap sideways so neighbouring tiles join up)
+      for (const [cx, cy, r] of [[4, 4, 5], [12, 7, 5], [0, 11, 4.5], [8, 13, 4]]) cloudPuff(p, cx, cy, r, '#e4e4fb', '#f4f4ff', '#c4c4e6');
+      p(0, 0, '#d4d4f0', 16, 1); p(0, 15, '#d4d4f0', 16, 1);   // top and bottom rows stay plain so tiles stack smoothly
+    },
+    top: p => {
+      for (const [cx, cy, r] of [[4, 5, 4.2], [12, 4.2, 4.6]]) cloudPuff(p, cx, cy, r, '#eeeefe', '#ffffff', '#d4d4f0');   // rounded, puffy top edge
+      p(0, 6, '#d4d4f0', 16, 10);   // body, the same colour the ground tile starts with
+      cloudPuff(p, 12, 11, 3.5, '#e2e2f9', '#f0f0ff', '#c4c4e6');
+      p(0, 15, '#d4d4f0', 16, 1);
+    },
     wall: p => { p(0, 0, '#1a1e3a', 16, 16); p(4, 6, '#fff0ff', 1, 1); p(11, 2, '#fff0ff', 1, 1); },
     pillar: { mid: '#8a8ab0', hi: '#a8a8d0', lo: '#6a6a90', dark: '#2a2a48', cap: '#c8c8e8' },
   }),
@@ -2351,10 +2372,12 @@ function makeEnt(s) {
   if (s.type === 'balloon') return { type: 'balloon', x: s.x * TS + 2, y: s.y * TS, baseY: s.y * TS, w: 12, h: 14, vx: -14 * spd, active: false, ph: Math.random() * 6, col: ['#ff4f8b', '#5ef2ff', '#3ddc84', '#ffd23f'][s.x % 4] };
 }
 
+let bossSave = false;   // Cmd-T setting: boss (castle) levels start at their save point, just before the boss
 function beginLife() {
   area = 'main'; roomKey = null; rooms = {}; mainSave = null; pipe = null; gate = null;
   buildLevel();
   ents = spawns.map(makeEnt); parts = []; pops = []; bumps = [];
+  if (bossSave && L.castle && !checkpoint) checkpoint = L.mid;
   const sx = checkpoint || 3;
   P = { x: sx * TS + 3, y: 13 * TS - 14, w: 10, h: 14, vx: 0, vy: 0, big: false, form: 'small', star: 0, flaps: 3, flapT: 0, formFlash: 0, face: 1, onGround: true, coyote: 0, jbuf: 0, inv: 0, dead: false, deadT: 0, anim: 0, sx: 1, sy: 1, skid: false, hidden: false, growT: 0, head: null, hitWall: 0 };
   // power-ups carry over to the next level (not after losing a life)
@@ -2376,11 +2399,15 @@ function startGame() {
 document.getElementById('startBtn').addEventListener('click', startGame);
 
 // ---------- level select (Cmd-T / Ctrl-T, for testing) ----------
-const lvlSel = document.getElementById('lvlSel'), hidTog = document.getElementById('hidTog');
+const lvlSel = document.getElementById('lvlSel'), hidTog = document.getElementById('hidTog'), bossTog = document.getElementById('bossTog');
 let showHidden = false, lvlWasPaused = false;
 try { showHidden = localStorage.getItem('scareisdale.showHidden') === '1'; } catch (e) {}
 function syncHidTog() { hidTog.textContent = 'SHOW HIDDEN ITEMS: ' + (showHidden ? 'ON' : 'OFF'); hidTog.setAttribute('aria-pressed', String(showHidden)); }
 syncHidTog();
+try { bossSave = localStorage.getItem('scareisdale.bossSave') === '1'; } catch (e) {}
+function syncBossTog() { bossTog.textContent = 'BOSS SAVE POINT: ' + (bossSave ? 'ON' : 'OFF'); bossTog.setAttribute('aria-pressed', String(bossSave)); }
+syncBossTog();
+bossTog.addEventListener('click', () => { bossSave = !bossSave; syncBossTog(); try { localStorage.setItem('scareisdale.bossSave', bossSave ? '1' : '0'); } catch (e) {} });
 document.getElementById('lvlClose').addEventListener('click', () => closeLevelSelect());
 hidTog.addEventListener('click', () => { showHidden = !showHidden; syncHidTog(); try { localStorage.setItem('scareisdale.showHidden', showHidden ? '1' : '0'); } catch (e) {} });
 LEVELS.forEach((lv, i) => {
