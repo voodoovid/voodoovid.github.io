@@ -66,6 +66,10 @@ canvas:focus-visible{box-shadow:0 0 0 3px var(--mint)}
 .lvlgrid{display:grid; grid-template-columns:repeat(4,1fr); gap:8px; width:100%; max-width:560px}
 .lvlgrid .tog{padding:6px 4px; line-height:1.5}
 .lvlrow{display:flex; gap:10px; flex-wrap:wrap; justify-content:center}
+.purrrow{display:flex; gap:6px; flex-wrap:wrap; justify-content:center; align-items:center; width:100%; max-width:560px}
+.purrlbl{font-size:8px; letter-spacing:.08em; color:var(--dim); margin-right:4px}
+.purrrow .tog{padding:6px 8px}
+.purrrow .tog.on{border-color:var(--mint); color:var(--mint)}
 #hidTog[aria-pressed=true]{border-color:var(--mint); color:var(--mint)}
 .overlay h2{margin:0; font-family:var(--display); font-weight:400; font-size:clamp(20px,4vw,36px); color:var(--bulb); text-shadow:2px 2px 0 var(--red)}
 .overlay p{margin:0; font-size:clamp(7px,1.3vw,10px); line-height:1.9; color:var(--ink); max-width:46ch}
@@ -211,6 +215,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
     <div class="overlay lvlsel" id="lvlSel" hidden>
       <h2>Level Select</h2>
       <div class="lvlgrid" id="lvlGrid"></div>
+      <div class="purrrow" id="purrRow"><span class="purrlbl">PURRS</span></div>
       <div class="lvlrow"><button class="tog" id="hidTog" aria-pressed="false">SHOW HIDDEN ITEMS: OFF</button><button class="tog" id="lvlClose">CLOSE</button></div>
     </div>
   </div>
@@ -244,7 +249,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <script>
 (() => {
 'use strict';
-const VERSION = 'v5.11';
+const VERSION = 'v5.12';
 document.getElementById('verBar').textContent = VERSION;
 document.getElementById('verOverlay').textContent = VERSION;
 const TS = 16, VW = 384, VH = 240, ROWS = 15;
@@ -1736,6 +1741,7 @@ function setPaused(v) { paused = v; if (Snd.ctx) v ? Snd.ctx.suspend() : Snd.ctx
 // leaving the game (home screen, app switcher, another tab, minimized window) pauses it and silences everything; a tap resumes
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden) return;
+  purrTestStop();
   if (state !== 'title') setPaused(true);
   if (Snd.ctx) Snd.ctx.suspend();
   if (Snd.silentEl) Snd.silentEl.pause();
@@ -2383,18 +2389,52 @@ LEVELS.forEach((lv, i) => {
   b.addEventListener('click', () => pickLevel(i));
   document.getElementById('lvlGrid').append(b);
 });
+// purr listening (menu only): plays each recording in full through its own audio context, so the game's sounds and its random purr pool are untouched.
+// To audition more purrs, drop the files next to purr1.mp3 and add their names here (they stay out of the game until added to Snd.init).
+const PURR_FILES = ['purr1.mp3', 'purr2.mp3', 'purr3.mp3', 'purr4.mp3'];
+const purrTest = { ctx: null, out: null, bufs: {}, src: null, idx: -1, btns: [] };
+function purrTestStop() {
+  const t = purrTest;
+  if (t.src) { t.src.onended = null; try { t.src.stop(); } catch (e) {} t.src = null; }
+  t.idx = -1; t.btns.forEach(b => b.classList.remove('on'));
+}
+async function purrTestPlay(i) {
+  const t = purrTest, was = t.idx;
+  purrTestStop();
+  if (was === i) return;
+  try {
+    Snd.unlockIOS();
+    if (!t.ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+      t.ctx = new AC(); t.out = t.ctx.createGain(); t.out.gain.value = 0.375; t.out.connect(t.ctx.destination);
+    }
+    if (t.ctx.state !== 'running') await t.ctx.resume();
+    t.idx = i; t.btns[i].classList.add('on');
+    if (!t.bufs[i]) t.bufs[i] = await fetch(PURR_FILES[i]).then(r => r.arrayBuffer()).then(b => new Promise((ok, no) => t.ctx.decodeAudioData(b, ok, no)));
+    if (t.idx !== i) return;
+    const src = t.ctx.createBufferSource(); src.buffer = t.bufs[i]; src.connect(t.out);
+    src.onended = () => { if (t.src === src) purrTestStop(); };
+    t.src = src; src.start();
+  } catch (e) { purrTestStop(); }
+}
+PURR_FILES.forEach((f, i) => {
+  const b = document.createElement('button'); b.className = 'tog'; b.textContent = String(i + 1);
+  b.setAttribute('aria-label', 'Play purr ' + (i + 1));
+  b.addEventListener('click', () => purrTestPlay(i));
+  purrTest.btns.push(b); document.getElementById('purrRow').append(b);
+});
 function openLevelSelect() {
   lvlWasPaused = paused;
   if (state !== 'title' && !paused) setPaused(true);
   lvlSel.hidden = false; for (const k in keys) keys[k] = false;
 }
 function closeLevelSelect() {
-  lvlSel.hidden = true;
+  purrTestStop(); lvlSel.hidden = true;
   if (state !== 'title' && !lvlWasPaused) setPaused(false);
   cv.focus({ preventScroll: true });
 }
 function pickLevel(i) {
-  lvlSel.hidden = true;
+  purrTestStop(); lvlSel.hidden = true;
   if (state === 'title') { Snd.init(); document.getElementById('overlay').hidden = true; score = 0; coins = 0; lives = 3; }
   if (paused) setPaused(false);
   levelIdx = i; night = Math.floor(i / 4) + 1; checkpoint = 0; carryForm = null;
