@@ -70,7 +70,7 @@ canvas:focus-visible{box-shadow:0 0 0 3px var(--mint)}
 .purrlbl{font-size:8px; letter-spacing:.08em; color:var(--dim); margin-right:4px}
 .purrrow .tog{padding:6px 8px}
 .purrrow .tog.on{border-color:var(--mint); color:var(--mint)}
-#hidTog[aria-pressed=true],#bossTog[aria-pressed=true]{border-color:var(--mint); color:var(--mint)}
+#hidTog[aria-pressed=true]{border-color:var(--mint); color:var(--mint)}
 .overlay h2{margin:0; font-family:var(--display); font-weight:400; font-size:clamp(20px,4vw,36px); color:var(--bulb); text-shadow:2px 2px 0 var(--red)}
 .overlay p{margin:0; font-size:clamp(7px,1.3vw,10px); line-height:1.9; color:var(--ink); max-width:46ch}
 .ticket{
@@ -215,8 +215,9 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
     <div class="overlay lvlsel" id="lvlSel" hidden>
       <h2>Level Select</h2>
       <div class="lvlgrid" id="lvlGrid"></div>
+      <div class="purrrow" id="bossRow"><span class="purrlbl">BOSSES</span></div>
       <div class="purrrow" id="purrRow"><span class="purrlbl">PURRS</span></div>
-      <div class="lvlrow"><button class="tog" id="hidTog" aria-pressed="false">SHOW HIDDEN ITEMS: OFF</button><button class="tog" id="bossTog" aria-pressed="false">BOSS SAVE POINT: OFF</button><button class="tog" id="lvlClose">CLOSE</button></div>
+      <div class="lvlrow"><button class="tog" id="hidTog" aria-pressed="false">SHOW HIDDEN ITEMS: OFF</button><button class="tog" id="lvlClose">CLOSE</button></div>
     </div>
   </div>
 
@@ -249,7 +250,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <script>
 (() => {
 'use strict';
-const VERSION = 'v5.24';
+const VERSION = 'v5.25';
 document.getElementById('verBar').textContent = VERSION;
 document.getElementById('verOverlay').textContent = VERSION;
 const TS = 16, VW = 384, VH = 240, ROWS = 15;
@@ -2372,12 +2373,10 @@ function makeEnt(s) {
   if (s.type === 'balloon') return { type: 'balloon', x: s.x * TS + 2, y: s.y * TS, baseY: s.y * TS, w: 12, h: 14, vx: -14 * spd, active: false, ph: Math.random() * 6, col: ['#ff4f8b', '#5ef2ff', '#3ddc84', '#ffd23f'][s.x % 4] };
 }
 
-let bossSave = false;   // Cmd-T setting: boss (castle) levels start at their save point, just before the boss
 function beginLife() {
   area = 'main'; roomKey = null; rooms = {}; mainSave = null; pipe = null; gate = null;
   buildLevel();
   ents = spawns.map(makeEnt); parts = []; pops = []; bumps = [];
-  if (bossSave && L.castle && !checkpoint) checkpoint = L.mid;
   const sx = checkpoint || 3;
   P = { x: sx * TS + 3, y: 13 * TS - 14, w: 10, h: 14, vx: 0, vy: 0, big: false, form: 'small', star: 0, flaps: 3, flapT: 0, formFlash: 0, face: 1, onGround: true, coyote: 0, jbuf: 0, inv: 0, dead: false, deadT: 0, anim: 0, sx: 1, sy: 1, skid: false, hidden: false, growT: 0, head: null, hitWall: 0 };
   // power-ups carry over to the next level (not after losing a life)
@@ -2399,15 +2398,11 @@ function startGame() {
 document.getElementById('startBtn').addEventListener('click', startGame);
 
 // ---------- level select (Cmd-T / Ctrl-T, for testing) ----------
-const lvlSel = document.getElementById('lvlSel'), hidTog = document.getElementById('hidTog'), bossTog = document.getElementById('bossTog');
+const lvlSel = document.getElementById('lvlSel'), hidTog = document.getElementById('hidTog');
 let showHidden = false, lvlWasPaused = false;
 try { showHidden = localStorage.getItem('scareisdale.showHidden') === '1'; } catch (e) {}
 function syncHidTog() { hidTog.textContent = 'SHOW HIDDEN ITEMS: ' + (showHidden ? 'ON' : 'OFF'); hidTog.setAttribute('aria-pressed', String(showHidden)); }
 syncHidTog();
-try { bossSave = localStorage.getItem('scareisdale.bossSave') === '1'; } catch (e) {}
-function syncBossTog() { bossTog.textContent = 'BOSS SAVE POINT: ' + (bossSave ? 'ON' : 'OFF'); bossTog.setAttribute('aria-pressed', String(bossSave)); }
-syncBossTog();
-bossTog.addEventListener('click', () => { bossSave = !bossSave; syncBossTog(); try { localStorage.setItem('scareisdale.bossSave', bossSave ? '1' : '0'); } catch (e) {} });
 document.getElementById('lvlClose').addEventListener('click', () => closeLevelSelect());
 hidTog.addEventListener('click', () => { showHidden = !showHidden; syncHidTog(); try { localStorage.setItem('scareisdale.showHidden', showHidden ? '1' : '0'); } catch (e) {} });
 LEVELS.forEach((lv, i) => {
@@ -2415,6 +2410,14 @@ LEVELS.forEach((lv, i) => {
   b.textContent = `${Math.floor(i / 4) + 1}-${i % 4 + 1} ${lv.name.replace(/^THE /, '')}`;
   b.addEventListener('click', () => pickLevel(i));
   document.getElementById('lvlGrid').append(b);
+});
+// boss buttons: jump to the save point just before each castle level's boss (for testing)
+LEVELS.forEach((lv, i) => {
+  if (!lv.castle) return;
+  const b = document.createElement('button'); b.className = 'tog'; b.textContent = lv.name.replace(/^THE /, '');
+  b.setAttribute('aria-label', 'Jump to the save point before the boss of ' + lv.name);
+  b.addEventListener('click', () => pickLevel(i, true));
+  document.getElementById('bossRow').append(b);
 });
 // purr listening (menu only): plays each recording in full through its own audio context, so the game's sounds and its random purr pool are untouched.
 // To audition more purrs, drop the files next to purr1.mp3 and add their names here (they stay out of the game until added to Snd.init).
@@ -2460,11 +2463,11 @@ function closeLevelSelect() {
   if (state !== 'title' && !lvlWasPaused) setPaused(false);
   cv.focus({ preventScroll: true });
 }
-function pickLevel(i) {
+function pickLevel(i, atSave) {
   purrTestStop(); lvlSel.hidden = true;
   if (state === 'title') { Snd.init(); document.getElementById('overlay').hidden = true; score = 0; coins = 0; lives = 3; }
   if (paused) setPaused(false);
-  levelIdx = i; night = Math.floor(i / 4) + 1; checkpoint = 0; carryForm = null;
+  levelIdx = i; night = Math.floor(i / 4) + 1; checkpoint = atSave ? LEVELS[i].mid : 0; carryForm = null;
   cv.focus({ preventScroll: true });
   beginLife();
 }
