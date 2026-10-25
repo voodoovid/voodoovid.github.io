@@ -107,6 +107,8 @@ button { cursor: pointer; }
 @media (max-width: 380px) { .tight .ib { min-width: 32px; padding: 0 4px; } }
 .ib svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
+/* tall phones held upright: the board sits just under the title, spare height goes between it and the status line */
+.tall .board { align-self: start; margin-top: var(--nudge, 0px); }
 /* the word "Flip" turns over to upside-down and back at the start and end of every word: three quick turns */
 .flipw { display: inline-block; }
 .flipw.go { animation: flipTitle 1.05s cubic-bezier(.4, 0, .6, 1); }
@@ -575,7 +577,7 @@ dialog::backdrop { background: var(--scrim); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.36";
+const VERSION = "v2.38";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
@@ -1530,6 +1532,19 @@ function fit() {
   W.tile = Math.floor(Math.min((ch - kbH - rowGap - pillRoom - 5 * g) / 6, (cw * 0.52 - 4 * g) / 5, 150));
   const roomy = cw >= 900 && ch >= 600 && cw / ch >= 1.15 && W.tile >= 60 && ch - kbH - rowGap >= topH + remH + 200 + 2 * rowGap;
   if (roomy) { ({ tile, kbw, kg, kh, sw, sh, colGap } = W); app.classList.add("side"); topRow = topH + 28; }
+  // tall phones held upright: the board is as wide as the screen allows, so the leftover height would sit as an empty band
+  // above the board. Share it out instead: a taller title row, taller keys, and what remains split around the board.
+  let nudge = 0;
+  if (!side && !roomy) {
+    const slack = ch - topRow - remH - (3 * kh + 2 * kg) - 3 * rowGap - (6 * tile + 5 * g);
+    if (slack > 24) {
+      const dTop = Math.min(Math.floor(slack * 0.4), 40), dKeys = Math.min(Math.floor(slack * 0.3 / 3), Math.max(0, 80 - kh), 20);
+      topRow += dTop; kh += dKeys;
+      nudge = Math.max(0, Math.floor((slack - dTop - 3 * dKeys) * 0.3));   // a little air under the title; the rest sits above the status line
+    }
+  }
+  app.classList.toggle("tall", nudge > 0 || (!side && !roomy && topRow > topH));
+  set("--nudge", nudge);
   app.classList.toggle("roomy", roomy);
   app.classList.toggle("tight", kbw < 470);
   const home = roomy ? $("panel") : $("optsHome"), body = $("optsQuick");
