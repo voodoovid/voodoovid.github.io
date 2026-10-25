@@ -573,7 +573,7 @@ dialog::backdrop { background: var(--scrim); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.33";
+const VERSION = "v2.34";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
@@ -768,7 +768,7 @@ function paintStatus() {
   const shown = G.over && !busy;
   s.classList.toggle("bad", !!note);
   if (note) s.textContent = note;
-  else if (!shown) s.textContent = (G.daily ? "Wordle " + (G.num ? "#" + G.num + " · " : "") : "") + "Guess " + Math.min(G.guesses.length + 1, 6) + " of 6" + (G.test ? " · TEST: " + G.answer.toUpperCase() : "");
+  else if (!shown) s.textContent = (G.daily ? "Wordle " + (G.num ? "#" + G.num + " · " : "") : "") + "Guess " + Math.min(G.guesses.length + 1, 6) + " of 6" + (G.test && !G.daily ? " · TEST: " + G.answer.toUpperCase() : "");
   else if (G.won) s.textContent = "Solved in " + G.guesses.length + (G.guesses.length === 1 ? " guess" : " guesses");
   else s.textContent = "The word was " + G.answer.toUpperCase();
   $("btnNew").hidden = !shown;
@@ -1567,7 +1567,7 @@ function start(data) {
   const ok = saved && typeof saved.answer === "string" && valid.has(saved.answer) && Array.isArray(saved.guesses) &&
     saved.guesses.length <= 6 && saved.guesses.every(w => typeof w === "string" && w.length === 5);
   paintOpts();
-  if (ok) { G = { answer: saved.answer, guesses: saved.guesses, cur: EMPTY, over: !!saved.over, won: !!saved.won, test: !!saved.test, daily: saved.daily || "", num: saved.num || 0 }; G.cur = layOut(String(saved.cur || ""));
+  if (ok) { G = { answer: saved.answer, guesses: saved.guesses, cur: EMPTY, over: !!saved.over, won: !!saved.won, test: !!saved.test && !saved.daily, daily: saved.daily || "", num: saved.num || 0 }; G.cur = layOut(String(saved.cur || ""));
     paint(); }
   else newGame();
   fitAll();
