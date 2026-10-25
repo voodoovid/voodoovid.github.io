@@ -107,7 +107,7 @@ button { cursor: pointer; }
 
 /* tall phones held upright: the board sits just under the title, spare height goes between it and the status line */
 .tall .board { align-self: start; margin-top: var(--nudge, 0px); }
-/* the word "Flip" turns over to upside-down and back at the start and end of every word: three quick turns */
+/* the word "Flip" turns over to upside-down and back after every guess and at the start and end of every word: three quick turns */
 .flipw { display: inline-block; }
 .flipw.go { animation: flipTitle 1.05s cubic-bezier(.4, 0, .6, 1); }
 @keyframes flipTitle {
@@ -575,7 +575,7 @@ dialog::backdrop { background: var(--scrim); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.39";
+const VERSION = "v2.40";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
@@ -927,7 +927,7 @@ function submit() {
   save("game", G);
   const done = () => {
     busy = false; sel = homeSel(); selAuto = true; paintKeys(G.guesses.length); paintDraft(); paintStatus();
-    if (G.over) flipTitle();
+    flipTitle();   // after every guess, win or not
     if (G.over && opts.sfx) G.won ? Music.cheer(G.guesses.length) : Music.raspberry();
     if (G.won && !calm) tiles[r].forEach((t, c) => setTimeout(() => t.classList.add("hop"), c * 80));
   };
