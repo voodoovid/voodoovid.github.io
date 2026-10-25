@@ -29,7 +29,7 @@
   --hit: #25894f;   --hit-ink: #ffffff;
   --near: #f4b942;  --near-ink: #17191e;
   --hall-top: #14171d; --typed-line: #5d6575; --seam: rgba(0, 0, 0, .42); --bad: #ff8f7a; --amber-hover: #ffcc66;
-  --miss-ink: #8f96a6; --key-miss-ink: #5f6676; --key-miss-ring: #23272f; --case: #07080b; --scrim: rgba(5, 6, 8, .74);
+  --miss-ink: #8f96a6; --key-miss-bg: #111318; --key-miss-ink: #5f6676; --key-miss-ring: #23272f; --case: #07080b; --scrim: rgba(5, 6, 8, .74);
   --font-display: "Barlow Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
   --font-body: "Barlow", "Helvetica Neue", Helvetica, Arial, sans-serif;
   /* sizes: defaults for a phone held upright, replaced by fit() */
@@ -41,7 +41,7 @@
   --hall: #eceae3; --hall-top: #f8f6f0; --housing: #fbfaf6; --blank: #dedacf; --flap: #cfcabb; --flap-line: #b3ae9f;
   --key: #d9d5c9; --dead: #7a8090; --ink: #1b1d22; --dim: #5c6272; --amber: #a86500; --amber-hover: #c27800;
   --typed-line: #8d8776; --seam: rgba(0, 0, 0, .3); --bad: #c0392b; --miss-ink: #f4f1e8;
-  --key-miss-ink: #f4f1e8; --key-miss-ring: transparent; --case: #4a4f5a; --scrim: rgba(30, 28, 22, .5);
+  --key-miss-bg: #ebe8df; --key-miss-ink: #aaa597; --key-miss-ring: #d6d2c5; --case: #4a4f5a; --scrim: rgba(30, 28, 22, .5);
 }
 :root.contrast { --hit: #f5793a; --hit-ink: #17191e; --near: #85c0f9; --near-ink: #17191e; }
 
@@ -261,7 +261,7 @@ button { cursor: pointer; }
 .key svg { width: 1.5em; height: 1.5em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .key.hit  { background: var(--hit);  color: var(--hit-ink); }
 .key.near { background: var(--near); color: var(--near-ink); }
-.key.miss { background: var(--dead); color: var(--key-miss-ink); box-shadow: inset 0 0 0 1px var(--key-miss-ring); }
+.key.miss { background: var(--key-miss-bg); color: var(--key-miss-ink); box-shadow: inset 0 0 0 1px var(--key-miss-ring); }
 
 /* ---- dialogs ---- */
 /* Dialogs sit in the top layer, which ignores the page's safe-area padding, so keep them clear of the
@@ -574,7 +574,7 @@ dialog::backdrop { background: var(--scrim); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.30";
+const VERSION = "v2.31";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
