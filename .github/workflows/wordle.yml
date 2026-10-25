@@ -22,8 +22,8 @@ jobs:
           except Exception: data = {}
           days = data.get("days", {})
           today = datetime.datetime.now(datetime.timezone.utc).date()
-          # UTC yesterday and today cover every time zone in the Americas
-          for d in (today - datetime.timedelta(days=1), today):
+          # the last few days, so an hour the job missed never loses a word
+          for d in [today - datetime.timedelta(days=n) for n in (3, 2, 1, 0)]:
               key = d.isoformat()
               if key in days: continue
               req = urllib.request.Request("https://www.nytimes.com/svc/wordle/v2/" + key + ".json",
@@ -38,9 +38,23 @@ jobs:
           open(path, "w").write(json.dumps(out, indent=1) + "\n")
           print(out)
           PY
+      - name: Add new answers to Flip Five's word list (no version bump)
+        run: python3 .github/scripts/add_wordle_answers.py
+      - name: Rebuild the single-file version if the word list changed
+        run: |
+          git diff --quiet -- flip-five/index.html && exit 0
+          python3 .github/scripts/build_flip_five_standalone.py
+          # without the embedded fonts the download would look wrong offline: skip this round, the next hour tries again
+          if ! grep -q 'data:font/woff2' flip-five-standalone.html; then
+            echo "fonts not embedded; trying again next hour"
+            git checkout -- flip-five/index.html flip-five-standalone.html
+          fi
       - name: Save if changed
         run: |
-          git add flip-five/wordle.json
+          git add flip-five/wordle.json flip-five/index.html flip-five-standalone.html
           git diff --cached --quiet && exit 0
-          git -c user.name="wordle-bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "Daily Wordle update"
+          MSG="Daily Wordle update"
+          git diff --cached --quiet -- flip-five/index.html || MSG="Add new Wordle answers to Flip Five (no version bump)"
+          git -c user.name="wordle-bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "$MSG"
+          git pull --rebase origin main
           git push
