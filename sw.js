@@ -1,6 +1,6 @@
 // Offline support for every game on the site. Bump CACHE whenever this file changes.
 // Pages load from the network when online (so updates arrive) and from this cache when offline.
-const CACHE = "voodoovid-games-v34";
+const CACHE = "voodoovid-games-v35";
 const PAGES = [
   "./", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png",
   "hangman/", "ponchos-adventure/", "ponchos-adventure-3d/", "flip-five/", "flip-five-3d/", "lib/three.module.min.js", "lib/gamepad.js", "follow-chestnut/", "fathom/", "fathom/prompts.js", "ponchos-pills/",

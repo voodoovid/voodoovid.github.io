@@ -110,7 +110,7 @@ button { cursor: pointer; }
 .flipw.go { animation: flipTitle 1.05s cubic-bezier(.4, 0, .6, 1); }
 @keyframes flipTitle {
   0% { transform: perspective(420px) rotateX(0); }
-  100% { transform: perspective(420px) rotateX(1080deg); }
+  100% { transform: perspective(420px) rotateX(-1080deg); }
 }
 /* Light / Dark / System choice */
 .opt .seg { grid-column: 2; grid-row: 1 / span 2; display: flex; border: 1px solid var(--flap-line); border-radius: 6px; overflow: hidden; }
@@ -573,7 +573,7 @@ dialog::backdrop { background: var(--scrim); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.34";
+const VERSION = "v2.35";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
