@@ -345,6 +345,13 @@ dialog::backdrop { background: var(--scrim); }
 .ghost:hover { border-color: var(--dim); }
 .ghost:disabled { opacity: .4; cursor: default; }
 .ask { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.ghost.mbtn.wide { align-self: stretch; justify-content: center; gap: 8px; height: 42px; font-size: 17px; letter-spacing: .1em; }
+#btnGiveUp { align-self: stretch; display: flex; align-items: center; justify-content: center; text-align: center; height: 44px; margin-top: 4px; border-color: var(--bad); color: var(--bad); }
+#btnGiveUp:hover:not(:disabled) { border-color: var(--bad); background: var(--blank); }
+#btnGiveUp[hidden], #giveAsk[hidden] { display: none; }
+#giveAsk { justify-content: center; text-align: center; gap: 10px; margin-top: 4px; }
+#giveAsk > span { flex: 1 0 100%; color: var(--bad); font: 600 16px/1.2 var(--font-display); letter-spacing: .08em; text-transform: uppercase; }
+#giveAsk button { flex: 1 1 0; min-width: 0; padding: 0 8px; white-space: nowrap; font-size: 15px; letter-spacing: .05em; height: 44px; align-self: auto; display: flex; align-items: center; justify-content: center; text-align: center; }
 .nums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 8px; text-align: center; }
 .sheet h3.sec { margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--flap-line); color: var(--amber); font-size: 17px; }
 .sheet h3.sec:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
@@ -648,9 +655,10 @@ dialog::backdrop { background: var(--scrim); }
 <dialog id="dlgOpts" aria-labelledby="hOpts">
   <div class="sheet">
     <header>
-      <div class="hl"><h2 id="hOpts">Settings</h2><button class="ghost mbtn" id="btnManual" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/></svg>Manual</button></div>
+      <div class="hl"><h2 id="hOpts">Settings</h2></div>
       <button class="ib" type="button" data-close>Close</button>
     </header>
+    <button class="ghost mbtn wide" id="btnManual" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/></svg>Manual</button>
     <div class="opts-home" id="optsHome"><div class="opts-body" id="optsQuick">
       <div class="opt">
         <b id="lblStrict">Must keep greens</b>
@@ -936,7 +944,7 @@ dialog::backdrop { background: var(--scrim); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.44";
+const VERSION = "v2.45";
 
 // ---------- Words ----------
 // ANSWERS: the words New word picks from: Wordle's original 2,309 answers plus every later answer the NYT has used (a GitHub job adds new ones: .github/scripts/add_wordle_answers.py). EXTRA: every other word Wordle accepts as a guess.
