@@ -532,15 +532,6 @@ dialog::backdrop { background: var(--scrim); }
           <button class="ib" id="trkNext" type="button" aria-label="Next track"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
         </div>
       </div>
-      <div class="opt">
-        <b id="lblTheme">Appearance</b>
-        <span class="fine">Light, dark, or follow this device.</span>
-        <div class="seg" id="themeSeg" role="radiogroup" aria-labelledby="lblTheme">
-          <button type="button" role="radio" data-theme="light" aria-checked="false">Light</button>
-          <button type="button" role="radio" data-theme="dark" aria-checked="false">Dark</button>
-          <button type="button" role="radio" data-theme="system" aria-checked="true">System</button>
-        </div>
-      </div>
     </div></div>
     <div class="opts-body">
     <div>
@@ -553,6 +544,15 @@ dialog::backdrop { background: var(--scrim); }
         <b id="lblView">3D board</b>
         <span class="fine">Letters on real split flaps that fall on their hinges. Switch off for flat tiles.</span>
         <button class="switch" id="optView" type="button" role="switch" aria-checked="true" aria-labelledby="lblView"><span class="track"></span></button>
+      </div>
+      <div class="opt">
+        <b id="lblTheme">Appearance</b>
+        <span class="fine">Light, dark, or follow this device.</span>
+        <div class="seg" id="themeSeg" role="radiogroup" aria-labelledby="lblTheme">
+          <button type="button" role="radio" data-theme="light" aria-checked="false">Light</button>
+          <button type="button" role="radio" data-theme="dark" aria-checked="false">Dark</button>
+          <button type="button" role="radio" data-theme="system" aria-checked="true">System</button>
+        </div>
       </div>
       <div class="opt">
         <b id="lblContrast">High contrast</b>
@@ -574,7 +574,7 @@ dialog::backdrop { background: var(--scrim); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.29";
+const VERSION = "v2.30";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
