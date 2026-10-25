@@ -5,6 +5,7 @@ The game itself stays in flip-five/index.html (edit only that). This script copi
   - embeds three.js (lib/three.module.min.js) so the 3D board works with no other files,
   - embeds the Latin Barlow / Barlow Condensed fonts (fetched from Google Fonts; if that fails the
     normal font link is kept, so the page still works but may use fallback fonts offline),
+  - embeds the app icon (flip-five/icon.png),
   - points the daily Wordle lookup at the live site, since wordle.json is not alongside the file.
 Run by .github/workflows/flip-five-standalone.yml on every change to the game; safe to run by hand.
 """
@@ -58,6 +59,10 @@ def main():
     old = 'fetch("wordle.json?"'
     assert html.count(old) == 1, "wordle.json fetch not found"
     html = html.replace(old, 'fetch("%swordle.json?"' % SITE)
+
+    icon = 'href="icon.png"'
+    assert html.count(icon) == 2, "icon links not found"
+    html = html.replace(icon, 'href="data:image/png;base64,%s"' % b64((ROOT / "flip-five" / "icon.png").read_bytes()))
 
     html, _ = inline_fonts(html)
 

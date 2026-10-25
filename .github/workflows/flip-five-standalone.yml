@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - flip-five/index.html
+      - flip-five/icon.png
       - lib/three.module.min.js
       - .github/scripts/build_flip_five_standalone.py
   workflow_dispatch:
