@@ -816,12 +816,12 @@ dialog::backdrop { background: var(--scrim); }
           <div class="mr"><i class="gn">3</i><div class="row" role="img" aria-label="Row 3 as it appears: A, empty, O, empty, T, with A, O and T filled in"><span class="tile fixed">A</span><span class="tile sel"></span><span class="tile fixed">O</span><span class="tile"></span><span class="tile fixed">T</span></div></div>
           <figcaption>The hidden word is ABOUT. Row 3 appears already holding O and T (green in row 1) and A. A has been tried in the 4th spot and the 2nd spot, and the 3rd and 5th are green, so the 1st is the only place left for it. The amber outline waits on the first open spot. Type B, then U, and press Enter.</figcaption>
         </figure>
-        <div class="mnote"><span class="lb">Where is the switch?</span>Under the board on a phone, in <b>Settings</b>, and in the settings panel beside the board on a wide screen. Turning it on or off in the middle of a row lays out your typed letters again around the green ones. When a game ends, the switch on the main screen steps aside until the next word.</div>
+        <div class="mnote"><span class="lb">Where is the switch?</span>Under the board on a phone, in <b>Settings</b>, and in the settings panel beside the board on a wide screen. Turning it on or off in the middle of a row lays out your typed letters again around the green ones.</div>
       </section>
 
       <section class="msec" id="m-wordle">
         <h3 class="mh"><span class="no">05</span>Today's Wordle</h3>
-        <p>Besides endless random words, Flip Five can play the daily New York Times Wordle on the same flaps. It is the same hidden word as that day's puzzle, and the site collects each day's word automatically.</p>
+        <p>Besides endless random words, Flip Five can play the daily New York Times Wordle on the same flaps. It is the same hidden word as that day's puzzle, and the day's word is collected for you automatically.</p>
         <ul class="mlist">
           <li><b>Starting it.</b> When a game ends, a green <b>Today's Wordle</b> button appears beside <b>New word</b>. Tap it to begin.</li>
           <li><b>Once a day.</b> After you play today's puzzle to the end, the button goes away and returns tomorrow with the next one. The day follows your device's date and time zone.</li>
@@ -892,17 +892,13 @@ dialog::backdrop { background: var(--scrim); }
       </section>
 
       <section class="msec" id="m-devices">
-        <h3 class="mh"><span class="no">09</span>Screens, saving and updates</h3>
+        <h3 class="mh"><span class="no">09</span>Screens and saving</h3>
         <h4>Layouts</h4>
         <p>The board and keys resize to use every pixel. Held upright, the board sits above the keyboard. On a wide screen the board moves to the left with the keyboard on the right, and on a large landscape screen a settings panel joins the board.</p>
         <h4>Saving</h4>
         <p>Your game in progress, statistics and settings are stored on this device, in this browser, only. They are not shared between devices. Clearing the site's data, or private browsing, erases them.</p>
         <h4>Offline play</h4>
-        <p>On the games site, Flip Five works without a connection after it has loaded once. Only the daily Wordle needs a connection, to download the day's word.</p>
-        <h4>Updates</h4>
-        <p>On the games site, whenever the game opens or returns to the screen, it checks for a newer version and reloads itself when there is one. Your game in progress is saved, so nothing is lost. The version number sits beside the title.</p>
-        <h4>Single-file version</h4>
-        <p>Flip Five is also available as one self-contained file you can download, with the 3D board and fonts built in. It plays the same game with the same rules, and the daily Wordle is fetched from the site when you are online.</p>
+        <p>Flip Five works without a connection once it has loaded. Only the daily Wordle needs a connection, to download the day's word.</p>
         <h4>Reduced motion</h4>
         <p>If your device is set to reduce motion, the flaps change without turning and the title does not flip.</p>
       </section>
@@ -926,7 +922,6 @@ dialog::backdrop { background: var(--scrim); }
         <details class="qa"><summary>There is no Today's Wordle button</summary><p>It appears on the screen at the end of a game, only while today's puzzle is available and you have not finished it. The device has to download the day's word first, so go online at least once that day.</p></details>
         <details class="qa"><summary>I hear no music or sound</summary><p>Browsers wait for your first tap or key press before they allow sound. Then check the <b>Music</b> and <b>Sound effects</b> switches, the music button in the top bar, and your device's volume.</p></details>
         <details class="qa"><summary>My statistics disappeared</summary><p>Results are saved per device and per browser. A different device, a different browser, private browsing or cleared site data starts with an empty record.</p></details>
-        <details class="qa"><summary>The page reloaded by itself</summary><p>That is the automatic update: a newer version was available. The game in progress is saved and comes back exactly as it was.</p></details>
         <details class="qa"><summary>The board looks flat</summary><p>The 3D board is switched off, or the device cannot draw it. Look for <b>3D board</b> in Settings.</p></details>
         <details class="qa"><summary>The colours are hard to tell apart</summary><p>Turn on <b>High contrast</b> in Settings for orange and blue flaps.</p></details>
         <div class="mfoot" id="mFoot"></div>
@@ -939,7 +934,7 @@ dialog::backdrop { background: var(--scrim); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.41";
+const VERSION = "v2.42";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
