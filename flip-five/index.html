@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0d0f13">
+<script>try{var o=JSON.parse(localStorage.getItem("flipfive.opts"))||{},t=o.theme||"system";if(t==="light"||(t==="system"&&!matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.classList.add("light")}catch(e){}</script>
 <style>:root{box-sizing:border-box;padding-top:var(--safe-top, env(safe-area-inset-top, 0px));padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 <title>Flip Five</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,7 +13,7 @@
 <style>
 /* Layout: a station departure board. Split-flap tiles plus a keyboard, stacked when the screen is tall and
    side by side when it is wide. fit() in the script measures the screen and sets every size below.
-   Single dark theme by design: the board is dark in every viewer theme. */
+   Dark by default; Settings > Appearance picks Light, Dark or System (the page's root gets class "light"). */
 :root {
   color-scheme: dark;
   --hall: #0d0f13;        /* the room behind the board */
@@ -27,18 +28,27 @@
   --amber: #f4b942;       /* board lettering accent */
   --hit: #25894f;   --hit-ink: #ffffff;
   --near: #f4b942;  --near-ink: #17191e;
+  --hall-top: #14171d; --typed-line: #5d6575; --seam: rgba(0, 0, 0, .42); --bad: #ff8f7a; --amber-hover: #ffcc66;
+  --miss-ink: #8f96a6; --key-miss-ink: #5f6676; --key-miss-ring: #23272f; --case: #07080b; --scrim: rgba(5, 6, 8, .74);
   --font-display: "Barlow Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
   --font-body: "Barlow", "Helvetica Neue", Helvetica, Arial, sans-serif;
   /* sizes: defaults for a phone held upright, replaced by fit() */
   --tile: 56px; --gap: 5px; --kh: 50px; --kgap: 5px; --kf: 20px; --kbw: 100%;
   --title: 24px; --sw: 100%; --sh: 100%; --top-h: 44px; --rem-h: 44px; --row-gap: 8px; --col-gap: 24px;
 }
+:root.light {
+  color-scheme: light;
+  --hall: #eceae3; --hall-top: #f8f6f0; --housing: #fbfaf6; --blank: #dedacf; --flap: #cfcabb; --flap-line: #b3ae9f;
+  --key: #d9d5c9; --dead: #7a8090; --ink: #1b1d22; --dim: #5c6272; --amber: #a86500; --amber-hover: #c27800;
+  --typed-line: #8d8776; --seam: rgba(0, 0, 0, .3); --bad: #c0392b; --miss-ink: #f4f1e8;
+  --key-miss-ink: #f4f1e8; --key-miss-ring: transparent; --case: #4a4f5a; --scrim: rgba(30, 28, 22, .5);
+}
 :root.contrast { --hit: #f5793a; --hit-ink: #17191e; --near: #85c0f9; --near-ink: #17191e; }
 
 * { box-sizing: border-box; }
 html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 body {
-  background: var(--hall) linear-gradient(180deg, #14171d 0%, var(--hall) 45%);
+  background: var(--hall) linear-gradient(180deg, var(--hall-top) 0%, var(--hall) 45%);
   color: var(--ink);
   font: 16px/1.4 var(--font-body);
   -webkit-user-select: none; user-select: none;
@@ -95,6 +105,21 @@ button { cursor: pointer; }
 @media (max-width: 380px) { .tight .ib { min-width: 32px; padding: 0 4px; } }
 .ib svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
+/* the word "Flip" turns over to upside-down and back at the start and end of every word */
+.flipw { display: inline-block; }
+.flipw.go { animation: flipTitle 1.3s cubic-bezier(.45, .05, .3, 1); }
+@keyframes flipTitle {
+  0% { transform: perspective(420px) rotateX(0); }
+  38%, 62% { transform: perspective(420px) rotateX(180deg); }
+  100% { transform: perspective(420px) rotateX(360deg); }
+}
+/* Light / Dark / System choice */
+.opt .seg { grid-column: 2; grid-row: 1 / span 2; display: flex; border: 1px solid var(--flap-line); border-radius: 6px; overflow: hidden; }
+.seg button { height: 34px; padding: 0 12px; border: 0; background: none; color: var(--dim); font: 600 15px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase; }
+.seg button + button { border-left: 1px solid var(--flap-line); }
+.seg button[aria-checked="true"] { background: var(--amber); color: #17191e; }
+:root.light .seg button[aria-checked="true"] { color: #fff; }
+
 /* ---- board of split flaps ---- */
 .board { grid-area: board; display: grid; grid-template-rows: repeat(6, var(--tile)); gap: var(--gap); }
 .side .board { margin-top: var(--pill-room, 0px); align-self: start; }
@@ -109,12 +134,12 @@ button { cursor: pointer; }
   text-transform: uppercase;
 }
 /* the seam where the two flaps meet, and the hinge notches at each end of it */
-.tile::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: max(1px, calc(var(--tile) * 0.022)); transform: translateY(-50%); background: rgba(0, 0, 0, .42); }
+.tile::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: max(1px, calc(var(--tile) * 0.022)); transform: translateY(-50%); background: var(--seam); }
 .tile::before {
   content: ""; position: absolute; left: 0; right: 0; top: 50%; height: calc(var(--tile) * 0.14); transform: translateY(-50%);
   background: linear-gradient(90deg, var(--hall) 0 4.5%, transparent 4.5% 95.5%, var(--hall) 95.5%);
 }
-.tile.typed { background: var(--flap); box-shadow: inset 0 0 0 1px #5d6575; }
+.tile.typed { background: var(--flap); box-shadow: inset 0 0 0 1px var(--typed-line); }
 .tile.fixed { background: var(--flap); box-shadow: inset 0 0 0 max(2px, calc(var(--tile) * 0.035)) var(--hit); }
 .row.live .tile { cursor: pointer; }
 .tile.sel { box-shadow: inset 0 0 0 max(3px, calc(var(--tile) * 0.05)) var(--amber); }
@@ -135,7 +160,7 @@ button { cursor: pointer; }
 @keyframes blink { 50% { box-shadow: inset 0 0 0 max(3px, calc(var(--tile) * 0.05)) rgba(244, 185, 66, .35); } }
 .tile.hit  { background: var(--hit);  color: var(--hit-ink);  box-shadow: none; }
 .tile.near { background: var(--near); color: var(--near-ink); box-shadow: none; }
-.tile.miss { background: var(--dead); color: var(--dim); }
+.tile.miss { background: var(--dead); color: var(--miss-ink); }
 .tile.pop  { animation: pop .1s ease-out; }
 .tile.out  { animation: flapOut .2s ease-in forwards; }
 .tile.in   { animation: flapIn .22s ease-out; }
@@ -177,7 +202,7 @@ button { cursor: pointer; }
   font: 600 clamp(15px, calc(var(--rem-h) * 0.44), 22px)/1.1 var(--font-display);
   letter-spacing: .09em; text-transform: uppercase; color: var(--amber); text-wrap: balance;
 }
-#status.bad { color: #ff8f7a; }
+#status.bad { color: var(--bad); }
 .switch { display: inline-flex; align-items: center; gap: 8px; background: none; border: 0; padding: 4px 0; flex: none;
   font: 600 15px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); white-space: nowrap; }
 .switch .track { width: 36px; height: 20px; border-radius: 10px; background: var(--blank); box-shadow: inset 0 0 0 1px var(--flap-line); position: relative; flex: none; transition: background .15s; }
@@ -187,14 +212,14 @@ button { cursor: pointer; }
 .switch[aria-checked="true"] .track::after { transform: translateX(16px); background: var(--hit-ink); }
 .cta { flex: none; height: min(38px, var(--rem-h)); padding: 0 16px; background: var(--amber); color: #17191e; border: 0; border-radius: 6px;
   font: 700 17px/1 var(--font-display); letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
-.cta:hover { background: #ffcc66; }
+.cta:hover { background: var(--amber-hover); }
 /* ---- end of a game on wide screens: the word and a big New word button under the settings ---- */
 .result { display: none; }
 .side.roomy .result:not([hidden]) {
   grid-area: result; align-self: stretch; width: 100%; min-height: 0; container-type: size;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center;
 }
-.res-line { margin: 0; font: 700 clamp(20px, min(20cqh, 6.5cqw), 46px)/1.05 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: #ff8f7a; }
+.res-line { margin: 0; font: 700 clamp(20px, min(20cqh, 6.5cqw), 46px)/1.05 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--bad); }
 .result.won .res-line { color: var(--hit); }
 .res-title { margin: 0; font: 600 clamp(18px, min(15cqh, 4.5cqw), 32px)/1.1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
 .res-word { margin: 0; min-width: 0; font: 700 clamp(28px, min(42cqh, 12cqw), 112px)/1 var(--font-display); letter-spacing: .14em; text-transform: uppercase; color: var(--amber); white-space: nowrap; }
@@ -236,7 +261,7 @@ button { cursor: pointer; }
 .key svg { width: 1.5em; height: 1.5em; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .key.hit  { background: var(--hit);  color: var(--hit-ink); }
 .key.near { background: var(--near); color: var(--near-ink); }
-.key.miss { background: var(--dead); color: #5f6676; box-shadow: inset 0 0 0 1px #23272f; }
+.key.miss { background: var(--dead); color: var(--key-miss-ink); box-shadow: inset 0 0 0 1px var(--key-miss-ring); }
 
 /* ---- dialogs ---- */
 /* Dialogs sit in the top layer, which ignores the page's safe-area padding, so keep them clear of the
@@ -250,7 +275,7 @@ dialog {
   background: var(--housing); color: var(--ink); border: 1px solid var(--flap-line); border-radius: 10px;
   font: 16px/1.45 var(--font-body);
 }
-dialog::backdrop { background: rgba(5, 6, 8, .74); }
+dialog::backdrop { background: var(--scrim); }
 .sheet { padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 14px; }
 .sheet header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .sheet h2 { margin: 0; font: 700 26px/1 var(--font-display); letter-spacing: .09em; text-transform: uppercase; color: var(--amber); }
@@ -389,7 +414,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <div class="app" id="app">
   <div class="stage">
     <header class="top" data-pill-gap>
-      <h1><span>Flip <b>Five</b></span> <span class="ver" id="version"></span></h1>
+      <h1><span><span class="flipw" id="flipw">Flip</span> <b>Five</b></span> <span class="ver" id="version"></span></h1>
       <div class="tools">
         <button class="ib" id="btnHelp" type="button" aria-label="How to play"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9a3 3 0 1 1 4.5 2.6c-.9.5-1.5 1.2-1.5 2.4"/><path d="M12 18h.01"/></svg></button>
         <button class="ib" id="btnStats" type="button" aria-label="Statistics"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V11M12 20V4M19 20v-6"/></svg></button>
@@ -438,6 +463,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
     <p>With <b>Must keep greens</b> on, green letters you have found are filled into the next row for you, outlined in green. If you type that same letter it goes in its spot; any other letter jumps ahead to the next open spot.</p>
     <p>Tap any flap in the row you're typing to put the next letter there. It's outlined in amber; tap it again to let go. On a keyboard the arrow keys do the same. Green letters are locked and can't be changed.</p>
     <p>When a word ends, <b>Today's Wordle</b> plays the day's New York Times Wordle. It shows until you've played today's puzzle to the end, then comes back with the next one.</p>
+    <p>Settings > <b>Appearance</b> switches between a light and a dark board, or follows your device.</p>
     <p>The music plays a random track, and a different random one with each new word; pick a track in Settings. Solve the word for a cheer (bigger the fewer guesses you needed), miss it for a raspberry.</p>
     <h3>Must keep greens</h3>
     <p>Every green letter stays in its spot in every later guess, filled in for you. A letter you know is in the word but that has only one spot left it could go (every other spot is green, or you already tried it there) is filled into that spot too, outlined in green. Amber letters can be left out.</p>
@@ -506,6 +532,15 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
           <button class="ib" id="trkNext" type="button" aria-label="Next track"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
         </div>
       </div>
+      <div class="opt">
+        <b id="lblTheme">Appearance</b>
+        <span class="fine">Light, dark, or follow this device.</span>
+        <div class="seg" id="themeSeg" role="radiogroup" aria-labelledby="lblTheme">
+          <button type="button" role="radio" data-theme="light" aria-checked="false">Light</button>
+          <button type="button" role="radio" data-theme="dark" aria-checked="false">Dark</button>
+          <button type="button" role="radio" data-theme="system" aria-checked="true">System</button>
+        </div>
+      </div>
     </div></div>
     <div class="opts-body">
     <div>
@@ -539,7 +574,7 @@ dialog::backdrop { background: rgba(5, 6, 8, .74); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.28";
+const VERSION = "v2.29";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
@@ -571,8 +606,9 @@ const load = (k, d) => { try { const v = JSON.parse(localStorage.getItem("flipfi
 const save = (k, v) => { try { localStorage.setItem("flipfive." + k, JSON.stringify(v)); } catch (e) {} };
 const freshStats = () => ({ played: 0, wins: 0, streak: 0, best: 0, dist: [0, 0, 0, 0, 0, 0] });
 // "Must keep greens" starts on for a brand-new device; after that the player's own choice is remembered
-let opts = Object.assign({ strict: true, contrast: false, music: true, sfx: true, track: 0, view3d: true }, load("opts", {}));
+let opts = Object.assign({ strict: true, contrast: false, music: true, sfx: true, track: 0, view3d: true, theme: "system" }, load("opts", {}));
 if (typeof opts.strict !== "boolean") opts.strict = true;
+if (!["light", "dark", "system"].includes(opts.theme)) opts.theme = "system";
 let stats = Object.assign(freshStats(), load("stats", {}));
 let recent = load("recent", []);
 let G = null;          // { answer, guesses: [], cur, over, won }
@@ -692,6 +728,8 @@ function placeLetter(cur, ch, f) {
 }
 // Spots with nothing typed and no green letter waiting in them
 const openSpots = (cur, f) => [0, 1, 2, 3, 4].filter(i => cur[i] === "." && !f[i]);
+// The amber highlight rests on the first open spot of the row being typed from the moment the row appears
+const homeSel = () => G && !G.over && G.guesses.length < 6 ? openSpots(G.cur, fixedSlots())[0] ?? null : null;
 let testMode = false;   // true only for the word started by a Shift-click on New word; test games are marked G.test and skip stats
 let sel = null;   // the spot you tapped: the next letter goes there
 let selAuto = false;   // true once the highlight has moved on by itself after a letter (not tapped there)
@@ -761,11 +799,21 @@ function paint() {
     const g = G.guesses[r], marks = g ? score(g, G.answer) : null;
     for (let c = 0; c < 5; c++) setTile(tiles[r][c], g ? g[c] : "", marks && marks[c]);
   }
+  sel = homeSel(); selAuto = true;
   paintDraft();
   paintKeys(G.guesses.length);
   paintStatus();
 }
+const sysDark = matchMedia("(prefers-color-scheme: dark)");
+function applyTheme() {
+  const light = opts.theme === "light" || (opts.theme === "system" && !sysDark.matches);
+  root.classList.toggle("light", light);
+  const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = light ? "#eceae3" : "#0d0f13";
+  document.querySelectorAll("#themeSeg button").forEach(b => b.setAttribute("aria-checked", String(b.dataset.theme === opts.theme)));
+}
+if (sysDark.addEventListener) sysDark.addEventListener("change", applyTheme); else if (sysDark.addListener) sysDark.addListener(applyTheme);
 function paintOpts() {
+  applyTheme();
   root.classList.toggle("contrast", opts.contrast);
   for (const id of ["strict", "optStrict"]) $(id).setAttribute("aria-checked", String(opts.strict));
   $("optContrast").setAttribute("aria-checked", String(opts.contrast));
@@ -805,6 +853,10 @@ function reject(msg) {
   const row = tiles[G.guesses.length][0].parentNode;
   row.classList.remove("shake"); void row.offsetWidth; row.classList.add("shake");
 }
+function flipTitle() {
+  const el = $("flipw"); if (!el || calm) return;
+  el.classList.remove("go"); void el.offsetWidth; el.classList.add("go");
+}
 function flatClick() { if (!window.__view3dActive && window.__flapClick) window.__flapClick(); }
 function type(ch) {
   if (busy || G.over) return;
@@ -834,7 +886,7 @@ function erase() {
     for (let i = sel - 1; i >= 0; i--) if (G.cur[i] !== ".") { at = i; break; }
     if (at === undefined) return;
     sel = at;
-  } else at = G.cur.replace(/\.+$/, "").length - 1;
+  } else { at = G.cur.replace(/\.+$/, "").length - 1; if (at >= 0) sel = at; }
   if (at < 0) return;
   G.cur = G.cur.slice(0, at) + "." + G.cur.slice(at + 1); note = null;
   paintDraft(); paintStatus(); save("game", G);
@@ -873,7 +925,8 @@ function submit() {
   if (G.over) record();
   save("game", G);
   const done = () => {
-    busy = false; paintKeys(G.guesses.length); paintDraft(); paintStatus();
+    busy = false; sel = homeSel(); selAuto = true; paintKeys(G.guesses.length); paintDraft(); paintStatus();
+    if (G.over) flipTitle();
     if (G.over && opts.sfx) G.won ? Music.cheer(G.guesses.length) : Music.raspberry();
     if (G.won && !calm) tiles[r].forEach((t, c) => setTimeout(() => t.classList.add("hop"), c * 80));
   };
@@ -935,7 +988,7 @@ function playDaily() {
   G = { answer: p.w, guesses: [], cur: EMPTY, over: false, won: false, test: false, daily: d, num: p.n };
   if (!(d in wstats.days)) { wstats.tried++; wstats.days[d] = -1; save("wstats", wstats); }
   note = null; busy = false; sel = null;
-  save("game", G); paint();
+  save("game", G); paint(); flipTitle();
 }
 $("btnDaily").addEventListener("click", e => { e.currentTarget.blur(); playDaily(); });
 $("btnDaily2").addEventListener("click", e => { e.currentTarget.blur(); playDaily(); });
@@ -946,12 +999,12 @@ function newGame() {
   G = { answer: pickAnswer(), guesses: [], cur: EMPTY, over: false, won: false, test: testMode };
   testMode = false;   // the switch lasts for this one word only
   note = null; busy = false; sel = null;
-  save("game", G); paint();
+  save("game", G); paint(); flipTitle();
 }
 function giveUp() {
   if (G.over || busy) return;
   G.cur = EMPTY; G.over = true; G.won = false; sel = null;
-  record(); save("game", G); note = null; paint();
+  record(); save("game", G); note = null; paint(); flipTitle();
   if (opts.sfx) Music.raspberry();
 }
 function press(k) {
@@ -1396,11 +1449,12 @@ function setOpt(name, value) { opts[name] = value; save("opts", opts); paintOpts
 function toggleStrict() {
   const typed = G.cur.replace(/\./g, "");
   setOpt("strict", !opts.strict);
-  if (!busy) { sel = null; G.cur = layOut(typed); paintDraft(); save("game", G); }
+  if (!busy) { G.cur = layOut(typed); sel = homeSel(); selAuto = true; paintDraft(); save("game", G); }
 }
 $("strict").addEventListener("click", e => { e.currentTarget.blur(); toggleStrict(); });
 $("optStrict").addEventListener("click", toggleStrict);
 $("optContrast").addEventListener("click", () => setOpt("contrast", !opts.contrast));
+$("themeSeg").addEventListener("click", e => { const b = e.target.closest("button[data-theme]"); if (b) { b.blur(); setOpt("theme", b.dataset.theme); } });
 $("optView").addEventListener("click", () => { setOpt("view3d", !opts.view3d); window.__flaps && window.__flaps.setView(opts.view3d); });
 function open(id) {
   $("resetAsk").hidden = true; $("btnReset").hidden = false;
@@ -1583,18 +1637,18 @@ import * as THREE from "../lib/three.module.min.js";
     const k = el.className, ch = (el.textContent || "").trim();
     const state = ["hit", "near", "miss", "fixed", "typed"].find(c => el.classList.contains(c)) || "blank";
     const sel = el.classList.contains("sel") ? (ch || !blink ? 2 : 1) : 0;
-    return { ch, state, sel, face: ch + "|" + state, key: ch + "|" + state + "|" + sel + "|" + root.classList.contains("contrast") };
+    return { ch, state, sel, face: ch + "|" + state, key: ch + "|" + state + "|" + sel + "|" + root.classList.contains("contrast") + root.classList.contains("light") };
   }
   function tex(L) {
     let t = cache.get(L.key); if (t) return t;
     const c = document.createElement("canvas"); c.width = c.height = S; const g = c.getContext("2d");
     const bg = { hit: css("--hit"), near: css("--near"), miss: css("--dead"), fixed: css("--flap"), typed: css("--flap"), blank: css("--blank") }[L.state];
-    const ink = { hit: css("--hit-ink"), near: css("--near-ink"), miss: css("--dim") }[L.state] || css("--ink");
+    const ink = { hit: css("--hit-ink"), near: css("--near-ink"), miss: css("--miss-ink") }[L.state] || css("--ink");
     const r = S * 0.08;
     g.beginPath(); g.roundRect(0, 0, S, S, r); g.fillStyle = bg; g.fill();
     const ring = (w, col) => { g.save(); g.beginPath(); g.roundRect(0, 0, S, S, r); g.clip(); g.lineWidth = w * 2; g.strokeStyle = col; g.stroke(); g.restore(); };
     if (L.state === "blank") ring(S / 56, css("--flap-line"));
-    if (L.state === "typed") ring(S / 56, "#5d6575");
+    if (L.state === "typed") ring(S / 56, css("--typed-line"));
     if (L.state === "fixed") ring(Math.max(2, S * 0.035), css("--hit"));
     if (L.sel && L.state === "fixed") {   // resting on a green letter: amber only around the bottom flap
       g.save(); g.beginPath(); g.rect(0, S / 2, S, S / 2); g.clip();
@@ -1612,7 +1666,7 @@ import * as THREE from "../lib/three.module.min.js";
       g.fillText(up, S / 2, S / 2 + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2);
     }
     // the seam between the flaps and the hinge notches at each end
-    g.fillStyle = "rgba(0,0,0,.42)"; g.fillRect(0, S / 2 - S * 0.011, S, S * 0.022);
+    g.fillStyle = css("--seam"); g.fillRect(0, S / 2 - S * 0.011, S, S * 0.022);
     g.clearRect(0, S / 2 - S * 0.07, S * 0.045, S * 0.14); g.clearRect(S * 0.955, S / 2 - S * 0.07, S * 0.045, S * 0.14);
     t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
     cache.set(L.key, t);
@@ -1628,7 +1682,7 @@ import * as THREE from "../lib/three.module.min.js";
     return g;
   };
   const TOP = half(true), BOT = half(false), CASE = new THREE.BoxGeometry(0.94, 0.94, 0.3).translate(0, 0, -0.16);
-  const caseMat = new THREE.MeshLambertMaterial({ color: 0x07080b });
+  const caseMat = new THREE.MeshLambertMaterial({ color: css("--case") || 0x07080b });
   const flat = () => new THREE.MeshBasicMaterial({ alphaTest: 0.5 });
   const lit = () => new THREE.MeshLambertMaterial({ alphaTest: 0.5 });
   const tiles = [];
@@ -1697,7 +1751,7 @@ import * as THREE from "../lib/three.module.min.js";
     wake();
   }
   new MutationObserver(sync).observe(board, { subtree: true, attributes: true, attributeFilter: ["class"], childList: true, characterData: true });
-  new MutationObserver(() => { cache.forEach(v => v.dispose()); cache.clear(); sync(); for (const t of tiles) { t.top.material.map = t.bot.material.map = tex(t.cur); t.top.material.needsUpdate = t.bot.material.needsUpdate = true; } wake(); })
+  new MutationObserver(() => { caseMat.color.set(css("--case") || "#07080b"); cache.forEach(v => v.dispose()); cache.clear(); sync(); for (const t of tiles) { t.top.material.map = t.bot.material.map = tex(t.cur); t.top.material.needsUpdate = t.bot.material.needsUpdate = true; } wake(); })
     .observe(root, { attributes: true, attributeFilter: ["class"] });   // high-contrast colours switched
   setInterval(() => { if (tiles.some(t => t.el.classList.contains("sel") && !t.el.textContent)) { blink = !blink; sync(); } else if (blink) { blink = false; sync(); } }, 550);
   if (document.fonts) document.fonts.ready.then(() => { cache.forEach(v => v.dispose()); cache.clear(); for (const t of tiles) { t.top.material.map = t.bot.material.map = tex(t.cur); t.top.material.needsUpdate = t.bot.material.needsUpdate = true; } wake(); });
