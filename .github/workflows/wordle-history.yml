@@ -1,0 +1,42 @@
+# ONE-OFF: saves every Wordle answer used so far into .github/wordle-history.json (removed again afterwards)
+name: Wordle history
+on:
+  push:
+    paths:
+      - .github/workflows/wordle-history.yml
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download every puzzle
+        run: |
+          python3 - <<'PY'
+          import json, datetime, urllib.request, concurrent.futures as cf
+          start = datetime.date(2021, 6, 19)
+          end = datetime.datetime.now(datetime.timezone.utc).date() + datetime.timedelta(days=1)
+          dates = [start + datetime.timedelta(days=i) for i in range((end - start).days + 1)]
+          def get(d):
+              key = d.isoformat()
+              for _ in range(4):
+                  try:
+                      req = urllib.request.Request("https://www.nytimes.com/svc/wordle/v2/" + key + ".json", headers={"User-Agent": "Mozilla/5.0 (Macintosh) FlipFive"})
+                      j = json.load(urllib.request.urlopen(req, timeout=20))
+                      return key, str(j["solution"]).lower(), j.get("days_since_launch")
+                  except Exception as e:
+                      err = str(e)
+              return key, None, err
+          with cf.ThreadPoolExecutor(6) as ex: res = list(ex.map(get, dates))
+          ok = [(k, w, n) for k, w, n in res if w]
+          bad = [(k, n) for k, w, n in res if not w]
+          print("fetched", len(ok), "failed", len(bad), bad[:5])
+          json.dump({"fetched": len(ok), "failed": [k for k, _ in bad], "days": {k: {"w": w, "n": n} for k, w, n in ok}}, open(".github/wordle-history.json", "w"), indent=0)
+          PY
+      - name: Save
+        run: |
+          git add .github/wordle-history.json
+          git -c user.name="wordle-bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "Wordle history (one-off)"
+          git pull --rebase origin main
+          git push origin HEAD:main
