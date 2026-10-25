@@ -60,9 +60,11 @@ def main():
     assert html.count(old) == 1, "wordle.json fetch not found"
     html = html.replace(old, 'fetch("%swordle.json?"' % SITE)
 
-    icon = 'href="icon.png"'
-    assert html.count(icon) == 2, "icon links not found"
-    html = html.replace(icon, 'href="data:image/png;base64,%s"' % b64((ROOT / "flip-five" / "icon.png").read_bytes()))
+    # the standalone file has its own icon; the page in the games set keeps the site's "Games" icon
+    title = "<title>Flip Five</title>"
+    assert html.count(title) == 1, "title not found"
+    uri = "data:image/png;base64," + b64((ROOT / "flip-five" / "icon.png").read_bytes())
+    html = html.replace(title, title + '\n<link rel="icon" type="image/png" href="%s">\n<link rel="apple-touch-icon" href="%s">' % (uri, uri))
 
     html, _ = inline_fonts(html)
 
