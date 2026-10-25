@@ -1,0 +1,35 @@
+name: Flip Five standalone
+
+# Keeps flip-five-standalone.html (one self-contained file) in step with flip-five/index.html.
+on:
+  push:
+    branches: [main]
+    paths:
+      - flip-five/index.html
+      - lib/three.module.min.js
+      - .github/scripts/build_flip_five_standalone.py
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: flip-five-standalone
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 .github/scripts/build_flip_five_standalone.py
+      - name: Commit the rebuilt file
+        run: |
+          if git diff --quiet -- flip-five-standalone.html; then echo "no change"; exit 0; fi
+          VERSION=$(grep -o 'const VERSION = "[^"]*"' flip-five/index.html | head -1 | cut -d'"' -f2)
+          git config user.name "flip-five-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add flip-five-standalone.html
+          git commit -m "Flip Five standalone rebuilt ($VERSION)"
+          git pull --rebase origin main
+          git push origin HEAD:main
