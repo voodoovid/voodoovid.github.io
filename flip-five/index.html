@@ -573,7 +573,7 @@ dialog::backdrop { background: var(--scrim); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.32";
+const VERSION = "v2.33";
 
 // ---------- Words ----------
 // ANSWERS: the 2,309 words Wordle picks its answers from. EXTRA: every other word Wordle accepts as a guess.
@@ -1568,13 +1568,6 @@ function start(data) {
     saved.guesses.length <= 6 && saved.guesses.every(w => typeof w === "string" && w.length === 5);
   paintOpts();
   if (ok) { G = { answer: saved.answer, guesses: saved.guesses, cur: EMPTY, over: !!saved.over, won: !!saved.won, test: !!saved.test, daily: saved.daily || "", num: saved.num || 0 }; G.cur = layOut(String(saved.cur || ""));
-    // Opened with nothing placed (no guesses, no letters typed): treat the word as finished so New word / Today's Wordle are offered. Not counted in stats.
-    // An unplayed daily Wordle is swapped for a plain finished word so its answer is never shown early.
-    if (!G.over && !G.guesses.length && !/[a-z]/.test(G.cur)) {
-      if (G.daily) G = { answer: pickAnswer(), guesses: [], cur: EMPTY, over: true, won: false, test: false };
-      else { G.over = true; G.won = false; G.cur = EMPTY; }
-      save("game", G);
-    }
     paint(); }
   else newGame();
   fitAll();
