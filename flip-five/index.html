@@ -456,7 +456,7 @@ dialog::backdrop { background: var(--scrim); }
   };
   safeTop(); addEventListener("resize", safeTop); addEventListener("orientationchange", () => setTimeout(safeTop, 250));
   // Only on the games site, not when a page is opened on its own
-  if (!/\/(hangman|scareisdale|ponchos-adventure|ponchos-adventure-3d|flip-five|flip-five-3d|follow-chestnut|fathom|ponchos-pills)\//.test(location.pathname)) return;
+  if (!/\/(hangman|scareisdale|ponchos-adventure|ponchos-adventure-3d|flip-five|flip-five-3d|follow-chestnut|fathom|ponchos-pills|ant-jam)\//.test(location.pathname)) return;
   pill.hidden = false;
   // Lock the screen: no rubber-band bounce or drag when swiping, except inside something that really scrolls
   document.documentElement.style.overscrollBehavior = "none"; document.body.style.overscrollBehavior = "none";
@@ -894,7 +894,7 @@ dialog::backdrop { background: var(--scrim); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.45";
+const VERSION = "v2.46";
 
 // ---------- Words ----------
 // ANSWERS: the words New word picks from: Wordle's original 2,309 answers plus every later answer the NYT has used (a GitHub job adds new ones: .github/scripts/add_wordle_answers.py). EXTRA: every other word Wordle accepts as a guess.

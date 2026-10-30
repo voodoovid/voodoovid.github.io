@@ -119,7 +119,7 @@ h1 { flex: 1; margin: 0; font: 400 14px/1.3 var(--font-display); color: var(--go
   };
   safeTop(); addEventListener("resize", safeTop); addEventListener("orientationchange", () => setTimeout(safeTop, 250));
   // Only on the games site, not when a page is opened on its own
-  if (!/\/(hangman|scareisdale|ponchos-adventure|ponchos-adventure-3d|flip-five|flip-five-3d|follow-chestnut|fathom|ponchos-pills)\//.test(location.pathname)) return;
+  if (!/\/(hangman|scareisdale|ponchos-adventure|ponchos-adventure-3d|flip-five|flip-five-3d|follow-chestnut|fathom|ponchos-pills|ant-jam)\//.test(location.pathname)) return;
   pill.hidden = false;
   // Lock the screen: no rubber-band bounce or drag when swiping, except inside something that really scrolls
   document.documentElement.style.overscrollBehavior = "none"; document.body.style.overscrollBehavior = "none";
@@ -217,7 +217,7 @@ h1 { flex: 1; margin: 0; font: 400 14px/1.3 var(--font-display); color: var(--go
 </div>
 <script src="../lib/gamepad.js"></script>
 <script>
-const VERSION = "v1.15";
+const VERSION = "v1.16";
 const $ = id => document.getElementById(id);
 $("version").textContent = VERSION;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});

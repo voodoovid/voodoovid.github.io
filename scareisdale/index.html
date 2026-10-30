@@ -150,7 +150,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
   };
   safeTop(); addEventListener("resize", safeTop); addEventListener("orientationchange", () => setTimeout(safeTop, 250));
   // Only on the games site, not when a page is opened on its own
-  if (!/\/(hangman|scareisdale|ponchos-adventure|ponchos-adventure-3d|flip-five|flip-five-3d|follow-chestnut|fathom|ponchos-pills)\//.test(location.pathname)) return;
+  if (!/\/(hangman|scareisdale|ponchos-adventure|ponchos-adventure-3d|flip-five|flip-five-3d|follow-chestnut|fathom|ponchos-pills|ant-jam)\//.test(location.pathname)) return;
   pill.hidden = false;
   // Lock the screen: no rubber-band bounce or drag when swiping, except inside something that really scrolls
   document.documentElement.style.overscrollBehavior = "none"; document.body.style.overscrollBehavior = "none";
@@ -250,7 +250,7 @@ html.phone-land, html.phone-land body{height:100%; overflow:hidden; touch-action
 <script>
 (() => {
 'use strict';
-const VERSION = 'v5.25';
+const VERSION = 'v5.26';
 document.getElementById('verBar').textContent = VERSION;
 document.getElementById('verOverlay').textContent = VERSION;
 const TS = 16, VW = 384, VH = 240, ROWS = 15;
