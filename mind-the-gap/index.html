@@ -1,0 +1,1499 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mind The Gap</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0b1230">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hammersmith+One&display=swap">
+<style>
+/* Layout: one column filling the screen: title row, level info, the board (3D canvas or 2D canvas) scaled to fit, tool row below. */
+:root {
+  --bg: #0b1230;
+  --panel: #18235a;
+  --edge: #3a4c9c;
+  --fg: #ffffff;
+  --muted: #b7c0e6;
+  --gold: #ffd300;
+  --red: #dc241f;
+  --blue: #0019a8;
+  --leaf: #7dbb4f;
+  --font-display: "Hammersmith One", "Gill Sans", "Trebuchet MS", system-ui, sans-serif;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; overflow: hidden; color: var(--fg);
+  background:
+    radial-gradient(ellipse at 50% 30%, rgba(40,58,140,.55) 0%, rgba(11,18,48,0) 70%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 22px),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0 1px, transparent 1px 44px),
+    var(--bg);
+  font-family: var(--font-display);
+  -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+}
+.wrap {
+  height: 100dvh; max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px;
+  padding: calc(var(--safe-top, env(safe-area-inset-top, 0px)) + 10px) 12px calc(env(safe-area-inset-bottom, 0px) + 12px);
+}
+header { display: flex; align-items: center; gap: 8px; min-height: 34px; }
+h1 { flex: 1; min-width: 0; margin: 0; font: 400 20px/1 var(--font-display); color: #fff; white-space: nowrap; display: flex; align-items: center; }
+h1 .board { display: inline-block; background: var(--blue); border: 2px solid #fff; border-radius: 6px; padding: 5px 10px 4px; letter-spacing: .02em; box-shadow: 0 2px 0 rgba(0,0,0,.4); }
+h1 .board span { color: var(--gold); }
+.version { font: 500 11px system-ui, sans-serif; color: var(--muted); text-shadow: none; margin-left: 8px; }
+.hbtn {
+  height: 34px; white-space: nowrap; padding: 0 10px; border-radius: 10px; border: 2px solid var(--edge); background: var(--panel); color: var(--fg);
+  font: 600 14px var(--font-display); cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.hbtn:active, .tool:active, .ov button:active { transform: scale(.95); }
+.info { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 0 4px; }
+.info .lv { font-size: 19px; font-weight: 600; }
+.info .lv b { color: var(--gold); font-weight: 600; }
+.info .mv { font-size: 16px; color: var(--muted); }
+.info .mv b { color: var(--fg); font-size: 20px; }
+#stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; position: relative; }
+#board { position: relative; touch-action: none; cursor: grab; }
+#board.dragging { cursor: grabbing; }
+#board canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.tools { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; flex: none; }
+.tool {
+  height: 54px; border-radius: 14px; border: 2px solid var(--edge); background: linear-gradient(180deg, #22307a, #141d4c); color: var(--fg);
+  font: 600 15px var(--font-display); cursor: pointer; -webkit-tap-highlight-color: transparent; display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.tool .ic { font-size: 20px; }
+.tool:disabled { opacity: .45; }
+/* Overlays sit over the board */
+.ov {
+  position: absolute; z-index: 5; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(94%, 420px); max-height: 100%; overflow: auto;
+  display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center;
+  background: rgba(12, 20, 60, .97); border: 3px solid var(--edge); border-radius: 18px; padding: 20px 16px;
+  box-shadow: 0 14px 40px rgba(0,0,0,.6);
+}
+.ov h2 { margin: 0; font: 400 28px/1.1 var(--font-display); color: #fff; }
+.ov h2::after { content: ""; display: block; height: 4px; width: 64px; margin: 8px auto 0; background: var(--red); border-radius: 2px; }
+.ov p { margin: 0; font-size: 16px; line-height: 1.4; color: var(--muted); font-weight: 400; }
+.ov p b { color: var(--fg); font-weight: 400; }
+.ov .row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.ov button {
+  font: 600 16px var(--font-display); color: var(--fg); background: var(--panel); border: 2px solid var(--edge);
+  border-radius: 12px; padding: 10px 16px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.ov button.big { background: var(--red); border-color: #fff; color: #fff; font-size: 19px; padding: 12px 28px; }
+.stars { font-size: 34px; letter-spacing: 4px; color: var(--gold); line-height: 1; }
+.stars i { font-style: normal; color: #34407a; }
+.keys { font-size: 13px !important; }
+/* Level picker */
+#ovLevels { width: min(96%, 460px); gap: 6px; padding: 14px 14px; }
+#ovLevels h2 { font-size: 24px; }
+.tier { width: 100%; }
+.tier h3 { margin: 4px 0 6px; font: 600 16px var(--font-display); text-align: left; display: flex; justify-content: space-between; }
+.tier h3 span { color: var(--muted); font-weight: 400; font-size: 14px; }
+.lvgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.lvgrid button { padding: 6px 0 4px !important; display: flex; flex-direction: column; align-items: center; gap: 1px; font-size: 17px !important; }
+.lvgrid button small { font-size: 11px; color: var(--gold); letter-spacing: 1px; min-height: 13px; }
+.lvgrid button.cur { border-color: var(--gold); }
+.lvgrid button.done { background: #24347e; }
+.t0 h3 { color: #3dbb5a; } .t1 h3 { color: #ffd300; } .t2 h3 { color: #ff8a3d; } .t3 h3 { color: #ff5a52; }
+/* User's guide */
+.ov.guide { width: min(96%, 480px); text-align: left; align-items: stretch; gap: 4px; padding: 18px 18px 16px; }
+.ov.guide h2 { text-align: center; margin-bottom: 4px; }
+.guide section { border-top: 2px dashed rgba(183,192,230,.3); padding: 10px 0 6px; }
+.guide h3 { margin: 0 0 6px; font: 400 18px var(--font-display); color: var(--gold); }
+.guide p, .guide li, .guide td { font-size: 15px; line-height: 1.45; color: var(--muted); }
+.guide p + p { margin-top: 6px; }
+.guide ul { margin: 6px 0 0; padding-left: 20px; }
+.guide li { margin: 3px 0; }
+.guide b { color: var(--fg); font-weight: 600; }
+.guide b.c0 { color: #3dbb5a; } .guide b.c1 { color: #ffd300; } .guide b.c2 { color: #ff8a3d; } .guide b.c3 { color: #ff5a52; }
+.guide table { border-collapse: collapse; width: 100%; }
+.guide td { padding: 4px 0; vertical-align: top; }
+.guide td:first-child { white-space: nowrap; padding-right: 12px; color: var(--fg); }
+.guide kbd { display: inline-block; min-width: 24px; padding: 2px 6px; text-align: center; border-radius: 6px; background: var(--panel); border: 1px solid var(--edge); color: var(--fg); font: 600 13px system-ui, sans-serif; }
+.guide .fine { font-size: 12px; text-align: center; margin-top: 6px; }
+.guide .row { margin-top: 8px; }
+#toast { position: absolute; left: 50%; bottom: 8px; transform: translateX(-50%); z-index: 4; background: rgba(8,12,36,.92); border: 2px solid var(--edge);
+  border-radius: 12px; padding: 6px 14px; font-size: 15px; pointer-events: none; opacity: 0; transition: opacity .25s; white-space: nowrap; }
+#toast.on { opacity: 1; }
+@media (max-height: 700px) { .tool { height: 46px; } h1 { font-size: 18px; } }
+@media (max-width: 500px) { h1 { font-size: 15px; } h1 .board { padding: 5px 7px 4px; } .hbtn { padding: 0 8px; } h1 .version { margin-left: 5px; font-size: 10px; } }
+</style>
+</head>
+<body>
+<!-- Shared "back to the games menu" button: identical in every game on the site -->
+<a class="games-pill" id="gamesPill" href="../" hidden aria-label="Back to the games menu">&lsaquo; Games</a>
+<style>
+.games-pill { position: fixed; z-index: 9999; top: calc(var(--safe-top, env(safe-area-inset-top, 0px)) + 10px); left: calc(env(safe-area-inset-left, 0px) + 8px);
+  display: inline-flex; align-items: center; gap: 3px; height: 34px; padding: 0 14px 0 11px; box-sizing: border-box; border-radius: 17px;
+  background: #ffd166; color: #241a05; border: 2px solid #fff3c4; box-shadow: 0 2px 10px rgba(0,0,0,.5);
+  font: 700 15px/1 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: .01em; text-decoration: none; -webkit-tap-highlight-color: transparent; }
+.games-pill:active { transform: scale(.95); }
+.games-pill:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.games-pill[hidden] { display: none !important; }
+</style>
+<script>
+(() => {
+  const pill = document.getElementById("gamesPill");
+  // Where the status bar ends. The installed app sometimes reports 0 here (after the device turns), which put this button
+  // and the titles under the blurred status bar. So in the app use at least the status bar's height, plus a little air.
+  const safeTop = () => {
+    const d = document.documentElement, p = document.createElement("div");
+    p.style.cssText = "position:fixed;top:0;left:0;width:0;visibility:hidden;height:env(safe-area-inset-top,0px)";
+    d.appendChild(p); let t = p.offsetHeight; p.remove();
+    if (navigator.standalone || matchMedia("(display-mode: standalone)").matches)
+      t = Math.max(t, Math.min(screen.width, screen.height) >= 700 ? 24 : innerHeight > innerWidth ? 54 : 16) + 8;
+    d.style.setProperty("--safe-top", t + "px");
+  };
+  safeTop(); addEventListener("resize", safeTop); addEventListener("orientationchange", () => setTimeout(safeTop, 250));
+  // Only on the games site, not when a page is opened on its own
+  if (!/\/(hangman|scareisdale|ponchos-adventure|ponchos-adventure-3d|flip-five|flip-five-3d|follow-chestnut|fathom|ponchos-pills|ant-jam|mind-the-gap)\//.test(location.pathname)) return;
+  pill.hidden = false;
+  // Lock the screen: no rubber-band bounce or drag when swiping, except inside something that really scrolls
+  document.documentElement.style.overscrollBehavior = "none"; document.body.style.overscrollBehavior = "none";
+  const canScroll = el => {
+    for (; el && el !== document.documentElement; el = el.parentElement) {
+      if (el.closest && el.closest("input, textarea, select")) return true;
+      const s = getComputedStyle(el);
+      if (/(auto|scroll)/.test(s.overflowY + s.overflowX) && (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1)) return true;
+    }
+    const d = document.documentElement;
+    return d.scrollHeight > innerHeight + 1 || d.scrollWidth > innerWidth + 1;
+  };
+  document.addEventListener("touchmove", e => { if (e.touches.length === 1 && e.cancelable && !canScroll(e.target)) e.preventDefault(); }, { passive: false });
+  // Nudge the game's top row right so nothing sits under the button
+  const fit = () => {
+    for (const el of document.querySelectorAll("[data-pill-gap]")) {
+      el.style.paddingLeft = ""; el.style.paddingRight = "";
+      // the controller chip (lib/gamepad.js) sits just right of the button when it shows, so clear both
+      const p = pill.getBoundingClientRect(), r = el.getBoundingClientRect(), chip = document.getElementById("gpChip");
+      const right = chip && !chip.hidden && chip.classList.contains("by-pill") ? Math.max(p.right, chip.getBoundingClientRect().right) : p.right;
+      if (r.height && r.top < p.bottom + 4 && r.bottom > p.top) {
+        const need = Math.ceil(right + 10 - r.left);
+        // a centred title gets the same room on both sides so it stays centred
+        if (need > 0) { el.style.boxSizing = "border-box"; el.style.paddingLeft = need + "px"; if (getComputedStyle(el).textAlign === "center") el.style.paddingRight = need + "px"; }
+      }
+    }
+  };
+  window.__pillFit = fit;
+  addEventListener("DOMContentLoaded", fit); addEventListener("load", fit); addEventListener("resize", fit);
+  addEventListener("orientationchange", () => setTimeout(fit, 250));
+  if (document.fonts) document.fonts.ready.then(fit);
+  // A tap on the button always goes back, even when iOS drops the click (it can after the phone is turned sideways):
+  // watch touches for the whole page, before the game sees them, and treat a short tap on or just around the button as a press
+  const near = (x, y) => { const r = pill.getBoundingClientRect(); return x > r.left - 10 && x < r.right + 10 && y > r.top - 10 && y < r.bottom + 10; };
+  let tap = null;
+  addEventListener("touchstart", e => { const t = e.touches[0]; tap = e.touches.length === 1 && near(t.clientX, t.clientY) ? [t.clientX, t.clientY] : null; }, { capture: true, passive: true });
+  addEventListener("touchend", e => {
+    const t = e.changedTouches[0];
+    if (tap && near(t.clientX, t.clientY) && Math.hypot(t.clientX - tap[0], t.clientY - tap[1]) < 30) { if (e.cancelable) e.preventDefault(); location.href = pill.href; }
+    tap = null;
+  }, { capture: true, passive: false });
+  // after turning, lay the button out afresh so where it is drawn and where it answers taps agree
+  addEventListener("orientationchange", () => setTimeout(() => { pill.style.display = "none"; void pill.offsetWidth; pill.style.display = ""; if (scrollY || scrollX) scrollTo(0, 0); }, 300));
+})();
+</script>
+
+<div class="wrap">
+  <header data-pill-gap>
+    <h1><span class="board">Mind <span>The</span> Gap</span><span class="version" id="version"></span></h1>
+    <button class="hbtn" id="btnHelp" aria-label="How to play">?</button>
+    <button class="hbtn" id="btnView" aria-label="Switch between 3D and 2D">3D</button>
+    <button class="hbtn" id="btnMusic" aria-label="Music">♪</button>
+    <button class="hbtn" id="btnSound" aria-pressed="true" aria-label="Sound">🔊</button>
+  </header>
+  <div class="info">
+    <div class="lv" id="lvName">Beginner <b>1</b></div>
+    <div class="mv">Moves <b id="mvNow">0</b> · best <span id="mvMin">0</span></div>
+  </div>
+  <div id="stage">
+    <div id="board">
+      <canvas id="cv" aria-label="Tube depot puzzle board"></canvas>
+    </div>
+    <div id="toast"></div>
+
+    <div class="ov" id="ovTitle">
+      <h2>Mind The Gap</h2>
+      <p><b>Rosie</b>, the vintage red tube train, is due out on the morning service, but the depot sidings are jammed with tube trains and engineering locos.</p>
+      <p>Shunt them along their tracks (trains only go forwards and backwards) until Rosie can run into the <b>tunnel on the right</b>.</p>
+      <div class="row"><button class="big" id="btnPlay">Play</button><button id="btnPick">Levels</button><button id="btnGuide">How to play</button></div>
+      <p class="keys">Drag to slide. Keys: Tab picks a train · arrows slide it (or pick the next one across) · Z undo · R restart · H hint · L levels · V 3D/2D · ? guide</p>
+    </div>
+    <div class="ov" id="ovWin" hidden>
+      <h2 id="winTitle">Train departed!</h2>
+      <div class="stars" id="winStars"></div>
+      <p id="winText"></p>
+      <div class="row"><button class="big" id="btnNext">Next</button><button id="btnAgain">Replay</button><button id="btnWinLevels">Levels</button></div>
+    </div>
+    <div class="ov guide" id="ovHelp" hidden>
+      <h2>How to play</h2>
+      <section>
+        <h3>The goal</h3>
+        <p><b>Rosie</b>, the vintage all-red tube train, is stuck in a jammed depot. Clear her track so she can run into the <b>tunnel on the right</b> of her row, under the road. The signal by the tunnel turns <b>green</b> once nothing stands in her way; then drive her out and the level is won.</p>
+      </section>
+      <section>
+        <h3>Moving the trains</h3>
+        <p><b>Drag</b> any train with your finger or the mouse. Trains only run <b>forwards and backwards</b> along their own track, never sideways, and they can't pass through each other or off the edge of the yard.</p>
+        <ul>
+          <li><b>Two-car trains</b> and yellow <b>battery locos</b> (the engineering engines) take up two squares.</li>
+          <li><b>Three-car trains</b> take up three squares, so they're harder to get out of the way.</li>
+        </ul>
+        <p>Tapping a train picks it (a gold outline shows which one). That matters for the keyboard and controller.</p>
+      </section>
+      <section>
+        <h3>Moves and stars</h3>
+        <p>One <b>move</b> is sliding one train, however far it goes. Sliding the same train again right away still counts as that one move. <b>Best</b> beside your moves is the fewest moves the level can be solved in.</p>
+        <ul>
+          <li>★★★ Solve it in the fewest moves.</li>
+          <li>★★ Use up to half as many moves again.</li>
+          <li>★ Use more than that, or use a hint.</li>
+        </ul>
+        <p>Your best stars for each level are saved on this device.</p>
+      </section>
+      <section>
+        <h3>The buttons</h3>
+        <ul>
+          <li><b>Undo</b> takes back your last move. Keep tapping to go further back.</li>
+          <li><b>Restart</b> puts the level back how it started.</li>
+          <li><b>Hint</b> makes the next best move for you (the train flashes white). A level you use a hint on earns only one star.</li>
+          <li><b>Levels</b> lets you pick any level. Every level is open from the start.</li>
+          <li><b>?</b> opens this guide. <b>3D / 2D</b> switches the view. <b>♪</b> turns the music on or off, and <b>🔊</b> turns all sound on or off.</li>
+        </ul>
+      </section>
+      <section>
+        <h3>The levels</h3>
+        <p>There are 40 levels in four fare zones of ten. They get harder the closer you get to the centre of London: <b class="c0">Zone 4</b>, <b class="c1">Zone 3</b>, <b class="c2">Zone 2</b> and the busiest, <b class="c3">Zone 1</b>, from a few moves to almost forty. <b>Play</b> on the title card starts the first level you haven't solved yet.</p>
+      </section>
+      <section>
+        <h3>Tips</h3>
+        <ul>
+          <li>Work backwards. Find what blocks Rosie's track, then what blocks that train, and so on.</li>
+          <li>Three-car trains running up and down across Rosie's row are usually the real problem. They need room above or below to get clear.</li>
+          <li>Sometimes a train has to move the "wrong" way first to make room for another.</li>
+          <li>Stuck? Undo a few moves rather than restarting, or take one hint.</li>
+        </ul>
+      </section>
+      <section>
+        <h3>Keyboard</h3>
+        <table>
+          <tr><td><kbd>Tab</kbd> <kbd>[</kbd> <kbd>]</kbd></td><td>Pick another train</td></tr>
+          <tr><td><kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd></td><td>Slide the picked train one square. An arrow it can't run along picks the nearest train that way instead.</td></tr>
+          <tr><td><kbd>Z</kbd></td><td>Undo</td></tr>
+          <tr><td><kbd>R</kbd></td><td>Restart</td></tr>
+          <tr><td><kbd>H</kbd></td><td>Hint</td></tr>
+          <tr><td><kbd>L</kbd></td><td>Levels</td></tr>
+          <tr><td><kbd>V</kbd></td><td>3D / 2D</td></tr>
+          <tr><td><kbd>?</kbd></td><td>This guide</td></tr>
+          <tr><td><kbd>Enter</kbd></td><td>Play, or Next after a win</td></tr>
+        </table>
+      </section>
+      <section>
+        <h3>Controller</h3>
+        <table>
+          <tr><td>D-pad / stick</td><td>Slide the picked train, or pick the next one across</td></tr>
+          <tr><td>A, LB, RB</td><td>Pick another train</td></tr>
+          <tr><td>B</td><td>Undo</td></tr>
+          <tr><td>X</td><td>Restart</td></tr>
+          <tr><td>Y</td><td>Hint</td></tr>
+          <tr><td>Start</td><td>Levels</td></tr>
+          <tr><td>Select</td><td>Controller settings</td></tr>
+        </table>
+        <p>In menus, the d-pad moves the gold highlight, A presses and B goes back.</p>
+      </section>
+      <p class="fine" id="guideVer"></p>
+      <div class="row"><button class="big" id="btnCloseHelp">Got it</button></div>
+    </div>
+    <div class="ov" id="ovLevels" hidden>
+      <h2>Levels</h2>
+      <div id="tiers"></div>
+      <div class="row"><button id="btnCloseLevels">Close</button></div>
+    </div>
+  </div>
+  <div class="tools">
+    <button class="tool" id="btnUndo"><span class="ic">↶</span>Undo</button>
+    <button class="tool" id="btnReset"><span class="ic">⟲</span>Restart</button>
+    <button class="tool" id="btnHint"><span class="ic">💡</span>Hint</button>
+    <button class="tool" id="btnLevels"><span class="ic">☰</span>Levels</button>
+  </div>
+</div>
+<script src="../lib/gamepad.js"></script>
+<script>
+const VERSION = "v2.0";
+const $ = id => document.getElementById(id);
+$("version").textContent = VERSION;
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
+
+// ---------- Levels ----------
+// Each level is the 6x6 board read row by row: "." empty, "A" Rosie (always on row 3, heading for the exit on the right),
+// any other letter a train: two cells long is an engine, three cells long a long train (engine and tender, or a mainline diesel). min = fewest moves (found by the solver).
+// A move is sliding one train any distance. All forty are original puzzles, made by a solver and sorted by how many moves they need.
+const TIERS = ["Zone 4", "Zone 3", "Zone 2", "Zone 1"];
+const LEVELS = /*LEVELS*/[
+  { b: "...CC.JIGGH.JIAAH.BFFFDDBLL.MMKKEEE.", min: 3 },
+  { b: "GFFCC.GIIDD..AAE..BBBEKKH..MMMHJJ.LL", min: 4 },
+  { b: "JHKKEEJHF.GGAAF..I..CC.IL.BB..L...DD", min: 5 },
+  { b: "IMEE..IMF.GGAAF.LHKKCCLHN...BBNJJ.DD", min: 6 },
+  { b: "KLDDBBKLFFMMAA.C.NHH.C.NEJJJ..EGG.II", min: 7 },
+  { b: "JJIIHH.KKBBFAA...FC.MMDDCGGGEELLL.NN", min: 8 },
+  { b: "MMGGGLIIBEELAABKFLH.CKF.HNC....NDDJJ", min: 9 },
+  { b: "ILLLJJIG..EEHGAA.KH..D.KMMNDFFCCN.BB", min: 10 },
+  { b: ".HH.EE..NNM.AA.DM.KK.DCCJBBFFGJLLIIG", min: 11 },
+  { b: ".DDBB.EEJJLK.AACLKMFFC..MI.HHH.IGGNN", min: 12 },
+  { b: "NF.BBBNFKKK.MAAL..MGGLDEJHCCDEJHII..", min: 13 },
+  { b: "GHHCBBGF.CDDIFAAJMIEE.JM....LN.KK.LN", min: 14 },
+  { b: "G.BB.KGEEELKAA.CLJMI.C.JMIFFHHDDNN..", min: 15 },
+  { b: "NH.JJ.NHGGEEAABKF.MLBKFDMLBIID..CCC.", min: 16 },
+  { b: "DMFFBBDMKKIIAAG...L.G.JELHHHJECCNNN.", min: 17 },
+  { b: "GEE.DDGLLJJ.AAC...I.CBMHIKKBMHFFNN..", min: 18 },
+  { b: "FFF.IBJLMMIBJLGAABCCG...NKEE..NKHHDD", min: 19 },
+  { b: ".MMGGJNDDDIJNKAAIFEK.BIFEHLB..EHLBCC", min: 20 },
+  { b: "KKB..IDDB.EIFLAAEIFL.H..NJ.HMMNJCCGG", min: 21 },
+  { b: "J.HH..JGGFE.AALFEB.KLDEB.KID.MNNICCM", min: 22 },
+  { b: "IG.FF.IGDDKCAAJBKCNNJBMH..LEMH..LE..", min: 23 },
+  { b: "DD.MH.LIIMH.L.CAAGJJC..GNKBBBGNKEEFF", min: 24 },
+  { b: "G.KBFFG.KBJ.G.AAJMHHCCCMEEDD.MLL..II", min: 25 },
+  { b: "IJGGECIJF.EC..FAAC.KKDLLBBBD....MMHH", min: 26 },
+  { b: "KKL.MMG.LEEEGAAB..NN.BFFDDCC.HJJII.H", min: 27 },
+  { b: "KMM.DDK.ENNFAAEL.F.J.LHH.JBBI.GGCCI.", min: 28 },
+  { b: ".CMMJJNCLL.KNCAA.KEEDH.KI.DHBBIGGFF.", min: 29 },
+  { b: "BBBMM.LL.NNFAAJK.FG.JKDIGCCKDI..EEHH", min: 30 },
+  { b: "..GGGN.KKHCNAADHCBL.DFFBL.IIEEJJMM..", min: 31 },
+  { b: "DJJE..DCLEHHDCLAABNNG..BFFG..IMMKK.I", min: 32 },
+  { b: "JEIIFFJEKK.CJEAAMCHHBNMC..BNDD.GGLL.", min: 33 },
+  { b: "JEIIFFJE.NNCJEAALCHHBMLC..BMDD.GGKK.", min: 33 },
+  { b: "JCIIFFJCHHKG.CAAKGNNMEKG..MEBB.LLDD.", min: 34 },
+  { b: "ICHHFFICNNJG.CAAJGLLKEJG..KEBB.MMDD.", min: 34 },
+  { b: "KMMCCCK.IGGLAAIJ.L...JFF.DDDB.HHEEB.", min: 35 },
+  { b: "CMMJJJC.HLLKAAHI.K...IEE.BBBD.FFGGD.", min: 35 },
+  { b: "..BFFFCCB..LJMAAGLJMDDGL..EHIIKKEH..", min: 37 },
+  { b: "N.IFFFN.IHMMCAAH.KCL..JKCLBBJGDDEEJG", min: 38 },
+  { b: "M.HEEEM.HGLLCAAG.JCK..IJCKBBIFDDNNIF", min: 38 },
+  { b: "N.HEEEN.HGMMCAAG.JCK..IJCKBBIFDDLLIF", min: 38 }
+];
+
+// ---------- Rules ----------
+const N = 6, EXIT_ROW = 2;
+function parse(b) {
+  const cells = {};
+  [...b].forEach((ch, i) => { if (ch !== ".") (cells[ch] = cells[ch] || []).push(i); });
+  const keys = Object.keys(cells).sort((a, b) => a === "A" ? -1 : b === "A" ? 1 : a < b ? -1 : 1);
+  return keys.map((ch, i) => {
+    const c = cells[ch], r0 = Math.floor(c[0] / N), c0 = c[0] % N, h = c.length > 1 && c[1] - c[0] === 1;
+    const pos = h ? c0 : r0;
+    // which way the train faces: Rosie faces the tunnel, the others are mixed so the depot looks busy
+    return { ch, len: c.length, h, line: h ? r0 : c0, pos, vis: pos, face: i === 0 ? 1 : ((c[0] * 7 + i) % 3 ? 1 : -1), hero: i === 0 };
+  });
+}
+const cellsOf = p => Array.from({ length: p.len }, (_, k) => p.h ? [p.line, p.pos + k] : [p.pos + k, p.line]);
+function grid(ps, skip = -1) {
+  const g = new Int8Array(N * N).fill(-1);
+  ps.forEach((p, i) => { if (i !== skip) for (const [r, c] of cellsOf(p)) g[r * N + c] = i; });
+  return g;
+}
+// how far a bug can slide each way
+function range(ps, i) {
+  const p = ps[i], g = grid(ps, i);
+  const free = q => { const [r, c] = p.h ? [p.line, q] : [q, p.line]; return g[r * N + c] < 0; };
+  let lo = p.pos, hi = p.pos;
+  while (lo > 0 && free(lo - 1)) lo--;
+  while (hi + p.len < N && free(hi + p.len)) hi++;
+  return [lo, hi];
+}
+// Breadth-first search from the current board to the nearest win; returns [piece, newPos] for the first move
+function solve(ps) {
+  const n = ps.length, start = ps.map(p => p.pos), key = s => String.fromCharCode(...s.map(v => v + 65));
+  const prev = new Map([[key(start), null]]);
+  let frontier = [start];
+  const done = s => s[0] + ps[0].len === N;
+  if (done(start)) return null;
+  while (frontier.length) {
+    const next = [];
+    for (const s of frontier) {
+      const g = new Int8Array(N * N).fill(-1);
+      for (let i = 0; i < n; i++) for (let k = 0; k < ps[i].len; k++) g[ps[i].h ? ps[i].line * N + s[i] + k : (s[i] + k) * N + ps[i].line] = i;
+      for (let i = 0; i < n; i++) {
+        const p = ps[i];
+        for (const d of [-1, 1]) {
+          for (let q = s[i] + d; ; q += d) {
+            const edge = d < 0 ? q : q + p.len - 1;
+            if (edge < 0 || edge >= N) break;
+            const cell = p.h ? p.line * N + edge : edge * N + p.line;
+            if (g[cell] >= 0) break;
+            const t = s.slice(); t[i] = q; const k = key(t);
+            if (prev.has(k)) continue;
+            prev.set(k, [key(s), i, q]);
+            if (done(t)) {   // walk back to the first move
+              let cur = k, step = prev.get(cur);
+              while (step && prev.get(step[0])) { cur = step[0]; step = prev.get(cur); }
+              return [step[1], step[2]];
+            }
+            next.push(t);
+          }
+        }
+      }
+    }
+    frontier = next;
+  }
+  return null;
+}
+
+// ---------- Game state ----------
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+};
+let best = store.get("antjam.best", {});       // level index -> { m: fewest moves, s: stars }
+const g = { lvl: 0, ps: [], hist: [], sel: 0, won: false, hinted: false, drag: null, time: 0, hint: -1, hintT: 0, exitT: 0 };
+window.__aj = g;
+function loadLevel(i) {
+  g.lvl = (i + LEVELS.length) % LEVELS.length;
+  g.ps = parse(LEVELS[g.lvl].b); g.hist = []; g.sel = 0; g.won = false; g.hinted = false; g.drag = null; g.hint = -1; g.exitT = 0;
+  g.ps.forEach(p => p.vis = p.pos);
+  store.set("antjam.level", g.lvl);
+  g.ver = (g.ver || 0) + 1;     // the 3D view rebuilds its trains when this changes
+  updateInfo();
+}
+const stars = (moves, min, hinted) => hinted ? 1 : moves <= min ? 3 : moves <= Math.ceil(min * 1.5) ? 2 : 1;
+const tierOf = i => Math.min(3, Math.floor(i / 10));
+function updateInfo() {
+  $("lvName").innerHTML = `${TIERS[tierOf(g.lvl)]} <b>${g.lvl % 10 + 1}</b>`;
+  $("mvNow").textContent = g.hist.length;
+  $("mvMin").textContent = LEVELS[g.lvl].min;
+  $("btnUndo").disabled = !g.hist.length || g.won;
+}
+// slide piece i to pos; a run of slides of the same bug counts as one move
+function moveTo(i, pos, quiet) {
+  const p = g.ps[i];
+  if (g.won || pos === p.pos) return false;
+  const last = g.hist[g.hist.length - 1];
+  if (last && last.i === i) { last.to = pos; if (last.to === last.from) g.hist.pop(); }
+  else g.hist.push({ i, from: p.pos, to: pos });
+  p.pos = pos; g.sel = i; g.hint = -1;
+  if (!quiet) Snd.walk(Math.abs(pos - p.vis));
+  if (p.hero && p.pos + p.len === N) win();
+  updateInfo();
+  return true;
+}
+function undo() {
+  if (g.won || !g.hist.length) return;
+  const m = g.hist.pop(); g.ps[m.i].pos = m.from; g.sel = m.i; g.hint = -1;
+  Snd.walk(1); updateInfo();
+}
+function restart() { if (!g.hist.length && !g.won) return; loadLevel(g.lvl); Snd.reset(); }
+function hint() {
+  if (g.won) return;
+  const m = solve(g.ps);
+  if (!m) return;
+  g.hinted = true;
+  moveTo(m[0], m[1]);
+  g.hint = m[0]; g.hintT = 1.2;
+  if (!g.won) toast("Hint: that one. (Hints cap the level at one star.)");
+}
+function win() {
+  g.won = true; g.exitT = 0; g.sel = -1;
+  const lv = LEVELS[g.lvl], m = g.hist.length, s = stars(m, lv.min, g.hinted);
+  const b = best[g.lvl];
+  if (!b || s > b.s || (s === b.s && m < b.m)) best[g.lvl] = { m: b ? Math.min(b.m, m) : m, s: Math.max(s, b ? b.s : 0) };
+  store.set("antjam.best", best);
+  Snd.win();
+  setTimeout(() => {
+    $("winTitle").textContent = s === 3 ? "Right on time!" : "Train departed!";
+    $("winStars").innerHTML = "★".repeat(s) + "<i>" + "★".repeat(3 - s) + "</i>";
+    $("winText").innerHTML = `<b>${m}</b> moves · the fewest possible is <b>${lv.min}</b>` +
+      (g.hinted ? "<br>(you used a hint)" : s < 3 ? `<br>Do it in ${lv.min} for three stars.` : "");
+    $("btnNext").textContent = g.lvl === LEVELS.length - 1 ? "Back to 1" : "Next";
+    show("ovWin");
+  }, 1300);
+}
+
+// ---------- Overlays ----------
+const OVS = ["ovTitle", "ovWin", "ovLevels", "ovHelp"];
+let helpBack = null;   // the card the guide was opened from, to go back to
+function show(id) {
+  if (id === "ovHelp") { const cur = openOv(); helpBack = cur && cur.id !== "ovHelp" ? cur.id : null; }
+  for (const o of OVS) $(o).hidden = o !== id;
+  if (id === "ovLevels") buildLevels();
+  if (id === "ovHelp") $("ovHelp").scrollTop = 0;
+}
+const closeHelp = () => show(helpBack);
+const openOv = () => OVS.map($).find(o => !o.hidden) || null;
+function buildLevels() {
+  const box = $("tiers"); box.innerHTML = "";
+  TIERS.forEach((t, ti) => {
+    const div = document.createElement("div"); div.className = "tier t" + ti;
+    const got = [...Array(10).keys()].reduce((a, k) => a + (best[ti * 10 + k] ? best[ti * 10 + k].s : 0), 0);
+    div.innerHTML = `<h3>${t} <span>${got} / 30 ★</span></h3><div class="lvgrid"></div>`;
+    for (let k = 0; k < 10; k++) {
+      const i = ti * 10 + k, b = best[i], btn = document.createElement("button");
+      btn.className = (i === g.lvl ? "cur " : "") + (b ? "done" : "");
+      btn.innerHTML = `${k + 1}<small>${b ? "★".repeat(b.s) : ""}</small>`;
+      btn.setAttribute("aria-label", `${t} ${k + 1}${b ? ", " + b.s + " stars" : ""}`);
+      btn.addEventListener("click", () => { loadLevel(i); show(null); Snd.tap(); });
+      div.querySelector(".lvgrid").appendChild(btn);
+    }
+    box.appendChild(div);
+  });
+}
+// the first level not yet solved, starting from the saved one
+function nextUnsolved() {
+  const saved = store.get("antjam.level", 0);
+  if (!best[saved]) return saved;
+  for (let k = 1; k <= LEVELS.length; k++) { const i = (saved + k) % LEVELS.length; if (!best[i]) return i; }
+  return saved;
+}
+let toastT = 0;
+function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 2200); }
+
+// ---------- Sizing and 2D drawing ----------
+// The board area is 480 x 440 logical pixels: a 440 x 440 depot (6 cells of 66 plus a 22 rim) and 40 more on the right for the road and tunnel.
+const BW = 480, BH = 440, RIM = 22, CELL = 66;
+const cv = $("cv"), ctx = cv.getContext("2d");
+let scale = 1;
+function size() {
+  const st = $("stage"), w = st.clientWidth, h = st.clientHeight;
+  scale = Math.max(0.3, Math.min(w / BW, h / BH));
+  const bd = $("board"); bd.style.width = BW * scale + "px"; bd.style.height = BH * scale + "px";
+  const dpr = Math.min(3, devicePixelRatio || 1);
+  cv.width = Math.round(BW * scale * dpr); cv.height = Math.round(BH * scale * dpr);
+  ctx.setTransform(cv.width / BW, 0, 0, cv.height / BH, 0, 0);
+  window.__size3d && window.__size3d();
+}
+new ResizeObserver(size).observe($("stage"));
+
+// Trains. Two cells long: a two-car tube train or a yellow battery loco (the engineering engines). Three cells long:
+// a three-car train, small round tube stock or the bigger, squarer sub-surface stock. Rosie is a vintage all-red tube train.
+// Both views draw from these kinds and liveries (body, doors, skirt below the windows, roof).
+const LIVERY = {
+  rosie:   { body: "#c4231c", door: "#a51a14", skirt: "#c4231c", roof: "#b3201a", line: "#f1e6c8", hero: true },   // 1930s-style red, cream lining
+  modern:  { body: "#f3f3f1", door: "#dc241f", skirt: "#0019a8", roof: "#a7adb3" },   // white, red doors, blue skirt
+  silver:  { body: "#b9bfc6", door: "#dc241f", skirt: "#9aa1a9", roof: "#8d949b" },   // unpainted aluminium, red doors
+  purple:  { body: "#f1f1f3", door: "#6950a1", skirt: "#5f6670", roof: "#8e959c" },   // white and grey, purple doors
+  orange:  { body: "#f3f3f1", door: "#ee7c0e", skirt: "#0019a8", roof: "#8e959c" },   // white, orange doors, blue skirt
+  loco:    { body: "#f2c230", door: "#f2c230", skirt: "#2a2c30", roof: "#e0b22a" },   // engineering yellow
+};
+function trainOf(p, i) {
+  if (p.hero) return { kind: "tube", cars: 2, col: LIVERY.rosie };
+  const k = (i * 5 + p.len * 3) % 4;   // a mixed depot, the same for a level every time
+  if (p.len === 3) return k === 0 ? { kind: "tube", cars: 3, col: LIVERY.silver } : k === 1 ? { kind: "tube", cars: 3, col: LIVERY.modern }
+    : { kind: "surface", cars: 3, col: k === 2 ? LIVERY.purple : LIVERY.orange };
+  return k === 0 ? { kind: "loco", cars: 1, col: LIVERY.loco } : { kind: "tube", cars: 2, col: k === 1 ? LIVERY.silver : LIVERY.modern };
+}
+window.__tsTrain = trainOf;
+window.__tsLivery = LIVERY;
+// every track line in the level: rows ("h") and columns ("v") that a train runs along
+const linesOf = ps => { const s = new Set(ps.map(p => (p.h ? "h" : "v") + p.line)); return [...s].map(k => ({ h: k[0] === "h", line: +k.slice(1) })); };
+window.__tsLines = linesOf;
+
+let gravelPat = null, concPat = null;
+function pattern(base, a, b, n, sz) {
+  const c = document.createElement("canvas"); c.width = c.height = 128; const x = c.getContext("2d");
+  x.fillStyle = base; x.fillRect(0, 0, 128, 128);
+  let s = 7; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  for (let k = 0; k < n; k++) { x.fillStyle = `rgba(${rnd() < .5 ? a : b},${.2 + rnd() * .35})`; x.fillRect(rnd() * 128, rnd() * 128, 1 + rnd() * sz, 1 + rnd() * sz); }
+  return ctx.createPattern(c, "repeat");
+}
+function roundRect(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+// the signal by the tunnel turns green once nothing stands between Rosie and the tunnel
+window.__pathClear = () => pathClear();
+function pathClear() {
+  const h = g.ps[0]; if (!h) return false;
+  const gr = grid(g.ps);
+  for (let c = h.pos + h.len; c < N; c++) if (gr[EXIT_ROW * N + c] >= 0) return false;
+  return true;
+}
+function draw2d() {
+  ctx.clearRect(0, 0, BW, BH);
+  if (!gravelPat) { gravelPat = pattern("#76736c", "55,53,50", "165,160,150", 1400, 3); concPat = pattern("#a3a19b", "120,118,112", "200,198,190", 500, 2); }
+  const ey = RIM + EXIT_ROW * CELL;
+  // concrete walkway round the depot, the platform edge along the top, and the ballast
+  roundRect(0, 0, 446, 440, 18); ctx.fillStyle = concPat; ctx.fill();
+  ctx.fillStyle = "#ffd300"; ctx.fillRect(RIM, RIM - 7, CELL * N, 3);
+  ctx.fillStyle = "#f4f4f0"; ctx.font = "10px 'Hammersmith One', sans-serif"; ctx.textBaseline = "middle"; ctx.textAlign = "center";
+  for (let k = 0; k < 3; k++) ctx.fillText("MIND THE GAP", RIM + 66 + k * 132, 9);
+  roundRect(RIM - 4, RIM - 2, CELL * N + 8, CELL * N + 4, 6); ctx.fillStyle = gravelPat; ctx.fill();
+  ctx.fillStyle = gravelPat; ctx.fillRect(430, ey + 2, 20, CELL - 4);
+  // track: sleepers, running rails, then the centre and outside current rails (gapped where lines cross)
+  const lines = linesOf(g.ps), cross = new Set(lines.map(L => (L.h ? "h" : "v") + L.line));
+  const crossed = (L, k) => cross.has((L.h ? "v" : "h") + k);
+  for (const pass of [0, 1, 2]) for (const L of lines) {
+    const mid = RIM + L.line * CELL + CELL / 2, a = RIM, b = L.h && L.line === EXIT_ROW ? BW : RIM + N * CELL;
+    if (pass === 0) {
+      ctx.fillStyle = "#5c4a3a";
+      for (let u = a + 5; u < b; u += 16.5) L.h ? ctx.fillRect(u, mid - 21, 6, 42) : ctx.fillRect(mid - 21, u, 42, 6);
+    } else if (pass === 1) {
+      ctx.fillStyle = "#c9ced3";
+      for (const o of [-14, 12]) L.h ? ctx.fillRect(a, mid + o, b - a, 2.5) : ctx.fillRect(mid + o, a, 2.5, b - a);
+    } else {
+      for (let k = 0; k < (b - a) / CELL; k++) {
+        if (k < N && crossed(L, k)) continue;
+        const u0 = a + k * CELL + 4, u1 = Math.min(b, a + (k + 1) * CELL - 4);
+        ctx.fillStyle = "#8f8a82"; L.h ? ctx.fillRect(u0, mid - 1.5, u1 - u0, 3) : ctx.fillRect(mid - 1.5, u0, 3, u1 - u0);     // centre rail
+        ctx.fillStyle = "#9a958c"; L.h ? ctx.fillRect(u0, mid + 22, u1 - u0, 3) : ctx.fillRect(mid + 22, u0, 3, u1 - u0);     // outside rail
+      }
+    }
+  }
+  // trains (Rosie runs off the board into the tunnel)
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, BW, BH); ctx.clip();
+  g.ps.forEach((p, i) => {
+    const x0 = RIM + (p.h ? p.vis : p.line) * CELL, y0 = RIM + (p.h ? p.line : p.vis) * CELL;
+    const w = p.h ? p.len * CELL : CELL, h = p.h ? CELL : p.len * CELL;
+    const glow = i === g.sel && !g.won, hintGlow = i === g.hint && g.hintT > 0;
+    if (glow || hintGlow) { roundRect(x0 + 2, y0 + 2, w - 4, h - 4, 10); ctx.strokeStyle = hintGlow ? "#fff" : "#ffd300"; ctx.lineWidth = 3; ctx.stroke(); }
+    ctx.save();
+    ctx.translate(x0 + w / 2, y0 + h / 2);
+    ctx.rotate(p.h ? (p.face > 0 ? 0 : Math.PI) : (p.face > 0 ? Math.PI / 2 : -Math.PI / 2));
+    drawTrain2d(trainOf(p, i), p.len * CELL);
+    ctx.restore();
+  });
+  ctx.restore();
+  // the road over the tunnel: brick headwall, pavements, a red bus and a phone box
+  ctx.fillStyle = "#b8935a"; ctx.fillRect(440, 0, 10, BH);
+  ctx.fillStyle = "rgba(0,0,0,.25)"; for (let y = 0; y < BH; y += 6) ctx.fillRect(440, y, 10, 1);
+  ctx.fillStyle = "#c9c6bd"; ctx.fillRect(450, 0, 30, BH);
+  ctx.fillStyle = "#3b3d41"; ctx.fillRect(458, 0, 22, BH);
+  ctx.fillStyle = "#f2c230"; ctx.fillRect(460, 0, 1.5, BH); ctx.fillRect(463, 0, 1.5, BH);
+  ctx.fillStyle = "#c4231c"; roundRect(466, ey - 70, 14, 118, 3); ctx.fill();   // the bus roof (going off the edge)
+  ctx.fillStyle = "#e8e8e8"; ctx.fillRect(469, ey - 50, 8, 14);
+  ctx.fillStyle = "#c4231c"; ctx.fillRect(451, ey + 120, 6, 6);                  // phone box
+  ctx.fillStyle = "#1d1f22"; ctx.fillRect(441, ey + 4, 9, CELL - 8);             // tunnel mouth
+  // signal at the tunnel mouth
+  const clear = pathClear() || g.won;
+  ctx.fillStyle = "#15171a"; roundRect(424, ey - 21, 14, 26, 4); ctx.fill();
+  ctx.fillStyle = clear ? "#3a1010" : "#ff3b30"; ctx.beginPath(); ctx.arc(431, ey - 14, 4.5, 0, 7); ctx.fill();
+  ctx.fillStyle = clear ? "#5dff7a" : "#103a18"; ctx.beginPath(); ctx.arc(431, ey - 2, 4.5, 0, 7); ctx.fill();
+}
+// One train seen from above, facing +x, L pixels long and 66 wide
+function drawTrain2d(t, L) {
+  const c = t.col, x0 = -L / 2 + 4, len = L - 8, W = t.kind === "surface" ? 46 : 40;
+  ctx.fillStyle = "rgba(0,0,0,.3)"; roundRect(x0 + 4, -W / 2 + 4, len, W, 8); ctx.fill();   // shadow
+  if (t.kind === "loco") {
+    ctx.fillStyle = c.body; roundRect(x0, -22, len, 44, 5); ctx.fill();
+    for (const ex of [x0, x0 + len - 7]) { ctx.fillStyle = "#f2c230"; ctx.fillRect(ex, -22, 7, 44); ctx.fillStyle = "#1b1b1b"; for (let k = -22; k < 22; k += 10) ctx.fillRect(ex, k, 7, 5); }
+    ctx.fillStyle = c.roof; roundRect(x0 + 14, -16, len - 28, 32, 4); ctx.fill();
+    ctx.fillStyle = "#555a60"; for (let u = x0 + 28; u < x0 + len - 28; u += 8) ctx.fillRect(u, -10, 3, 20);
+    return;
+  }
+  const n = t.cars, gap = 4, cl = (len - gap * (n - 1)) / n;
+  for (let k = 0; k < n; k++) {
+    const cx = x0 + k * (cl + gap);
+    if (k) { ctx.fillStyle = "#222"; ctx.fillRect(cx - gap - 2, -W / 2 + 8, gap + 4, W - 16); }   // gangway
+    ctx.fillStyle = c.skirt; roundRect(cx, -W / 2, cl, W, t.kind === "tube" ? 12 : 6); ctx.fill();
+    ctx.fillStyle = c.body; roundRect(cx + 1, -W / 2 + 3, cl - 2, W - 6, t.kind === "tube" ? 11 : 5); ctx.fill();
+    // doors show as slivers of colour along both sides
+    ctx.fillStyle = c.door; for (const f of [.22, .5, .78]) for (const sd of [-1, 1]) ctx.fillRect(cx + cl * f - 7, sd > 0 ? W / 2 - 7 : -W / 2 + 3, 14, 4);
+    const gr = ctx.createLinearGradient(0, -W / 2, 0, W / 2);
+    gr.addColorStop(0, "rgba(0,0,0,.25)"); gr.addColorStop(.35, "rgba(255,255,255,.18)"); gr.addColorStop(.65, "rgba(255,255,255,.05)"); gr.addColorStop(1, "rgba(0,0,0,.3)");
+    ctx.fillStyle = c.roof; roundRect(cx + 4, -W / 2 + 8, cl - 8, W - 16, 6); ctx.fill(); ctx.fillStyle = gr; ctx.fill();
+    ctx.fillStyle = "rgba(0,0,0,.25)"; for (const f of [.3, .7]) roundRect(cx + cl * f - 8, -6, 16, 12, 3), ctx.fill();   // roof vents
+    if (c.line) { ctx.fillStyle = c.line; ctx.fillRect(cx + 4, -W / 2 + 6, cl - 8, 1.5); ctx.fillRect(cx + 4, W / 2 - 7.5, cl - 8, 1.5); }
+  }
+  // driving cab windscreens at both ends
+  ctx.fillStyle = "#1b232b"; roundRect(x0 + len - 6, -W / 2 + 8, 5, W - 16, 2); ctx.fill(); roundRect(x0 + 1, -W / 2 + 8, 5, W - 16, 2); ctx.fill();
+}
+
+// ---------- Input: drag a train along its track ----------
+// pick(e) gives the pointer in board cells (x = column, y = row, fractional), from the 2D canvas or the 3D view.
+function pick(e) {
+  if (use3d() && window.__pick3d) return window.__pick3d(e.clientX, e.clientY);
+  const r = $("board").getBoundingClientRect();
+  return { x: ((e.clientX - r.left) / scale - RIM) / CELL, y: ((e.clientY - r.top) / scale - RIM) / CELL };
+}
+function pieceAt(x, y) {
+  const c = Math.floor(x), r = Math.floor(y);
+  if (r < 0 || r >= N || c < 0 || c >= N) return -1;
+  return grid(g.ps)[r * N + c];
+}
+const bd = $("board");
+bd.addEventListener("pointerdown", e => {
+  ensureAudio();
+  if (g.won || openOv()) return;
+  const q = pick(e); if (!q) return;
+  let i = pieceAt(q.x, q.y);
+  if (i < 0) {   // a little slack: the nearest bug within half a cell
+    let bestD = 0.5;
+    g.ps.forEach((p, k) => { for (const [r, c] of cellsOf(p)) { const d = Math.hypot(q.x - c - .5, q.y - r - .5) - .5; if (d < bestD) { bestD = d; i = k; } } });
+  }
+  if (i < 0) return;
+  e.preventDefault();
+  try { bd.setPointerCapture(e.pointerId); } catch (err) {}
+  const p = g.ps[i], [lo, hi] = range(g.ps, i);
+  g.drag = { i, id: e.pointerId, start: p.h ? q.x : q.y, base: p.pos, lo, hi, off: 0, moved: false, bumped: false };
+  g.sel = i; bd.classList.add("dragging");
+});
+bd.addEventListener("pointermove", e => {
+  const d = g.drag; if (!d || e.pointerId !== d.id) return;
+  const q = pick(e); if (!q) return;
+  const p = g.ps[d.i], raw = (p.h ? q.x : q.y) - d.start;
+  const off = Math.max(d.lo - d.base, Math.min(d.hi - d.base, raw));
+  if (Math.abs(raw) > 0.12) d.moved = true;
+  // a soft bump when pushing against something
+  const pushing = Math.abs(raw - off) > 0.25;
+  if (pushing && !d.bumped) Snd.bump();
+  d.bumped = pushing;
+  d.off = off;
+});
+const endDrag = e => {
+  const d = g.drag; if (!d || e.pointerId !== d.id) return;
+  g.drag = null; bd.classList.remove("dragging");
+  const p = g.ps[d.i];
+  p.vis = d.base + d.off;
+  if (d.moved) moveTo(d.i, Math.round(d.base + d.off), true);
+  if (d.moved && Math.round(d.base + d.off) !== d.base) Snd.walk(0.6);
+};
+bd.addEventListener("pointerup", endDrag); bd.addEventListener("pointercancel", endDrag);
+bd.addEventListener("contextmenu", e => e.preventDefault());
+
+// Keyboard and controller: Tab / LB RB pick a bug; arrows along its line slide it one cell,
+// arrows across it pick the nearest bug that way.
+function selectDir(dx, dy) {
+  const cur = g.ps[g.sel] || g.ps[0];
+  const cc = cur.h ? [cur.line + .5, cur.pos + cur.len / 2] : [cur.pos + cur.len / 2, cur.line + .5];
+  let bi = -1, bs = Infinity;
+  g.ps.forEach((p, i) => {
+    if (i === g.sel) return;
+    const pc = p.h ? [p.line + .5, p.pos + p.len / 2] : [p.pos + p.len / 2, p.line + .5];
+    const ry = pc[0] - cc[0], rx = pc[1] - cc[1], along = rx * dx + ry * dy, side = Math.abs(rx * dy) + Math.abs(ry * dx);
+    if (along <= 0.2) return;
+    const s = along + side * 2;
+    if (s < bs) { bs = s; bi = i; }
+  });
+  if (bi >= 0) { g.sel = bi; Snd.tap(); }
+}
+function arrow(dx, dy) {
+  if (g.won) return;
+  if (g.sel < 0 || !g.ps[g.sel]) g.sel = 0;
+  const p = g.ps[g.sel];
+  if ((p.h && dx) || (!p.h && dy)) {
+    const d = p.h ? dx : dy, [lo, hi] = range(g.ps, g.sel), to = p.pos + d;
+    if (to < lo || to > hi) Snd.bump(); else moveTo(g.sel, to);
+  } else selectDir(dx, dy);
+}
+function cycle(d) { if (g.won) return; g.sel = ((g.sel < 0 ? 0 : g.sel) + d + g.ps.length) % g.ps.length; Snd.tap(); }
+addEventListener("keydown", e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (GamePad.helpOpen && GamePad.helpOpen()) return;
+  const ov = openOv();
+  if (ov) {
+    if (e.key === "Escape" && ov.id === "ovLevels") { show(null); e.preventDefault(); }
+    if ((e.key === "Escape" || e.key === "?") && ov.id === "ovHelp") { closeHelp(); e.preventDefault(); return; }
+    if (e.key === "?" && ov.id !== "ovHelp") { show("ovHelp"); e.preventDefault(); return; }
+    if ((e.key === "Enter" || e.key === " ") && !document.activeElement.closest(".ov")) {
+      e.preventDefault(); ensureAudio();
+      (ov.id === "ovTitle" ? $("btnPlay") : ov.id === "ovWin" ? $("btnNext") : ov.id === "ovHelp" ? $("btnCloseHelp") : $("btnCloseLevels")).click();
+    }
+    return;
+  }
+  const k = e.key;
+  const map = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1], a: [-1, 0], d: [1, 0], w: [0, -1], s: [0, 1] };
+  if (map[k]) { e.preventDefault(); ensureAudio(); arrow(...map[k]); }
+  else if (k === "Tab") { e.preventDefault(); cycle(e.shiftKey ? -1 : 1); }
+  else if (k === "]" || k === "e") cycle(1);
+  else if (k === "[" || k === "q") cycle(-1);
+  else if (k === "z" || k === "Z" || k === "Backspace" || k === "u") undo();
+  else if (k === "r" || k === "R") restart();
+  else if (k === "h" || k === "H") hint();
+  else if (k === "l" || k === "L" || k === "Escape") show("ovLevels");
+  else if (k === "v" || k === "V") setView(!view3d);
+  else if (k === "?") show("ovHelp");
+});
+{
+  const K = GamePad.K;
+  GamePad.init({
+    map: { left: K("ArrowLeft"), right: K("ArrowRight"), up: K("ArrowUp"), down: K("ArrowDown"),
+      a: K("Tab"), rb: K("]"), lb: K("["), b: K("z", "KeyZ"), x: K("r", "KeyR"), y: K("h", "KeyH"), start: K("l", "KeyL") },
+    menu: openOv,
+    menuFirst: box => box.id === "ovLevels" ? box.querySelector(".lvgrid button.cur") : null,
+    menuBack: d => { if (!d) return; if (!$("ovHelp").hidden) closeHelp(); else if (!$("ovLevels").hidden) show(null); },
+    autoStart: () => { if (!$("ovTitle").hidden) $("btnPlay").click(); },
+    help: ["In the depot", ["← → ↑ ↓", "Slide the train (or pick the next one across)"], ["A / LB / RB", "Pick another train"], ["B", "Undo"], ["X", "Restart"], ["Y", "Hint"], ["Start", "Levels"], ["Select", "This screen"],
+      "In menus", ["↑ ↓ ← →", "Move the highlight"], ["A", "Press"], ["B", "Back"]]
+  });
+  $("btnPick").after(GamePad.settingsButton());
+  $("btnCloseLevels").before(GamePad.settingsButton("", "🎮"));
+}
+
+// ---------- Buttons ----------
+const tapBtn = (id, fn) => $(id).addEventListener("click", () => { ensureAudio(); fn(); });
+tapBtn("btnPlay", () => { loadLevel(nextUnsolved()); show(null); Snd.tap(); announce("Mind the gap."); });
+// the station announcement, in a British voice when the device has one
+function announce(text) {
+  if (!soundOn || !window.speechSynthesis) return;
+  try {
+    const u = new SpeechSynthesisUtterance(text), v = speechSynthesis.getVoices().find(v => /en-GB/i.test(v.lang));
+    u.lang = "en-GB"; if (v) u.voice = v; u.rate = .92; u.pitch = .95; speechSynthesis.cancel(); speechSynthesis.speak(u);
+  } catch (e) {}
+}
+tapBtn("btnPick", () => show("ovLevels"));
+tapBtn("btnGuide", () => show("ovHelp"));
+tapBtn("btnCloseHelp", closeHelp);
+$("btnHelp").addEventListener("click", () => { ensureAudio(); if (!$("ovHelp").hidden) closeHelp(); else show("ovHelp"); $("btnHelp").blur(); });
+$("guideVer").textContent = "Mind The Gap " + VERSION;
+tapBtn("btnLevels", () => show(openOv() && !$("ovLevels").hidden ? null : "ovLevels"));
+tapBtn("btnCloseLevels", () => show(null));
+tapBtn("btnUndo", undo);
+tapBtn("btnReset", restart);
+tapBtn("btnHint", () => { if (!openOv()) hint(); });
+tapBtn("btnNext", () => { loadLevel(g.lvl + 1); show(null); });
+tapBtn("btnAgain", () => { loadLevel(g.lvl); show(null); });
+tapBtn("btnWinLevels", () => show("ovLevels"));
+let soundOn = store.get("antjam.sound", true), musicOn = store.get("antjam.music", true);
+function soundLabel() {
+  $("btnSound").textContent = soundOn ? "🔊" : "🔇"; $("btnSound").setAttribute("aria-pressed", soundOn);
+  $("btnMusic").textContent = "♪"; $("btnMusic").style.textDecoration = musicOn ? "none" : "line-through"; $("btnMusic").style.opacity = soundOn && musicOn ? 1 : .5; $("btnMusic").setAttribute("aria-label", musicOn ? "Music on" : "Music off");
+}
+$("btnSound").addEventListener("click", () => { soundOn = !soundOn; store.set("antjam.sound", soundOn); if (soundOn) ensureAudio(); Snd.setOn(); soundLabel(); $("btnSound").blur(); });
+$("btnMusic").addEventListener("click", () => { musicOn = !musicOn; store.set("antjam.music", musicOn); if (!soundOn) { soundOn = true; store.set("antjam.sound", true); } ensureAudio(); Snd.setOn(); soundLabel(); $("btnMusic").blur(); });
+soundLabel();
+
+// ---------- 3D / 2D ----------
+let view3d = store.get("antjam.view", "3d") !== "2d";
+const use3d = () => view3d && !!window.__draw3d;
+function setView(on) {
+  view3d = on; store.set("antjam.view", on ? "3d" : "2d");
+  const has = !!window.__draw3d;
+  $("btnView").hidden = !has;
+  $("btnView").textContent = use3d() ? "3D" : "2D";
+  $("btnView").setAttribute("aria-label", use3d() ? "Showing 3D. Switch to 2D" : "Showing 2D. Switch to 3D");
+  cv.style.visibility = use3d() ? "hidden" : "";
+  window.__show3d && window.__show3d(use3d());
+}
+window.__viewReady = () => setView(view3d);
+$("btnView").hidden = true;
+$("btnView").addEventListener("click", () => { setView(!view3d); $("btnView").blur(); });
+
+// ---------- Sound (Web Audio, all synthesized) ----------
+let actx = null, master = null, musicBus = null, noiseBuf = null, schedTimer = 0, nextTime = 0, step = 0, track = 0;
+function ensureAudio() {
+  if (!soundOn) return;
+  try {
+    if (!actx) {
+      actx = new (window.AudioContext || window.webkitAudioContext)();
+      master = actx.createGain(); master.gain.value = 0.55; master.connect(actx.destination);
+      musicBus = actx.createGain(); musicBus.gain.value = musicOn ? 0.32 : 0; musicBus.connect(master);
+      noiseBuf = actx.createBuffer(1, actx.sampleRate * 0.25, actx.sampleRate);
+      const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      actx.addEventListener("statechange", () => { if (document.hidden && actx.state === "running") actx.suspend(); });
+    }
+    iosUnlock();
+    if (actx.state === "suspended" && !document.hidden) actx.resume();
+    if (!schedTimer) { nextTime = actx.currentTime + 0.1; schedTimer = setInterval(schedule, 50); }
+  } catch (e) {}
+}
+document.addEventListener("visibilitychange", () => { if (!actx) return; if (document.hidden) actx.suspend(); else if (soundOn) { actx.resume(); nextTime = actx.currentTime + 0.1; } });
+// iPhone/iPad: play Web Audio as media so the Silent switch doesn't mute it
+let keepAlive = null;
+function iosUnlock() {
+  try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch (e) {}
+  try {
+    if (!keepAlive) {
+      // older iOS without audioSession: a looping silent <audio> track switches the page to the playback category
+      const rate = 8000, n = rate / 2, buf = new ArrayBuffer(44 + n), v = new DataView(buf);
+      const w = (o, str) => [...str].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+      w(0, "RIFF"); v.setUint32(4, 36 + n, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true);
+      v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, rate, true); v.setUint32(28, rate, true);
+      v.setUint16(32, 1, true); v.setUint16(34, 8, true); w(36, "data"); v.setUint32(40, n, true);
+      for (let i = 0; i < n; i++) v.setUint8(44 + i, 128);
+      keepAlive = new Audio(URL.createObjectURL(new Blob([buf], { type: "audio/wav" })));
+      keepAlive.loop = true;
+      keepAlive.setAttribute("playsinline", "");
+    }
+    keepAlive.play().catch(() => {});
+    const b = actx.createBufferSource(); b.buffer = actx.createBuffer(1, 1, 22050);
+    b.connect(actx.destination); b.start(0);
+  } catch (e) {}
+}
+function tone(freq, t, dur, type, vol, bus, slideTo) {
+  const o = actx.createOscillator(), gn = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  if (slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+  gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(vol, t + 0.008); gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(gn); gn.connect(bus || master); o.start(t); o.stop(t + dur + 0.02);
+}
+function tick(t, vol, freq) {
+  const s = actx.createBufferSource(), f = actx.createBiquadFilter(), gn = actx.createGain();
+  s.buffer = noiseBuf; f.type = "bandpass"; f.frequency.value = freq; f.Q.value = 3;
+  gn.gain.setValueAtTime(vol, t); gn.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
+  s.connect(f); f.connect(gn); gn.connect(master); s.start(t, Math.random() * 0.15, 0.05);
+}
+// traction motor whine: the tube's rising and falling hum
+function whine(t, dur, f0, f1, vol) {
+  const o = actx.createOscillator(), o2 = actx.createOscillator(), f = actx.createBiquadFilter(), gn = actx.createGain();
+  o.type = "sawtooth"; o2.type = "square";
+  o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur * .7); o.frequency.exponentialRampToValueAtTime(f0 * 1.2, t + dur);
+  o2.frequency.setValueAtTime(f0 * 1.5, t); o2.frequency.exponentialRampToValueAtTime(f1 * 1.5, t + dur * .7); o2.frequency.exponentialRampToValueAtTime(f0 * 1.8, t + dur);
+  f.type = "bandpass"; f.frequency.value = 900; f.Q.value = .8;
+  gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(vol, t + .06); gn.gain.setValueAtTime(vol, t + dur * .6); gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(f); o2.connect(f); f.connect(gn); gn.connect(master); o.start(t); o2.start(t); o.stop(t + dur + .02); o2.stop(t + dur + .02);
+}
+// the doors-closing beeps
+function beeps(t) { for (let k = 0; k < 3; k++) { tone(1568, t + k * 0.22, 0.13, "square", 0.05); tone(1568, t + k * 0.22, 0.13, "sine", 0.12); } }
+const ok = () => soundOn && actx && actx.state === "running";
+const Snd = {
+  // a short run: the motors whine up and down, wheels clicking over the rail joints
+  walk(dist) {
+    if (!ok()) return; const t = actx.currentTime, d = Math.min(0.75, 0.3 + dist * 0.12);
+    whine(t, d, 180, 420 + dist * 60, 0.09);
+    for (let k = 0; k < Math.min(4, 1 + Math.round(dist)); k++) { tick(t + 0.08 + k * 0.14, 0.2, 3200); tick(t + 0.12 + k * 0.14, 0.15, 2500); }
+  },
+  // couplers meeting: a low clunk
+  bump() { if (!ok()) return; const t = actx.currentTime; tone(140, t, 0.14, "square", 0.07, master, 85); tone(300, t, 0.08, "triangle", 0.12); tick(t, 0.3, 900); },
+  tap() { if (!ok()) return; tone(880, actx.currentTime, 0.06, "triangle", 0.12); },
+  reset() { if (!ok()) return; const t = actx.currentTime; for (let k = 0; k < 6; k++) tick(t + k * 0.03, 0.2, 1800 + k * 300); tone(420, t, 0.18, "triangle", 0.12, master, 260); },
+  win() {
+    if (!ok()) return; const t = actx.currentTime;
+    // doors-closing beeps, then the motors wind up as Rosie pulls out
+    beeps(t); whine(t + 0.75, 1.6, 160, 900, 0.12);
+    for (let k = 0; k < 8; k++) { tick(t + 0.95 + k * (0.2 - k * 0.015), 0.22, 3000); tick(t + 1.0 + k * (0.2 - k * 0.015), 0.16, 2400); }
+  },
+  setOn() {
+    if (!actx) return;
+    if (!soundOn) { actx.suspend(); return; }
+    actx.resume(); musicBus.gain.setTargetAtTime(musicOn ? 0.32 : 0, actx.currentTime, 0.1);
+  }
+};
+// Music: two original loops on a marimba-ish voice with a plucked bass, 8th notes. Each level change alternates them.
+// Notes are semitones from the key's root (null = rest).
+const TRACKS = [
+  { name: "Busker", bpm: 112, root: 60,
+    mel: [0,null,4,7, 9,7,4,null, 2,null,5,9, 7,null,4,2, 0,null,4,7, 12,11,9,7, 5,4,2,4, 0,null,null,null],
+    bass: [-12,null,-5,null, -3,null,-5,null, -10,null,-3,null, -5,null,-8,null, -12,null,-5,null, -3,null,-5,null, -7,null,-5,null, -12,null,null,null] },
+  { name: "Night Tube", bpm: 96, root: 57,
+    mel: [0,3,7,null, 10,7,3,null, 5,8,12,null, 10,8,7,null, 3,7,10,null, 12,10,7,5, 3,2,0,null, 7,null,null,null],
+    bass: [-12,null,null,-5, -12,null,null,-5, -7,null,null,-2, -7,null,null,-5, -9,null,null,-2, -9,null,null,-5, -10,null,null,-5, -12,null,null,null] },
+];
+const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+function schedule() {
+  if (!actx || actx.state !== "running") return;
+  const tr = TRACKS[track], dt = 60 / tr.bpm / 2;
+  while (nextTime < actx.currentTime + 0.25) {
+    if (musicOn) {
+      const i = step % tr.mel.length, m = tr.mel[i], b = tr.bass[i];
+      if (m != null) { tone(mtof(tr.root + 12 + m), nextTime, 0.28, "sine", 0.22, musicBus); tone(mtof(tr.root + 24 + m), nextTime, 0.08, "triangle", 0.05, musicBus); }
+      if (b != null) tone(mtof(tr.root + b), nextTime, 0.3, "triangle", 0.3, musicBus);
+      if (i % 4 === 2) tick(nextTime, 0.05, 6000);
+    }
+    nextTime += dt; step++;
+  }
+}
+
+// ---------- Main loop ----------
+let lastT = performance.now(), lastLvl = -1;
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now; g.time += dt;
+  if (g.hintT > 0) g.hintT -= dt;
+  if (lastLvl !== g.lvl) { if (lastLvl >= 0) { track = (track + 1) % TRACKS.length; step = 0; } lastLvl = g.lvl; }
+  g.ps.forEach((p, i) => {
+    if (g.drag && g.drag.i === i) { p.vis = g.drag.base + g.drag.off; return; }
+    let target = p.pos;
+    if (g.won && p.hero) { g.exitT += dt; target = p.pos + Math.min(4, g.exitT * 3.2); }
+    p.vis += (target - p.vis) * Math.min(1, dt * 16);
+    if (Math.abs(target - p.vis) < 0.002) p.vis = target;
+  });
+  if (use3d()) window.__draw3d(dt); else draw2d();
+  requestAnimationFrame(frame);
+}
+loadLevel(nextUnsolved());
+size();
+requestAnimationFrame(frame);
+// for testing in the console: __aj.solveAll() checks every level's fewest moves with the solver
+window.__solveNext = () => {   // for tests: the next solver move as a drag from one cell to another
+  const m = solve(g.ps); if (!m) return null;
+  const p = g.ps[m[0]], d = m[1] - p.pos;
+  return p.h ? { r0: p.line, c0: p.pos, r1: p.line, c1: p.pos + d } : { r0: p.pos, c0: p.line, r1: p.pos + d, c1: p.line };
+};
+g.solveAll = () => LEVELS.map((lv, i) => {
+  let ps = parse(lv.b), n = 0;
+  for (let m; (m = solve(ps)); n++) ps[m[0]].pos = m[1];
+  return n === lv.min ? null : `level ${i + 1}: ${n} != ${lv.min}`;
+}).filter(Boolean);
+</script>
+<script type="module">
+// 3D view (three.js), on by default, seen from straight overhead: a London Underground depot with four-rail track (running rails,
+// a centre current rail and an outside one), realistic tube trains with glossy paint, glass and moving bogies, and Rosie running
+// under the road into the tunnel. The page's game script owns the rules and the drag; this module reads window.__aj every frame
+// and answers window.__pick3d (pointer -> board cells).
+import * as THREE from "../lib/three.module.min.js";
+const G = window.__aj, board = document.getElementById("board");
+let renderer = null;
+try {
+  const canvas = document.createElement("canvas");
+  canvas.setAttribute("aria-hidden", "true"); canvas.style.visibility = "hidden";
+  board.appendChild(canvas);
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+} catch (e) { renderer = null; }
+if (renderer) {
+  const canvas = renderer.domElement;
+  renderer.setClearColor(0x000000, 0);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+  renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(30, 480 / 440, 0.1, 80);
+  // board: cell (r, c) covers x in [c-3, c-2], z in [r-3, r-2]; y is up. Trains face +x before they are turned.
+
+  // ---- light: soft London daylight from the upper left, plus reflections from a simple sky ----
+  scene.add(new THREE.HemisphereLight(0xdfe8f2, 0x4a4640, 0.75));
+  const sun = new THREE.DirectionalLight(0xfff3e2, 2.4);
+  sun.position.set(-3.5, 10, -4.5); sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -6.5, right: 6.5, top: 6.5, bottom: -6.5, near: 1, far: 30 });
+  sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.02; sun.shadow.radius = 3;
+  scene.add(sun);
+  const tex = (w, h, paint, srgb = true) => { const c = document.createElement("canvas"); c.width = w; c.height = h; paint(c.getContext("2d"), w, h);
+    const t = new THREE.CanvasTexture(c); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; };
+  {
+    // environment for reflections: an overcast sky, a bright patch where the sun is, darker ground
+    const envScene = new THREE.Scene();
+    const skyTex = tex(64, 256, (x, w, h) => { const g = x.createLinearGradient(0, 0, 0, h);
+      g.addColorStop(0, "#f4f7fb"); g.addColorStop(.45, "#c9d4e0"); g.addColorStop(.52, "#7c7a74"); g.addColorStop(1, "#3c3a36"); x.fillStyle = g; x.fillRect(0, 0, w, h); });
+    envScene.add(new THREE.Mesh(new THREE.SphereGeometry(10, 32, 16), new THREE.MeshBasicMaterial({ map: skyTex, side: THREE.BackSide })));
+    const lamp = new THREE.Mesh(new THREE.PlaneGeometry(6, 3), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    lamp.position.set(-4, 7, -4); lamp.lookAt(0, 0, 0); envScene.add(lamp);
+    const pm = new THREE.PMREMGenerator(renderer);
+    scene.environment = pm.fromScene(envScene, 0.02).texture; pm.dispose();
+  }
+  let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+
+  // ---- materials ----
+  const std = (o) => new THREE.MeshStandardMaterial(o);
+  const M = {
+    dark: std({ color: 0x24262a, roughness: .7, metalness: .4 }),
+    under: std({ color: 0x1a1b1d, roughness: .85, metalness: .3 }),
+    steel: std({ color: 0xc9cdd2, roughness: .28, metalness: 1 }),
+    railSide: std({ color: 0x6b5446, roughness: .9, metalness: .3 }),
+    glass: new THREE.MeshPhysicalMaterial({ color: 0x0d1218, roughness: .05, metalness: .2, clearcoat: 1, clearcoatRoughness: .05, envMapIntensity: 1.6 }),
+    rubber: std({ color: 0x121314, roughness: .9 }),
+    lamp: std({ color: 0xfff6dc, emissive: 0xfff1c8, emissiveIntensity: 1.2, roughness: .2 }),
+    tail: std({ color: 0x8a0f0f, emissive: 0xff2a1a, emissiveIntensity: .9, roughness: .3 }),
+    ceramic: std({ color: 0xf2efe6, roughness: .35 }),
+    concrete: std({ color: 0xb9b6ae, roughness: .95 }),
+  };
+  const paints = {};
+  const paint = (color, rough = .32) => paints[color + rough] || (paints[color + rough] = new THREE.MeshPhysicalMaterial({ color, roughness: rough, metalness: .25, clearcoat: .7, clearcoatRoughness: .18 }));
+
+  // ---- textures ----
+  // ballast: thousands of little grey stones, each with a highlight and a shadow
+  function stones(x, w, h, n, light) {
+    for (let k = 0; k < n; k++) {
+      const sx = rnd() * w, sy = rnd() * h, r = 1.6 + rnd() * 3.2, v = (light ? 120 : 95) + rnd() * 70 | 0;
+      x.fillStyle = `rgba(20,18,16,.35)`; x.beginPath(); x.ellipse(sx + 1.2, sy + 1.2, r, r * .8, rnd() * 3, 0, 7); x.fill();
+      x.fillStyle = `rgb(${v},${v - 3},${v - 8})`; x.beginPath(); x.ellipse(sx, sy, r, r * .78, rnd() * 3, 0, 7); x.fill();
+      x.fillStyle = `rgba(255,255,255,.18)`; x.beginPath(); x.ellipse(sx - r * .3, sy - r * .3, r * .4, r * .3, 0, 0, 7); x.fill();
+    }
+  }
+  const baseGravel = document.createElement("canvas"); baseGravel.width = baseGravel.height = 1024;
+  { const x = baseGravel.getContext("2d"); x.fillStyle = "#5e5b55"; x.fillRect(0, 0, 1024, 1024); stones(x, 1024, 1024, 15000, false);
+    // a little oil and rust staining
+    for (let k = 0; k < 40; k++) { const g = x.createRadialGradient(0, 0, 0, 0, 0, 60 + rnd() * 80); g.addColorStop(0, rnd() < .5 ? "rgba(60,40,25,.18)" : "rgba(20,18,16,.2)"); g.addColorStop(1, "rgba(0,0,0,0)");
+      x.save(); x.translate(rnd() * 1024, rnd() * 1024); x.fillStyle = g; x.fillRect(-150, -150, 300, 300); x.restore(); } }
+  const floorCanvas = document.createElement("canvas"); floorCanvas.width = floorCanvas.height = 1024;
+  const floorTex = new THREE.CanvasTexture(floorCanvas); floorTex.colorSpace = THREE.SRGBColorSpace; floorTex.anisotropy = 8;
+  // per level: fresh, lighter ballast heaped along each track, and a faint grid so the squares still read
+  function paintFloor(lines) {
+    const x = floorCanvas.getContext("2d"), s = 1024 / 6;
+    x.drawImage(baseGravel, 0, 0);
+    seed = 5;
+    for (const L of lines) {
+      x.save();
+      const m = (L.line + .5) * s;
+      if (L.h) x.beginPath(), x.rect(0, m - s * .42, 1024, s * .84); else x.beginPath(), x.rect(m - s * .42, 0, s * .84, 1024);
+      x.clip(); x.fillStyle = "rgba(150,145,135,.25)"; x.fillRect(0, 0, 1024, 1024);
+      stones(x, 1024, 1024, 2600, true); x.restore();
+    }
+    x.strokeStyle = "rgba(255,255,255,.07)"; x.lineWidth = 2;
+    for (let k = 1; k < 6; k++) { x.beginPath(); x.moveTo(k * s, 0); x.lineTo(k * s, 1024); x.moveTo(0, k * s); x.lineTo(1024, k * s); x.stroke(); }
+    floorTex.needsUpdate = true;
+  }
+  const woodTex = tex(128, 32, (x, w, h) => { x.fillStyle = "#4b3c30"; x.fillRect(0, 0, w, h);
+    for (let k = 0; k < 40; k++) { x.strokeStyle = `rgba(${rnd() < .5 ? "25,18,12" : "110,95,80"},.4)`; x.beginPath(); const y = rnd() * h; x.moveTo(0, y); x.bezierCurveTo(w * .3, y + rnd() * 4 - 2, w * .6, y + rnd() * 4 - 2, w, y); x.stroke(); } });
+  const concTex = tex(256, 256, (x, w, h) => { x.fillStyle = "#b3b0a8"; x.fillRect(0, 0, w, h);
+    for (let k = 0; k < 5000; k++) { x.fillStyle = `rgba(${rnd() < .5 ? "80,78,72" : "230,228,220"},${.08 + rnd() * .15})`; x.fillRect(rnd() * w, rnd() * h, 1 + rnd() * 2, 1 + rnd() * 2); }
+    x.strokeStyle = "rgba(60,58,54,.35)"; x.lineWidth = 2; for (let k = 0; k <= 4; k++) { x.beginPath(); x.moveTo(k * 64, 0); x.lineTo(k * 64, h); x.stroke(); } });
+  concTex.wrapS = concTex.wrapT = THREE.RepeatWrapping;
+  // London stock brick, in Flemish-ish courses
+  const brickTex = tex(256, 256, (x, w, h) => { x.fillStyle = "#8e8574"; x.fillRect(0, 0, w, h);
+    for (let r = 0; r < 16; r++) for (let c = -1; c < 9; c++) { const v = rnd(); x.fillStyle = v < .12 ? "#7a4a2e" : v < .3 ? "#a9875a" : v < .6 ? "#c4a46e" : "#b8955f";
+      x.fillRect(c * 32 + (r % 2) * 16 + 1, r * 16 + 1, 30, 14); x.fillStyle = "rgba(0,0,0,.12)"; x.fillRect(c * 32 + (r % 2) * 16 + 1, r * 16 + 12, 30, 3); } });
+  brickTex.wrapS = brickTex.wrapT = THREE.RepeatWrapping;
+  const coalGrille = tex(256, 64, (x, w, h) => { x.fillStyle = "#2a2e33"; x.fillRect(0, 0, w, h); x.fillStyle = "#4c535a"; for (let u = 4; u < w; u += 8) x.fillRect(u, 4, 3, h - 8); });
+  const hazardTex = tex(128, 32, (x, w, h) => { x.fillStyle = "#f2c230"; x.fillRect(0, 0, w, h); x.fillStyle = "#151515"; for (let u = -h; u < w; u += 24) { x.beginPath(); x.moveTo(u, h); x.lineTo(u + 12, h); x.lineTo(u + 12 + h, 0); x.lineTo(u + h, 0); x.fill(); } });
+  // the platform edge along the top: yellow line and the famous words
+  const platTex = tex(1024, 64, (x, w, h) => { x.fillStyle = "#5d5c58"; x.fillRect(0, 0, w, h);
+    for (let k = 0; k < 3000; k++) { x.fillStyle = `rgba(${rnd() < .5 ? "80,78,72" : "235,232,225"},${.08 + rnd() * .12})`; x.fillRect(rnd() * w, rnd() * h, 2, 2); }
+    x.fillStyle = "#e9e6dc"; x.fillRect(0, h - 10, w, 10);                       // white coping stones
+    x.fillStyle = "#ffd300"; x.fillRect(0, h - 20, w, 6);                        // yellow line
+    x.fillStyle = "#ffffff"; x.font = "bold 28px 'Hammersmith One', 'Gill Sans', sans-serif"; x.textAlign = "center"; x.textBaseline = "middle";
+    for (let k = 0; k < 3; k++) x.fillText("MIND THE GAP", w * (k + .5) / 3, 21); });
+  // tube car sides, laid out round the body: v = 0 (bottom of one side) .. 0.5 (roof) .. 1 (bottom of the other side)
+  const liveryTex = {};
+  function carTexture(col, kind, cab0, cab1) {
+    const key = [col.body, kind, cab0, cab1].join();
+    if (liveryTex[key]) return liveryTex[key];
+    const t = tex(1024, 512, (x, w, h) => {
+      const band = (v0, v1, c) => { x.fillStyle = c; x.fillRect(0, h * v0, w, h * (v1 - v0)); x.fillRect(0, h * (1 - v1), w, h * (v1 - v0)); };
+      band(0, .5, col.body);
+      band(0, .07, col.skirt);                                  // skirt along the bottom
+      if (col.line) { band(.13, .135, col.line); band(.3, .305, col.line); }
+      if (kind === "surface") band(.385, .44, col.door);                  // a band of the door colour along the roof edge
+      // roof, with a little grime and the ventilators
+      x.fillStyle = col.roof; x.fillRect(0, h * .44, w, h * .12);
+      for (let k = 0; k < 900; k++) { x.fillStyle = `rgba(${rnd() < .6 ? "0,0,0" : "255,255,255"},${.03 + rnd() * .05})`; x.fillRect(rnd() * w, h * (.44 + rnd() * .12), 2 + rnd() * 10, 1 + rnd() * 2); }
+      x.fillStyle = "rgba(0,0,0,.14)"; x.fillRect(0, h * .435, w, h * .01); x.fillRect(0, h * .555, w, h * .01);
+      // brushed metal for unpainted cars
+      if (col === window.__tsLivery.silver) for (let k = 0; k < 1400; k++) { x.fillStyle = `rgba(255,255,255,${rnd() * .07})`; x.fillRect(0, rnd() * h, w, 1); }
+      // windows between the doors, and the doors (double doors, with their own windows)
+      const doors = kind === "surface" ? [.16, .38, .62, .84] : [.2, .5, .8];
+      const winY = kind === "surface" ? [.17, .31] : [.2, .36];
+      const glass = (u0, u1, v0, v1) => { x.fillStyle = "#11171e"; x.fillRect(w * u0, h * v0, w * (u1 - u0), h * (v1 - v0)); x.fillRect(w * u0, h * (1 - v1), w * (u1 - u0), h * (v1 - v0));
+        x.fillStyle = "rgba(170,200,230,.16)"; x.fillRect(w * u0, h * v0, w * (u1 - u0), h * (v1 - v0) * .35); x.fillRect(w * u0, h * (1 - v1), w * (u1 - u0), h * (v1 - v0) * .35); };
+      let u = cab0 ? .1 : .03;
+      for (const d of doors) { glass(u, d - .07, winY[0], winY[1]); u = d + .07; }
+      glass(u, cab1 ? .9 : .97, winY[0], winY[1]);
+      for (const d of doors) {
+        const dt = kind === "surface" ? .33 : .4;   // tube doors cut up into the roof curve
+        x.fillStyle = col.door; x.fillRect(w * (d - .065), h * .055, w * .13, h * (dt - .055)); x.fillRect(w * (d - .065), h * (1 - dt), w * .13, h * (dt - .055));
+        x.fillStyle = "#111"; x.fillRect(w * d - 1, h * .055, 2, h * (dt - .055)); x.fillRect(w * d - 1, h * (1 - dt), 2, h * (dt - .055));
+        for (const s of [-1, 1]) glass(d + s * .033 - .02, d + s * .033 + .02, winY[0] + .01, winY[1] - .01);
+      }
+      // cab side windows at driving ends
+      if (cab0) glass(.02, .07, winY[0], winY[1]); if (cab1) glass(.93, .98, winY[0], winY[1]);
+      // panel seams
+      x.fillStyle = "rgba(0,0,0,.18)"; for (const d of [0, 1]) x.fillRect(d ? w - 3 : 0, 0, 3, h);
+    });
+    return (liveryTex[key] = t);
+  }
+
+  // ---- geometry helpers ----
+  const geo = {};
+  const cache = (k, make) => geo[k] || (geo[k] = make());
+  function mesh(parent, g, m, x = 0, y = 0, z = 0) { const o = new THREE.Mesh(g, m); o.position.set(x, y, z); o.castShadow = o.receiveShadow = true; parent.add(o); return o; }
+  const box = (p, w, h, d, m, x, y, z) => mesh(p, cache(`b${w},${h},${d}`, () => new THREE.BoxGeometry(w, h, d)), m, x, y, z);
+  const cylY = (p, r1, r2, h, m, x, y, z, seg = 20) => mesh(p, cache(`y${r1},${r2},${h},${seg}`, () => new THREE.CylinderGeometry(r1, r2, h, seg)), m, x, y, z);
+  const cylX = (p, r1, r2, h, m, x, y, z, seg = 20) => mesh(p, cache(`x${r1},${r2},${h},${seg}`, () => new THREE.CylinderGeometry(r1, r2, h, seg).rotateZ(-Math.PI / 2)), m, x, y, z);
+  const cylZ = (p, r1, r2, h, m, x, y, z, seg = 20) => mesh(p, cache(`z${r1},${r2},${h},${seg}`, () => new THREE.CylinderGeometry(r1, r2, h, seg).rotateX(Math.PI / 2)), m, x, y, z);
+  // a car body: a rounded cross-section (width w, height h, roof corner radius rt, bottom radius rb) run along x for length L,
+  // with UVs laid round the body for the livery texture (u along the car, v round the profile)
+  function bodyGeo(L, w, h, rt, rb) {
+    return cache(`body${L},${w},${h},${rt},${rb}`, () => {
+      const sh = new THREE.Shape(), hw = w / 2, hh = h / 2;
+      sh.moveTo(-hw + rb, -hh); sh.lineTo(hw - rb, -hh); sh.quadraticCurveTo(hw, -hh, hw, -hh + rb);
+      sh.lineTo(hw, hh - rt); sh.quadraticCurveTo(hw, hh, hw - rt, hh); sh.lineTo(-hw + rt, hh); sh.quadraticCurveTo(-hw, hh, -hw, hh - rt);
+      sh.lineTo(-hw, -hh + rb); sh.quadraticCurveTo(-hw, -hh, -hw + rb, -hh);
+      const g = new THREE.ExtrudeGeometry(sh, { depth: L, bevelEnabled: false, curveSegments: 10 });
+      g.translate(0, 0, -L / 2); g.rotateY(Math.PI / 2);
+      const p = g.attributes.position, uv = g.attributes.uv;
+      for (let i = 0; i < p.count; i++) {
+        const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
+        const along = (x + L / 2) / L, up = (y + hh) / h;
+        // after the turn, the shape's x became -z: one side is z < 0
+        const v = z < 0 ? up * .5 : 1 - up * .5;
+        uv.setXY(i, along, Math.abs(z) < hw * .02 ? .5 : v);
+      }
+      g.computeVertexNormals();
+      return g;
+    });
+  }
+  const capsuleish = (p, L, w, h, rt, rb, m, x, y, z) => mesh(p, bodyGeo(L, w, h, rt, rb), m, x, y, z);
+
+  // a bogie: two axles under a frame, with the collector shoes beside it
+  function bogie(parent, x, wheels) {
+    const b = new THREE.Group(); b.position.set(x, 0, 0); parent.add(b);
+    box(b, .36, .07, .46, M.under, 0, .16, 0);
+    for (const ax of [-.11, .11]) for (const s of [-1, 1]) {
+      const wh = new THREE.Group(); wh.position.set(ax, .1, s * .2); b.add(wh);
+      cylZ(wh, .075, .075, .035, M.dark, 0, 0, 0, 18);
+      box(wh, .1, .012, .036, M.steel, 0, .0, 0).rotation.z = .3;   // a spoke flash so the turning shows
+      wheels.push(wh);
+    }
+    for (const s of [-1, 1]) box(b, .12, .025, .05, M.dark, 0, .065, s * .29);   // collector shoes
+    box(b, .1, .03, .05, M.dark, 0, .065, 0);
+    return b;
+  }
+
+  // one car of a tube train, centred on x, length L. kind "tube" is the small round deep-level stock, "surface" the bigger squarer one
+  function car(parent, x, L, col, kind, cab0, cab1, wheels) {
+    const c = new THREE.Group(); c.position.x = x; parent.add(c);
+    const surf = kind === "surface";
+    const w = surf ? .66 : .56, h = surf ? .66 : .56, rt = surf ? .12 : .22, y0 = surf ? .18 : .16;
+    const m = new THREE.MeshPhysicalMaterial({ map: carTexture(col, kind, cab0, cab1), roughness: col === window.__tsLivery.silver ? .35 : .3, metalness: col === window.__tsLivery.silver ? .75 : .2, clearcoat: .6, clearcoatRoughness: .2 });
+    capsuleish(c, L, w, h, rt, .03, m, 0, y0 + h / 2, 0);
+    // underframe equipment between the bogies
+    box(c, L - .5, .08, w * .7, M.under, 0, y0 - .02, 0);
+    for (const bx of [-L / 2 + .2, L / 2 - .2]) bogie(c, bx, wheels);
+    // roof: ventilators / air-conditioning pods along the middle
+    const vents = surf ? [-.22, .22] : [-.25, 0, .25];
+    for (const f of vents) {
+      const v = mesh(c, cache("pod" + surf, () => new THREE.CapsuleGeometry(surf ? .09 : .06, surf ? .22 : .12, 4, 10).rotateZ(Math.PI / 2)), paint(surf ? "#c9ced3" : "#a2a8ae", .5), f * L, y0 + h + (surf ? .02 : .01), 0);
+      v.scale.y = .45;
+    }
+    // driving cab ends: windscreen, headlights and tail lights, a coupler
+    for (const [on, s] of [[cab1, 1], [cab0, -1]]) {
+      if (!on) { box(c, .06, h * .7, w * .5, M.rubber, s * (L / 2 + .02), y0 + h * .45, 0); continue; }   // gangway bellows
+      const ex = s * (L / 2 + .004);
+      const ws = box(c, .012, h * .3, w * .78, M.glass, ex, y0 + h * .66, 0);
+      box(c, .01, h * .06, w * .82, paint("#16181b", .5), ex, y0 + h * .82, 0);   // the dark band over the windscreen
+      for (const z of [-.18, .18]) { box(c, .012, .04, .06, s > 0 ? M.lamp : M.tail, ex, y0 + h * .22, z * w / .56); }
+      box(c, .09, .07, .1, M.dark, s * (L / 2 + .045), y0 + .02, 0);   // coupler
+      box(c, .012, .12, w * .9, paint(col.skirt === col.body ? "#16181b" : col.skirt, .5), ex, y0 + .03, 0);
+    }
+    return c;
+  }
+  // a yellow battery locomotive, two cells long: low hood, a cab at each end, hazard-striped ends
+  function loco(parent, L, col, wheels) {
+    const lg = new THREE.Group(); parent.add(lg);
+    const body = paint(col.body, .45);
+    box(lg, L - .04, .12, .62, M.under, 0, .22, 0);
+    for (const bx of [-L / 2 + .32, L / 2 - .32]) bogie(lg, bx, wheels);
+    for (const s of [-1, 1]) {
+      const hz = box(lg, .03, .14, .64, new THREE.MeshStandardMaterial({ map: hazardTex, roughness: .6 }), s * (L / 2 - .015), .24, 0);
+      capsuleish(lg, .36, .62, .44, .06, .02, body, s * (L / 2 - .23), .52, 0);                 // cab
+      box(lg, .37, .12, .63, M.glass, s * (L / 2 - .23), .62, 0);                                // cab windows all round
+      capsuleish(lg, .38, .6, .04, .02, .0, paint(col.roof, .5), s * (L / 2 - .23), .76, 0);   // cab roof
+      box(lg, .06, .05, .1, M.dark, s * (L / 2 + .02), .22, 0);
+      for (const z of [-.2, .2]) box(lg, .012, .05, .06, s > 0 ? M.lamp : M.tail, s * (L / 2 - .045), .36, z);
+      cylY(lg, .012, .012, .12, M.steel, s * (L / 2 - .23), .84, .18);                             // horn post
+    }
+    capsuleish(lg, L - 1.0, .5, .36, .05, .02, body, 0, .48, 0);                                  // battery boxes under a hood
+    const gr = box(lg, L - 1.12, .006, .34, new THREE.MeshStandardMaterial({ map: coalGrille, roughness: .7, metalness: .3 }), 0, .665, 0);
+    for (const s of [-1, 1]) {   // handrails along the walkways
+      cylX(lg, .008, .008, L - .9, M.steel, 0, .5, s * .29, 6);
+      for (const u of [-.3, 0, .3]) cylY(lg, .006, .006, .2, M.steel, u, .4, s * .29, 6);
+    }
+    return lg;
+  }
+  // ground shadow under each train, softer than the shadow map alone
+  const blobTex = tex(64, 64, (x, w, h) => { const g = x.createRadialGradient(w / 2, h / 2, 2, w / 2, h / 2, w / 2); g.addColorStop(0, "rgba(0,0,0,.55)"); g.addColorStop(1, "rgba(0,0,0,0)"); x.fillStyle = g; x.fillRect(0, 0, w, h); });
+  const blobMat = new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false });
+
+  function makeTrain(t, len) {
+    const grp = new THREE.Group(), body = new THREE.Group(); grp.add(body);
+    const L = len - .1, wheels = [];
+    const ao = new THREE.Mesh(new THREE.PlaneGeometry(L + .3, .95), blobMat); ao.rotation.x = -Math.PI / 2; ao.position.y = .085; grp.add(ao);
+    if (t.kind === "loco") loco(body, L, t.col, wheels);
+    else {
+      const n = t.cars, gap = .05, cl = (L - gap * (n - 1)) / n;
+      for (let k = 0; k < n; k++) car(body, -L / 2 + cl / 2 + k * (cl + gap), cl, t.col, t.kind, k === 0, k === n - 1, wheels);
+    }
+    return { grp, body, wheels, sparks: [] };
+  }
+
+  // ---- the depot ----
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(6, .3, 6), [0, 0, 0, 0, 0, 0].map((_, k) =>
+    k === 2 ? new THREE.MeshStandardMaterial({ map: floorTex, roughness: .95 }) : new THREE.MeshStandardMaterial({ color: 0x45433f, roughness: 1 })));
+  floor.position.y = -.15; floor.receiveShadow = true; scene.add(floor);
+  // concrete walkways round the sides, the platform along the top, a gap on the right for the tunnel (row 3)
+  const T = .42, conc = new THREE.MeshStandardMaterial({ map: concTex, roughness: .95 });
+  const slab = (x, z, w, d, m) => { const s = new THREE.Mesh(new THREE.BoxGeometry(w, .3, d), m); s.position.set(x, -.04, z); s.receiveShadow = s.castShadow = true; scene.add(s); return s; };
+  const platMat = [conc, conc, new THREE.MeshStandardMaterial({ map: platTex, roughness: .9 }), conc, conc, conc];
+  { const p = new THREE.Mesh(new THREE.BoxGeometry(6 + 2 * T, .34, T), platMat); p.position.set(0, -.02, -3 - T / 2); p.receiveShadow = p.castShadow = true; scene.add(p); }
+  slab(0, 3 + T / 2, 6 + 2 * T, T, conc); slab(-3 - T / 2, 0, T, 6, conc);
+  slab(3 + T / 2, (-3 + -1) / 2, T, 2, conc); slab(3 + T / 2, (0 + 3) / 2, T, 3, conc);
+  { // the ballast continues out of the gap to the tunnel
+    const e = new THREE.Mesh(new THREE.BoxGeometry(2.6, .3, 1), new THREE.MeshStandardMaterial({ map: floorTex, roughness: .95 }));
+    e.position.set(4.3, -.15, -.5); e.receiveShadow = true; scene.add(e);
+  }
+  // the road bridge over the tunnel: brick headwall facing the depot, a road with pavements on top
+  const brick = new THREE.MeshStandardMaterial({ map: brickTex, roughness: .9 });
+  const brickV = brick.clone(); brickV.map = brickTex.clone(); brickV.map.needsUpdate = true; brickV.map.repeat.set(4, 2);
+  const RX = 3.48, RW = 2.4, RH = 1.15;
+  const roadTex = tex(512, 1024, (x, w, h) => {
+    x.fillStyle = "#c2bfb6"; x.fillRect(0, 0, w, h);                          // pavement
+    for (let y = 0; y < h; y += 64) for (let c = 0; c < 2; c++) { x.strokeStyle = "rgba(90,88,82,.5)"; x.strokeRect(c * 64, y, 64, 64); x.strokeRect(w - 128 + c * 64, y + 32, 64, 64); }
+    x.fillStyle = "#3a3c40"; x.fillRect(140, 0, w - 280, h);                    // road
+    for (let k = 0; k < 6000; k++) { x.fillStyle = `rgba(${rnd() < .5 ? "20,20,22" : "110,110,112"},.25)`; x.fillRect(140 + rnd() * (w - 280), rnd() * h, 2, 2); }
+    x.fillStyle = "#e3b51e"; x.fillRect(150, 0, 5, h); x.fillRect(160, 0, 5, h);          // double yellow lines
+    x.fillStyle = "#e8e8e6"; for (let y = 10; y < h; y += 90) x.fillRect(w / 2 - 3, y, 6, 50);   // centre line
+    x.fillStyle = "#e8e8e6"; for (let k = 0; k < 7; k++) x.fillRect(150 + k * 30, h * .78, 18, 70);   // zebra crossing
+    x.fillStyle = "#1c1c1c"; for (let k = 0; k < 7; k++) x.fillRect(150 + k * 30 + 18, h * .78, 12, 70);
+    x.fillStyle = "#3a3c40"; x.fillRect(140, h * .78 + 70, w - 280, 1);
+  });
+  const roadTop = new THREE.MeshStandardMaterial({ map: roadTex, roughness: .9 });
+  {
+    const parts = [[-3.6, -1.08], [-.02, 3.6]];   // z ranges either side of the tunnel mouth (row 3 is z -1..0)
+    for (const [z0, z1] of parts) {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(RW, RH, z1 - z0), [brickV, brickV, roadTop, brickV, brickV, brickV]);
+      b.position.set(RX + RW / 2, RH / 2 - .3, (z0 + z1) / 2); b.castShadow = b.receiveShadow = true; scene.add(b);
+      // the road texture should run continuously: map each block's top to its share of the road
+      const uv = b.geometry.attributes.uv; const tz0 = (z0 + 3.6) / 7.2, tz1 = (z1 + 3.6) / 7.2;
+      for (let i = 8; i < 12; i++) uv.setY(i, uv.getY(i) ? 1 - tz0 : 1 - tz1);
+    }
+    // deck over the tunnel mouth, with its own slice of road
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(RW, .3, 1.06), [brickV, brickV, roadTop, brickV, brickV, brickV]);
+    deck.position.set(RX + RW / 2, RH - .3 - .15, -.55); deck.castShadow = deck.receiveShadow = true; scene.add(deck);
+    const uv = deck.geometry.attributes.uv; const tz0 = (-1.08 + 3.6) / 7.2, tz1 = (-.02 + 3.6) / 7.2;
+    for (let i = 8; i < 12; i++) uv.setY(i, uv.getY(i) ? 1 - tz0 : 1 - tz1);
+    // inside the tunnel: dark
+    const inside = new THREE.Mesh(new THREE.BoxGeometry(RW - .02, .5, 1.04), new THREE.MeshBasicMaterial({ color: 0x050506, side: THREE.BackSide }));
+    inside.position.set(RX + RW / 2 + .01, .1, -.55); scene.add(inside);
+    // a stone coping along the top of the headwall
+    const cope = new THREE.Mesh(new THREE.BoxGeometry(.14, .06, 7.2), new THREE.MeshStandardMaterial({ color: 0xd8d2c2, roughness: .8 }));
+    cope.position.set(RX + .02, RH - .27, 0); cope.castShadow = true; scene.add(cope);
+  }
+  // London on the road: a red double-decker bus heading off the edge, a black cab and a red phone box on the pavement
+  {
+    const busG = new THREE.Group(); busG.position.set(RX + .95, RH - .3, -1.9); scene.add(busG);
+    const red = paint("#c4231c", .3);
+    capsuleish(busG, 2.2, .5, .86, .06, .03, red, 0, .48, 0).rotation.y = Math.PI / 2;
+    for (const y of [.33, .72]) { const g = box(busG, .505, .13, 2.1, M.glass, 0, y, 0); }
+    box(busG, .44, .02, 1.9, paint("#e6e6e3", .4), 0, .915, 0);                                 // pale roof
+    const num = tex(128, 64, (x, w, h) => { x.fillStyle = "#e6e6e3"; x.fillRect(0, 0, w, h); x.fillStyle = "#111"; x.font = "bold 46px sans-serif"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText("73", w / 2, h / 2 + 2); });
+    const roofNum = new THREE.Mesh(new THREE.PlaneGeometry(.36, .2), new THREE.MeshStandardMaterial({ map: num, roughness: .6 }));
+    roofNum.rotation.set(-Math.PI / 2, 0, Math.PI / 2); roofNum.position.set(0, .927, .4); busG.add(roofNum);
+    for (const z of [-.75, .75]) for (const s of [-1, 1]) cylX(busG, .08, .08, .06, M.rubber, s * .24, .08, z, 16);
+    const cab = new THREE.Group(); cab.position.set(RX + .95, RH - .3, 1.35); scene.add(cab);
+    capsuleish(cab, .72, .3, .2, .03, .02, paint("#121316", .22), 0, .14, 0).rotation.y = Math.PI / 2;
+    capsuleish(cab, .4, .28, .14, .06, .0, paint("#121316", .22), 0, .3, .03).rotation.y = Math.PI / 2;
+    box(cab, .29, .08, .38, M.glass, 0, .3, .03);
+    box(cab, .1, .03, .05, M.lamp, 0, .385, .03);                                                 // TAXI light
+    const box3 = new THREE.Group(); box3.position.set(RX + .2, RH - .3, 2.7); scene.add(box3);
+    box(box3, .16, .44, .16, paint("#c4231c", .35), 0, .22, 0);
+    mesh(box3, cache("dome", () => new THREE.SphereGeometry(.09, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2)), paint("#c4231c", .35), 0, .44, 0).scale.set(1, .4, 1);
+    // trees in big planters on the far pavement
+    const leaf = std({ color: 0x3f6d34, roughness: .85 });
+    for (const z of [-3.1, .9, 3.1]) {
+      const tr = new THREE.Group(); tr.position.set(RX + 2.15, RH - .3, z); scene.add(tr);
+      for (let k = 0; k < 6; k++) mesh(tr, cache("leaf", () => new THREE.IcosahedronGeometry(.22, 1)), leaf, (rnd() - .5) * .3, .55 + rnd() * .25, (rnd() - .5) * .3).scale.setScalar(.8 + rnd() * .5);
+    }
+  }
+  // the signal: a colour-light head on a post at the tunnel mouth
+  const sig = new THREE.Group(); sig.position.set(3.2, 0, -1.22); scene.add(sig);
+  cylY(sig, .03, .03, .6, M.dark, 0, .3, 0, 10);
+  box(sig, .16, .1, .3, paint("#121314", .5), 0, .64, 0);
+  const sigR = std({ color: 0x401010, emissive: 0xff2a1a, emissiveIntensity: 1.6 }), sigG = std({ color: 0x0e3a18, emissive: 0x2aff6a, emissiveIntensity: 0 });
+  cylY(sig, .045, .045, .02, sigR, 0, .695, -.07, 14); cylY(sig, .045, .045, .02, sigG, 0, .695, .07, 14);
+  const sigLight = new THREE.PointLight(0xff3020, .6, 1.2); sigLight.position.set(0, .8, 0); sig.add(sigLight);
+
+  // ---- track for this level: sleepers, running rails, and the two current rails on insulator pots ----
+  const trackGrp = new THREE.Group(); scene.add(trackGrp);
+  const sleeperMat = new THREE.MeshStandardMaterial({ map: woodTex, roughness: .9 });
+  const sleeperGeo = new THREE.BoxGeometry(.11, .045, .66);
+  function buildTrack(lines) {
+    trackGrp.clear();
+    paintFloor(lines);
+    const cross = new Set(lines.map(L => (L.h ? "h" : "v") + L.line));
+    const list = [];
+    for (const L of lines) {
+      const a = -3, b = L.h && L.line === 2 ? 6 : 3, mid = L.line + .5 - 3;
+      for (let u = a + .12; u < b; u += .25) list.push([L, u, mid]);
+      const along = (len, w, h, m, off, y, u0 = a, u1 = b) => { const r = new THREE.Mesh(new THREE.BoxGeometry(L.h ? u1 - u0 : w, h, L.h ? w : u1 - u0), m);
+        const c = (u0 + u1) / 2; r.position.set(L.h ? c : mid + off, y, L.h ? mid + off : c); r.castShadow = r.receiveShadow = true; trackGrp.add(r); };
+      for (const o of [-.2, .2]) { along(0, .045, .05, M.railSide, o, .065); along(0, .03, .016, M.steel, o, .098); }
+      // current rails: gapped wherever another line crosses
+      for (let k = 0; k < (b - a); k++) {
+        if (k < 6 && cross.has((L.h ? "v" : "h") + k)) continue;
+        const u0 = a + k + .08, u1 = a + k + .92;
+        along(0, .05, .05, M.railSide, 0, .085, u0, u1); along(0, .04, .012, M.steel, 0, .113, u0, u1);
+        along(0, .055, .05, M.railSide, .33, .085, u0, u1); along(0, .045, .012, M.steel, .33, .113, u0, u1);
+        for (const u of [u0 + .15, u1 - .15]) for (const o of [0, .33]) {
+          const pot = new THREE.Mesh(cache("pot", () => new THREE.CylinderGeometry(.03, .035, .05, 10)), M.ceramic);
+          pot.position.set(L.h ? u : mid + o, .045, L.h ? mid + o : u); trackGrp.add(pot);
+        }
+      }
+    }
+    const inst = new THREE.InstancedMesh(sleeperGeo, sleeperMat, list.length), m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0);
+    list.forEach(([L, u, mid], k) => { q.setFromAxisAngle(up, L.h ? 0 : Math.PI / 2 + (rnd() - .5) * .03); m4.compose(new THREE.Vector3(L.h ? u : mid, .022, L.h ? mid : u), q, new THREE.Vector3(1, 1, 1)); inst.setMatrixAt(k, m4); });
+    inst.receiveShadow = true; trackGrp.add(inst);
+  }
+
+  // selection ring: a rounded outline under the picked train
+  const ringTex = tex(256, 256, (x, w, h) => { x.strokeStyle = "#fff"; x.lineWidth = 14; x.beginPath(); x.roundRect(10, 10, w - 20, h - 20, 40); x.stroke(); });
+  const ringMat = new THREE.MeshBasicMaterial({ map: ringTex, color: 0xffd300, transparent: true, depthWrite: false });
+  const ring = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), ringMat); ring.rotation.x = -Math.PI / 2; ring.position.y = .13; ring.renderOrder = 2; scene.add(ring);
+
+  // sparks from the collector shoes as a train moves off: little blue-white flashes
+  const sparkTex = tex(64, 64, (x, w, h) => { const g = x.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2); g.addColorStop(0, "rgba(255,255,255,1)"); g.addColorStop(.25, "rgba(170,210,255,.9)"); g.addColorStop(1, "rgba(80,140,255,0)"); x.fillStyle = g; x.fillRect(0, 0, w, h); });
+  const sparks = [];
+  for (let k = 0; k < 16; k++) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: sparkTex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); s.visible = false; scene.add(s); sparks.push({ s, t: 1 }); }
+  const spark = (x, z) => { const sp = sparks.find(s => s.t >= 1); if (!sp) return; sp.t = 0; sp.s.position.set(x, .12, z); sp.s.visible = true; };
+
+  let built = -1, trains = [];
+  function build() {
+    for (const t of trains) scene.remove(t.grp);
+    trains = G.ps.map((p, i) => {
+      const t = makeTrain(window.__tsTrain(p, i), p.len);
+      t.last = p.vis; t.dist = 0; t.p = p;
+      scene.add(t.grp); return t;
+    });
+    buildTrack(window.__tsLines(G.ps));
+    built = G.ver;
+  }
+
+  // ---- camera: straight down over the board, fitted to the canvas ----
+  const target = new THREE.Vector3(.62, 0, 0);
+  camera.up.set(0, 0, -1);
+  function size() {
+    const w = board.clientWidth, h = board.clientHeight; if (!w || !h) return;
+    renderer.setPixelRatio(Math.min(2.5, devicePixelRatio || 1));
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    const vf = THREE.MathUtils.degToRad(camera.fov), hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect);
+    const top = .9, dist = top + Math.max(3.52 / Math.tan(vf / 2), 4.14 / Math.tan(hf / 2));
+    camera.position.set(target.x, dist, target.z); camera.lookAt(target);
+    camera.updateProjectionMatrix();
+  }
+  window.__size3d = size;
+  window.__show3d = on => { canvas.style.visibility = on ? "" : "hidden"; if (on) size(); };
+  // pointer -> board cells, on the plane through the middle of the trains
+  const ray = new THREE.Raycaster(), plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -.45), hit = new THREE.Vector3();
+  window.__pick3d = (cx, cy) => {
+    const r = canvas.getBoundingClientRect();
+    ray.setFromCamera(new THREE.Vector2((cx - r.left) / r.width * 2 - 1, -((cy - r.top) / r.height) * 2 + 1), camera);
+    if (!ray.ray.intersectPlane(plane, hit)) return null;
+    return { x: hit.x + 3, y: hit.z + 3 };
+  };
+
+  let lastDt = 0;
+  window.__draw3d = dt => {
+    if (built !== G.ver) build();
+    const t = G.time;
+    G.ps.forEach((p, i) => {
+      const b = trains[i]; if (!b) return;
+      const moved = p.vis - b.last; b.last = p.vis;
+      b.dist += moved * p.face;
+      const cx = p.h ? p.vis + p.len / 2 - 3 : p.line + .5 - 3, cz = p.h ? p.line + .5 - 3 : p.vis + p.len / 2 - 3;
+      b.grp.position.set(cx, 0, cz);
+      b.grp.rotation.y = p.h ? (p.face > 0 ? 0 : Math.PI) : (p.face > 0 ? -Math.PI / 2 : Math.PI / 2);
+      const lift = (G.drag && G.drag.i === i) ? .06 : 0;
+      b.lift = (b.lift || 0) + (lift - (b.lift || 0)) * .3; b.body.position.y = b.lift;
+      // wheels turn with the distance run; the body sways a touch while it moves
+      for (const w of b.wheels) w.rotation.z = -b.dist / .075;
+      const speed = Math.abs(moved) / Math.max(dt, .001);
+      b.sway = (b.sway || 0) + (Math.min(1, speed / 6) - (b.sway || 0)) * .1;
+      b.body.rotation.x = Math.sin(t * 9 + i) * .012 * b.sway;
+      // an occasional flash at the shoes
+      if (speed > 1.5 && Math.random() < .08) spark(cx + (Math.random() - .5) * (p.h ? p.len * .8 : .2), cz + (p.h ? .3 : (Math.random() - .5) * p.len * .8));
+    });
+    for (const sp of sparks) if (sp.t < 1) { sp.t += dt * 6; const k = Math.max(0, 1 - sp.t); sp.s.material.opacity = k; sp.s.scale.setScalar(.12 + (1 - k) * .25); if (sp.t >= 1) sp.s.visible = false; }
+    // selection ring under the picked train (white flash for a hint)
+    const sel = G.hint >= 0 && G.hintT > 0 ? G.hint : G.sel, sp = G.ps[sel];
+    ring.visible = !!sp && !G.won;
+    if (sp) {
+      ring.scale.set(p2w(sp, true), p2w(sp, false), 1);
+      ring.position.x = sp.h ? sp.vis + sp.len / 2 - 3 : sp.line + .5 - 3;
+      ring.position.z = sp.h ? sp.line + .5 - 3 : sp.vis + sp.len / 2 - 3;
+      ringMat.color.set(sel === G.hint && G.hintT > 0 ? 0xffffff : 0xffd300);
+      ringMat.opacity = .65 + Math.sin(t * 5) * .25;
+    }
+    // signal: red until Rosie's way is clear
+    const clear = G.won || (window.__pathClear && window.__pathClear());
+    sigR.emissiveIntensity = clear ? 0 : 1.6; sigG.emissiveIntensity = clear ? 1.8 : 0;
+    sigLight.color.set(clear ? 0x30ff70 : 0xff3020);
+    renderer.render(scene, camera);
+  };
+  window.__cellToScreen = (r, c) => {   // for tests: where a cell's centre lands on screen
+    const q = new THREE.Vector3(c - 2.5, .45, r - 2.5).project(camera), rc = canvas.getBoundingClientRect();
+    return { x: rc.left + (q.x + 1) / 2 * rc.width, y: rc.top + (1 - q.y) / 2 * rc.height };
+  };
+  const p2w = (p, x) => (p.h === x ? p.len : 1) - .04;
+  new ResizeObserver(size).observe(board);
+  size();
+  window.__viewReady && window.__viewReady();
+}
+</script>
+</body>
+</html>

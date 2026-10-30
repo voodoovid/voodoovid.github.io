@@ -1,9 +1,9 @@
 // Offline support for every game on the site. Bump CACHE whenever this file changes.
 // Pages load from the network when online (so updates arrive) and from this cache when offline.
-const CACHE = "voodoovid-games-v41";
+const CACHE = "voodoovid-games-v42";
 const PAGES = [
   "./", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png",
-  "hangman/", "ponchos-adventure/", "ponchos-adventure-3d/", "flip-five/", "flip-five-3d/", "lib/three.module.min.js", "lib/gamepad.js", "follow-chestnut/", "fathom/", "fathom/prompts.js", "ponchos-pills/", "ant-jam/",
+  "hangman/", "ponchos-adventure/", "ponchos-adventure-3d/", "flip-five/", "flip-five-3d/", "lib/three.module.min.js", "lib/gamepad.js", "follow-chestnut/", "fathom/", "fathom/prompts.js", "ponchos-pills/", "mind-the-gap/", "ant-jam/",
   "scareisdale/", "scareisdale/manifest.webmanifest", "scareisdale/icon-192.png", "scareisdale/icon-512.png", "scareisdale/apple-touch-icon.png", "scareisdale/meow.mp3", "scareisdale/purr1.mp3",
 ];
 const FONT_CSS = [
@@ -15,6 +15,7 @@ const FONT_CSS = [
   "https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap",
   "https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;800&family=Righteous&display=swap",
   "https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap",
+  "https://fonts.googleapis.com/css2?family=Hammersmith+One&display=swap",
 ];
 
 async function cacheFonts(cache) {

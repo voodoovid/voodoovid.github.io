@@ -173,14 +173,13 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
         <p>A spooky side-scroller in eight levels over two nights: the midway, graveyard, haunted house and burning furnace, then the swamp, crypt, bell tower and inferno, each with its own music. Pancake, a big grey cat, eats one course of dinner at the end of each. Throw fire with a ghost pepper (not everything burns), kick scarab shells, drop the keepers into the lava, and find the ivy that climbs to the shortcuts.</p>
         <span class="play">Play &rarr;</span>
       </a>
-      <a class="game" href="ant-jam/">
+      <a class="game" href="mind-the-gap/">
         <svg viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="6" y="6" width="56" height="60" rx="6"/><path d="M62 26h6M62 40h6"/>
-          <ellipse cx="22" cy="33" rx="8" ry="5"/><circle cx="33" cy="33" r="4"/><circle cx="42" cy="33" r="4.5"/><path d="M46 30l4-4M46 36l4 4"/>
-          <path d="M14 14v18M14 44v14M50 46h-24"/>
+          <path d="M16 54V26c0-9 9-16 20-16s20 7 20 16v28z"/><path d="M22 30c0-6 6-11 14-11s14 5 14 11v6H22z"/>
+          <circle cx="25" cy="46" r="3"/><circle cx="47" cy="46" r="3"/><path d="M10 62h52M20 54l-4 8M52 54l4 8"/>
         </svg>
-        <h2>Ant Jam</h2>
-        <p>Rosie the red ant has a sugar crumb for the queen, but the tunnel is jammed. Slide cartoon ants and beetles along their lines to clear her way out, Rush Hour-style, in 40 puzzles from Beginner to Expert. In 3D, with a 2D switch.</p>
+        <h2>Mind The Gap</h2>
+        <p>Rosie, the vintage red tube train, is due out on the morning service, but the London depot is jammed. Shunt tube trains and yellow battery locos along their tracks to clear her way into the tunnel, Rush Hour-style, in 40 puzzles from Zone 4 in to Zone 1. In 3D from overhead, with a 2D switch.</p>
         <span class="play">Play &rarr;</span>
       </a>
       <a class="game" href="flip-five/">
@@ -226,7 +225,7 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
 </div>
 <script src="lib/gamepad.js"></script>
 <script>
-const SITE_VERSION = "v1.27";
+const SITE_VERSION = "v1.28";
 // Lock the screen: no rubber-band bounce or drag when swiping, unless the page really needs to scroll (phones)
 document.documentElement.style.overscrollBehavior = "none"; document.body.style.overscrollBehavior = "none";
 document.addEventListener("touchmove", e => {
@@ -251,7 +250,7 @@ if (window.navigator.standalone || matchMedia("(display-mode: standalone)").matc
 // Bluetooth controller: the d-pad / stick moves a gold highlight between the games, A opens one.
 // A game with controller support that is opened this way starts straight away.
 {
-  const PAD_GAMES = ["ponchos-adventure/", "ponchos-pills/", "follow-chestnut/", "scareisdale/", "ant-jam/"];
+  const PAD_GAMES = ["ponchos-adventure/", "ponchos-pills/", "follow-chestnut/", "scareisdale/", "mind-the-gap/"];
   const grid = document.querySelector(".games");
   grid.addEventListener("click", e => {
     const a = e.target.closest("a.game"); if (!a) return;
@@ -273,7 +272,7 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").then(() => navigator.serviceWorker.ready).then(async () => {
     const keys = await caches.keys();
     const cache = keys.length ? await caches.open(keys[0]) : null;
-    const ok = cache && (await Promise.all(["hangman/", "scareisdale/", "ponchos-adventure/", "flip-five/", "follow-chestnut/", "fathom/", "ponchos-pills/", "ant-jam/"].map(p => cache.match(p)))).every(Boolean);
+    const ok = cache && (await Promise.all(["hangman/", "scareisdale/", "ponchos-adventure/", "flip-five/", "follow-chestnut/", "fathom/", "ponchos-pills/", "mind-the-gap/"].map(p => cache.match(p)))).every(Boolean);
     status.textContent = ok ? "Ready to play offline: all games are saved on this device." : "Open this page once more while online to finish saving the games.";
     status.classList.toggle("ready", !!ok);
   }).catch(() => { status.textContent = "This browser can't save the games for offline play."; });
