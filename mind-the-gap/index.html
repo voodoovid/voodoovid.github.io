@@ -240,8 +240,8 @@ h1 .board span { color: var(--gold); }
         <h3>Moving the trains</h3>
         <p><b>Drag</b> any train with your finger or the mouse. Trains only run <b>forwards and backwards</b> along their own track, never sideways, and they can't pass through each other or off the edge of the yard.</p>
         <ul>
-          <li><b>Two-car trains</b> and yellow <b>battery locos</b> (the engineering engines) take up two squares.</li>
-          <li><b>Three-car trains</b> take up three squares, so they're harder to get out of the way.</li>
+          <li><b>Single cars</b> and yellow <b>battery locos</b> (the engineering engines) take up two squares.</li>
+          <li><b>Two-car trains</b> take up three squares, so they're harder to get out of the way.</li>
         </ul>
         <p>Tapping a train picks it (a gold outline shows which one). That matters for the keyboard and controller.</p>
       </section>
@@ -273,7 +273,7 @@ h1 .board span { color: var(--gold); }
         <h3>Tips</h3>
         <ul>
           <li>Work backwards. Find what blocks Rosie's track, then what blocks that train, and so on.</li>
-          <li>Three-car trains running up and down across Rosie's row are usually the real problem. They need room above or below to get clear.</li>
+          <li>Two-car trains running up and down across Rosie's row are usually the real problem. They need room above or below to get clear.</li>
           <li>Sometimes a train has to move the "wrong" way first to make room for another.</li>
           <li>Stuck? Undo a few moves rather than restarting, or take one hint.</li>
         </ul>
@@ -323,7 +323,7 @@ h1 .board span { color: var(--gold); }
 </div>
 <script src="../lib/gamepad.js"></script>
 <script>
-const VERSION = "v2.0";
+const VERSION = "v2.1";
 const $ = id => document.getElementById(id);
 $("version").textContent = VERSION;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -565,23 +565,23 @@ function size() {
 }
 new ResizeObserver(size).observe($("stage"));
 
-// Trains. Two cells long: a two-car tube train or a yellow battery loco (the engineering engines). Three cells long:
-// a three-car train, small round tube stock or the bigger, squarer sub-surface stock. Rosie is a vintage all-red tube train.
+// Trains. Two cells long: a single tube car or a yellow battery loco (the engineering engines). Three cells long:
+// a two-car train, small round tube stock or the bigger, squarer sub-surface stock. Rosie is a vintage all-red tube train.
 // Both views draw from these kinds and liveries (body, doors, skirt below the windows, roof).
 const LIVERY = {
-  rosie:   { body: "#c4231c", door: "#a51a14", skirt: "#c4231c", roof: "#b3201a", line: "#f1e6c8", hero: true },   // 1930s-style red, cream lining
-  modern:  { body: "#f3f3f1", door: "#dc241f", skirt: "#0019a8", roof: "#a7adb3" },   // white, red doors, blue skirt
-  silver:  { body: "#b9bfc6", door: "#dc241f", skirt: "#9aa1a9", roof: "#8d949b" },   // unpainted aluminium, red doors
-  purple:  { body: "#f1f1f3", door: "#6950a1", skirt: "#5f6670", roof: "#8e959c" },   // white and grey, purple doors
-  orange:  { body: "#f3f3f1", door: "#ee7c0e", skirt: "#0019a8", roof: "#8e959c" },   // white, orange doors, blue skirt
-  loco:    { body: "#f2c230", door: "#f2c230", skirt: "#2a2c30", roof: "#e0b22a" },   // engineering yellow
+  rosie:   { body: "#c4231c", door: "#b3201a", skirt: "#c4231c", roof: "#5a2a24", front: "#c4231c", frame: "#e9dfc4", line: "#efe3c2", hero: true },   // 1930s-style red, cream window frames
+  modern:  { body: "#f2f2f0", door: "#dc241f", skirt: "#0019a8", roof: "#6f757c", front: "#dc241f" },   // white, red doors and front, blue skirt
+  silver:  { body: "#b4bac1", door: "#dc241f", skirt: "#8f969e", roof: "#666c73", front: "#dc241f", metal: true },   // unpainted aluminium, red doors
+  purple:  { body: "#f1f1f3", door: "#6950a1", skirt: "#5f6670", roof: "#7c8289", front: "#2c2f35" },   // white and grey, purple doors
+  orange:  { body: "#f3f3f1", door: "#ee7c0e", skirt: "#0019a8", roof: "#7c8289", front: "#2c2f35" },   // white, orange doors, blue skirt
+  loco:    { body: "#f2c230", door: "#f2c230", skirt: "#2a2c30", roof: "#3c3f44", front: "#f2c230" },   // engineering yellow
 };
 function trainOf(p, i) {
-  if (p.hero) return { kind: "tube", cars: 2, col: LIVERY.rosie };
+  if (p.hero) return { kind: "tube", cars: 1, col: LIVERY.rosie };
   const k = (i * 5 + p.len * 3) % 4;   // a mixed depot, the same for a level every time
-  if (p.len === 3) return k === 0 ? { kind: "tube", cars: 3, col: LIVERY.silver } : k === 1 ? { kind: "tube", cars: 3, col: LIVERY.modern }
-    : { kind: "surface", cars: 3, col: k === 2 ? LIVERY.purple : LIVERY.orange };
-  return k === 0 ? { kind: "loco", cars: 1, col: LIVERY.loco } : { kind: "tube", cars: 2, col: k === 1 ? LIVERY.silver : LIVERY.modern };
+  if (p.len === 3) return k === 0 ? { kind: "tube", cars: 2, col: LIVERY.silver } : k === 1 ? { kind: "tube", cars: 2, col: LIVERY.modern }
+    : { kind: "surface", cars: 2, col: k === 2 ? LIVERY.purple : LIVERY.orange };
+  return k === 0 ? { kind: "loco", cars: 1, col: LIVERY.loco } : { kind: "tube", cars: 1, col: k === 1 ? LIVERY.silver : LIVERY.modern };
 }
 window.__tsTrain = trainOf;
 window.__tsLivery = LIVERY;
@@ -874,7 +874,7 @@ function ensureAudio() {
     if (!actx) {
       actx = new (window.AudioContext || window.webkitAudioContext)();
       master = actx.createGain(); master.gain.value = 0.55; master.connect(actx.destination);
-      musicBus = actx.createGain(); musicBus.gain.value = musicOn ? 0.32 : 0; musicBus.connect(master);
+      musicBus = actx.createGain(); musicBus.gain.value = musicOn ? 0.5 : 0; musicBus.connect(master);
       noiseBuf = actx.createBuffer(1, actx.sampleRate * 0.25, actx.sampleRate);
       const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
       actx.addEventListener("statechange", () => { if (document.hidden && actx.state === "running") actx.suspend(); });
@@ -953,31 +953,136 @@ const Snd = {
   setOn() {
     if (!actx) return;
     if (!soundOn) { actx.suspend(); return; }
-    actx.resume(); musicBus.gain.setTargetAtTime(musicOn ? 0.32 : 0, actx.currentTime, 0.1);
+    actx.resume(); musicBus.gain.setTargetAtTime(musicOn ? 0.5 : 0, actx.currentTime, 0.1);
   }
 };
-// Music: two original loops on a marimba-ish voice with a plucked bass, 8th notes. Each level change alternates them.
-// Notes are semitones from the key's root (null = rest).
+// Music: three original pieces for a small jazz trio (electric piano, upright bass, brushed drums) with swing and a little
+// room reverb, like a band busking in a tiled station passage. Each level change moves on to the next piece.
+// Chords are written per half bar: [root note name, quality]. Melodies are composed from the chords when the page loads:
+// a four-bar idea, answered over the next four bars, repeated, with its own ending.
+const Q = { maj7: [4, 7, 11, 14], m7: [3, 7, 10, 14], d7: [4, 9, 10, 14], m7b5: [3, 6, 10, 15], d7b9: [4, 7, 10, 13], m6: [3, 7, 9, 14] };
+const TONES = { maj7: [0, 4, 7, 11, 14], m7: [0, 3, 7, 10, 14], d7: [0, 4, 7, 10, 14], m7b5: [0, 3, 6, 10], d7b9: [0, 4, 7, 10, 13], m6: [0, 3, 7, 9, 14] };
+const PC = { C: 0, Db: 1, D: 2, Eb: 3, E: 4, F: 5, Gb: 6, G: 7, Ab: 8, A: 9, Bb: 10, B: 11 };
+const bars = list => list.flatMap(b => (Array.isArray(b[0]) ? b : [b, b]).map(([r, q]) => ({ r: PC[r], q })));
 const TRACKS = [
-  { name: "Busker", bpm: 112, root: 60,
-    mel: [0,null,4,7, 9,7,4,null, 2,null,5,9, 7,null,4,2, 0,null,4,7, 12,11,9,7, 5,4,2,4, 0,null,null,null],
-    bass: [-12,null,-5,null, -3,null,-5,null, -10,null,-3,null, -5,null,-8,null, -12,null,-5,null, -3,null,-5,null, -7,null,-5,null, -12,null,null,null] },
-  { name: "Night Tube", bpm: 96, root: 57,
-    mel: [0,3,7,null, 10,7,3,null, 5,8,12,null, 10,8,7,null, 3,7,10,null, 12,10,7,5, 3,2,0,null, 7,null,null,null],
-    bass: [-12,null,null,-5, -12,null,null,-5, -7,null,null,-2, -7,null,null,-5, -9,null,null,-2, -9,null,null,-5, -10,null,null,-5, -12,null,null,null] },
+  { name: "Platform Four", bpm: 100, swing: .64, seed: 7,
+    ch: bars([["F", "maj7"], ["D", "m7"], ["G", "m7"], ["C", "d7"], ["A", "m7"], ["D", "d7b9"], [["G", "m7"], ["C", "d7"]], ["F", "maj7"]]) },
+  { name: "Night Bus", bpm: 80, swing: .62, seed: 3,
+    ch: bars([["C", "m6"], ["F", "m7"], [["D", "m7b5"], ["G", "d7b9"]], ["C", "m6"], ["Ab", "maj7"], ["D", "m7b5"], ["G", "d7b9"], ["C", "m6"]]) },
+  { name: "Waterloo Shuffle", bpm: 116, swing: .66, seed: 21,
+    ch: bars([["Bb", "maj7"], ["G", "m7"], ["C", "m7"], ["F", "d7"], ["D", "m7"], ["G", "d7"], [["C", "m7"], ["F", "d7"]], ["Bb", "maj7"]]) },
 ];
+// compose each melody: 16 bars of 8 swung eighths, as { n: note, d: length in eighths } or null
+(function compose() {
+  const RHY = [[0, 3, 4, 6], [1, 2, 4], [0, 2, 3, 5], [0, 4, 5], [2, 3, 4, 7], [0, 1, 2, 4, 6], [1, 3, 4]];
+  for (const tr of TRACKS) {
+    let s = tr.seed * 7919 + 1; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+    const tones = (bar, pos) => { const c = tr.ch[(bar % 8) * 2 + (pos >= 4 ? 1 : 0)], out = [];
+      for (let o = 48; o <= 96; o += 12) for (const t of TONES[c.q]) { const n = o + ((c.r + t) % 12); if (n >= 65 && n <= 81) out.push(n); }
+      return [...new Set(out)].sort((a, b) => a - b); };
+    const snap = (n, set) => set.reduce((a, b) => Math.abs(b - n) < Math.abs(a - n) ? b : a);
+    const mel = new Array(128).fill(null);
+    const idea = [];   // bars 0-3: rhythm and steps, reused by bars 4-7 over their own chords
+    let prev = 72;
+    const put = (bar, rhy, steps) => {
+      rhy.forEach((p, k) => {
+        const set = tones(bar, p), i = set.indexOf(snap(prev, set));
+        const j = Math.max(0, Math.min(set.length - 1, i + steps[k]));
+        prev = set[j];
+        const len = (k + 1 < rhy.length ? rhy[k + 1] : 8) - p;
+        mel[bar * 8 + p] = { n: prev, d: Math.min(3, len) };
+      });
+    };
+    for (let b = 0; b < 4; b++) {
+      const rhy = RHY[Math.floor(r() * RHY.length)], steps = rhy.map(() => Math.round((r() - .5) * 3.2));
+      idea.push([rhy, steps]); put(b, rhy, steps);
+    }
+    for (let b = 4; b < 7; b++) put(b, idea[b - 4][0], idea[b - 4][1].map(v => -v));   // the answer goes the other way
+    put(7, [0], [0]); mel[56].d = 6;                                                    // hold at the half-way cadence
+    for (let b = 8; b < 14; b++) put(b, idea[b % 4][0], idea[b % 4][1].map(v => (b >= 12 ? -v : v)));
+    put(14, [0, 2, 3, 4, 6], [1, -1, -1, 1, -1]);
+    // land on the home chord's root or third for the ending
+    const home = tr.ch[14], last = snap(prev, [65, 69, 72, 76, 77, 81].filter(n => [home.r, (home.r + (home.q !== "maj7" && home.q[0] === "m" ? 3 : 4)) % 12].includes(n % 12)).concat([home.r + 72]));
+    mel[120] = { n: last, d: 8 };
+    tr.mel = mel;
+  }
+})();
 const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+let revIn = null;
+function musicOut() {
+  if (revIn) return revIn;
+  // a short, bright room: a stereo burst of decaying noise as the reverb's impulse
+  const len = Math.floor(actx.sampleRate * 1.8), ir = actx.createBuffer(2, len, actx.sampleRate);
+  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2); }
+  const conv = actx.createConvolver(), wet = actx.createGain(); conv.buffer = ir; wet.gain.value = .22;
+  revIn = actx.createGain(); revIn.connect(musicBus); revIn.connect(conv); conv.connect(wet); wet.connect(musicBus);
+  return revIn;
+}
+// electric piano: an FM tine (a sine modulating a sine) that starts bright and mellows as it rings
+function ep(m, t, dur, vol) {
+  const f = mtof(m), c = actx.createOscillator(), md = actx.createOscillator(), mg = actx.createGain(), tine = actx.createOscillator(), tg = actx.createGain(), g = actx.createGain(), lp = actx.createBiquadFilter();
+  c.frequency.value = f; md.frequency.value = f; tine.frequency.value = f * 4.01;
+  mg.gain.setValueAtTime(f * 1.6, t); mg.gain.exponentialRampToValueAtTime(f * .25, t + .5);
+  tg.gain.setValueAtTime(vol * .18, t); tg.gain.exponentialRampToValueAtTime(.0001, t + .12);
+  const end = t + Math.max(.4, dur) + .5;
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .006); g.gain.exponentialRampToValueAtTime(vol * .35, t + .6);
+  g.gain.setValueAtTime(vol * .35, t + Math.max(.3, dur)); g.gain.exponentialRampToValueAtTime(.0001, end);
+  lp.type = "lowpass"; lp.frequency.value = 3200;
+  md.connect(mg); mg.connect(c.frequency); c.connect(g); tine.connect(tg); tg.connect(g); g.connect(lp); lp.connect(musicOut());
+  for (const o of [c, md, tine]) { o.start(t); o.stop(end + .05); }
+}
+// upright bass: a round plucked note with a quick thump
+function bass(m, t, dur) {
+  const f = mtof(m), o = actx.createOscillator(), o2 = actx.createOscillator(), g = actx.createGain(), lp = actx.createBiquadFilter();
+  o.type = "triangle"; o.frequency.value = f; o2.frequency.value = f * 2;
+  lp.type = "lowpass"; lp.frequency.setValueAtTime(900, t); lp.frequency.exponentialRampToValueAtTime(320, t + .25);
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.55, t + .012); g.gain.exponentialRampToValueAtTime(.22, t + .2); g.gain.exponentialRampToValueAtTime(.0001, t + dur + .08);
+  const g2 = actx.createGain(); g2.gain.value = .25; o2.connect(g2); g2.connect(g);
+  o.connect(g); g.connect(lp); lp.connect(musicOut()); o.start(t); o2.start(t); o.stop(t + dur + .1); o2.stop(t + dur + .1);
+}
+// brushes: a swish on 2 and 4, a light tap on the ride pattern, a soft kick
+function noiseHit(t, dur, type, freq, q, vol) {
+  const s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+  s.buffer = noiseBuf; f.type = type; f.frequency.value = freq; f.Q.value = q;
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + Math.min(.03, dur / 3)); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  s.connect(f); f.connect(g); g.connect(musicOut()); s.start(t, Math.random() * .05, dur + .02);
+}
+function kick(t) { const o = actx.createOscillator(), g = actx.createGain(); o.frequency.setValueAtTime(95, t); o.frequency.exponentialRampToValueAtTime(48, t + .14);
+  g.gain.setValueAtTime(.32, t); g.gain.exponentialRampToValueAtTime(.0001, t + .22); o.connect(g); g.connect(musicOut()); o.start(t); o.stop(t + .25); }
+// voicings sit in the middle of the keyboard; the bass walks in quarter notes, leaning into the next chord
+const voice = c => Q[c.q].map(iv => { let n = 48 + ((c.r + iv) % 12) + (iv >= 12 ? 12 : 0); while (n < 53) n += 12; while (n > 67) n -= 12; return n; }).sort((a, b) => a - b);
+let lastBass = 41;
+const near = (pc, around) => { let n = 33 + ((pc - 33 % 12 + 24) % 12); while (n + 12 <= 50 && Math.abs(n + 12 - around) < Math.abs(n - around)) n += 12; return n; };
+const COMP = [[0, 3], [2, 5], [0, 5], [3, 6], [0, 2, 6]];
 function schedule() {
   if (!actx || actx.state !== "running") return;
-  const tr = TRACKS[track], dt = 60 / tr.bpm / 2;
-  while (nextTime < actx.currentTime + 0.25) {
+  const tr = TRACKS[track], beat = 60 / tr.bpm;
+  while (nextTime < actx.currentTime + 0.3) {
+    const i = step % 128, bar = Math.floor(i / 8), pos = i % 8, half = (bar % 8) * 2 + (pos >= 4 ? 1 : 0), c = tr.ch[half];
+    const len8 = pos % 2 ? beat * (1 - tr.swing) : beat * tr.swing;
     if (musicOn) {
-      const i = step % tr.mel.length, m = tr.mel[i], b = tr.bass[i];
-      if (m != null) { tone(mtof(tr.root + 12 + m), nextTime, 0.28, "sine", 0.22, musicBus); tone(mtof(tr.root + 24 + m), nextTime, 0.08, "triangle", 0.05, musicBus); }
-      if (b != null) tone(mtof(tr.root + b), nextTime, 0.3, "triangle", 0.3, musicBus);
-      if (i % 4 === 2) tick(nextTime, 0.05, 6000);
+      const t = nextTime;
+      // bass
+      if (pos % 2 === 0) {
+        const k = pos / 2, nxt = tr.ch[k === 3 ? ((bar + 1) % 8) * 2 : half + (k === 1 ? 1 : 0)];
+        let n;
+        const first = tr.ch[(bar % 8) * 2];
+        if (k === 0 || (k === 2 && first.r !== c.r)) n = near(c.r, lastBass);      // a new chord gets its root
+        else if (k === 3) n = near(nxt.r, lastBass) + (Math.random() < .5 ? 1 : -1);   // chromatic approach
+        else n = near((c.r + TONES[c.q][k === 1 ? 1 : 2]) % 12, lastBass);
+        lastBass = n; bass(n, t, beat * .95);
+      }
+      // piano comping
+      const cp = COMP[(bar * 3 + tr.seed) % COMP.length];
+      if (cp.includes(pos)) { const v = voice(c), long = pos === cp[0]; v.forEach((n, k) => ep(n, t + k * .006, beat * (long ? 1.3 : .45), .055)); }
+      // melody
+      const m = tr.mel[i]; if (m) ep(m.n, t, m.d * beat * .5 * .95, .12);
+      // drums
+      if (pos % 2 === 0 || pos === 3 || pos === 7) noiseHit(t, .06, "highpass", 7000, .7, pos % 2 ? .05 : .08);
+      if (pos === 2 || pos === 6) noiseHit(t, .22, "bandpass", 3200, .6, .07);
+      if (pos === 0 && bar % 2 === 0) kick(t);
     }
-    nextTime += dt; step++;
+    nextTime += len8; step++;
   }
 }
 
@@ -986,7 +1091,7 @@ let lastT = performance.now(), lastLvl = -1;
 function frame(now) {
   const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now; g.time += dt;
   if (g.hintT > 0) g.hintT -= dt;
-  if (lastLvl !== g.lvl) { if (lastLvl >= 0) { track = (track + 1) % TRACKS.length; step = 0; } lastLvl = g.lvl; }
+  if (lastLvl !== g.lvl) { if (lastLvl >= 0) { track = (track + 1) % TRACKS.length; step = 0; nextTime = actx ? Math.max(nextTime, actx.currentTime + .1) : 0; } lastLvl = g.lvl; }
   g.ps.forEach((p, i) => {
     if (g.drag && g.drag.i === i) { p.vis = g.drag.base + g.drag.off; return; }
     let target = p.pos;
@@ -1129,43 +1234,76 @@ if (renderer) {
     x.fillStyle = "#ffd300"; x.fillRect(0, h - 20, w, 6);                        // yellow line
     x.fillStyle = "#ffffff"; x.font = "bold 28px 'Hammersmith One', 'Gill Sans', sans-serif"; x.textAlign = "center"; x.textBaseline = "middle";
     for (let k = 0; k < 3; k++) x.fillText("MIND THE GAP", w * (k + .5) / 3, 21); });
-  // tube car sides, laid out round the body: v = 0 (bottom of one side) .. 0.5 (roof) .. 1 (bottom of the other side)
+  // tube car skin, laid round the body by angle: v = 0 underneath, .25 one side, .5 the roof centre, .75 the other side.
+  // Seen from above you get the roof and the curved shoulders, so the windows and doors run up into the curve, as on real tube stock.
   const liveryTex = {};
-  function carTexture(col, kind, cab0, cab1) {
-    const key = [col.body, kind, cab0, cab1].join();
+  function carTexture(col, kind, L, cab0, cab1) {
+    const key = [col.body, kind, L.toFixed(2), cab0, cab1].join();
     if (liveryTex[key]) return liveryTex[key];
-    const t = tex(1024, 512, (x, w, h) => {
+    const surf = kind === "surface";
+    const t = tex(2048, 512, (x, w, h) => {
+      const R = { skirt: [.1, .16], win: surf ? [.2, .33] : [.27, .41], door: surf ? [.13, .36] : [.13, .445], roof: surf ? [.42, .58] : [.445, .555] };
       const band = (v0, v1, c) => { x.fillStyle = c; x.fillRect(0, h * v0, w, h * (v1 - v0)); x.fillRect(0, h * (1 - v1), w, h * (v1 - v0)); };
+      const rect = (u0, u1, v0, v1, c) => { x.fillStyle = c; x.fillRect(w * u0, h * v0, w * (u1 - u0), h * (v1 - v0)); x.fillRect(w * u0, h * (1 - v1), w * (u1 - u0), h * (v1 - v0)); };
       band(0, .5, col.body);
-      band(0, .07, col.skirt);                                  // skirt along the bottom
-      if (col.line) { band(.13, .135, col.line); band(.3, .305, col.line); }
-      if (kind === "surface") band(.385, .44, col.door);                  // a band of the door colour along the roof edge
-      // roof, with a little grime and the ventilators
-      x.fillStyle = col.roof; x.fillRect(0, h * .44, w, h * .12);
-      for (let k = 0; k < 900; k++) { x.fillStyle = `rgba(${rnd() < .6 ? "0,0,0" : "255,255,255"},${.03 + rnd() * .05})`; x.fillRect(rnd() * w, h * (.44 + rnd() * .12), 2 + rnd() * 10, 1 + rnd() * 2); }
-      x.fillStyle = "rgba(0,0,0,.14)"; x.fillRect(0, h * .435, w, h * .01); x.fillRect(0, h * .555, w, h * .01);
-      // brushed metal for unpainted cars
-      if (col === window.__tsLivery.silver) for (let k = 0; k < 1400; k++) { x.fillStyle = `rgba(255,255,255,${rnd() * .07})`; x.fillRect(0, rnd() * h, w, 1); }
-      // windows between the doors, and the doors (double doors, with their own windows)
-      const doors = kind === "surface" ? [.16, .38, .62, .84] : [.2, .5, .8];
-      const winY = kind === "surface" ? [.17, .31] : [.2, .36];
-      const glass = (u0, u1, v0, v1) => { x.fillStyle = "#11171e"; x.fillRect(w * u0, h * v0, w * (u1 - u0), h * (v1 - v0)); x.fillRect(w * u0, h * (1 - v1), w * (u1 - u0), h * (v1 - v0));
-        x.fillStyle = "rgba(170,200,230,.16)"; x.fillRect(w * u0, h * v0, w * (u1 - u0), h * (v1 - v0) * .35); x.fillRect(w * u0, h * (1 - v1), w * (u1 - u0), h * (v1 - v0) * .35); };
-      let u = cab0 ? .1 : .03;
-      for (const d of doors) { glass(u, d - .07, winY[0], winY[1]); u = d + .07; }
-      glass(u, cab1 ? .9 : .97, winY[0], winY[1]);
+      band(0, R.skirt[0], "#1c1d20");                              // underneath
+      band(R.skirt[0], R.skirt[1], col.skirt);
+      // brushed aluminium, or a soft sheen on paint, plus grime collecting low down
+      if (col.metal) for (let k = 0; k < 2200; k++) { x.fillStyle = `rgba(${rnd() < .5 ? "255,255,255" : "40,44,50"},${rnd() * .06})`; x.fillRect(0, rnd() * h, w, 1); }
+      for (const sd of [0, 1]) { const g = x.createLinearGradient(0, sd ? h : 0, 0, h * (sd ? .78 : .22)); g.addColorStop(0, "rgba(40,30,20,.35)"); g.addColorStop(1, "rgba(40,30,20,0)"); x.fillStyle = g; x.fillRect(0, sd ? h * .78 : 0, w, h * .22); }
+      if (surf) band(.36, R.roof[0], col.door);                   // door colour along the roof edge
+      // windows (one long glazed band broken by the doors), each with a frame and a sky reflection
+      const glass = (u0, u1, v0, v1) => {
+        rect(u0 - .002, u1 + .002, v0 - .004, v1 + .004, col.frame || "#3a3e44");
+        rect(u0, u1, v0, v1, "#0f141a");
+        for (const sd of [0, 1]) { const y0 = sd ? h * (1 - v1) : h * v0, hh = h * (v1 - v0), g = x.createLinearGradient(0, y0 + (sd ? hh : 0), 0, y0 + (sd ? 0 : hh));
+          g.addColorStop(0, "rgba(150,180,210,.05)"); g.addColorStop(1, "rgba(200,220,240,.28)"); x.fillStyle = g; x.fillRect(w * u0, y0, w * (u1 - u0), hh); }
+      };
+      const end0 = cab0 ? .06 : .015, end1 = cab1 ? .94 : .985;
+      const nd = Math.max(2, Math.round(L / .6)), doors = [];
+      for (let k = 0; k < nd; k++) doors.push(end0 + .05 + (end1 - end0 - .1) * (k + .5) / nd);
+      const dw = .085 / L;   // half a double door, in u
+      let u = end0;
+      for (const d of doors) { if (d - dw - .012 > u + .01) glass(u + .012, d - dw - .012, R.win[0], R.win[1]); u = d + dw; }
+      if (end1 - .012 > u + .01) glass(u + .012, end1 - .012, R.win[0], R.win[1]);
       for (const d of doors) {
-        const dt = kind === "surface" ? .33 : .4;   // tube doors cut up into the roof curve
-        x.fillStyle = col.door; x.fillRect(w * (d - .065), h * .055, w * .13, h * (dt - .055)); x.fillRect(w * (d - .065), h * (1 - dt), w * .13, h * (dt - .055));
-        x.fillStyle = "#111"; x.fillRect(w * d - 1, h * .055, 2, h * (dt - .055)); x.fillRect(w * d - 1, h * (1 - dt), 2, h * (dt - .055));
-        for (const s of [-1, 1]) glass(d + s * .033 - .02, d + s * .033 + .02, winY[0] + .01, winY[1] - .01);
+        rect(d - dw - .003, d + dw + .003, R.door[0] - .004, R.door[1] + .004, "rgba(0,0,0,.45)");
+        rect(d - dw, d + dw, R.door[0], R.door[1], col.door);
+        rect(d - .0015, d + .0015, R.door[0], R.door[1], "#111");
+        for (const s of [-1, 1]) glass(d + s * dw * .5 - dw * .28, d + s * dw * .5 + dw * .28, R.win[0] + .015, R.win[1] - .005);
       }
-      // cab side windows at driving ends
-      if (cab0) glass(.02, .07, winY[0], winY[1]); if (cab1) glass(.93, .98, winY[0], winY[1]);
-      // panel seams
-      x.fillStyle = "rgba(0,0,0,.18)"; for (const d of [0, 1]) x.fillRect(d ? w - 3 : 0, 0, 3, h);
+      if (cab0) glass(.012, end0 - .01, R.win[0], R.win[1]); if (cab1) glass(end1 + .01, .988, R.win[0], R.win[1]);
+      if (col.line) { band(R.win[0] - .02, R.win[0] - .014, col.line); band(R.win[1] + .014, R.win[1] + .02, col.line); }
+      // roof: weathered grey with panel seams, vents and a darker crown where the brake dust settles
+      const r0 = R.roof[0], r1 = R.roof[1];
+      x.fillStyle = col.roof; x.fillRect(0, h * r0, w, h * (r1 - r0));
+      { const g = x.createLinearGradient(0, h * r0, 0, h * r1); g.addColorStop(0, "rgba(0,0,0,.25)"); g.addColorStop(.25, "rgba(0,0,0,0)"); g.addColorStop(.75, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,0,0,.25)"); x.fillStyle = g; x.fillRect(0, h * r0, w, h * (r1 - r0)); }
+      for (let k = 0; k < 2600; k++) { x.fillStyle = `rgba(${rnd() < .7 ? "20,16,12" : "255,255,255"},${.03 + rnd() * .06})`; x.fillRect(rnd() * w, h * (r0 + rnd() * (r1 - r0)), 3 + rnd() * 30, 1 + rnd() * 2); }
+      x.fillStyle = "rgba(0,0,0,.22)"; for (let uu = .04; uu < 1; uu += .055) x.fillRect(w * uu, h * r0, 2, h * (r1 - r0));
+      for (const d of doors) {   // a ventilator hatch over each door bay
+        const cx = w * (d + (doors[1] ? (doors[1] - doors[0]) / 2 : .1)) % w;
+        x.fillStyle = "rgba(0,0,0,.35)"; x.fillRect(cx - 22, h * .5 - 13, 44, 26);
+        x.fillStyle = shade(col.roof, 18); x.fillRect(cx - 20, h * .5 - 11, 40, 22);
+        x.fillStyle = "rgba(0,0,0,.4)"; for (let k = -16; k <= 16; k += 5) x.fillRect(cx + k, h * .5 - 8, 2, 16);
+      }
+      x.fillStyle = "rgba(0,0,0,.35)"; x.fillRect(0, 0, 4, h); x.fillRect(w - 4, 0, 4, h);   // car ends
     });
+    t.anisotropy = 16;
     return (liveryTex[key] = t);
+  }
+  function shade(hex, d) { const n = parseInt(hex.slice(1), 16), c = k => Math.max(0, Math.min(255, ((n >> k) & 255) + d)); return `rgb(${c(16)},${c(8)},${c(0)})`; }
+  // the cab front: windscreen, destination blind, lights, the front colour
+  const frontTex = {};
+  function cabFront(col) {
+    if (frontTex[col.body]) return frontTex[col.body];
+    return (frontTex[col.body] = tex(256, 256, (x, w, h) => {
+      x.fillStyle = col.front; x.fillRect(0, 0, w, h);
+      x.fillStyle = "#0f141a"; x.beginPath(); x.roundRect(w * .14, h * .2, w * .72, h * .36, 18); x.fill();
+      x.fillStyle = "rgba(200,220,240,.25)"; x.fillRect(w * .16, h * .22, w * .68, h * .1);
+      x.fillStyle = "#111"; x.fillRect(w * .3, h * .07, w * .4, h * .09); x.fillStyle = "#ffb000"; x.font = "bold 18px sans-serif"; x.textAlign = "center"; x.fillText("NOT IN SERVICE", w / 2, h * .135);
+      for (const s of [.22, .78]) { x.fillStyle = "#fff6d8"; x.beginPath(); x.arc(w * s, h * .72, 12, 0, 7); x.fill(); x.fillStyle = "#d22"; x.beginPath(); x.arc(w * s + (s < .5 ? 26 : -26), h * .72, 8, 0, 7); x.fill(); }
+      x.fillStyle = col.skirt; x.fillRect(0, h * .86, w, h * .14);
+    }));
   }
 
   // ---- geometry helpers ----
@@ -1176,23 +1314,21 @@ if (renderer) {
   const cylY = (p, r1, r2, h, m, x, y, z, seg = 20) => mesh(p, cache(`y${r1},${r2},${h},${seg}`, () => new THREE.CylinderGeometry(r1, r2, h, seg)), m, x, y, z);
   const cylX = (p, r1, r2, h, m, x, y, z, seg = 20) => mesh(p, cache(`x${r1},${r2},${h},${seg}`, () => new THREE.CylinderGeometry(r1, r2, h, seg).rotateZ(-Math.PI / 2)), m, x, y, z);
   const cylZ = (p, r1, r2, h, m, x, y, z, seg = 20) => mesh(p, cache(`z${r1},${r2},${h},${seg}`, () => new THREE.CylinderGeometry(r1, r2, h, seg).rotateX(Math.PI / 2)), m, x, y, z);
-  // a car body: a rounded cross-section (width w, height h, roof corner radius rt, bottom radius rb) run along x for length L,
-  // with UVs laid round the body for the livery texture (u along the car, v round the profile)
+  // a car body: a rounded cross-section (width w, height h, roof corner radius rt, bottom radius rb) run along x for length L.
+  // UVs: u along the car, v round the profile by angle from the underside (see carTexture)
   function bodyGeo(L, w, h, rt, rb) {
     return cache(`body${L},${w},${h},${rt},${rb}`, () => {
       const sh = new THREE.Shape(), hw = w / 2, hh = h / 2;
       sh.moveTo(-hw + rb, -hh); sh.lineTo(hw - rb, -hh); sh.quadraticCurveTo(hw, -hh, hw, -hh + rb);
       sh.lineTo(hw, hh - rt); sh.quadraticCurveTo(hw, hh, hw - rt, hh); sh.lineTo(-hw + rt, hh); sh.quadraticCurveTo(-hw, hh, -hw, hh - rt);
       sh.lineTo(-hw, -hh + rb); sh.quadraticCurveTo(-hw, -hh, -hw + rb, -hh);
-      const g = new THREE.ExtrudeGeometry(sh, { depth: L, bevelEnabled: false, curveSegments: 10 });
+      const g = new THREE.ExtrudeGeometry(sh, { depth: L, bevelEnabled: false, curveSegments: 14 });
       g.translate(0, 0, -L / 2); g.rotateY(Math.PI / 2);
       const p = g.attributes.position, uv = g.attributes.uv;
       for (let i = 0; i < p.count; i++) {
         const x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-        const along = (x + L / 2) / L, up = (y + hh) / h;
-        // after the turn, the shape's x became -z: one side is z < 0
-        const v = z < 0 ? up * .5 : 1 - up * .5;
-        uv.setXY(i, along, Math.abs(z) < hw * .02 ? .5 : v);
+        let a = Math.atan2(-z, -y) / (Math.PI * 2); if (a < 0) a += 1;
+        uv.setXY(i, (x + L / 2) / L, a);
       }
       g.computeVertexNormals();
       return g;
@@ -1201,13 +1337,13 @@ if (renderer) {
   const capsuleish = (p, L, w, h, rt, rb, m, x, y, z) => mesh(p, bodyGeo(L, w, h, rt, rb), m, x, y, z);
 
   // a bogie: two axles under a frame, with the collector shoes beside it
-  function bogie(parent, x, wheels) {
+  function bogie(parent, x, wheels, gw) {
     const b = new THREE.Group(); b.position.set(x, 0, 0); parent.add(b);
-    box(b, .36, .07, .46, M.under, 0, .16, 0);
-    for (const ax of [-.11, .11]) for (const s of [-1, 1]) {
+    box(b, .34, .06, gw + .02, M.under, 0, .15, 0);
+    for (const ax of [-.1, .1]) for (const s of [-1, 1]) {
       const wh = new THREE.Group(); wh.position.set(ax, .1, s * .2); b.add(wh);
-      cylZ(wh, .075, .075, .035, M.dark, 0, 0, 0, 18);
-      box(wh, .1, .012, .036, M.steel, 0, .0, 0).rotation.z = .3;   // a spoke flash so the turning shows
+      cylZ(wh, .07, .07, .035, M.dark, 0, 0, 0, 18);
+      box(wh, .09, .012, .036, M.steel, 0, 0, 0).rotation.z = .3;   // a spoke flash so the turning shows
       wheels.push(wh);
     }
     for (const s of [-1, 1]) box(b, .12, .025, .05, M.dark, 0, .065, s * .29);   // collector shoes
@@ -1215,31 +1351,23 @@ if (renderer) {
     return b;
   }
 
-  // one car of a tube train, centred on x, length L. kind "tube" is the small round deep-level stock, "surface" the bigger squarer one
+  // one car, centred on x, length L. "tube": the small round deep-level stock; "surface": the bigger, squarer stock
   function car(parent, x, L, col, kind, cab0, cab1, wheels) {
     const c = new THREE.Group(); c.position.x = x; parent.add(c);
     const surf = kind === "surface";
-    const w = surf ? .66 : .56, h = surf ? .66 : .56, rt = surf ? .12 : .22, y0 = surf ? .18 : .16;
-    const m = new THREE.MeshPhysicalMaterial({ map: carTexture(col, kind, cab0, cab1), roughness: col === window.__tsLivery.silver ? .35 : .3, metalness: col === window.__tsLivery.silver ? .75 : .2, clearcoat: .6, clearcoatRoughness: .2 });
+    const w = surf ? .54 : .46, h = surf ? .6 : .5, rt = surf ? .1 : .2, y0 = .17;
+    const m = new THREE.MeshPhysicalMaterial({ map: carTexture(col, kind, L, cab0, cab1), roughness: col.metal ? .4 : .42, metalness: col.metal ? .65 : .05,
+      clearcoat: col.metal ? .1 : .3, clearcoatRoughness: .35, envMapIntensity: .55 });
     capsuleish(c, L, w, h, rt, .03, m, 0, y0 + h / 2, 0);
-    // underframe equipment between the bogies
-    box(c, L - .5, .08, w * .7, M.under, 0, y0 - .02, 0);
-    for (const bx of [-L / 2 + .2, L / 2 - .2]) bogie(c, bx, wheels);
-    // roof: ventilators / air-conditioning pods along the middle
-    const vents = surf ? [-.22, .22] : [-.25, 0, .25];
-    for (const f of vents) {
-      const v = mesh(c, cache("pod" + surf, () => new THREE.CapsuleGeometry(surf ? .09 : .06, surf ? .22 : .12, 4, 10).rotateZ(Math.PI / 2)), paint(surf ? "#c9ced3" : "#a2a8ae", .5), f * L, y0 + h + (surf ? .02 : .01), 0);
-      v.scale.y = .45;
-    }
-    // driving cab ends: windscreen, headlights and tail lights, a coupler
+    box(c, L - .5, .08, w * .7, M.under, 0, y0 - .02, 0);           // underframe equipment between the bogies
+    for (const bx of [-L / 2 + .2, L / 2 - .2]) bogie(c, bx, wheels, w * .8);
     for (const [on, s] of [[cab1, 1], [cab0, -1]]) {
-      if (!on) { box(c, .06, h * .7, w * .5, M.rubber, s * (L / 2 + .02), y0 + h * .45, 0); continue; }   // gangway bellows
-      const ex = s * (L / 2 + .004);
-      const ws = box(c, .012, h * .3, w * .78, M.glass, ex, y0 + h * .66, 0);
-      box(c, .01, h * .06, w * .82, paint("#16181b", .5), ex, y0 + h * .82, 0);   // the dark band over the windscreen
-      for (const z of [-.18, .18]) { box(c, .012, .04, .06, s > 0 ? M.lamp : M.tail, ex, y0 + h * .22, z * w / .56); }
-      box(c, .09, .07, .1, M.dark, s * (L / 2 + .045), y0 + .02, 0);   // coupler
-      box(c, .012, .12, w * .9, paint(col.skirt === col.body ? "#16181b" : col.skirt, .5), ex, y0 + .03, 0);
+      if (!on) { box(c, .07, h * .72, w * .55, M.rubber, s * (L / 2 + .02), y0 + h * .46, 0); continue; }   // gangway bellows to the next car
+      // cab: a short shell in the front colour, the face with windscreen and lights, a coupler
+      const nose = capsuleish(c, .1, w + .006, h + .006, rt + .003, .03, paint(col.front, .3), s * (L / 2 - .05), y0 + h / 2, 0);
+      const face = new THREE.Mesh(cache(`face${surf}`, () => new THREE.PlaneGeometry(w * .94, h * .94)), new THREE.MeshPhysicalMaterial({ map: cabFront(col), roughness: .3, clearcoat: .6 }));
+      face.position.set(s * (L / 2 + .004), y0 + h * .47, 0); face.rotation.y = s * Math.PI / 2; c.add(face);
+      box(c, .1, .06, .1, M.dark, s * (L / 2 + .05), y0 + .03, 0);
     }
     return c;
   }
@@ -1248,12 +1376,12 @@ if (renderer) {
     const lg = new THREE.Group(); parent.add(lg);
     const body = paint(col.body, .45);
     box(lg, L - .04, .12, .62, M.under, 0, .22, 0);
-    for (const bx of [-L / 2 + .32, L / 2 - .32]) bogie(lg, bx, wheels);
+    for (const bx of [-L / 2 + .32, L / 2 - .32]) bogie(lg, bx, wheels, .5);
     for (const s of [-1, 1]) {
       const hz = box(lg, .03, .14, .64, new THREE.MeshStandardMaterial({ map: hazardTex, roughness: .6 }), s * (L / 2 - .015), .24, 0);
       capsuleish(lg, .36, .62, .44, .06, .02, body, s * (L / 2 - .23), .52, 0);                 // cab
       box(lg, .37, .12, .63, M.glass, s * (L / 2 - .23), .62, 0);                                // cab windows all round
-      capsuleish(lg, .38, .6, .04, .02, .0, paint(col.roof, .5), s * (L / 2 - .23), .76, 0);   // cab roof
+      capsuleish(lg, .38, .6, .04, .02, .0, paint(col.roof, .55), s * (L / 2 - .23), .76, 0);   // cab roof
       box(lg, .06, .05, .1, M.dark, s * (L / 2 + .02), .22, 0);
       for (const z of [-.2, .2]) box(lg, .012, .05, .06, s > 0 ? M.lamp : M.tail, s * (L / 2 - .045), .36, z);
       cylY(lg, .012, .012, .12, M.steel, s * (L / 2 - .23), .84, .18);                             // horn post
@@ -1273,10 +1401,10 @@ if (renderer) {
   function makeTrain(t, len) {
     const grp = new THREE.Group(), body = new THREE.Group(); grp.add(body);
     const L = len - .1, wheels = [];
-    const ao = new THREE.Mesh(new THREE.PlaneGeometry(L + .3, .95), blobMat); ao.rotation.x = -Math.PI / 2; ao.position.y = .085; grp.add(ao);
+    const ao = new THREE.Mesh(new THREE.PlaneGeometry(L + .25, .8), blobMat); ao.rotation.x = -Math.PI / 2; ao.position.y = .085; grp.add(ao);
     if (t.kind === "loco") loco(body, L, t.col, wheels);
     else {
-      const n = t.cars, gap = .05, cl = (L - gap * (n - 1)) / n;
+      const n = t.cars, gap = .07, cl = (L - gap * (n - 1)) / n;
       for (let k = 0; k < n; k++) car(body, -L / 2 + cl / 2 + k * (cl + gap), cl, t.col, t.kind, k === 0, k === n - 1, wheels);
     }
     return { grp, body, wheels, sparks: [] };
