@@ -123,6 +123,22 @@ h1 .board span { color: var(--gold); }
 #toast.on { opacity: 1; }
 @media (max-height: 700px) { .tool { height: 46px; } h1 { font-size: 18px; } }
 @media (max-width: 500px) { h1 { font-size: 15px; } h1 .board { padding: 5px 7px 4px; } .hbtn { padding: 0 8px; } h1 .version { margin-left: 5px; font-size: 10px; } }
+/* Landscape on iPad, iPhone and desktop: the board takes the full height, with the level, moves and buttons in a column on the right */
+@media (orientation: landscape) and (min-width: 700px) {
+  .wrap {
+    max-width: 1500px; display: grid; gap: 8px 14px;
+    grid-template-columns: minmax(0, 1fr) clamp(150px, 15vw, 210px); grid-template-rows: auto auto minmax(0, 1fr);
+    padding-left: calc(env(safe-area-inset-left, 0px) + 12px); padding-right: calc(env(safe-area-inset-right, 0px) + 12px);
+  }
+  header { grid-column: 1 / -1; }
+  #stage { grid-column: 1; grid-row: 2 / 4; }
+  .info { grid-column: 2; grid-row: 2; flex-direction: column; align-items: flex-start; gap: 4px; padding: 8px 10px; background: rgba(24,35,90,.6); border: 2px solid var(--edge); border-radius: 14px; }
+  .info .mv { white-space: nowrap; font-size: 15px; }
+  .info .mv b { font-size: 18px; }
+  .tools { grid-column: 2; grid-row: 3; grid-template-columns: 1fr; align-content: start; }
+  .tool { justify-content: flex-start; padding: 0 14px; gap: 10px; }
+}
+@media (orientation: landscape) and (min-width: 700px) and (min-height: 700px) { .tool { height: 64px; font-size: 17px; } .tool .ic { font-size: 22px; } }
 </style>
 </head>
 <body>
@@ -323,7 +339,7 @@ h1 .board span { color: var(--gold); }
 </div>
 <script src="../lib/gamepad.js"></script>
 <script>
-const VERSION = "v2.1";
+const VERSION = "v2.2";
 const $ = id => document.getElementById(id);
 $("version").textContent = VERSION;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -615,6 +631,10 @@ function draw2d() {
   ctx.fillStyle = "#ffd300"; ctx.fillRect(RIM, RIM - 7, CELL * N, 3);
   ctx.fillStyle = "#f4f4f0"; ctx.font = "10px 'Hammersmith One', sans-serif"; ctx.textBaseline = "middle"; ctx.textAlign = "center";
   for (let k = 0; k < 3; k++) ctx.fillText("MIND THE GAP", RIM + 66 + k * 132, 9);
+  // the station safety notice painted along the bottom walkway
+  ctx.fillStyle = "#14181f"; roundRect(RIM + 30, 422, CELL * N - 60, 15, 3); ctx.fill();
+  ctx.fillStyle = "#ffd300"; ctx.font = "10px 'Hammersmith One', sans-serif";
+  ctx.fillText("SEE IT.  SAY IT.  SORTED.", RIM + CELL * N / 2, 430);
   roundRect(RIM - 4, RIM - 2, CELL * N + 8, CELL * N + 4, 6); ctx.fillStyle = gravelPat; ctx.fill();
   ctx.fillStyle = gravelPat; ctx.fillRect(430, ey + 2, 20, CELL - 4);
   // track: sleepers, running rails, then the centre and outside current rails (gapped where lines cross)
@@ -875,7 +895,7 @@ function ensureAudio() {
       actx = new (window.AudioContext || window.webkitAudioContext)();
       master = actx.createGain(); master.gain.value = 0.55; master.connect(actx.destination);
       musicBus = actx.createGain(); musicBus.gain.value = musicOn ? 0.5 : 0; musicBus.connect(master);
-      noiseBuf = actx.createBuffer(1, actx.sampleRate * 0.25, actx.sampleRate);
+      noiseBuf = actx.createBuffer(1, actx.sampleRate * 2, actx.sampleRate);
       const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
       actx.addEventListener("statechange", () => { if (document.hidden && actx.state === "running") actx.suspend(); });
     }
@@ -918,27 +938,70 @@ function tick(t, vol, freq) {
   const s = actx.createBufferSource(), f = actx.createBiquadFilter(), gn = actx.createGain();
   s.buffer = noiseBuf; f.type = "bandpass"; f.frequency.value = freq; f.Q.value = 3;
   gn.gain.setValueAtTime(vol, t); gn.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
-  s.connect(f); f.connect(gn); gn.connect(master); s.start(t, Math.random() * 0.15, 0.05);
+  s.connect(f); f.connect(gn); gn.connect(master); s.start(t, Math.random() * 1.5, 0.05);
 }
+// a burst of filtered noise, for hisses, rumbles and the drums
+function noise(t, dur, type, freq, q, vol, out, attack) {
+  const s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+  s.buffer = noiseBuf; f.type = type; f.frequency.value = freq; f.Q.value = q;
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + (attack || Math.min(.01, dur / 3))); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  s.connect(f); f.connect(g); g.connect(out || master); s.start(t, Math.random() * 1.5, dur + .05);
+}
+const panTo = p => { if (!actx.createStereoPanner) return master; const n = actx.createStereoPanner(); n.pan.value = p; n.connect(master); return n; };
+// a rail joint: the two axles of a bogie going over it, "di-dum", a low knock with a little ring of steel
+function clack(t, vol, pan) {
+  const out = pan ? panTo(pan) : master;
+  for (const [d, v] of [[0, 1], [.085, .8]]) {
+    noise(t + d, .1, "bandpass", 240, 1.3, vol * v, out, .004);
+    const o = actx.createOscillator(), og = actx.createGain();
+    o.type = "triangle"; o.frequency.setValueAtTime(130, t + d); o.frequency.exponentialRampToValueAtTime(65, t + d + .07);
+    og.gain.setValueAtTime(vol * v * .6, t + d); og.gain.exponentialRampToValueAtTime(.0001, t + d + .09);
+    o.connect(og); og.connect(out); o.start(t + d); o.stop(t + d + .12);
+    noise(t + d + .005, .05, "bandpass", 2900, 4, vol * v * .3, out, .002);
+  }
+}
+// the air brakes letting go
+const hiss = (t, vol) => noise(t, .5, "highpass", 3800, .6, vol, master, .02);
 // traction motor whine: the tube's rising and falling hum
-function whine(t, dur, f0, f1, vol) {
+function whine(t, dur, f0, f1, vol, out) {
   const o = actx.createOscillator(), o2 = actx.createOscillator(), f = actx.createBiquadFilter(), gn = actx.createGain();
   o.type = "sawtooth"; o2.type = "square";
   o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur * .7); o.frequency.exponentialRampToValueAtTime(f0 * 1.2, t + dur);
   o2.frequency.setValueAtTime(f0 * 1.5, t); o2.frequency.exponentialRampToValueAtTime(f1 * 1.5, t + dur * .7); o2.frequency.exponentialRampToValueAtTime(f0 * 1.8, t + dur);
   f.type = "bandpass"; f.frequency.value = 900; f.Q.value = .8;
   gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(vol, t + .06); gn.gain.setValueAtTime(vol, t + dur * .6); gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(f); o2.connect(f); f.connect(gn); gn.connect(master); o.start(t); o2.start(t); o.stop(t + dur + .02); o2.stop(t + dur + .02);
+  o.connect(f); o2.connect(f); f.connect(gn); gn.connect(out || master); o.start(t); o2.start(t); o.stop(t + dur + .02); o2.stop(t + dur + .02);
 }
 // the doors-closing beeps
 function beeps(t) { for (let k = 0; k < 3; k++) { tone(1568, t + k * 0.22, 0.13, "square", 0.05); tone(1568, t + k * 0.22, 0.13, "sine", 0.12); } }
+// the driver's two-tone horn
+function horn(t) {
+  const lp = actx.createBiquadFilter(), g = actx.createGain(); lp.type = "lowpass"; lp.frequency.value = 1700;
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.07, t + .03); g.gain.setValueAtTime(.07, t + .38); g.gain.exponentialRampToValueAtTime(.0001, t + .5);
+  for (const f of [370, 466]) { const o = actx.createOscillator(); o.type = "sawtooth"; o.frequency.value = f; o.connect(lp); o.start(t); o.stop(t + .55); }
+  lp.connect(g); g.connect(master);
+}
+// another train going by in the tunnel, somewhere out of sight: a rumble that swells and fades, sweeping across, rail joints in the middle
+function passBy(t) {
+  const dur = 6.5, s = actx.createBufferSource(), lp = actx.createBiquadFilter(), g = actx.createGain(), dir = Math.random() < .5 ? 1 : -1;
+  s.buffer = noiseBuf; s.loop = true; lp.type = "lowpass";
+  lp.frequency.setValueAtTime(140, t); lp.frequency.linearRampToValueAtTime(650, t + dur * .5); lp.frequency.linearRampToValueAtTime(140, t + dur);
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.2, t + dur * .5); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  let out = master;
+  if (actx.createStereoPanner) { const p = actx.createStereoPanner(); p.pan.setValueAtTime(-.8 * dir, t); p.pan.linearRampToValueAtTime(.8 * dir, t + dur); p.connect(master); out = p; }
+  s.connect(lp); lp.connect(g); g.connect(out); s.start(t); s.stop(t + dur + .1);
+  whine(t + 1.2, dur - 2.4, 150, 340, .02, out);
+  for (let k = 0; k < 16; k++) { const u = 1.4 + k * .24, e = Math.sin(Math.PI * u / dur); clack(t + u, .11 * e * e, (-.8 + 1.6 * u / dur) * dir); }
+}
 const ok = () => soundOn && actx && actx.state === "running";
+let passT = 14;
 const Snd = {
-  // a short run: the motors whine up and down, wheels clicking over the rail joints
+  // a short run: the motors whine up and down, the wheels go over the rail joints, and the brakes hiss as it stops
   walk(dist) {
     if (!ok()) return; const t = actx.currentTime, d = Math.min(0.75, 0.3 + dist * 0.12);
     whine(t, d, 180, 420 + dist * 60, 0.09);
-    for (let k = 0; k < Math.min(4, 1 + Math.round(dist)); k++) { tick(t + 0.08 + k * 0.14, 0.2, 3200); tick(t + 0.12 + k * 0.14, 0.15, 2500); }
+    for (let k = 0; k < Math.min(3, 1 + Math.round(dist)); k++) clack(t + 0.08 + k * 0.2, 0.16);
+    hiss(t + d * .85, .03);
   },
   // couplers meeting: a low clunk
   bump() { if (!ok()) return; const t = actx.currentTime; tone(140, t, 0.14, "square", 0.07, master, 85); tone(300, t, 0.08, "triangle", 0.12); tick(t, 0.3, 900); },
@@ -946,18 +1009,21 @@ const Snd = {
   reset() { if (!ok()) return; const t = actx.currentTime; for (let k = 0; k < 6; k++) tick(t + k * 0.03, 0.2, 1800 + k * 300); tone(420, t, 0.18, "triangle", 0.12, master, 260); },
   win() {
     if (!ok()) return; const t = actx.currentTime;
-    // doors-closing beeps, then the motors wind up as Rosie pulls out
-    beeps(t); whine(t + 0.75, 1.6, 160, 900, 0.12);
-    for (let k = 0; k < 8; k++) { tick(t + 0.95 + k * (0.2 - k * 0.015), 0.22, 3000); tick(t + 1.0 + k * (0.2 - k * 0.015), 0.16, 2400); }
+    // doors-closing beeps, a toot of the horn, then the motors wind up and the joints come faster as Rosie pulls out
+    beeps(t); hiss(t + .72, .04); horn(t + .8); whine(t + 1.0, 1.7, 160, 900, 0.12);
+    for (let k = 0; k < 7; k++) clack(t + 1.15 + k * (0.3 - k * 0.03), 0.18 * (1 - k * .08));
   },
+  // now and then another train goes by in the tunnel
+  ambient(dt) { if (!ok()) return; if ((passT -= dt) <= 0) { passBy(actx.currentTime + .05); passT = 26 + Math.random() * 30; } },
   setOn() {
     if (!actx) return;
     if (!soundOn) { actx.suspend(); return; }
     actx.resume(); musicBus.gain.setTargetAtTime(musicOn ? 0.5 : 0, actx.currentTime, 0.1);
   }
 };
-// Music: three original pieces for a small jazz trio (electric piano, upright bass, brushed drums) with swing and a little
-// room reverb, like a band busking in a tiled station passage. Each level change moves on to the next piece.
+// Music: three original trip-hop pieces, slow and smoky, like late night on the Northern line: a dusty broken beat (a deep kick,
+// a cracking snare in a big tiled room, crunchy hats), a round sub bass, Rhodes chords through a tremolo, and a sparse melody
+// through a tape echo, all over vinyl crackle. Each level change moves on to the next piece.
 // Chords are written per half bar: [root note name, quality]. Melodies are composed from the chords when the page loads:
 // a four-bar idea, answered over the next four bars, repeated, with its own ending.
 const Q = { maj7: [4, 7, 11, 14], m7: [3, 7, 10, 14], d7: [4, 9, 10, 14], m7b5: [3, 6, 10, 15], d7b9: [4, 7, 10, 13], m6: [3, 7, 9, 14] };
@@ -965,20 +1031,20 @@ const TONES = { maj7: [0, 4, 7, 11, 14], m7: [0, 3, 7, 10, 14], d7: [0, 4, 7, 10
 const PC = { C: 0, Db: 1, D: 2, Eb: 3, E: 4, F: 5, Gb: 6, G: 7, Ab: 8, A: 9, Bb: 10, B: 11 };
 const bars = list => list.flatMap(b => (Array.isArray(b[0]) ? b : [b, b]).map(([r, q]) => ({ r: PC[r], q })));
 const TRACKS = [
-  { name: "Platform Four", bpm: 100, swing: .64, seed: 7,
-    ch: bars([["F", "maj7"], ["D", "m7"], ["G", "m7"], ["C", "d7"], ["A", "m7"], ["D", "d7b9"], [["G", "m7"], ["C", "d7"]], ["F", "maj7"]]) },
-  { name: "Night Bus", bpm: 80, swing: .62, seed: 3,
-    ch: bars([["C", "m6"], ["F", "m7"], [["D", "m7b5"], ["G", "d7b9"]], ["C", "m6"], ["Ab", "maj7"], ["D", "m7b5"], ["G", "d7b9"], ["C", "m6"]]) },
-  { name: "Waterloo Shuffle", bpm: 116, swing: .66, seed: 21,
-    ch: bars([["Bb", "maj7"], ["G", "m7"], ["C", "m7"], ["F", "d7"], ["D", "m7"], ["G", "d7"], [["C", "m7"], ["F", "d7"]], ["Bb", "maj7"]]) },
+  { name: "Mornington Fog", bpm: 84, swing: .56, seed: 7,
+    ch: bars([["A", "m7"], ["F", "maj7"], ["D", "m7"], ["E", "d7b9"], ["A", "m7"], ["F", "maj7"], ["D", "m7"], ["E", "d7b9"]]) },
+  { name: "Night Tube", bpm: 78, swing: .55, seed: 3,
+    ch: bars([["C", "m7"], ["C", "m7"], ["Ab", "maj7"], ["Ab", "maj7"], ["F", "m7"], ["F", "m7"], ["G", "d7b9"], ["G", "d7b9"]]) },
+  { name: "Last Train to Morden", bpm: 90, swing: .57, seed: 21,
+    ch: bars([["D", "m7"], ["Bb", "maj7"], ["G", "m7"], ["A", "d7b9"], ["D", "m7"], ["Bb", "maj7"], [["G", "m7"], ["C", "d7"]], ["F", "maj7"]]) },
 ];
-// compose each melody: 16 bars of 8 swung eighths, as { n: note, d: length in eighths } or null
+// compose each melody: 16 bars of 8 eighths, as { n: note, d: length in eighths } or null. Sparse: trip-hop leaves room.
 (function compose() {
-  const RHY = [[0, 3, 4, 6], [1, 2, 4], [0, 2, 3, 5], [0, 4, 5], [2, 3, 4, 7], [0, 1, 2, 4, 6], [1, 3, 4]];
+  const RHY = [[0, 3], [1, 4, 6], [0, 5], [2, 4], [0, 3, 6], [1, 5]];
   for (const tr of TRACKS) {
     let s = tr.seed * 7919 + 1; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
     const tones = (bar, pos) => { const c = tr.ch[(bar % 8) * 2 + (pos >= 4 ? 1 : 0)], out = [];
-      for (let o = 48; o <= 96; o += 12) for (const t of TONES[c.q]) { const n = o + ((c.r + t) % 12); if (n >= 65 && n <= 81) out.push(n); }
+      for (let o = 48; o <= 96; o += 12) for (const t of TONES[c.q]) { const n = o + ((c.r + t) % 12); if (n >= 64 && n <= 79) out.push(n); }
       return [...new Set(out)].sort((a, b) => a - b); };
     const snap = (n, set) => set.reduce((a, b) => Math.abs(b - n) < Math.abs(a - n) ? b : a);
     const mel = new Array(128).fill(null);
@@ -990,7 +1056,7 @@ const TRACKS = [
         const j = Math.max(0, Math.min(set.length - 1, i + steps[k]));
         prev = set[j];
         const len = (k + 1 < rhy.length ? rhy[k + 1] : 8) - p;
-        mel[bar * 8 + p] = { n: prev, d: Math.min(3, len) };
+        mel[bar * 8 + p] = { n: prev, d: Math.min(4, len) };
       });
     };
     for (let b = 0; b < 4; b++) {
@@ -1000,87 +1066,125 @@ const TRACKS = [
     for (let b = 4; b < 7; b++) put(b, idea[b - 4][0], idea[b - 4][1].map(v => -v));   // the answer goes the other way
     put(7, [0], [0]); mel[56].d = 6;                                                    // hold at the half-way cadence
     for (let b = 8; b < 14; b++) put(b, idea[b % 4][0], idea[b % 4][1].map(v => (b >= 12 ? -v : v)));
-    put(14, [0, 2, 3, 4, 6], [1, -1, -1, 1, -1]);
+    put(14, [0, 3, 5], [1, -1, -1]);
     // land on the home chord's root or third for the ending
-    const home = tr.ch[14], last = snap(prev, [65, 69, 72, 76, 77, 81].filter(n => [home.r, (home.r + (home.q !== "maj7" && home.q[0] === "m" ? 3 : 4)) % 12].includes(n % 12)).concat([home.r + 72]));
+    const home = tr.ch[14], last = snap(prev, [64, 65, 69, 72, 76, 77].filter(n => [home.r, (home.r + (home.q !== "maj7" && home.q[0] === "m" ? 3 : 4)) % 12].includes(n % 12)).concat([home.r + 72]));
     mel[120] = { n: last, d: 8 };
     tr.mel = mel;
   }
 })();
 const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
-let revIn = null;
+let revIn = null, tremIn = null, echo = null, crackle = null;
 function musicOut() {
   if (revIn) return revIn;
-  // a short, bright room: a stereo burst of decaying noise as the reverb's impulse
-  const len = Math.floor(actx.sampleRate * 1.8), ir = actx.createBuffer(2, len, actx.sampleRate);
-  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.2); }
-  const conv = actx.createConvolver(), wet = actx.createGain(); conv.buffer = ir; wet.gain.value = .22;
-  revIn = actx.createGain(); revIn.connect(musicBus); revIn.connect(conv); conv.connect(wet); wet.connect(musicBus);
+  // a big, dark tiled room: a stereo burst of decaying noise as the reverb's impulse, and a gentle top cut for the dusty sound
+  const len = Math.floor(actx.sampleRate * 2.6), ir = actx.createBuffer(2, len, actx.sampleRate);
+  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.8); }
+  const conv = actx.createConvolver(), wet = actx.createGain(), dust = actx.createBiquadFilter(), wlp = actx.createBiquadFilter();
+  conv.buffer = ir; wet.gain.value = .26; dust.type = "lowpass"; dust.frequency.value = 6000; dust.Q.value = .5; wlp.type = "lowpass"; wlp.frequency.value = 3200;
+  revIn = actx.createGain(); revIn.connect(dust); revIn.connect(conv); conv.connect(wlp); wlp.connect(wet); wet.connect(dust); dust.connect(musicBus);
   return revIn;
 }
-// electric piano: an FM tine (a sine modulating a sine) that starts bright and mellows as it rings
-function ep(m, t, dur, vol) {
+// the Rhodes chords go through a slow tremolo
+function tremOut() {
+  if (tremIn) return tremIn;
+  tremIn = actx.createGain(); tremIn.gain.value = .78;
+  const lfo = actx.createOscillator(), depth = actx.createGain(); lfo.frequency.value = 4.2; depth.gain.value = .22;
+  lfo.connect(depth); depth.connect(tremIn.gain); lfo.start();
+  tremIn.connect(musicOut()); return tremIn;
+}
+// a tape echo for the melody: dotted eighths, each repeat a little darker
+function echoOut() {
+  if (echo) return echo.in;
+  const inp = actx.createGain(), d = actx.createDelay(2), fb = actx.createGain(), lp = actx.createBiquadFilter(), wet = actx.createGain();
+  d.delayTime.value = .5; fb.gain.value = .38; lp.type = "lowpass"; lp.frequency.value = 2200; wet.gain.value = .35;
+  inp.connect(musicOut()); inp.connect(d); d.connect(lp); lp.connect(fb); fb.connect(d); lp.connect(wet); wet.connect(musicOut());
+  echo = { in: inp, d }; return inp;
+}
+// vinyl crackle under everything while the music plays
+function startCrackle() {
+  if (crackle) return;
+  const len = actx.sampleRate * 3, b = actx.createBuffer(1, len, actx.sampleRate), d = b.getChannelData(0);
+  for (let i = 0; i < len; i++) { d[i] = (Math.random() * 2 - 1) * .012; if (Math.random() < .00035) d[i] += (Math.random() * 2 - 1) * .7; }
+  crackle = actx.createBufferSource(); crackle.buffer = b; crackle.loop = true;
+  const hp = actx.createBiquadFilter(), g = actx.createGain(); hp.type = "highpass"; hp.frequency.value = 900; g.gain.value = .35;
+  crackle.connect(hp); hp.connect(g); g.connect(musicBus); crackle.start();
+}
+// Rhodes: an FM tine (a sine modulating a sine) that starts with a bell and mellows as it rings
+function ep(m, t, dur, vol, out) {
   const f = mtof(m), c = actx.createOscillator(), md = actx.createOscillator(), mg = actx.createGain(), tine = actx.createOscillator(), tg = actx.createGain(), g = actx.createGain(), lp = actx.createBiquadFilter();
   c.frequency.value = f; md.frequency.value = f; tine.frequency.value = f * 4.01;
-  mg.gain.setValueAtTime(f * 1.6, t); mg.gain.exponentialRampToValueAtTime(f * .25, t + .5);
-  tg.gain.setValueAtTime(vol * .18, t); tg.gain.exponentialRampToValueAtTime(.0001, t + .12);
-  const end = t + Math.max(.4, dur) + .5;
-  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .006); g.gain.exponentialRampToValueAtTime(vol * .35, t + .6);
-  g.gain.setValueAtTime(vol * .35, t + Math.max(.3, dur)); g.gain.exponentialRampToValueAtTime(.0001, end);
-  lp.type = "lowpass"; lp.frequency.value = 3200;
-  md.connect(mg); mg.connect(c.frequency); c.connect(g); tine.connect(tg); tg.connect(g); g.connect(lp); lp.connect(musicOut());
+  mg.gain.setValueAtTime(f * 1.3, t); mg.gain.exponentialRampToValueAtTime(f * .2, t + .6);
+  tg.gain.setValueAtTime(vol * .15, t); tg.gain.exponentialRampToValueAtTime(.0001, t + .12);
+  const end = t + Math.max(.4, dur) + .7;
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + .008); g.gain.exponentialRampToValueAtTime(vol * .4, t + .7);
+  g.gain.setValueAtTime(vol * .4, t + Math.max(.3, dur)); g.gain.exponentialRampToValueAtTime(.0001, end);
+  lp.type = "lowpass"; lp.frequency.value = 2400;
+  md.connect(mg); mg.connect(c.frequency); c.connect(g); tine.connect(tg); tg.connect(g); g.connect(lp); lp.connect(out || musicOut());
   for (const o of [c, md, tine]) { o.start(t); o.stop(end + .05); }
 }
-// upright bass: a round plucked note with a quick thump
-function bass(m, t, dur) {
-  const f = mtof(m), o = actx.createOscillator(), o2 = actx.createOscillator(), g = actx.createGain(), lp = actx.createBiquadFilter();
-  o.type = "triangle"; o.frequency.value = f; o2.frequency.value = f * 2;
-  lp.type = "lowpass"; lp.frequency.setValueAtTime(900, t); lp.frequency.exponentialRampToValueAtTime(320, t + .25);
-  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.55, t + .012); g.gain.exponentialRampToValueAtTime(.22, t + .2); g.gain.exponentialRampToValueAtTime(.0001, t + dur + .08);
-  const g2 = actx.createGain(); g2.gain.value = .25; o2.connect(g2); g2.connect(g);
-  o.connect(g); g.connect(lp); lp.connect(musicOut()); o.start(t); o2.start(t); o.stop(t + dur + .1); o2.stop(t + dur + .1);
+// sub bass: a round sine with a little grit on top, sliding gently into each note
+function sub(m, t, dur) {
+  const f = mtof(m), o = actx.createOscillator(), o2 = actx.createOscillator(), g = actx.createGain(), g2 = actx.createGain(), lp = actx.createBiquadFilter();
+  o.frequency.setValueAtTime(f * .97, t); o.frequency.exponentialRampToValueAtTime(f, t + .05);
+  o2.type = "triangle"; o2.frequency.value = f * 2; g2.gain.value = .12;
+  lp.type = "lowpass"; lp.frequency.value = 420;
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.6, t + .02); g.gain.exponentialRampToValueAtTime(.38, t + .3);
+  g.gain.setValueAtTime(.38, t + dur); g.gain.exponentialRampToValueAtTime(.0001, t + dur + .18);
+  o2.connect(g2); g2.connect(g); o.connect(g); g.connect(lp); lp.connect(musicBus);
+  o.start(t); o2.start(t); o.stop(t + dur + .25); o2.stop(t + dur + .25);
 }
-// brushes: a swish on 2 and 4, a light tap on the ride pattern, a soft kick
-function noiseHit(t, dur, type, freq, q, vol) {
-  const s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
-  s.buffer = noiseBuf; f.type = type; f.frequency.value = freq; f.Q.value = q;
-  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + Math.min(.03, dur / 3)); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
-  s.connect(f); f.connect(g); g.connect(musicOut()); s.start(t, Math.random() * .05, dur + .02);
+// drums: a deep, round kick; a snare with a crack and a ringing body; tight hats and the odd open one
+function kick(t, vol = 1) {
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.frequency.setValueAtTime(120, t); o.frequency.exponentialRampToValueAtTime(44, t + .18);
+  g.gain.setValueAtTime(.62 * vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + .5);
+  o.connect(g); g.connect(musicBus); o.start(t); o.stop(t + .55);
+  noise(t, .02, "highpass", 3000, .7, .06 * vol, musicBus, .001);
 }
-function kick(t) { const o = actx.createOscillator(), g = actx.createGain(); o.frequency.setValueAtTime(95, t); o.frequency.exponentialRampToValueAtTime(48, t + .14);
-  g.gain.setValueAtTime(.32, t); g.gain.exponentialRampToValueAtTime(.0001, t + .22); o.connect(g); g.connect(musicOut()); o.start(t); o.stop(t + .25); }
-// voicings sit in the middle of the keyboard; the bass walks in quarter notes, leaning into the next chord
-const voice = c => Q[c.q].map(iv => { let n = 48 + ((c.r + iv) % 12) + (iv >= 12 ? 12 : 0); while (n < 53) n += 12; while (n > 67) n -= 12; return n; }).sort((a, b) => a - b);
-let lastBass = 41;
-const near = (pc, around) => { let n = 33 + ((pc - 33 % 12 + 24) % 12); while (n + 12 <= 50 && Math.abs(n + 12 - around) < Math.abs(n - around)) n += 12; return n; };
-const COMP = [[0, 3], [2, 5], [0, 5], [3, 6], [0, 2, 6]];
+function snare(t, vol = 1) {
+  noise(t, .3, "bandpass", 1900, .8, .26 * vol, musicOut(), .003);
+  noise(t, .16, "highpass", 5200, .7, .07 * vol, musicOut(), .002);
+  const o = actx.createOscillator(), g = actx.createGain(); o.type = "triangle"; o.frequency.setValueAtTime(200, t); o.frequency.exponentialRampToValueAtTime(160, t + .08);
+  g.gain.setValueAtTime(.16 * vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + .1); o.connect(g); g.connect(musicOut()); o.start(t); o.stop(t + .12);
+}
+const hat = (t, vol, open) => noise(t, open ? .26 : .035, "highpass", 8200, .7, vol, musicOut(), .002);
+// voicings sit in the middle of the keyboard; the sub bass stays down low
+const voice = c => Q[c.q].map(iv => { let n = 48 + ((c.r + iv) % 12) + (iv >= 12 ? 12 : 0); while (n < 52) n += 12; while (n > 66) n -= 12; return n; }).sort((a, b) => a - b);
+const low = pc => 33 + ((pc - 9 + 12) % 12);
+// the beat, a different kick pattern each bar of four; snares on 2 and 4
+const KICKS = [[0, 5], [0, 3, 5], [0, 5], [0, 1, 5]];
+let lastTrack = -1;
 function schedule() {
   if (!actx || actx.state !== "running") return;
   const tr = TRACKS[track], beat = 60 / tr.bpm;
+  if (musicOn) { startCrackle(); echoOut(); }
+  if (lastTrack !== track && echo) { echo.d.delayTime.setTargetAtTime(beat * .75, actx.currentTime, .05); lastTrack = track; }
   while (nextTime < actx.currentTime + 0.3) {
     const i = step % 128, bar = Math.floor(i / 8), pos = i % 8, half = (bar % 8) * 2 + (pos >= 4 ? 1 : 0), c = tr.ch[half];
     const len8 = pos % 2 ? beat * (1 - tr.swing) : beat * tr.swing;
     if (musicOn) {
-      const t = nextTime;
-      // bass
-      if (pos % 2 === 0) {
-        const k = pos / 2, nxt = tr.ch[k === 3 ? ((bar + 1) % 8) * 2 : half + (k === 1 ? 1 : 0)];
-        let n;
-        const first = tr.ch[(bar % 8) * 2];
-        if (k === 0 || (k === 2 && first.r !== c.r)) n = near(c.r, lastBass);      // a new chord gets its root
-        else if (k === 3) n = near(nxt.r, lastBass) + (Math.random() < .5 ? 1 : -1);   // chromatic approach
-        else n = near((c.r + TONES[c.q][k === 1 ? 1 : 2]) % 12, lastBass);
-        lastBass = n; bass(n, t, beat * .95);
+      const t = nextTime, intro = step < 8;   // the first bar is just the keys and the hats; the beat drops on bar two
+      // sub bass
+      if (!intro) {
+        if (pos === 0) sub(low(c.r), t, beat * 1.5);
+        else if (pos === 4 && c.r !== tr.ch[half - 1].r) sub(low(c.r), t, beat * 1.4);
+        else if (pos === 5 && bar % 2 === 1 && c.r === tr.ch[half - 1].r) sub(low(c.r) + (Math.random() < .5 ? 7 : 12), t, beat * .7);
+        else if (pos === 3 && bar % 4 === 2) sub(low(c.r), t, beat * .4);
       }
-      // piano comping
-      const cp = COMP[(bar * 3 + tr.seed) % COMP.length];
-      if (cp.includes(pos)) { const v = voice(c), long = pos === cp[0]; v.forEach((n, k) => ep(n, t + k * .006, beat * (long ? 1.3 : .45), .055)); }
-      // melody
-      const m = tr.mel[i]; if (m) ep(m.n, t, m.d * beat * .5 * .95, .12);
+      // Rhodes chords: held, rolled a little, through the tremolo
+      if (pos === 0 || (pos === 4 && (c.r !== tr.ch[half - 1].r || c.q !== tr.ch[half - 1].q))) {
+        const v = voice(c), held = pos === 0 && tr.ch[half + 1] && tr.ch[half + 1].r === c.r ? beat * 3.6 : beat * 1.8;
+        v.forEach((n, k) => ep(n, t + k * .02, held, .045, tremOut()));
+      } else if (pos === 7 && bar % 2 === 1) voice(c).forEach((n, k) => ep(n, t + k * .01, beat * .3, .022, tremOut()));
+      // melody, through the echo
+      const m = tr.mel[i]; if (m && !intro) ep(m.n, t, m.d * beat * .5 * .95, .085, echoOut());
       // drums
-      if (pos % 2 === 0 || pos === 3 || pos === 7) noiseHit(t, .06, "highpass", 7000, .7, pos % 2 ? .05 : .08);
-      if (pos === 2 || pos === 6) noiseHit(t, .22, "bandpass", 3200, .6, .07);
-      if (pos === 0 && bar % 2 === 0) kick(t);
+      if (!intro && KICKS[bar % 4].includes(pos)) kick(t, pos ? .85 : 1);
+      if (!intro && (pos === 2 || pos === 6)) snare(t);
+      if (!intro && bar % 4 === 3 && pos === 7) snare(t + len8 * .5, .3);      // a ghost note before the turn
+      hat(t, pos % 2 ? .035 : .055, pos === 7 && bar % 2 === 1);
+      if (pos % 2 === 1 && Math.random() < .35) hat(t + len8 * .5, .022);    // the odd sixteenth
     }
     nextTime += len8; step++;
   }
@@ -1091,6 +1195,7 @@ let lastT = performance.now(), lastLvl = -1;
 function frame(now) {
   const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now; g.time += dt;
   if (g.hintT > 0) g.hintT -= dt;
+  Snd.ambient(dt);
   if (lastLvl !== g.lvl) { if (lastLvl >= 0) { track = (track + 1) % TRACKS.length; step = 0; nextTime = actx ? Math.max(nextTime, actx.currentTime + .1) : 0; } lastLvl = g.lvl; }
   g.ps.forEach((p, i) => {
     if (g.drag && g.drag.i === i) { p.vis = g.drag.base + g.drag.off; return; }
@@ -1118,7 +1223,7 @@ g.solveAll = () => LEVELS.map((lv, i) => {
 }).filter(Boolean);
 </script>
 <script type="module">
-// 3D view (three.js), on by default, seen from straight overhead: a London Underground depot with four-rail track (running rails,
+// 3D view (three.js), on by default, seen from above with a slight tilt towards the player (TILT): a London Underground depot with four-rail track (running rails,
 // a centre current rail and an outside one), realistic tube trains with glossy paint, glass and moving bogies, and Rosie running
 // under the road into the tunnel. The page's game script owns the rules and the drag; this module reads window.__aj every frame
 // and answers window.__pick3d (pointer -> board cells).
@@ -1420,6 +1525,18 @@ if (renderer) {
   const platMat = [conc, conc, new THREE.MeshStandardMaterial({ map: platTex, roughness: .9 }), conc, conc, conc];
   { const p = new THREE.Mesh(new THREE.BoxGeometry(6 + 2 * T, .34, T), platMat); p.position.set(0, -.02, -3 - T / 2); p.receiveShadow = p.castShadow = true; scene.add(p); }
   slab(0, 3 + T / 2, 6 + 2 * T, T, conc); slab(-3 - T / 2, 0, T, 6, conc);
+  { // the station safety notice painted along the bottom walkway: yellow on a black panel
+    const paintNotice = (x, w, h) => {
+      x.clearRect(0, 0, w, h); x.fillStyle = "#14181f"; x.beginPath(); x.roundRect(4, 4, w - 8, h - 8, 10); x.fill();
+      x.strokeStyle = "#ffd300"; x.lineWidth = 3; x.beginPath(); x.roundRect(10, 10, w - 20, h - 20, 7); x.stroke();
+      x.fillStyle = "#ffd300"; x.font = "36px 'Hammersmith One', 'Gill Sans', sans-serif"; x.textAlign = "center"; x.textBaseline = "middle";
+      x.fillText("SEE IT.   SAY IT.   SORTED.", w / 2, h / 2 + 2); };
+    const notice = tex(1024, 64, paintNotice);
+    // repaint once the station font has loaded, so the words aren't left in the fallback font
+    if (document.fonts) document.fonts.ready.then(() => { paintNotice(notice.image.getContext("2d"), 1024, 64); notice.needsUpdate = true; });
+    const n = new THREE.Mesh(new THREE.PlaneGeometry(4.4, .275), new THREE.MeshStandardMaterial({ map: notice, roughness: .75 }));
+    n.rotation.x = -Math.PI / 2; n.position.set(0, .113, 3 + T / 2); n.receiveShadow = true; scene.add(n);
+  }
   slab(3 + T / 2, (-3 + -1) / 2, T, 2, conc); slab(3 + T / 2, (0 + 3) / 2, T, 3, conc);
   { // the ballast continues out of the gap to the tunnel
     const e = new THREE.Mesh(new THREE.BoxGeometry(2.6, .3, 1), new THREE.MeshStandardMaterial({ map: floorTex, roughness: .95 }));
@@ -1551,18 +1668,30 @@ if (renderer) {
     built = G.ver;
   }
 
-  // ---- camera: straight down over the board, fitted to the canvas ----
-  const target = new THREE.Vector3(.62, 0, 0);
+  // ---- camera: over the board, tilted a little towards the player (TILT from straight down), fitted to the canvas ----
+  const TILT = THREE.MathUtils.degToRad(16), target = new THREE.Vector3(.62, 0, 0);
   camera.up.set(0, 0, -1);
+  // the corners of everything that must stay in view: the depot with its walkways, and the road over the tunnel
+  const bounds = [];
+  for (const x of [.62 - 4.14, .62 + 4.14]) for (const z of [-3.52, 3.52]) for (const y of [-.05, .9]) bounds.push(new THREE.Vector3(x, y, z));
+  const pv = new THREE.Vector3();
   function size() {
     const w = board.clientWidth, h = board.clientHeight; if (!w || !h) return;
     renderer.setPixelRatio(Math.min(2.5, devicePixelRatio || 1));
     renderer.setSize(w, h, false);
-    camera.aspect = w / h;
-    const vf = THREE.MathUtils.degToRad(camera.fov), hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect);
-    const top = .9, dist = top + Math.max(3.52 / Math.tan(vf / 2), 4.14 / Math.tan(hf / 2));
-    camera.position.set(target.x, dist, target.z); camera.lookAt(target);
-    camera.updateProjectionMatrix();
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+    // a tilted view isn't symmetric, so fit it by trying: move back until the corners fit, and slide the aim so they sit centred
+    let dist = 16, tz = 0;
+    for (let k = 0; k < 12; k++) {
+      camera.position.set(target.x, Math.cos(TILT) * dist, tz + Math.sin(TILT) * dist); camera.lookAt(target.x, 0, tz); camera.updateMatrixWorld();
+      let mx = 0, y0 = 1e9, y1 = -1e9;
+      for (const b of bounds) { pv.copy(b).project(camera); mx = Math.max(mx, Math.abs(pv.x)); y0 = Math.min(y0, pv.y); y1 = Math.max(y1, pv.y); }
+      const halfH = dist * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2);
+      tz -= (y0 + y1) / 2 * halfH;          // screen up is towards -z
+      dist *= Math.max(mx, (y1 - y0) / 2);   // the view's size on screen scales about as 1 / distance
+    }
+    camera.position.set(target.x, Math.cos(TILT) * dist, tz + Math.sin(TILT) * dist); camera.lookAt(target.x, 0, tz);
+    camera.updateMatrixWorld();
   }
   window.__size3d = size;
   window.__show3d = on => { canvas.style.visibility = on ? "" : "hidden"; if (on) size(); };
