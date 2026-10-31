@@ -339,7 +339,7 @@ h1 .board span { color: var(--gold); }
 </div>
 <script src="../lib/gamepad.js"></script>
 <script>
-const VERSION = "v2.3";
+const VERSION = "v2.4";
 const $ = id => document.getElementById(id);
 $("version").textContent = VERSION;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -886,13 +886,14 @@ $("btnView").hidden = true;
 $("btnView").addEventListener("click", () => { setView(!view3d); $("btnView").blur(); });
 
 // ---------- Sound (Web Audio, all synthesized) ----------
-let actx = null, master = null, musicBus = null, noiseBuf = null, schedTimer = 0, nextTime = 0, step = 0, track = 0;
+let actx = null, master = null, sfx = null, musicBus = null, noiseBuf = null, schedTimer = 0, nextTime = 0, step = 0, track = 0;
 function ensureAudio() {
   if (!soundOn) return;
   try {
     if (!actx) {
       actx = new (window.AudioContext || window.webkitAudioContext)();
       master = actx.createGain(); master.gain.value = 0.55; master.connect(actx.destination);
+      sfx = actx.createGain(); sfx.gain.value = 2.2; sfx.connect(master);   // the train sounds, louder than the music
       musicBus = actx.createGain(); musicBus.gain.value = musicOn ? 0.5 : 0; musicBus.connect(master);
       noiseBuf = actx.createBuffer(1, actx.sampleRate * 2, actx.sampleRate);
       const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -946,21 +947,54 @@ function noise(t, dur, type, freq, q, vol, out, attack) {
   g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + (attack || Math.min(.01, dur / 3))); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
   s.connect(f); f.connect(g); g.connect(out || master); s.start(t, Math.random() * 1.5, dur + .05);
 }
-const panTo = p => { if (!actx.createStereoPanner) return master; const n = actx.createStereoPanner(); n.pan.value = p; n.connect(master); return n; };
-// a rail joint: the two axles of a bogie going over it, "di-dum", a low knock with a little ring of steel
-function clack(t, vol, pan) {
-  const out = pan ? panTo(pan) : master;
-  for (const [d, v] of [[0, 1], [.085, .8]]) {
-    noise(t + d, .1, "bandpass", 240, 1.3, vol * v, out, .004);
-    const o = actx.createOscillator(), og = actx.createGain();
-    o.type = "triangle"; o.frequency.setValueAtTime(130, t + d); o.frequency.exponentialRampToValueAtTime(65, t + d + .07);
-    og.gain.setValueAtTime(vol * v * .6, t + d); og.gain.exponentialRampToValueAtTime(.0001, t + d + .09);
-    o.connect(og); og.connect(out); o.start(t + d); o.stop(t + d + .12);
-    noise(t + d + .005, .05, "bandpass", 2900, 4, vol * v * .3, out, .002);
+const panTo = p => { if (!actx.createStereoPanner) return sfx; const n = actx.createStereoPanner(); n.pan.value = p; n.connect(sfx); return n; };
+// one wheel over a rail joint: a steel click, a knock and a short thud (pitched high enough to carry on phone and iPad speakers)
+function hit(t, vol, out) {
+  noise(t, .035, "bandpass", 1900, 2.2, vol * .55, out, .001);
+  noise(t, .08, "bandpass", 520, 1.3, vol, out, .002);
+  const o = actx.createOscillator(), og = actx.createGain();
+  o.type = "triangle"; o.frequency.setValueAtTime(240, t); o.frequency.exponentialRampToValueAtTime(110, t + .07);
+  og.gain.setValueAtTime(vol * .5, t); og.gain.exponentialRampToValueAtTime(.0001, t + .09);
+  o.connect(og); og.connect(out); o.start(t); o.stop(t + .11);
+}
+// a rail joint: the two axles of a bogie going over it, "di-dum"
+function clack(t, vol, pan, gap) {
+  const out = pan ? panTo(pan) : sfx, a = Math.min(.1, Math.max(.05, (gap || .5) * .2));
+  hit(t, vol, out); hit(t + a, vol * .85, out);
+}
+// clickety-clack: n joints, the gap between them going from g0 to g1 seconds (shrinking = speeding up); pan from p0 to p1; fade in/out shapes the volume
+function clackety(t, n, g0, g1, vol, p0, p1, shape) {
+  let u = 0;
+  for (let k = 0; k < n; k++) {
+    const f = n > 1 ? k / (n - 1) : 0, gap = g0 + (g1 - g0) * f;
+    const e = shape === "in" ? .35 + .65 * f : shape === "out" ? 1 - .7 * f : shape === "swell" ? .25 + .75 * Math.sin(Math.PI * f) : 1;
+    clack(t + u, vol * e, (p0 || 0) + ((p1 || 0) - (p0 || 0)) * f, gap); u += gap;
+  }
+  return u;
+}
+// steel wheels rolling on steel rails: a band of noise that rises with speed, with a low body under it
+function roll(t, dur, vol, f0, f1, out, shape) {
+  out = out || sfx;
+  for (const [type, k, q, v] of [["bandpass", 1, .9, 1], ["lowpass", .45, .7, .8]]) {
+    const s = actx.createBufferSource(), f = actx.createBiquadFilter(), g = actx.createGain();
+    s.buffer = noiseBuf; s.loop = true; f.type = type; f.Q.value = q;
+    f.frequency.setValueAtTime(f0 * k, t); f.frequency.linearRampToValueAtTime(f1 * k, t + dur * (shape === "out" ? .15 : .85));
+    if (shape === "out") f.frequency.linearRampToValueAtTime(f0 * k, t + dur);
+    const pk = shape === "in" ? .9 : shape === "out" ? .1 : .5;
+    g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol * v, t + dur * pk); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    s.connect(f); f.connect(g); g.connect(out); s.start(t, Math.random() * 1.5); s.stop(t + dur + .05);
   }
 }
+// flanges squealing on a curve or under the brakes
+function squeal(t, dur, vol, out) {
+  const g = actx.createGain(), lfo = actx.createOscillator(), dp = actx.createGain();
+  lfo.frequency.value = 5.5; dp.gain.value = 40; lfo.connect(dp);
+  for (const f of [2950, 3540]) { const o = actx.createOscillator(); o.type = "sine"; o.frequency.setValueAtTime(f, t); o.frequency.linearRampToValueAtTime(f * .97, t + dur); dp.connect(o.frequency); o.connect(g); o.start(t); o.stop(t + dur + .05); }
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + dur * .3); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+  g.connect(out || sfx); lfo.start(t); lfo.stop(t + dur + .05);
+}
 // the air brakes letting go
-const hiss = (t, vol) => noise(t, .5, "highpass", 3800, .6, vol, master, .02);
+const hiss = (t, vol, out) => noise(t, .6, "highpass", 3800, .6, vol, out || sfx, .02);
 // traction motor whine: the tube's rising and falling hum
 function whine(t, dur, f0, f1, vol, out) {
   const o = actx.createOscillator(), o2 = actx.createOscillator(), f = actx.createBiquadFilter(), gn = actx.createGain();
@@ -969,55 +1003,73 @@ function whine(t, dur, f0, f1, vol, out) {
   o2.frequency.setValueAtTime(f0 * 1.5, t); o2.frequency.exponentialRampToValueAtTime(f1 * 1.5, t + dur * .7); o2.frequency.exponentialRampToValueAtTime(f0 * 1.8, t + dur);
   f.type = "bandpass"; f.frequency.value = 900; f.Q.value = .8;
   gn.gain.setValueAtTime(0.0001, t); gn.gain.exponentialRampToValueAtTime(vol, t + .06); gn.gain.setValueAtTime(vol, t + dur * .6); gn.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(f); o2.connect(f); f.connect(gn); gn.connect(out || master); o.start(t); o2.start(t); o.stop(t + dur + .02); o2.stop(t + dur + .02);
+  o.connect(f); o2.connect(f); f.connect(gn); gn.connect(out || sfx); o.start(t); o2.start(t); o.stop(t + dur + .02); o2.stop(t + dur + .02);
 }
-// the doors-closing beeps
-function beeps(t) { for (let k = 0; k < 3; k++) { tone(1568, t + k * 0.22, 0.13, "square", 0.05); tone(1568, t + k * 0.22, 0.13, "sine", 0.12); } }
-// the driver's two-tone horn
-function horn(t) {
-  const lp = actx.createBiquadFilter(), g = actx.createGain(); lp.type = "lowpass"; lp.frequency.value = 1700;
-  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.07, t + .03); g.gain.setValueAtTime(.07, t + .38); g.gain.exponentialRampToValueAtTime(.0001, t + .5);
-  for (const f of [370, 466]) { const o = actx.createOscillator(); o.type = "sawtooth"; o.frequency.value = f; o.connect(lp); o.start(t); o.stop(t + .55); }
-  lp.connect(g); g.connect(master);
+// a stereo pan that sweeps across over dur
+function sweep(t, dur, from, to) {
+  if (!actx.createStereoPanner) return sfx;
+  const p = actx.createStereoPanner(); p.pan.setValueAtTime(from, t); p.pan.linearRampToValueAtTime(to, t + dur); p.connect(sfx); return p;
 }
-// another train going by in the tunnel, somewhere out of sight: a rumble that swells and fades, sweeping across, rail joints in the middle
+// pull the music down while a train goes by, then let it back up
+function duck(t, dur, to) {
+  if (!musicOn) return; const g = musicBus.gain;
+  g.cancelScheduledValues(t); g.setTargetAtTime(.5 * to, t, .15); g.setTargetAtTime(.5, t + dur, .6);
+}
+// another train going straight through on the next line: it comes in, roars past and is gone
 function passBy(t) {
-  const dur = 6.5, s = actx.createBufferSource(), lp = actx.createBiquadFilter(), g = actx.createGain(), dir = Math.random() < .5 ? 1 : -1;
-  s.buffer = noiseBuf; s.loop = true; lp.type = "lowpass";
-  lp.frequency.setValueAtTime(140, t); lp.frequency.linearRampToValueAtTime(650, t + dur * .5); lp.frequency.linearRampToValueAtTime(140, t + dur);
-  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(.2, t + dur * .5); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
-  let out = master;
-  if (actx.createStereoPanner) { const p = actx.createStereoPanner(); p.pan.setValueAtTime(-.8 * dir, t); p.pan.linearRampToValueAtTime(.8 * dir, t + dur); p.connect(master); out = p; }
-  s.connect(lp); lp.connect(g); g.connect(out); s.start(t); s.stop(t + dur + .1);
-  whine(t + 1.2, dur - 2.4, 150, 340, .02, out);
-  for (let k = 0; k < 16; k++) { const u = 1.4 + k * .24, e = Math.sin(Math.PI * u / dur); clack(t + u, .11 * e * e, (-.8 + 1.6 * u / dur) * dir); }
+  const dur = 6, d = Math.random() < .5 ? 1 : -1, out = sweep(t, dur, -.85 * d, .85 * d);
+  duck(t + 1.5, 3, .55);
+  roll(t, dur, .32, 300, 820, out); whine(t + 1, dur - 2, 170, 380, .035, out);
+  clackety(t + .6, 22, .26, .2, .3, -.85 * d, .85 * d, "swell");
+  if (Math.random() < .4) squeal(t + 2.2, 1.6, .012, out);
+}
+// a train pulling in at the other platform: slowing joints, the brakes squeal, then a hiss as it stops
+function arrive(t) {
+  const d = Math.random() < .5 ? 1 : -1, out = sweep(t, 5, -.8 * d, .25 * d);
+  duck(t + 1, 4, .6);
+  roll(t, 5, .28, 260, 700, out, "out"); whine(t, 4.6, 380, 200, .03, out);
+  clackety(t, 12, .17, .48, .3, -.8 * d, .25 * d, "out");
+  squeal(t + 2.6, 2.2, .016, out); hiss(t + 4.9, .07, out);
+}
+// and one leaving the other platform: a hiss, the motors wind up, the joints come faster and it's gone into the tunnel
+function depart(t) {
+  const d = Math.random() < .5 ? 1 : -1, out = sweep(t, 6, .25 * d, .85 * d);
+  duck(t + 1, 4, .6);
+  hiss(t, .07, out); whine(t + .5, 5, 150, 620, .045, out);
+  roll(t + .4, 5.4, .42, 220, 800, out, "in");
+  clackety(t + .8, 13, .55, .17, .4, .25 * d, .85 * d, "in");
 }
 const ok = () => soundOn && actx && actx.state === "running";
-let passT = 14;
+let passT = 5;
 const Snd = {
   // a short run: the motors whine up and down, the wheels go over the rail joints, and the brakes hiss as it stops
   walk(dist) {
-    if (!ok()) return; const t = actx.currentTime, d = Math.min(0.75, 0.3 + dist * 0.12);
-    whine(t, d, 180, 420 + dist * 60, 0.09);
-    for (let k = 0; k < Math.min(3, 1 + Math.round(dist)); k++) clack(t + 0.08 + k * 0.2, 0.16);
-    hiss(t + d * .85, .03);
+    if (!ok()) return; const t = actx.currentTime, d = Math.min(0.85, 0.35 + dist * 0.13);
+    roll(t, d + .1, .2, 320, 560 + dist * 60);
+    whine(t, d, 180, 420 + dist * 60, 0.06);
+    clackety(t + .05, Math.min(4, 1 + Math.round(dist)), .2, .2, .32);
+    hiss(t + d * .85, .045);
   },
   // couplers meeting: a low clunk
   bump() { if (!ok()) return; const t = actx.currentTime; tone(140, t, 0.14, "square", 0.07, master, 85); tone(300, t, 0.08, "triangle", 0.12); tick(t, 0.3, 900); },
   tap() { if (!ok()) return; tone(880, actx.currentTime, 0.06, "triangle", 0.12); },
   reset() { if (!ok()) return; const t = actx.currentTime; for (let k = 0; k < 6; k++) tick(t + k * 0.03, 0.2, 1800 + k * 300); tone(420, t, 0.18, "triangle", 0.12, master, 260); },
   win() {
-    if (!ok()) return; const t = actx.currentTime;
-    // doors-closing beeps, a toot of the horn, then the motors wind up and the joints come faster as Rosie pulls out
-    beeps(t); hiss(t + .72, .04); horn(t + .8); whine(t + 1.0, 1.7, 160, 900, 0.12);
-    for (let k = 0; k < 7; k++) clack(t + 1.15 + k * (0.3 - k * 0.03), 0.18 * (1 - k * .08));
+    if (!ok()) return; const t = actx.currentTime, out = sweep(t + 1.4, 2.6, 0, .7);
+    // Rosie pulls out: brakes off, the motors wind up, and the wheels roll faster and faster over the joints into the tunnel
+    duck(t, 3.6, .3);
+    hiss(t, .08); whine(t + .3, 3.4, 150, 760, .07, out);
+    roll(t + .2, 3.8, .34, 240, 900, out, "in");
+    clackety(t + .35, 14, .42, .13, .36, 0, .7, "in");
   },
   // now and then another train goes by in the tunnel
-  ambient(dt) { if (!ok()) return; if ((passT -= dt) <= 0) { passBy(actx.currentTime + .05); passT = 26 + Math.random() * 30; } },
+  ambient(dt) { if (!ok()) return; if ((passT -= dt) <= 0) { const k = Math.random(); (k < .4 ? passBy : k < .7 ? arrive : depart)(actx.currentTime + .05); passT = 14 + Math.random() * 14; } },
+  // a new level: another train will come along soon
+  soon() { passT = Math.min(passT, 4 + Math.random() * 3); },
   setOn() {
     if (!actx) return;
     if (!soundOn) { actx.suspend(); return; }
-    actx.resume(); musicBus.gain.setTargetAtTime(musicOn ? 0.5 : 0, actx.currentTime, 0.1);
+    actx.resume(); musicBus.gain.cancelScheduledValues(actx.currentTime); musicBus.gain.setTargetAtTime(musicOn ? 0.5 : 0, actx.currentTime, 0.1);
   }
 };
 // Music: three original trip-hop pieces, slow and smoky, like late night on the Northern line: a dusty broken beat (a deep kick,
@@ -1195,7 +1247,7 @@ function frame(now) {
   const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now; g.time += dt;
   if (g.hintT > 0) g.hintT -= dt;
   Snd.ambient(dt);
-  if (lastLvl !== g.lvl) { if (lastLvl >= 0) { track = (track + 1) % TRACKS.length; step = 0; nextTime = actx ? Math.max(nextTime, actx.currentTime + .1) : 0; } lastLvl = g.lvl; }
+  if (lastLvl !== g.lvl) { if (lastLvl >= 0) { Snd.soon(); track = (track + 1) % TRACKS.length; step = 0; nextTime = actx ? Math.max(nextTime, actx.currentTime + .1) : 0; } lastLvl = g.lvl; }
   g.ps.forEach((p, i) => {
     if (g.drag && g.drag.i === i) { p.vis = g.drag.base + g.drag.off; return; }
     let target = p.pos;
