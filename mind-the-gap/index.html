@@ -344,7 +344,7 @@ h1 .board span { color: var(--gold); }
 </div>
 <script src="../lib/gamepad.js"></script>
 <script>
-const VERSION = "v2.12";
+const VERSION = "v2.13";
 const $ = id => document.getElementById(id);
 $("version").textContent = VERSION;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -1038,7 +1038,7 @@ const SAYINGS = [
   ["pa-mindthegap", "Mind the gap.", "Plays on Play and when you tap the title"],
   ["pa-sorted-short", "See it. Say it. Sorted.", "Short, as Rosie leaves on a win"],
   ["pa-sorted", "See it. Say it. Sorted.", "Full station announcement"],
-  ["pa-delay205", "205 delayed", "Due to unforeseen circumstances, the 205 to Marble Arch has been delayed indefinitely."],
+  ["pa-delay205", "205 delayed", "Due to unforeseen circumstances, the 205 bus to Marble Arch has been delayed indefinitely."],
   ["pa-gap", "Mind the gap", "Platform announcement"],
   ["pa-doors", "Doors", "Station announcement"],
   ["pa-belongings", "Belongings", "Station announcement"],
