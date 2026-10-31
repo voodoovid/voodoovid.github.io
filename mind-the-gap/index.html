@@ -344,7 +344,7 @@ h1 .board span { color: var(--gold); }
 </div>
 <script src="../lib/gamepad.js"></script>
 <script>
-const VERSION = "v2.8";
+const VERSION = "v2.9";
 const $ = id => document.getElementById(id);
 $("version").textContent = VERSION;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -694,7 +694,7 @@ function trafficStep(dt) {
   traffic.t = (traffic.t || 0) + dt;
   if (traffic.busCool > 0) traffic.busCool -= dt;
   // smoke from the 205's engine (at the back, low on the offside), for the 2D view; the 3D view makes its own
-  for (const c of traffic.cars) if (c.smoke > 0 && Math.random() < dt * 7 * c.smoke) {
+  for (const c of traffic.cars) if (c.smoke > 0 && Math.random() < dt * 1.2 * c.smoke) {
     const L = ROAD.lanes[c.lane]; traffic.puffs.push({ x: L.x + c.xo + .12, z: carZ(c) - L.dir * (c.len / 2 - .15), t: 0, s: c.smoke });
   }
   for (const f of traffic.puffs) { f.t += dt; f.x += dt * .05; f.z += dt * .03; }
@@ -717,9 +717,9 @@ function drawTraffic2d() {
     ctx.fillStyle = c.col; roundRect(x, y, w, h, c.kind === "bus" ? 2.5 : 4); ctx.fill();
     const fy = L.dir < 0 ? y : y + h;                       // the front end
     if (c.kind === "bus") {
-      ctx.fillStyle = "#d3231d"; roundRect(x + 1.5, y + 3, w - 3, h - 6, 2); ctx.fill();
+      ctx.fillStyle = c.col; roundRect(x + 1.5, y + 3, w - 3, h - 6, 2); ctx.fill();
       ctx.fillStyle = "rgba(0,0,0,.28)"; ctx.fillRect(x + 1.5, y + h * .12, w - 3, 1.2); ctx.fillRect(x + 1.5, y + h * .88, w - 3, 1.2);
-      ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.rotate(-Math.PI / 2); ctx.fillStyle = "#fff"; ctx.font = "900 15px Arial Black, Helvetica, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("205", 0, 1); ctx.restore();
+      ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.rotate(-Math.PI / 2); ctx.font = "900 15px Arial Black, Helvetica, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.lineJoin = "round"; ctx.lineWidth = 3.2; ctx.strokeStyle = "#000"; ctx.strokeText("205", 0, 1); ctx.fillStyle = "#fff"; ctx.fillText("205", 0, 1); ctx.restore();
     } else {
       ctx.fillStyle = "rgba(20,28,38,.85)"; ctx.fillRect(x + 1.5, L.dir < 0 ? y + h * .22 : y + h * .62, w - 3, h * .16);
       ctx.fillStyle = "rgba(20,28,38,.7)"; ctx.fillRect(x + 1.5, L.dir < 0 ? y + h * .7 : y + h * .16, w - 3, h * .12);
@@ -729,7 +729,7 @@ function drawTraffic2d() {
     ctx.fillStyle = "#fff6d8"; const hy = L.dir < 0 ? fy : fy - 1.5; ctx.fillRect(x + 1, hy, 2.5, 1.5); ctx.fillRect(x + w - 3.5, hy, 2.5, 1.5);
     if (c.broken && Math.sin(traffic.t * Math.PI * 3) > 0) { ctx.fillStyle = "#ffb52e"; for (const [hx, hy2] of [[x, y], [x + w - 3, y], [x, y + h - 3], [x + w - 3, y + h - 3]]) ctx.fillRect(hx, hy2, 3, 3); }
   }
-  for (const f of traffic.puffs) { const k = f.t / 3; ctx.fillStyle = `rgba(70,70,72,${(1 - k) * .55 * f.s})`; ctx.beginPath(); ctx.arc(tx2(f.x), ty2(f.z), 3 + k * 9, 0, 7); ctx.fill(); }
+  for (const f of traffic.puffs) { const k = f.t / 3; ctx.fillStyle = `rgba(70,70,72,${(1 - k) * .22 * f.s})`; ctx.beginPath(); ctx.arc(tx2(f.x), ty2(f.z), 2 + k * 5, 0, 7); ctx.fill(); }
   for (const q of traffic.peds) {
     const x = tx2(q.x), y = ty2(q.z);
     ctx.fillStyle = q.col; ctx.beginPath(); ctx.ellipse(x, y, 2.6, 3.4, 0, 0, 7); ctx.fill();
@@ -1134,7 +1134,7 @@ function noise(t, dur, type, freq, q, vol, out, attack) {
 // Files in sfx/: move1-4 (a short roll over the joints), bump, depart (Rosie pulling out), pass1-4 (another train going by),
 // pa-* (announcements through the station loudspeakers). They load after the first tap; until then the game is just quiet.
 const SFX = ["move1", "move2", "move3", "move4", "bump", "depart", "pass1", "pass2", "pass3", "pass4",
-  "pa-mindthegap", "pa-sorted-short",
+  "pa-mindthegap", "pa-sorted-short", "pa-delay205",
   "pa-sorted", "pa-bakerloo", "pa-elizabeth", "pa-victoria", "pa-jubilee", "pa-northern", "pa-central",
   "pa-central-delay", "pa-central-severe", "pa-doors", "pa-gap", "pa-belongings", "pa-next-train"];
 const buf = {}, ready = {};
@@ -1169,7 +1169,7 @@ function duck(t, dur, to) {
 const ok = () => soundOn && actx && actx.state === "running";
 let passT = 8, paT = 22, paBusy = 0, paLast = "";
 const LINE_PA = ["pa-bakerloo", "pa-elizabeth", "pa-victoria", "pa-jubilee", "pa-northern", "pa-central"];
-const INFO_PA = ["pa-central-delay", "pa-central-severe", "pa-doors", "pa-gap", "pa-belongings", "pa-next-train"];
+const INFO_PA = ["pa-delay205", "pa-central-delay", "pa-central-severe", "pa-doors", "pa-gap", "pa-belongings", "pa-next-train"];
 // the announcer: See it. Say it. Sorted. about a quarter of the time, otherwise a welcome to a line or station information, never the same one twice running
 function nextPa() {
   const k = Math.random(), list = k < .25 ? ["pa-sorted"] : k < .6 ? LINE_PA : INFO_PA;
@@ -1874,9 +1874,9 @@ if (renderer) {
   const wheelsOf = (g, L, W, r, xs) => { for (const x of xs) for (const s of [-1, 1]) cylZ(g, r, r, .05, vrub, x, r, s * (W / 2 - .025), 16); };
   const numberTex = (text, bg, fg, w = 128, h = 64, font = "bold 44px sans-serif") => tex(w, h, (x, ww, hh) => { x.fillStyle = bg; x.fillRect(0, 0, ww, hh); x.fillStyle = fg; x.font = font; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText(text, ww / 2, hh / 2 + 2); }, true, 3);
   // the route number on the roof, as big as the roof allows
-  const roofNumTex = tex(256, 220, (x, w, h) => { x.fillStyle = "#d3231d"; x.fillRect(0, 0, w, h); x.fillStyle = "#fff";
+  const roofNumTex = tex(256, 220, (x, w, h) => { x.fillStyle = "#c8201b"; x.fillRect(0, 0, w, h); x.fillStyle = "#fff"; x.strokeStyle = "#000"; x.lineJoin = "round"; x.lineWidth = 16;
     x.font = "900 170px Arial Black, Helvetica, sans-serif"; x.textAlign = "center"; x.textBaseline = "middle";
-    const k = Math.min(1, (w * .94) / x.measureText("205").width); x.save(); x.translate(w / 2, h / 2 + 6); x.scale(k, 1.25); x.fillText("205", 0, 0); x.restore(); }, true, 2);
+    const k = Math.min(1, (w * .94) / x.measureText("205").width); x.save(); x.translate(w / 2, h / 2 + 6); x.scale(k, 1.25); x.strokeText("205", 0, 0); x.fillText("205", 0, 0); x.restore(); }, true, 2);
   const roofNumMat = new THREE.MeshStandardMaterial({ map: roofNumTex, roughness: .6, clippingPlanes: clip });
   const blindMat = new THREE.MeshStandardMaterial({ map: numberTex("Paddington  205", "#0a0d14", "#f4f4f0", 256, 40, "bold 24px sans-serif"), emissive: 0xffffff, emissiveIntensity: .25, emissiveMap: null, roughness: .4, clippingPlanes: clip });
   blindMat.emissiveMap = blindMat.map;
@@ -1977,7 +1977,7 @@ if (renderer) {
     for (const q of smoke) if (q.t < 1) {
       q.t += dt / 4.5; const k = q.t;
       q.sp.position.y += dt * (.22 - k * .1); q.sp.position.x += q.vx * dt; q.sp.position.z += q.vz * dt;
-      q.sp.scale.setScalar(.2 + k * 1.05); q.sp.material.opacity = Math.min(1, k * 8) * (1 - k) * .95 * q.s;
+      q.sp.scale.setScalar(.15 + k * .55); q.sp.material.opacity = Math.min(1, k * 8) * (1 - k) * .4 * q.s;
       if (q.t >= 1) q.sp.visible = false;
     }
   }
@@ -1993,7 +1993,7 @@ if (renderer) {
       v.haz.emissiveIntensity = c.broken && Math.sin(T.t * Math.PI * 3) > 0 ? 2.6 : 0;
       if (c.broken) v.tail.emissiveIntensity = Math.sin(T.t * Math.PI * 3) > 0 ? 2.4 : .35;
       // engine smoke: puffs from the grille at the back, billowing up and drifting off
-      if (c.smoke > 0 && Math.random() < smokeDt * 14 * c.smoke) { smokeAt.set(-c.len / 2 + .12 + Math.random() * .25, .55 + Math.random() * .2, (Math.random() - .3) * .3); v.g.localToWorld(smokeAt); puff(smokeAt, c.smoke); }
+      if (c.smoke > 0 && Math.random() < smokeDt * 2 * c.smoke) { smokeAt.set(-c.len / 2 + .12 + Math.random() * .25, .55 + Math.random() * .2, (Math.random() - .3) * .3); v.g.localToWorld(smokeAt); puff(smokeAt, c.smoke); }
     }
     for (const [id, v] of vehicles) if (!live.has(id)) { scene.remove(v.g); v.tail.dispose(); vehicles.delete(id); }
     const liveP = new Set();
