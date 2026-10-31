@@ -344,7 +344,7 @@ h1 .board span { color: var(--gold); }
 </div>
 <script src="../lib/gamepad.js"></script>
 <script>
-const VERSION = "v2.9";
+const VERSION = "v2.10";
 const $ = id => document.getElementById(id);
 $("version").textContent = VERSION;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -1019,18 +1019,90 @@ function mindTheGap() {
   const go = () => { if (!ok() || !buf["pa-mindthegap"]) return false; const t = actx.currentTime + .02, d = playBuf("pa-mindthegap", t, 1.1, 0); duck(t, d - 1.8, .35); return true; };
   if (go()) return;
   const p = ready["pa-mindthegap"];
-  if (p) Promise.race([p, new Promise(r => setTimeout(r, 1500))]).then(() => { if (!go()) announce("Mind the gap."); });
+  if (p) Promise.race([Promise.all([p, actx && actx.state === "suspended" ? actx.resume().catch(() => {}) : 0]), new Promise(r => setTimeout(r, 4000))]).then(() => { if (!go()) announce("Mind the gap."); });
   else announce("Mind the gap.");
 }
 function announce(text) {
   if (!soundOn || !window.speechSynthesis) return;
   try {
-    const u = new SpeechSynthesisUtterance(text), v = speechSynthesis.getVoices().find(v => /en-GB/i.test(v.lang));
-    u.lang = "en-GB"; if (v) u.voice = v; u.rate = .72; u.pitch = .95; speechSynthesis.cancel(); speechSynthesis.speak(u);
+    const gb = speechSynthesis.getVoices().filter(v => /en[-_]GB/i.test(v.lang)), u = new SpeechSynthesisUtterance(text),
+      v = gb.find(v => /serena|kate|stephanie|martha|fiona|susan|hazel|libby|sonia|female/i.test(v.name)) || gb.find(v => !/daniel|arthur|oliver|george|ryan|thomas|\bmale\b/i.test(v.name)) || gb[0];
+    u.lang = "en-GB"; if (v) u.voice = v; u.rate = .85; u.pitch = 1.05; speechSynthesis.cancel(); speechSynthesis.speak(u);
   } catch (e) {}
 }
 // tapping the title says it too
 document.querySelector("h1 .board").addEventListener("click", () => { ensureAudio(); mindTheGap(); });
+
+// ---- Hidden menu (Cmd-T / Ctrl-T): every saying, click one to hear it ----
+const SAYINGS = [
+  ["pa-mindthegap", "Mind the gap.", "Plays on Play and when you tap the title"],
+  ["pa-sorted-short", "See it. Say it. Sorted.", "Short, as Rosie leaves on a win"],
+  ["pa-sorted", "See it. Say it. Sorted.", "Full station announcement"],
+  ["pa-delay205", "205 delayed", "Due to unforeseen circumstances, the 205 to Marble Arch has been delayed indefinitely."],
+  ["pa-gap", "Mind the gap", "Platform announcement"],
+  ["pa-doors", "Doors", "Station announcement"],
+  ["pa-belongings", "Belongings", "Station announcement"],
+  ["pa-next-train", "Next train", "Station announcement"],
+  ["pa-central-delay", "Central line delays", "Station announcement"],
+  ["pa-central-severe", "Central line severe delays", "Station announcement"],
+  ["pa-bakerloo", "Bakerloo line", "Line welcome"],
+  ["pa-central", "Central line", "Line welcome"],
+  ["pa-elizabeth", "Elizabeth line", "Line welcome"],
+  ["pa-jubilee", "Jubilee line", "Line welcome"],
+  ["pa-northern", "Northern line", "Line welcome"],
+  ["pa-victoria", "Victoria line", "Line welcome"]
+];
+let sayEl = null, sayNow = null, saySrc = null;
+function sayStop() { try { saySrc && saySrc.stop(); } catch (e) {} saySrc = null; sayNow = null; if (sayEl) sayEl.querySelectorAll("button.sy").forEach(b => { b.classList.remove("on"); b.firstChild.textContent = "▶"; }); }
+async function sayPlay(name, btn) {
+  if (sayNow === name) { sayStop(); return; }
+  sayStop();
+  if (!soundOn) { sayEl.querySelector(".syNote").textContent = "Sound is off: turn on 🔊 to listen."; return; }
+  sayEl.querySelector(".syNote").textContent = "";
+  ensureAudio(); if (!actx) return;
+  sayNow = name; btn.classList.add("on"); btn.firstChild.textContent = "■";
+  try { if (actx.state === "suspended") await actx.resume(); await (ready[name] || Promise.resolve()); } catch (e) {}
+  if (sayNow !== name) return;
+  const b = buf[name]; if (!b) { sayStop(); sayEl.querySelector(".syNote").textContent = "That recording hasn't loaded yet; try again."; return; }
+  const src = actx.createBufferSource(), g = actx.createGain(); src.buffer = b; g.gain.value = 1.05; src.connect(g); g.connect(master);
+  const t = actx.currentTime + .02; src.start(t); saySrc = src; duck(t, b.duration - 1.2, .25);
+  src.onended = () => { if (saySrc === src) sayStop(); };
+}
+function sayOpen() {
+  if (!sayEl) {
+    const st = document.createElement("style");
+    st.textContent = "#saying{position:fixed;inset:0;z-index:9000;background:rgba(6,8,16,.82);display:flex;align-items:center;justify-content:center;padding:max(env(safe-area-inset-top),44px) 14px 14px}" +
+      "#saying[hidden]{display:none}#saying .sp{width:min(520px,100%);max-height:100%;display:flex;flex-direction:column;background:#10131c;border:1px solid #3a4258;border-radius:14px;color:#eef0f5;font:14px/1.35 system-ui,sans-serif;box-shadow:0 10px 40px rgba(0,0,0,.6)}" +
+      "#saying h2{margin:0;padding:14px 16px 4px;font:700 16px system-ui,sans-serif;letter-spacing:.02em}#saying .sub{padding:0 16px 8px;color:#9aa3b8;font-size:12px}" +
+      "#saying .syNote{padding:0 16px;color:#ffb54a;font-size:12px;min-height:0}#saying .list{overflow:auto;padding:4px 10px 10px;-webkit-overflow-scrolling:touch}" +
+      "#saying button.sy{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;background:#181c28;border:1px solid #2b3347;border-radius:10px;color:inherit;padding:9px 11px;margin:5px 0;font:inherit;cursor:pointer}" +
+      "#saying button.sy.on{border-color:#f2c230;background:#262411}#saying .ic{flex:none;width:22px;height:22px;border-radius:50%;background:#f2c230;color:#111;font-size:11px;display:flex;align-items:center;justify-content:center;margin-top:1px}" +
+      "#saying .tt{font-weight:600}#saying .ds{color:#9aa3b8;font-size:12px}#saying .cl{margin:0 10px 12px;padding:9px;border-radius:10px;border:1px solid #2b3347;background:#181c28;color:inherit;font:inherit;cursor:pointer}";
+    document.head.appendChild(st);
+    sayEl = document.createElement("div"); sayEl.id = "saying"; sayEl.hidden = true;
+    sayEl.innerHTML = '<div class="sp"><h2>Station announcements</h2><div class="sub">Tap one to hear it. Tap again to stop. Esc or Cmd-T closes.</div><div class="syNote"></div><div class="list"></div><button class="cl">Close</button></div>';
+    const list = sayEl.querySelector(".list");
+    for (const [n, t, d] of SAYINGS) {
+      const b = document.createElement("button"); b.className = "sy";
+      b.innerHTML = '<span class="ic">▶</span><span><span class="tt"></span><br><span class="ds"></span></span>';
+      b.querySelector(".tt").textContent = t; b.querySelector(".ds").textContent = d;
+      b.firstChild.style.display = "flex"; b.addEventListener("click", () => sayPlay(n, b)); list.appendChild(b);
+    }
+    sayEl.querySelector(".cl").addEventListener("click", sayClose);
+    sayEl.addEventListener("click", e => { if (e.target === sayEl) sayClose(); });
+    document.body.appendChild(sayEl);
+  }
+  sayEl.hidden = false; ensureAudio();
+}
+function sayClose() { sayStop(); if (sayEl) sayEl.hidden = true; }
+window.addEventListener("keydown", e => {
+  const open = sayEl && !sayEl.hidden, isT = e.code === "KeyT" && (e.metaKey || e.ctrlKey);
+  if (isT) { e.preventDefault(); e.stopPropagation(); open ? sayClose() : sayOpen(); return; }
+  if (!open) return;
+  if (e.key === "Escape") { e.preventDefault(); sayClose(); }
+  e.stopPropagation();
+}, true);
+
 tapBtn("btnPick", () => show("ovLevels"));
 tapBtn("btnGuide", () => show("ovHelp"));
 tapBtn("btnCloseHelp", closeHelp);
