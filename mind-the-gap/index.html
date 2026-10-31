@@ -45,7 +45,7 @@ body {
 }
 header { display: flex; align-items: center; gap: 8px; min-height: 34px; }
 h1 { flex: 1; min-width: 0; margin: 0; font: 400 20px/1 var(--font-display); color: #fff; white-space: nowrap; display: flex; align-items: center; }
-h1 .board { display: inline-block; background: var(--blue); border: 2px solid #fff; border-radius: 6px; padding: 5px 10px 4px; letter-spacing: .02em; box-shadow: 0 2px 0 rgba(0,0,0,.4); }
+h1 .board { display: inline-block; cursor: pointer; -webkit-tap-highlight-color: transparent; background: var(--blue); border: 2px solid #fff; border-radius: 6px; padding: 5px 10px 4px; letter-spacing: .02em; box-shadow: 0 2px 0 rgba(0,0,0,.4); }
 h1 .board span { color: var(--gold); }
 .version { font: 500 11px system-ui, sans-serif; color: var(--muted); text-shadow: none; margin-left: 8px; }
 .hbtn {
@@ -278,7 +278,7 @@ h1 .board span { color: var(--gold); }
           <li><b>Restart</b> puts the level back how it started.</li>
           <li><b>Hint</b> makes the next best move for you (the train flashes white). A level you use a hint on earns only one star.</li>
           <li><b>Levels</b> lets you pick any level. Every level is open from the start.</li>
-          <li><b>?</b> opens this guide. <b>3D / 2D</b> switches the view. <b>♪</b> turns the music on or off, and <b>🔊</b> turns all sound on or off.</li>
+          <li>Tap the <b>Mind The Gap</b> sign at the top to hear the announcer say it. <b>?</b> opens this guide. <b>3D / 2D</b> switches the view. <b>♪</b> turns the music on or off, and <b>🔊</b> turns all sound on or off.</li>
         </ul>
       </section>
       <section>
@@ -323,7 +323,7 @@ h1 .board span { color: var(--gold); }
       </section>
       <section>
         <h3>Sounds</h3>
-        <p>The trains are real recordings of wheels on track. Now and then another train goes by, and the station announcer comes over the loudspeakers: welcomes to the lines, delays on the Central line, the doors, the gap, and of course <b>See it. Say it. Sorted.</b></p>
+        <p>The trains are real recordings of wheels on track. Now and then another train goes by, and the station announcer comes over the loudspeakers: welcomes to the lines, See it. Say it. Sorted. as Rosie leaves, delays on the Central line, the doors, the gap, and of course <b>See it. Say it. Sorted.</b> Up on the road, keep an eye on the 205.</p>
         <p class="fine">Train recordings: ESC-50 dataset (K. J. Piczak), from Freesound contributors, CC BY-NC 3.0, trimmed and faded. Announcements voiced with Kokoro TTS (Apache 2.0) through a station loudspeaker effect.</p>
       </section>
       <p class="fine" id="guideVer"></p>
@@ -344,7 +344,7 @@ h1 .board span { color: var(--gold); }
 </div>
 <script src="../lib/gamepad.js"></script>
 <script>
-const VERSION = "v2.5";
+const VERSION = "v2.6";
 const $ = id => document.getElementById(id);
 $("version").textContent = VERSION;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -570,6 +570,173 @@ function nextUnsolved() {
 let toastT = 0;
 function toast(msg) { const t = $("toast"); t.textContent = msg; t.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("on"), 2200); }
 
+// ---------- Traffic on the road over the tunnel (the 3D and 2D views both draw it) ----------
+// In 3D units: the road runs along z (up the screen is -z) between the kerbs at x 4.14 and 5.22. Traffic keeps left, London style:
+// lane 0 (x 4.43) heads up the screen, lane 1 (x 4.95) down it. A zebra crossing spans z 2.02-2.51, a bus stop sits in lane 0 near the top.
+// Vehicles follow each other (intelligent driver model), give way to people on the zebra, and the 205 bus calls at its stop.
+const ROAD = { kerbL: 4.14, kerbR: 5.22, cross0: 2.02, cross1: 2.51, end: 4.4, stop: 2.62, lanes: [{ x: 4.43, dir: -1 }, { x: 4.95, dir: 1 }] };
+const VK = { car: { len: .8, wid: .36, v0: .95 }, cab: { len: .84, wid: .38, v0: .9 }, van: { len: 1.02, wid: .41, v0: .85 }, bus: { len: 2.2, wid: .5, v0: .7 } };
+const CAR_COLS = ["#c9cdd2", "#f1f1ee", "#1d2a46", "#5b6168", "#141517", "#7b1d22", "#2d4c3c", "#d8d2c4", "#9aa3ad", "#33363b"];
+const COATS = ["#26303f", "#5a3b2a", "#7a7f86", "#1d1e22", "#8a2632", "#3d5a44", "#c9b48a", "#2b4a7a"];
+const traffic = { cars: [], peds: [], id: 1, gap: [1, 1], pedT: 5, ver: 0, busCool: 0, puffs: [] };
+window.__traffic = traffic;
+function addCar(lane, prog, kind) {
+  kind = kind || (r => r < .14 ? "bus" : r < .34 ? "cab" : r < .46 ? "van" : "car")(Math.random());
+  if (kind === "bus" && (lane !== 0 || traffic.busCool > 0 || traffic.cars.some(c => c.kind === "bus"))) kind = "cab";
+  const k = VK[kind], v0 = k.v0 * (.88 + Math.random() * .24);
+  traffic.cars.push({ id: traffic.id++, kind, lane, p: prog, v: v0 * .8, v0, len: k.len, wid: k.wid,
+    col: kind === "cab" ? "#121316" : kind === "van" ? "#eceeee" : kind === "bus" ? "#c8201b" : CAR_COLS[Math.floor(Math.random() * CAR_COLS.length)],
+    brake: false, go: false, served: false, dwell: 0, xo: 0, ovt: false, broken: false, done: false, parked: false, smoke: 0, wait: 150 + Math.random() * 60 });
+}
+// z of a car's centre, from its progress along its lane
+const carZ = c => c.p * ROAD.lanes[c.lane].dir;
+function crossingBusy() { return traffic.peds.some(q => q.cross && ((q.state === "walk" && q.x > 3.95 && q.x < 5.4) || (q.state === "wait" && q.t > .6))); }
+function trafficInit() {
+  addCar(0, -3.4, "bus"); addCar(0, 1.2, "car"); addCar(0, -1.2, "cab");
+  addCar(1, 2.7, "car"); addCar(1, .6, "van"); addCar(1, -1.6, "cab");
+  for (let k = 0; k < 4; k++) traffic.peds.push(stroller(-3.4 + k * 1.9));
+}
+function stroller(z) { const d = Math.random() < .5 ? 1 : -1; return { cross: false, x: 3.86 + Math.random() * .16, z, dir: d, v: .2 + Math.random() * .08, col: COATS[Math.floor(Math.random() * COATS.length)], ph: Math.random() * 6, state: "walk", t: 0 }; }
+function trafficStep(dt) {
+  if (!traffic.cars.length && !traffic.peds.length) trafficInit();
+  dt = Math.min(dt, .05);
+  const busy = crossingBusy();
+  // a broken-down 205 parked at the kerb: drivers take turns: for twelve seconds in every twenty: oncoming traffic holds back
+  // while cars pull out round it, then the cars wait while oncoming traffic goes
+  const pb = traffic.cars.find(c => c.parked);
+  const pbFront = pb ? -(pb.p + pb.len / 2) : 0, pbBack = pb ? -(pb.p - pb.len / 2) : 0;
+  const cyc = (traffic.t || 0) % 20, ourTurn = pb && cyc < 12;
+  const zoneClear = pb && !traffic.cars.some(o => o.lane === 1 && o.p + o.len / 2 > pbFront - 1.3 && o.p - o.len / 2 < pbBack + 1.2);
+  const passing = traffic.cars.some(o => o.ovt);
+  for (const lane of [0, 1]) {
+    const cs = traffic.cars.filter(c => c.lane === lane).sort((a, b) => b.p - a.p);   // front of the queue first
+    const dir = ROAD.lanes[lane].dir;
+    // where this lane meets the crossing, in progress along the lane
+    const stopP = dir < 0 ? -ROAD.stop : ROAD.cross0 - .12, crossEnd = dir < 0 ? -ROAD.cross0 : ROAD.cross1;
+    cs.forEach((c, i) => {
+      const front = c.p + c.len / 2;
+      if (c.ovt && (!pb || c.p - c.len / 2 > pb.p + pb.len / 2 + .2)) c.ovt = false;
+      let j = i - 1; while (j >= 0 && c.ovt && cs[j] === pb) j--;
+      let gap = 99, dv = 0;
+      if (j >= 0) { const l = cs[j]; gap = (l.p - l.len / 2) - front; dv = c.v - l.v; }
+      if (pb && cs[j] === pb && !c.ovt && gap < .9 && ourTurn && zoneClear && cyc < 9) {
+        c.ovt = true; j--; gap = 99; dv = 0; if (j >= 0) { const l = cs[j]; gap = (l.p - l.len / 2) - front; dv = c.v - l.v; }
+      }
+      c.xo += Math.max(-dt * .7, Math.min(dt * .7, (c.ovt ? .52 : c.parked ? -.06 : 0) - c.xo));
+      // give way at the zebra: once committed (too close to stop), carry on over it
+      if (front > stopP + .02) c.go = false;
+      if (busy && front <= stopP + .02 && !c.go) {
+        const room = stopP - front;
+        if (c.v * c.v / 3 > room + .06 && room < .25) c.go = true;
+        else if (room < gap) { gap = Math.max(.001, room); dv = c.v; }
+      }
+      // oncoming traffic holds back short of the broken-down bus while cars come round it
+      if (pb && lane === 1 && (ourTurn || passing)) {
+        const line = pbFront - 1.45, room = line - front;
+        if (room > -.02 && !(c.v * c.v / 3 > room + .06 && room < .25)) { if (room + .16 < gap) { gap = Math.max(.001, room + .16); dv = c.v; } }
+      }
+      // the 205: just past the zebra its engine starts smoking; it pulls in at the bus stop and sits there, hazards flashing,
+      // for a few minutes, the smoke dying away near the end, then it carries on
+      if (c.kind === "bus" && lane === 0) {
+        if (!c.broken && !c.done && carZ(c) < 1.4 && front < 2.3) { c.broken = true; c.smoke = 1; }
+        if (c.broken) {
+          const room = 2.62 - front;   // (plus the usual standstill gap, so it draws right up to the mark)
+          if (room + .16 < gap) { gap = Math.max(.001, room + .16); dv = c.v; }
+          if (room < .05 && c.v < .03) {
+            c.parked = true; c.dwell += dt;
+            if (c.dwell > c.wait - 14) c.smoke = Math.max(0, c.smoke - dt / 10);
+            if (c.dwell > c.wait) { c.broken = false; c.parked = false; c.done = true; c.served = true; c.smoke = 0; }
+          }
+        }
+      }
+      const s0 = .16, T = .8, A = .7, B = 1.1;
+      const ss = s0 + Math.max(0, c.v * T + c.v * dv / (2 * Math.sqrt(A * B)));
+      let a = A * (1 - Math.pow(c.v / c.v0, 4) - (ss / Math.max(gap, .001)) ** 2);
+      a = Math.max(-3, a);
+      c.v = Math.max(0, c.v + a * dt); c.p += c.v * dt;
+      c.brake = a < -.25 || c.v < .02;
+    });
+    // gone off the far end: remove; room at the near end: maybe a new one (no new 205 for a while after the last one leaves)
+    if (traffic.cars.some(c => c.lane === lane && c.kind === "bus" && c.p - c.len / 2 >= ROAD.end)) traffic.busCool = 40 + Math.random() * 40;
+    traffic.cars = traffic.cars.filter(c => c.lane !== lane || c.p - c.len / 2 < ROAD.end);
+    traffic.gap[lane] -= dt;
+    const last = cs.filter(c => c.p - c.len / 2 < ROAD.end).pop();
+    if (traffic.gap[lane] <= 0 && (!last || last.p - last.len / 2 > -ROAD.end + 1.4) && !(lane === 1 && traffic.cars.some(o => o.ovt))) {
+      addCar(lane, -ROAD.end - .6); traffic.gap[lane] = 1.2 + Math.random() * 3.2;
+    }
+  }
+  // people: strollers along the near pavement, and now and then someone crosses at the zebra
+  if ((traffic.pedT -= dt) <= 0 && !traffic.peds.some(q => q.cross)) {
+    const d = Math.random() < .55 ? 1 : -1;
+    traffic.peds.push({ cross: true, x: d > 0 ? 3.98 : 5.38, z: ROAD.cross0 + .1 + Math.random() * .29, dir: d, v: .3 + Math.random() * .08,
+      col: COATS[Math.floor(Math.random() * COATS.length)], ph: 0, state: "wait", t: 0 });
+    traffic.pedT = 9 + Math.random() * 14;
+  }
+  for (const q of traffic.peds) {
+    q.t += dt;
+    if (q.cross) {
+      if (q.state === "wait") {
+        // step out once no vehicle is on the crossing
+        const onIt = traffic.cars.some(c => { const z = carZ(c); return Math.abs(z - (ROAD.cross0 + ROAD.cross1) / 2) < c.len / 2 + .35; });
+        if (q.t > 1.1 && !onIt) { q.state = "walk"; q.t = 0; }
+      } else {
+        q.x += q.dir * q.v * dt; q.ph += dt * 9;
+        if (q.dir < 0 && q.x < 3.94) { const strollers = traffic.peds.filter(o => !o.cross).length;
+          if (strollers < 6) Object.assign(q, { cross: false, x: 3.9, dir: Math.random() < .5 ? 1 : -1, v: .22 }); else q.state = "gone"; }
+        if (q.x > 5.6) q.state = "gone";
+      }
+    } else {
+      q.z += q.dir * q.v * dt; q.ph += dt * 7;
+      if (q.z > 3.9) q.z = -3.9; if (q.z < -3.9) q.z = 3.9;
+    }
+  }
+  traffic.peds = traffic.peds.filter(q => q.state !== "gone");
+  traffic.t = (traffic.t || 0) + dt;
+  if (traffic.busCool > 0) traffic.busCool -= dt;
+  // smoke from the 205's engine (at the back, low on the offside), for the 2D view; the 3D view makes its own
+  for (const c of traffic.cars) if (c.smoke > 0 && Math.random() < dt * 7 * c.smoke) {
+    const L = ROAD.lanes[c.lane]; traffic.puffs.push({ x: L.x + c.xo + .12, z: carZ(c) - L.dir * (c.len / 2 - .15), t: 0, s: c.smoke });
+  }
+  for (const f of traffic.puffs) { f.t += dt; f.x += dt * .05; f.z += dt * .03; }
+  traffic.puffs = traffic.puffs.filter(f => f.t < 3);
+}
+// 2D: the near lane and the pavement fit in the strip at the right of the board
+const tx2 = x => 458 + (x - ROAD.kerbL) * 30, ty2 = z => 220 + z * 66;
+function drawTraffic2d() {
+  ctx.save(); ctx.beginPath(); ctx.rect(450, 0, 30, BH); ctx.clip();
+  // zebra crossing and its zig-zags
+  ctx.fillStyle = "#eeeeea"; for (let k = 0; k < 4; k++) ctx.fillRect(460 + k * 6, ty2(ROAD.cross0), 3.5, (ROAD.cross1 - ROAD.cross0) * 66);
+  ctx.strokeStyle = "rgba(238,238,234,.9)"; ctx.lineWidth = 1;
+  for (const [z0, z1] of [[ROAD.cross0 - 1.3, ROAD.cross0 - .1], [ROAD.cross1 + .1, ROAD.cross1 + 1.3]]) {
+    ctx.beginPath(); for (let z = z0, k = 0; z <= z1; z += .15, k++) ctx.lineTo(461 + (k % 2) * 2.5, ty2(z)); ctx.stroke();
+  }
+  for (const c of traffic.cars) {
+    const L = ROAD.lanes[c.lane]; if (L.x > 5.1) continue;
+    const z = carZ(c), w = c.wid * 30, h = c.len * 62, x = tx2(L.x + c.xo) - w / 2, y = ty2(z) - h / 2;
+    ctx.fillStyle = "rgba(0,0,0,.25)"; roundRect(x + 1.5, y + 2, w, h, 3); ctx.fill();
+    ctx.fillStyle = c.col; roundRect(x, y, w, h, c.kind === "bus" ? 2.5 : 4); ctx.fill();
+    const fy = L.dir < 0 ? y : y + h;                       // the front end
+    if (c.kind === "bus") {
+      ctx.fillStyle = "#e4e4e0"; roundRect(x + 1.5, y + 3, w - 3, h - 6, 2); ctx.fill();
+      ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.rotate(-Math.PI / 2); ctx.fillStyle = "#111"; ctx.font = "bold 9px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("205", 0, 1); ctx.restore();
+    } else {
+      ctx.fillStyle = "rgba(20,28,38,.85)"; ctx.fillRect(x + 1.5, L.dir < 0 ? y + h * .22 : y + h * .62, w - 3, h * .16);
+      ctx.fillStyle = "rgba(20,28,38,.7)"; ctx.fillRect(x + 1.5, L.dir < 0 ? y + h * .7 : y + h * .16, w - 3, h * .12);
+      if (c.kind === "cab") { ctx.fillStyle = "#ffb52e"; ctx.fillRect(x + w / 2 - 2, L.dir < 0 ? y + h * .4 : y + h * .52, 4, 2.5); }
+    }
+    ctx.fillStyle = c.brake ? "#ff2a1a" : "#8a1010"; const by = L.dir < 0 ? y + h - 1.5 : y; ctx.fillRect(x + 1, by, 2.5, 1.5); ctx.fillRect(x + w - 3.5, by, 2.5, 1.5);
+    ctx.fillStyle = "#fff6d8"; const hy = L.dir < 0 ? fy : fy - 1.5; ctx.fillRect(x + 1, hy, 2.5, 1.5); ctx.fillRect(x + w - 3.5, hy, 2.5, 1.5);
+    if (c.broken && Math.sin(traffic.t * Math.PI * 3) > 0) { ctx.fillStyle = "#ffb52e"; for (const [hx, hy2] of [[x, y], [x + w - 3, y], [x, y + h - 3], [x + w - 3, y + h - 3]]) ctx.fillRect(hx, hy2, 3, 3); }
+  }
+  for (const f of traffic.puffs) { const k = f.t / 3; ctx.fillStyle = `rgba(70,70,72,${(1 - k) * .55 * f.s})`; ctx.beginPath(); ctx.arc(tx2(f.x), ty2(f.z), 3 + k * 9, 0, 7); ctx.fill(); }
+  for (const q of traffic.peds) {
+    const x = tx2(q.x), y = ty2(q.z);
+    ctx.fillStyle = q.col; ctx.beginPath(); ctx.ellipse(x, y, 2.6, 3.4, 0, 0, 7); ctx.fill();
+    ctx.fillStyle = "#e0b892"; ctx.beginPath(); ctx.arc(x, y, 1.5, 0, 7); ctx.fill();
+  }
+  ctx.restore();
+}
+
 // ---------- Sizing and 2D drawing ----------
 // The board area is 480 x 440 logical pixels: a 440 x 440 depot (6 cells of 66 plus a 22 rim) and 40 more on the right for the road and tunnel.
 const BW = 480, BH = 440, RIM = 22, CELL = 66;
@@ -682,14 +849,13 @@ function draw2d() {
     ctx.restore();
   });
   ctx.restore();
-  // the road over the tunnel: brick headwall, pavements, a red bus and a phone box
+  // the road over the tunnel: brick headwall, pavements, the traffic and a phone box
   ctx.fillStyle = "#b8935a"; ctx.fillRect(440, 0, 10, BH);
   ctx.fillStyle = "rgba(0,0,0,.25)"; for (let y = 0; y < BH; y += 6) ctx.fillRect(440, y, 10, 1);
   ctx.fillStyle = "#c9c6bd"; ctx.fillRect(450, 0, 30, BH);
   ctx.fillStyle = "#3b3d41"; ctx.fillRect(458, 0, 22, BH);
   ctx.fillStyle = "#f2c230"; ctx.fillRect(460, 0, 1.5, BH); ctx.fillRect(463, 0, 1.5, BH);
-  ctx.fillStyle = "#c4231c"; roundRect(466, ey - 70, 14, 118, 3); ctx.fill();   // the bus roof (going off the edge)
-  ctx.fillStyle = "#e8e8e8"; ctx.fillRect(469, ey - 50, 8, 14);
+  drawTraffic2d();
   ctx.fillStyle = "#c4231c"; ctx.fillRect(451, ey + 120, 6, 6);                  // phone box
   ctx.fillStyle = "#1d1f22"; ctx.fillRect(441, ey + 4, 9, CELL - 8);             // tunnel mouth
   // signal at the tunnel mouth
@@ -843,8 +1009,18 @@ addEventListener("keydown", e => {
 
 // ---------- Buttons ----------
 const tapBtn = (id, fn) => $(id).addEventListener("click", () => { ensureAudio(); fn(); });
-tapBtn("btnPlay", () => { loadLevel(nextUnsolved()); show(null); Snd.tap(); announce("Mind the gap."); });
-// the station announcement, in a British voice when the device has one
+tapBtn("btnPlay", () => { loadLevel(nextUnsolved()); show(null); Snd.tap(); mindTheGap(); });
+// "Mind the gap." over the station loudspeakers (a recording); the device's British voice only if the recording can't load
+let mindT = 0;
+function mindTheGap() {
+  if (!soundOn) return;
+  const now = performance.now(); if (now - mindT < 1500) return; mindT = now;
+  const go = () => { if (!ok() || !buf["pa-mindthegap"]) return false; const t = actx.currentTime + .02, d = playBuf("pa-mindthegap", t, 1.1, 0); duck(t, d - 1.8, .35); return true; };
+  if (go()) return;
+  const p = ready["pa-mindthegap"];
+  if (p) Promise.race([p, new Promise(r => setTimeout(r, 1500))]).then(() => { if (!go()) announce("Mind the gap."); });
+  else announce("Mind the gap.");
+}
 function announce(text) {
   if (!soundOn || !window.speechSynthesis) return;
   try {
@@ -852,6 +1028,8 @@ function announce(text) {
     u.lang = "en-GB"; if (v) u.voice = v; u.rate = .92; u.pitch = .95; speechSynthesis.cancel(); speechSynthesis.speak(u);
   } catch (e) {}
 }
+// tapping the title says it too
+document.querySelector("h1 .board").addEventListener("click", () => { ensureAudio(); mindTheGap(); });
 tapBtn("btnPick", () => show("ovLevels"));
 tapBtn("btnGuide", () => show("ovHelp"));
 tapBtn("btnCloseHelp", closeHelp);
@@ -955,16 +1133,19 @@ function noise(t, dur, type, freq, q, vol, out, attack) {
 // Files in sfx/: move1-4 (a short roll over the joints), bump, depart (Rosie pulling out), pass1-4 (another train going by),
 // pa-* (announcements through the station loudspeakers). They load after the first tap; until then the game is just quiet.
 const SFX = ["move1", "move2", "move3", "move4", "bump", "depart", "pass1", "pass2", "pass3", "pass4",
+  "pa-mindthegap", "pa-sorted-short",
   "pa-sorted", "pa-bakerloo", "pa-elizabeth", "pa-victoria", "pa-jubilee", "pa-northern", "pa-central",
   "pa-central-delay", "pa-central-severe", "pa-doors", "pa-gap", "pa-belongings", "pa-next-train"];
-const buf = {};
+const buf = {}, ready = {};
+// download the files as soon as the page opens; they're decoded once the first tap has started the sound
+const raw = {};
+for (const n of SFX) raw[n] = fetch("sfx/" + n + ".mp3").then(r => r.ok ? r.arrayBuffer() : Promise.reject()).catch(() => null);
 let sfxLoading = false;
 function loadSfx() {
   if (sfxLoading || !actx) return; sfxLoading = true;
   for (const n of SFX) {
-    fetch("sfx/" + n + ".mp3").then(r => r.ok ? r.arrayBuffer() : Promise.reject())
-      .then(ab => new Promise((ok, no) => { const p = actx.decodeAudioData(ab, ok, no); if (p && p.catch) p.catch(no); }))
-      .then(b => { buf[n] = b; }).catch(() => {});
+    ready[n] = raw[n].then(ab => ab && new Promise((ok, no) => { const p = actx.decodeAudioData(ab, ok, no); if (p && p.catch) p.catch(no); }))
+      .then(b => { if (b) buf[n] = b; return b; }).catch(() => null);
   }
 }
 const pickSfx = list => { const have = list.filter(n => buf[n]); return have.length ? have[Math.floor(Math.random() * have.length)] : null; };
@@ -1007,7 +1188,9 @@ const Snd = {
   win() {
     if (!ok()) return; const t = actx.currentTime;
     const d = playBuf("depart", t, 1.15, 0, .75); if (d) duck(t, d - 1, .3);
-    passT = Math.max(passT, 10);
+    // and the announcer over the top of it, as she leaves the station
+    const v = playBuf("pa-sorted-short", t + 1.1, 1.05, .15); if (v) { duck(t + 1.1, v - 1.2, .25); paBusy = v + 1.1; paLast = "pa-sorted"; }
+    passT = Math.max(passT, 10); paT = Math.max(paT, 25);
   },
   // now and then another train goes by in the tunnel, and every so often the station announcer speaks
   ambient(dt) {
@@ -1207,6 +1390,7 @@ function frame(now) {
   const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now; g.time += dt;
   if (g.hintT > 0) g.hintT -= dt;
   Snd.ambient(dt);
+  trafficStep(dt);
   if (lastLvl !== g.lvl) { if (lastLvl >= 0) { Snd.soon(); track = (track + 1) % TRACKS.length; step = 0; nextTime = actx ? Math.max(nextTime, actx.currentTime + .1) : 0; } lastLvl = g.lvl; }
   g.ps.forEach((p, i) => {
     if (g.drag && g.drag.i === i) { p.vis = g.drag.base + g.drag.off; return; }
@@ -1261,12 +1445,14 @@ if (renderer) {
   scene.add(new THREE.HemisphereLight(0xdfe8f2, 0x4a4640, 0.75));
   const sun = new THREE.DirectionalLight(0xfff3e2, 2.4);
   sun.position.set(-3.5, 10, -4.5); sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.mapSize.set(4096, 4096);
   Object.assign(sun.shadow.camera, { left: -6.5, right: 6.5, top: 6.5, bottom: -6.5, near: 1, far: 30 });
   sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.02; sun.shadow.radius = 3;
   scene.add(sun);
-  const tex = (w, h, paint, srgb = true) => { const c = document.createElement("canvas"); c.width = w; c.height = h; paint(c.getContext("2d"), w, h);
-    const t = new THREE.CanvasTexture(c); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; };
+  // canvas textures, drawn at ss times the logical size for sharpness, with the GPU's best anisotropic filtering
+  const ANISO = Math.min(16, renderer.capabilities.getMaxAnisotropy() || 8);
+  const tex = (w, h, paint, srgb = true, ss = 1) => { const c = document.createElement("canvas"); c.width = w * ss; c.height = h * ss; const x = c.getContext("2d"); x.scale(ss, ss); paint(x, w, h);
+    const t = new THREE.CanvasTexture(c); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = ANISO; return t; };
   {
     // environment for reflections: an overcast sky, a bright patch where the sun is, darker ground
     const envScene = new THREE.Scene();
@@ -1307,17 +1493,18 @@ if (renderer) {
       x.fillStyle = `rgba(255,255,255,.18)`; x.beginPath(); x.ellipse(sx - r * .3, sy - r * .3, r * .4, r * .3, 0, 0, 7); x.fill();
     }
   }
-  const baseGravel = document.createElement("canvas"); baseGravel.width = baseGravel.height = 1024;
-  { const x = baseGravel.getContext("2d"); x.fillStyle = "#5e5b55"; x.fillRect(0, 0, 1024, 1024); stones(x, 1024, 1024, 15000, false);
+  const FS = 2;   // floor textures are drawn at twice their logical 1024 px for sharper ballast
+  const baseGravel = document.createElement("canvas"); baseGravel.width = baseGravel.height = 1024 * FS;
+  { const x = baseGravel.getContext("2d"); x.scale(FS, FS); x.fillStyle = "#5e5b55"; x.fillRect(0, 0, 1024, 1024); stones(x, 1024, 1024, 15000, false);
     // a little oil and rust staining
     for (let k = 0; k < 40; k++) { const g = x.createRadialGradient(0, 0, 0, 0, 0, 60 + rnd() * 80); g.addColorStop(0, rnd() < .5 ? "rgba(60,40,25,.18)" : "rgba(20,18,16,.2)"); g.addColorStop(1, "rgba(0,0,0,0)");
       x.save(); x.translate(rnd() * 1024, rnd() * 1024); x.fillStyle = g; x.fillRect(-150, -150, 300, 300); x.restore(); } }
-  const floorCanvas = document.createElement("canvas"); floorCanvas.width = floorCanvas.height = 1024;
-  const floorTex = new THREE.CanvasTexture(floorCanvas); floorTex.colorSpace = THREE.SRGBColorSpace; floorTex.anisotropy = 8;
+  const floorCanvas = document.createElement("canvas"); floorCanvas.width = floorCanvas.height = 1024 * FS;
+  const floorTex = new THREE.CanvasTexture(floorCanvas); floorTex.colorSpace = THREE.SRGBColorSpace; floorTex.anisotropy = ANISO;
   // per level: fresh, lighter ballast heaped along each track, and a faint grid so the squares still read
   function paintFloor(lines) {
     const x = floorCanvas.getContext("2d"), s = 1024 / 6;
-    x.drawImage(baseGravel, 0, 0);
+    x.setTransform(1, 0, 0, 1, 0, 0); x.drawImage(baseGravel, 0, 0); x.setTransform(FS, 0, 0, FS, 0, 0);
     seed = 5;
     for (const L of lines) {
       x.save();
@@ -1331,15 +1518,16 @@ if (renderer) {
     floorTex.needsUpdate = true;
   }
   const woodTex = tex(128, 32, (x, w, h) => { x.fillStyle = "#4b3c30"; x.fillRect(0, 0, w, h);
-    for (let k = 0; k < 40; k++) { x.strokeStyle = `rgba(${rnd() < .5 ? "25,18,12" : "110,95,80"},.4)`; x.beginPath(); const y = rnd() * h; x.moveTo(0, y); x.bezierCurveTo(w * .3, y + rnd() * 4 - 2, w * .6, y + rnd() * 4 - 2, w, y); x.stroke(); } });
+    for (let k = 0; k < 40; k++) { x.strokeStyle = `rgba(${rnd() < .5 ? "25,18,12" : "110,95,80"},.4)`; x.beginPath(); const y = rnd() * h; x.moveTo(0, y); x.bezierCurveTo(w * .3, y + rnd() * 4 - 2, w * .6, y + rnd() * 4 - 2, w, y); x.stroke(); } }, true, 3);
   const concTex = tex(256, 256, (x, w, h) => { x.fillStyle = "#b3b0a8"; x.fillRect(0, 0, w, h);
     for (let k = 0; k < 5000; k++) { x.fillStyle = `rgba(${rnd() < .5 ? "80,78,72" : "230,228,220"},${.08 + rnd() * .15})`; x.fillRect(rnd() * w, rnd() * h, 1 + rnd() * 2, 1 + rnd() * 2); }
-    x.strokeStyle = "rgba(60,58,54,.35)"; x.lineWidth = 2; for (let k = 0; k <= 4; k++) { x.beginPath(); x.moveTo(k * 64, 0); x.lineTo(k * 64, h); x.stroke(); } });
+    x.strokeStyle = "rgba(60,58,54,.35)"; x.lineWidth = 2; for (let k = 0; k <= 4; k++) { x.beginPath(); x.moveTo(k * 64, 0); x.lineTo(k * 64, h); x.stroke(); } }, true, 2);
   concTex.wrapS = concTex.wrapT = THREE.RepeatWrapping;
   // London stock brick, in Flemish-ish courses
   const brickTex = tex(256, 256, (x, w, h) => { x.fillStyle = "#8e8574"; x.fillRect(0, 0, w, h);
     for (let r = 0; r < 16; r++) for (let c = -1; c < 9; c++) { const v = rnd(); x.fillStyle = v < .12 ? "#7a4a2e" : v < .3 ? "#a9875a" : v < .6 ? "#c4a46e" : "#b8955f";
-      x.fillRect(c * 32 + (r % 2) * 16 + 1, r * 16 + 1, 30, 14); x.fillStyle = "rgba(0,0,0,.12)"; x.fillRect(c * 32 + (r % 2) * 16 + 1, r * 16 + 12, 30, 3); } });
+      x.fillRect(c * 32 + (r % 2) * 16 + 1, r * 16 + 1, 30, 14); x.fillStyle = "rgba(0,0,0,.12)"; x.fillRect(c * 32 + (r % 2) * 16 + 1, r * 16 + 12, 30, 3);
+      for (let k = 0; k < 10; k++) { x.fillStyle = `rgba(${rnd() < .5 ? "40,30,20" : "240,225,190"},.12)`; x.fillRect(c * 32 + (r % 2) * 16 + 1 + rnd() * 29, r * 16 + 1 + rnd() * 13, 1, 1); } } }, true, 3);
   brickTex.wrapS = brickTex.wrapT = THREE.RepeatWrapping;
   // the platform edge along the top: yellow line and the famous words
   const platTex = tex(1024, 64, (x, w, h) => { x.fillStyle = "#5d5c58"; x.fillRect(0, 0, w, h);
@@ -1347,7 +1535,7 @@ if (renderer) {
     x.fillStyle = "#e9e6dc"; x.fillRect(0, h - 10, w, 10);                       // white coping stones
     x.fillStyle = "#ffd300"; x.fillRect(0, h - 20, w, 6);                        // yellow line
     x.fillStyle = "#ffffff"; x.font = "bold 28px 'Hammersmith One', 'Gill Sans', sans-serif"; x.textAlign = "center"; x.textBaseline = "middle";
-    for (let k = 0; k < 3; k++) x.fillText("MIND THE GAP", w * (k + .5) / 3, 21); });
+    for (let k = 0; k < 3; k++) x.fillText("MIND THE GAP", w * (k + .5) / 3, 21); }, true, 2);
   // tube car skin, laid round the body by angle: v = 0 underneath, .25 one side, .5 the roof centre, .75 the other side.
   // Seen from above you get the roof and the curved shoulders, so the windows and doors run up into the curve, as on real tube stock.
   const liveryTex = {};
@@ -1402,7 +1590,7 @@ if (renderer) {
       }
       x.fillStyle = "rgba(0,0,0,.35)"; x.fillRect(0, 0, 4, h); x.fillRect(w - 4, 0, 4, h);   // car ends
     });
-    t.anisotropy = 16;
+    t.anisotropy = ANISO;
     return (liveryTex[key] = t);
   }
   function shade(hex, d) { const n = parseInt(hex.slice(1), 16), c = k => Math.max(0, Math.min(255, ((n >> k) & 255) + d)); return `rgb(${c(16)},${c(8)},${c(0)})`; }
@@ -1417,7 +1605,7 @@ if (renderer) {
       x.fillStyle = "#111"; x.fillRect(w * .3, h * .07, w * .4, h * .09); x.fillStyle = "#ffb000"; x.font = "bold 18px sans-serif"; x.textAlign = "center"; x.fillText("NOT IN SERVICE", w / 2, h * .135);
       for (const s of [.22, .78]) { x.fillStyle = "#fff6d8"; x.beginPath(); x.arc(w * s, h * .72, 12, 0, 7); x.fill(); x.fillStyle = "#d22"; x.beginPath(); x.arc(w * s + (s < .5 ? 26 : -26), h * .72, 8, 0, 7); x.fill(); }
       x.fillStyle = col.skirt; x.fillRect(0, h * .86, w, h * .14);
-    }));
+    }, true, 2));
   }
 
   // ---- geometry helpers ----
@@ -1436,7 +1624,7 @@ if (renderer) {
       sh.moveTo(-hw + rb, -hh); sh.lineTo(hw - rb, -hh); sh.quadraticCurveTo(hw, -hh, hw, -hh + rb);
       sh.lineTo(hw, hh - rt); sh.quadraticCurveTo(hw, hh, hw - rt, hh); sh.lineTo(-hw + rt, hh); sh.quadraticCurveTo(-hw, hh, -hw, hh - rt);
       sh.lineTo(-hw, -hh + rb); sh.quadraticCurveTo(-hw, -hh, -hw + rb, -hh);
-      const g = new THREE.ExtrudeGeometry(sh, { depth: L, bevelEnabled: false, curveSegments: 14 });
+      const g = new THREE.ExtrudeGeometry(sh, { depth: L, bevelEnabled: false, curveSegments: 22 });
       g.translate(0, 0, -L / 2); g.rotateY(Math.PI / 2);
       const p = g.attributes.position, uv = g.attributes.uv;
       for (let i = 0; i < p.count; i++) {
@@ -1514,7 +1702,7 @@ if (renderer) {
       x.strokeStyle = "#ffd300"; x.lineWidth = 3; x.beginPath(); x.roundRect(10, 10, w - 20, h - 20, 7); x.stroke();
       x.fillStyle = "#ffd300"; x.font = "36px 'Hammersmith One', 'Gill Sans', sans-serif"; x.textAlign = "center"; x.textBaseline = "middle";
       x.fillText("SEE IT.   SAY IT.   SORTED.", w / 2, h / 2 + 2); };
-    const notice = tex(1024, 64, paintNotice);
+    const notice = tex(1024, 64, paintNotice, true, 2);
     // repaint once the station font has loaded, so the words aren't left in the fallback font
     if (document.fonts) document.fonts.ready.then(() => { paintNotice(notice.image.getContext("2d"), 1024, 64); notice.needsUpdate = true; });
     const n = new THREE.Mesh(new THREE.PlaneGeometry(4.4, .275), new THREE.MeshStandardMaterial({ map: notice, roughness: .75 }));
@@ -1529,18 +1717,68 @@ if (renderer) {
   const brick = new THREE.MeshStandardMaterial({ map: brickTex, roughness: .9 });
   const brickV = brick.clone(); brickV.map = brickTex.clone(); brickV.map.needsUpdate = true; brickV.map.repeat.set(4, 2);
   const RX = 3.48, RW = 2.4, RH = 1.15;
-  const roadTex = tex(512, 1024, (x, w, h) => {
-    x.fillStyle = "#c2bfb6"; x.fillRect(0, 0, w, h);                          // pavement
-    for (let y = 0; y < h; y += 64) for (let c = 0; c < 2; c++) { x.strokeStyle = "rgba(90,88,82,.5)"; x.strokeRect(c * 64, y, 64, 64); x.strokeRect(w - 128 + c * 64, y + 32, 64, 64); }
-    x.fillStyle = "#3a3c40"; x.fillRect(140, 0, w - 280, h);                    // road
-    for (let k = 0; k < 6000; k++) { x.fillStyle = `rgba(${rnd() < .5 ? "20,20,22" : "110,110,112"},.25)`; x.fillRect(140 + rnd() * (w - 280), rnd() * h, 2, 2); }
-    x.fillStyle = "#e3b51e"; x.fillRect(150, 0, 5, h); x.fillRect(160, 0, 5, h);          // double yellow lines
-    x.fillStyle = "#e8e8e6"; for (let y = 10; y < h; y += 90) x.fillRect(w / 2 - 3, y, 6, 50);   // centre line
-    x.fillStyle = "#e8e8e6"; for (let k = 0; k < 7; k++) x.fillRect(150 + k * 30, h * .78, 18, 70);   // zebra crossing
-    x.fillStyle = "#1c1c1c"; for (let k = 0; k < 7; k++) x.fillRect(150 + k * 30 + 18, h * .78, 12, 70);
-    x.fillStyle = "#3a3c40"; x.fillRect(140, h * .78 + 70, w - 280, 1);
-  });
-  const roadTop = new THREE.MeshStandardMaterial({ map: roadTex, roughness: .9 });
+  // the road surface, painted at about 213 px per unit across and 284 along: London paving, granite kerbs, worn asphalt with
+  // tyre tracks and patches, double yellow lines, a zebra crossing with its zig-zags and LOOK RIGHT, a bus stop box, drains and covers
+  const roadTex = tex(512, 2048, (x, w, h) => {
+    const X = v => (v - RX) / RW * w, Y = z => (z + 3.6) / 7.2 * h, kL = X(4.14), kR = X(5.22);
+    // paving slabs, each a touch different
+    for (const [x0, x1] of [[0, kL], [kR, w]]) for (let yy = 0, r = 0; yy < h; yy += 44, r++) for (let xx = x0 - (r % 2) * 32; xx < x1; xx += 64) {
+      const v = 182 + Math.floor(rnd() * 18); x.fillStyle = `rgb(${v},${v - 3},${v - 9})`; x.fillRect(Math.max(x0, xx), yy, Math.min(64, x1 - xx), 44);
+      x.fillStyle = "rgba(70,66,60,.45)"; x.fillRect(Math.max(x0, xx), yy, Math.min(64, x1 - xx), 1.5); x.fillRect(Math.max(x0, xx), yy, 1.5, 44);
+      for (let k = 0; k < 14; k++) { x.fillStyle = `rgba(${rnd() < .5 ? "60,58,54" : "235,232,224"},.18)`; x.fillRect(xx + rnd() * 64, yy + rnd() * 44, 2, 2); }
+    }
+    // asphalt: base, grain, blotches, darker tyre tracks
+    x.fillStyle = "#3a3c40"; x.fillRect(kL, 0, kR - kL, h);
+    for (let k = 0; k < 90; k++) { const cx = kL + rnd() * (kR - kL), cy = rnd() * h, r = 20 + rnd() * 70, g = x.createRadialGradient(cx, cy, 0, cx, cy, r);
+      g.addColorStop(0, rnd() < .5 ? "rgba(20,20,22,.18)" : "rgba(120,120,118,.12)"); g.addColorStop(1, "rgba(0,0,0,0)"); x.fillStyle = g; x.fillRect(cx - r, cy - r, r * 2, r * 2); }
+    for (let k = 0; k < 26000; k++) { const c = rnd(); x.fillStyle = c < .45 ? "rgba(16,16,18,.35)" : c < .9 ? "rgba(110,110,112,.3)" : "rgba(170,168,160,.35)"; x.fillRect(kL + rnd() * (kR - kL), rnd() * h, 1.5, 1.5); }
+    for (const lx of [4.43, 4.95]) for (const o of [-.13, .13]) { const g = x.createLinearGradient(X(lx + o) - 14, 0, X(lx + o) + 14, 0);
+      g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(.5, "rgba(10,10,12,.22)"); g.addColorStop(1, "rgba(0,0,0,0)"); x.fillStyle = g; x.fillRect(X(lx + o) - 14, 0, 28, h); }
+    // patched repairs and a few cracks
+    for (let k = 0; k < 5; k++) { const px = kL + 20 + rnd() * (kR - kL - 90), py = rnd() * h, pw = 40 + rnd() * 60, ph = 60 + rnd() * 120;
+      x.fillStyle = "rgba(28,29,32,.55)"; x.fillRect(px, py, pw, ph); x.strokeStyle = "rgba(15,15,16,.6)"; x.lineWidth = 1.5; x.strokeRect(px, py, pw, ph); }
+    x.strokeStyle = "rgba(14,14,15,.55)"; x.lineWidth = 1;
+    for (let k = 0; k < 12; k++) { let cx = kL + rnd() * (kR - kL), cy = rnd() * h; x.beginPath(); x.moveTo(cx, cy); for (let j = 0; j < 6; j++) { cx += (rnd() - .5) * 18; cy += 6 + rnd() * 14; x.lineTo(cx, cy); } x.stroke(); }
+    // gutters along the kerbs
+    for (const gx of [kL, kR - 8]) { x.fillStyle = "rgba(20,20,22,.35)"; x.fillRect(gx, 0, 8, h); }
+    // worn paint: lines drawn, then scuffed with asphalt specks
+    const wear = (x0, y0, ww, hh) => { for (let k = 0; k < ww * hh / 14; k++) { x.fillStyle = "rgba(58,60,64,.55)"; x.fillRect(x0 + rnd() * ww, y0 + rnd() * hh, 1.5, 1.5); } };
+    const cz0 = Y(2.02), cz1 = Y(2.51), bs0 = Y(-2.75), bs1 = Y(-.35);
+    // double yellow lines, both kerbs, broken by the crossing's zig-zags and the bus stop
+    for (const [lx, gaps] of [[kL + 10, [[Y(.72), Y(3.81)], [bs0, bs1]]], [kR - 22, [[Y(.72), Y(3.81)]]]]) {
+      x.fillStyle = "#d9ad1c";
+      let y0 = 0; for (const [g0, g1] of gaps.sort((a, b) => a[0] - b[0])) { x.fillRect(lx, y0, 4, g0 - y0); x.fillRect(lx + 8, y0, 4, g0 - y0); y0 = g1; }
+      x.fillRect(lx, y0, 4, h - y0); x.fillRect(lx + 8, y0, 4, h - y0); wear(lx, 0, 12, h);
+    }
+    // centre line: long dashes, then the zig-zags' warning lines
+    x.fillStyle = "#e9e9e4"; const cx = X(4.69) - 3;
+    for (let yy = 8; yy < h; yy += 128) if (yy + 60 < Y(.72) || yy > Y(3.81)) x.fillRect(cx, yy, 6, 60);
+    // zebra crossing: broad white stripes across the road
+    for (let k = 0, sx = kL + 6; sx < kR - 6; k++, sx += 30) { x.fillStyle = "#ecece6"; x.fillRect(sx, cz0, 17, cz1 - cz0); wear(sx, cz0, 17, cz1 - cz0); }
+    x.fillStyle = "#e9e9e4"; x.fillRect(kL, cz0 - 14, kR - kL, 2.5); x.fillRect(kL, cz1 + 12, kR - kL, 2.5);   // give-way studs line
+    // zig-zags along both kerbs and the centre, before and after the crossing
+    x.strokeStyle = "#ecece6"; x.lineWidth = 4; x.lineJoin = "miter";
+    for (const [z0, z1] of [[.72, 1.92], [2.62, 3.81]]) for (const zx of [kL + 16, cx + 3, kR - 26]) {
+      x.beginPath(); for (let zz = z0, k = 0; zz <= z1 + .001; zz += .1, k++) x.lineTo(zx + (k % 2 ? 8 : -2), Y(zz)); x.stroke();
+    }
+    // LOOK RIGHT on each kerb at the crossing, reading from the pavement
+    x.fillStyle = "#ecece6"; x.font = "bold 13px Hammersmith One, sans-serif"; x.textAlign = "center"; x.textBaseline = "middle";
+    for (const [lx, rot] of [[kL + 34, Math.PI / 2], [kR - 34, -Math.PI / 2]]) { x.save(); x.translate(lx, (cz0 + cz1) / 2); x.rotate(rot); x.fillText("LOOK RIGHT  →", 0, 0); x.restore(); }
+    // bus stop box with BUS STOP in yellow in the near lane
+    x.strokeStyle = "#d9ad1c"; x.lineWidth = 4; x.strokeRect(kL + 4, bs0, X(4.72) - kL - 4, bs1 - bs0); wear(kL + 4, bs0, X(4.72) - kL - 4, 4);
+    x.save(); x.translate((kL + X(4.72)) / 2 + 4, (bs0 + bs1) / 2); x.rotate(Math.PI / 2); x.fillStyle = "#d9ad1c"; x.font = "bold 46px Hammersmith One, sans-serif"; x.fillText("BUS  STOP", 0, 0); x.restore();
+    // drains at the kerbs, manhole covers in the lanes
+    for (const [dx, dz] of [[kL + 2, -3.2], [kL + 2, -.1], [kL + 2, 3.2], [kR - 18, -1.6], [kR - 18, 1.0]]) {
+      x.fillStyle = "#1c1d1f"; x.fillRect(dx, Y(dz), 16, 34); x.fillStyle = "#4a4b4e"; for (let k = 0; k < 7; k++) x.fillRect(dx + 2, Y(dz) + 3 + k * 4.5, 12, 2);
+    }
+    for (const [mx, mz, r] of [[4.5, -.9, 15], [4.9, 1.4, 13], [4.38, 3.05, 12]]) {
+      x.fillStyle = "#4b4c4f"; x.beginPath(); x.arc(X(mx), Y(mz), r, 0, 7); x.fill();
+      x.strokeStyle = "#2a2b2d"; x.lineWidth = 1.5; for (let k = -r + 4; k < r; k += 4) { const hw = Math.sqrt(r * r - k * k); x.beginPath(); x.moveTo(X(mx) - hw + 2, Y(mz) + k); x.lineTo(X(mx) + hw - 2, Y(mz) + k); x.stroke(); }
+    }
+    // granite kerbs
+    for (const kx of [kL - 9, kR]) for (let yy = 0; yy < h; yy += 64) { const v = 150 + Math.floor(rnd() * 20); x.fillStyle = `rgb(${v},${v},${v + 4})`; x.fillRect(kx, yy, 9, 63); x.fillStyle = "rgba(40,40,44,.6)"; x.fillRect(kx, yy + 63, 9, 1); }
+  }, true, 2);
+  const roadTop = new THREE.MeshStandardMaterial({ map: roadTex, roughness: .88 });
   {
     const parts = [[-3.6, -1.08], [-.02, 3.6]];   // z ranges either side of the tunnel mouth (row 3 is z -1..0)
     for (const [z0, z1] of parts) {
@@ -1562,25 +1800,51 @@ if (renderer) {
     const cope = new THREE.Mesh(new THREE.BoxGeometry(.14, .06, 7.2), new THREE.MeshStandardMaterial({ color: 0xd8d2c2, roughness: .8 }));
     cope.position.set(RX + .02, RH - .27, 0); cope.castShadow = true; scene.add(cope);
   }
-  // London on the road: a red double-decker bus heading off the edge, a black cab and a red phone box on the pavement
+  let beacons = [];
+  // London on the road: live traffic (see makeVehicle and syncTraffic below), a red phone box, trees, Belisha beacons, lamps and a bus stop
   {
-    const busG = new THREE.Group(); busG.position.set(RX + .95, RH - .3, -1.9); scene.add(busG);
-    const red = paint("#c4231c", .3);
-    capsuleish(busG, 2.2, .5, .86, .06, .03, red, 0, .48, 0).rotation.y = Math.PI / 2;
-    for (const y of [.33, .72]) { const g = box(busG, .505, .13, 2.1, M.glass, 0, y, 0); }
-    box(busG, .44, .02, 1.9, paint("#e6e6e3", .4), 0, .915, 0);                                 // pale roof
-    const num = tex(128, 64, (x, w, h) => { x.fillStyle = "#e6e6e3"; x.fillRect(0, 0, w, h); x.fillStyle = "#111"; x.font = "bold 46px sans-serif"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText("73", w / 2, h / 2 + 2); });
-    const roofNum = new THREE.Mesh(new THREE.PlaneGeometry(.36, .2), new THREE.MeshStandardMaterial({ map: num, roughness: .6 }));
-    roofNum.rotation.set(-Math.PI / 2, 0, Math.PI / 2); roofNum.position.set(0, .927, .4); busG.add(roofNum);
-    for (const z of [-.75, .75]) for (const s of [-1, 1]) cylX(busG, .08, .08, .06, M.rubber, s * .24, .08, z, 16);
-    const cab = new THREE.Group(); cab.position.set(RX + .95, RH - .3, 1.35); scene.add(cab);
-    capsuleish(cab, .72, .3, .2, .03, .02, paint("#121316", .22), 0, .14, 0).rotation.y = Math.PI / 2;
-    capsuleish(cab, .4, .28, .14, .06, .0, paint("#121316", .22), 0, .3, .03).rotation.y = Math.PI / 2;
-    box(cab, .29, .08, .38, M.glass, 0, .3, .03);
-    box(cab, .1, .03, .05, M.lamp, 0, .385, .03);                                                 // TAXI light
-    const box3 = new THREE.Group(); box3.position.set(RX + .2, RH - .3, 2.7); scene.add(box3);
-    box(box3, .16, .44, .16, paint("#c4231c", .35), 0, .22, 0);
-    mesh(box3, cache("dome", () => new THREE.SphereGeometry(.09, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2)), paint("#c4231c", .35), 0, .44, 0).scale.set(1, .4, 1);
+    // a K6-style red phone box: glazed sides with their many small panes, a shallow domed roof, a crown-lit header
+    const box3 = new THREE.Group(); box3.position.set(RX + .2, RH - .3, 2.78); scene.add(box3);
+    const boxRed = paint("#c4231c", .35);
+    const pane = tex(64, 128, (x, w, h) => { x.fillStyle = "#c4231c"; x.fillRect(0, 0, w, h); x.fillStyle = "#1a2026";
+      for (let r = 0; r < 8; r++) for (let c = 0; c < 3; c++) x.fillRect(10 + c * 15, 20 + r * 11, 13, 9); x.fillStyle = "#f3efe2"; x.fillRect(8, 4, 48, 10);
+      x.fillStyle = "#1a1a1a"; x.font = "bold 7px sans-serif"; x.textAlign = "center"; x.fillText("TELEPHONE", 32, 11.5); }, true, 4);
+    const paneMat = new THREE.MeshStandardMaterial({ map: pane, roughness: .4 });
+    box(box3, .16, .44, .16, [paneMat, paneMat, boxRed, boxRed, paneMat, paneMat], 0, .22, 0);
+    box(box3, .18, .03, .18, boxRed, 0, .455, 0);
+    mesh(box3, cache("dome", () => new THREE.SphereGeometry(.09, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2)), boxRed, 0, .47, 0).scale.set(1, .4, 1);
+    // Belisha beacons: black and white striped poles with flashing amber globes, one on each kerb at the zebra
+    const stripes = tex(16, 64, (x, w, h) => { for (let k = 0; k < 8; k++) { x.fillStyle = k % 2 ? "#f2f2ee" : "#141414"; x.fillRect(0, k * 8, w, 8); } }, true, 2);
+    const poleMat = new THREE.MeshStandardMaterial({ map: stripes, roughness: .5 });
+    beacons = [];
+    for (const [bx, bz] of [[4.04, 2.62], [5.32, 1.9]]) {
+      const bg = new THREE.Group(); bg.position.set(bx, RH - .3, bz); scene.add(bg);
+      cylY(bg, .018, .018, .46, poleMat, 0, .23, 0, 12);
+      const gm = std({ color: 0xd98a1c, emissive: 0xff9a1a, emissiveIntensity: 1.5, roughness: .3 });
+      mesh(bg, cache("globe", () => new THREE.SphereGeometry(.05, 18, 12)), gm, 0, .5, 0); beacons.push(gm);
+    }
+    // street lamps on the near pavement, their heads reaching out over the road
+    const lampGrey = std({ color: 0x3b4044, roughness: .5, metalness: .6 });
+    for (const lz of [-.55, 3.3]) {
+      const lg = new THREE.Group(); lg.position.set(3.98, RH - .3, lz); scene.add(lg);
+      cylY(lg, .016, .024, 1.25, lampGrey, 0, .625, 0, 12);
+      box(lg, .3, .018, .018, lampGrey, .14, 1.24, 0);
+      box(lg, .14, .025, .07, lampGrey, .3, 1.225, 0);
+      box(lg, .12, .006, .055, M.lamp, .3, 1.21, 0);
+    }
+    // the bus stop: a flag on a pole at the kerb and a glass shelter against the wall
+    const flag = new THREE.Group(); flag.position.set(4.03, RH - .3, -2.86); scene.add(flag);
+    cylY(flag, .014, .014, .5, lampGrey, 0, .25, 0, 10);
+    const roundel = tex(64, 64, (x, w, h) => { x.fillStyle = "#fff"; x.fillRect(0, 0, w, h); x.strokeStyle = "#d42a20"; x.lineWidth = 9; x.beginPath(); x.arc(32, 32, 22, 0, 7); x.stroke();
+      x.fillStyle = "#1c3f94"; x.fillRect(4, 26, 56, 12); x.fillStyle = "#fff"; x.font = "bold 9px sans-serif"; x.textAlign = "center"; x.fillText("BUS STOP", 32, 35); }, true, 4);
+    const rMat = new THREE.MeshStandardMaterial({ map: roundel, roughness: .5 });
+    box(flag, .015, .14, .14, [rMat, rMat, std({ color: 0xffffff }), std({ color: 0xffffff }), rMat, rMat], 0, .44, 0);
+    const shelter = new THREE.Group(); shelter.position.set(3.68, RH - .3, -1.95); scene.add(shelter);
+    const sGlass = new THREE.MeshPhysicalMaterial({ color: 0x9fb7c4, roughness: .05, transmission: .6, transparent: true, opacity: .45, metalness: 0 });
+    box(shelter, .02, .34, .8, sGlass, -.1, .17, 0);
+    for (const sz of [-.4, .4]) { box(shelter, .2, .34, .02, sGlass, 0, .17, sz); cylY(shelter, .01, .01, .36, lampGrey, .1, .18, sz, 8); }
+    box(shelter, .26, .02, .86, std({ color: 0x5a6066, roughness: .4, metalness: .5 }), 0, .36, 0);
+    box(shelter, .08, .02, .5, std({ color: 0x2b2d30, roughness: .6 }), -.06, .09, 0);   // bench
     // trees in big planters on the far pavement
     const leaf = std({ color: 0x3f6d34, roughness: .85 });
     for (const z of [-3.1, .9, 3.1]) {
@@ -1588,6 +1852,155 @@ if (renderer) {
       for (let k = 0; k < 6; k++) mesh(tr, cache("leaf", () => new THREE.IcosahedronGeometry(.22, 1)), leaf, (rnd() - .5) * .3, .55 + rnd() * .25, (rnd() - .5) * .3).scale.setScalar(.8 + rnd() * .5);
     }
   }
+  // ---- traffic: vehicles and people built to look right from above, clipped at the ends of the road ----
+  renderer.localClippingEnabled = true;
+  const clip = [new THREE.Plane(new THREE.Vector3(0, 0, 1), 3.6), new THREE.Plane(new THREE.Vector3(0, 0, -1), 3.6)];
+  const vMats = {};
+  const vpaint = (col, rough = .28, coat = .8) => vMats[col + rough] || (vMats[col + rough] = new THREE.MeshPhysicalMaterial({ color: col, roughness: rough, metalness: .35, clearcoat: coat, clearcoatRoughness: .12, clippingPlanes: clip }));
+  const vglass = new THREE.MeshPhysicalMaterial({ color: 0x0c1218, roughness: .04, metalness: .3, clearcoat: 1, clearcoatRoughness: .04, envMapIntensity: 1.8, clippingPlanes: clip });
+  const vrub = std({ color: 0x141516, roughness: .9, clippingPlanes: clip }), vtrim = std({ color: 0x1d1f22, roughness: .5, metalness: .4, clippingPlanes: clip });
+  const vlamp = std({ color: 0xfff6dc, emissive: 0xfff1c8, emissiveIntensity: 1.1, roughness: .2, clippingPlanes: clip });
+  const vamber = std({ color: 0xffb52e, emissive: 0xffa31a, emissiveIntensity: 1.4, roughness: .3, clippingPlanes: clip });
+  // a slab rounded in plan (corner radius r) with softened top edges: the basic shape of every vehicle part
+  const vslab = (L, W, H, r, bv) => cache(`slab${L},${W},${H},${r},${bv}`, () => {
+    const sh = new THREE.Shape(), l = L / 2 - bv, w = W / 2 - bv, rr = Math.min(r, l, w);
+    sh.moveTo(-l + rr, -w); sh.lineTo(l - rr, -w); sh.quadraticCurveTo(l, -w, l, -w + rr); sh.lineTo(l, w - rr); sh.quadraticCurveTo(l, w, l - rr, w);
+    sh.lineTo(-l + rr, w); sh.quadraticCurveTo(-l, w, -l, w - rr); sh.lineTo(-l, -w + rr); sh.quadraticCurveTo(-l, -w, -l + rr, -w);
+    const g = new THREE.ExtrudeGeometry(sh, { depth: Math.max(.001, H - 2 * bv), bevelEnabled: bv > 0, bevelThickness: bv, bevelSize: bv, bevelSegments: 4, curveSegments: 10 });
+    g.rotateX(-Math.PI / 2); g.translate(0, bv, 0); return g;
+  });
+  const part = (p, L, W, H, r, bv, m, x, y, z) => mesh(p, vslab(L, W, H, r, bv), m, x, y, z);
+  const wheelsOf = (g, L, W, r, xs) => { for (const x of xs) for (const s of [-1, 1]) cylZ(g, r, r, .05, vrub, x, r, s * (W / 2 - .025), 16); };
+  const numberTex = (text, bg, fg, w = 128, h = 64, font = "bold 44px sans-serif") => tex(w, h, (x, ww, hh) => { x.fillStyle = bg; x.fillRect(0, 0, ww, hh); x.fillStyle = fg; x.font = font; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText(text, ww / 2, hh / 2 + 2); }, true, 3);
+  const roofNumMat = new THREE.MeshStandardMaterial({ map: numberTex("205", "#f2f2ee", "#111"), roughness: .6, clippingPlanes: clip });
+  const blindMat = new THREE.MeshStandardMaterial({ map: numberTex("205  Paddington", "#0b0b0b", "#ffc21a", 256, 40, "bold 26px sans-serif"), emissive: 0xffffff, emissiveIntensity: .25, emissiveMap: null, roughness: .4, clippingPlanes: clip });
+  blindMat.emissiveMap = blindMat.map;
+  // every vehicle faces +x in its own frame; tails (brake lights) get their own material so they can brighten
+  // Each kind is built once from many parts, then merged into one mesh per material (so a vehicle costs a handful of draws, not dozens).
+  // BODY and TAIL are stand-ins: each vehicle gets its own paint colour and its own brake lights.
+  const BODY = new THREE.MeshBasicMaterial(), TAIL = new THREE.MeshBasicMaterial(), HAZ = new THREE.MeshBasicMaterial(), templates = {};
+  function mergeParts(g) {
+    g.updateMatrixWorld(true);
+    const byMat = new Map();
+    g.traverse(o => { if (!o.isMesh) return; const q = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone(); q.applyMatrix4(o.matrixWorld);
+      if (!byMat.has(o.material)) byMat.set(o.material, []); byMat.get(o.material).push(q); });
+    const out = [];
+    for (const [m, list] of byMat) {
+      let n = 0; for (const q of list) n += q.attributes.position.count;
+      const pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), uv = new Float32Array(n * 2); let o = 0;
+      for (const q of list) { const c = q.attributes.position.count; pos.set(q.attributes.position.array, o * 3); nor.set(q.attributes.normal.array, o * 3); if (q.attributes.uv) uv.set(q.attributes.uv.array, o * 2); o += c; q.dispose(); }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute("position", new THREE.BufferAttribute(pos, 3)); geo.setAttribute("normal", new THREE.BufferAttribute(nor, 3)); geo.setAttribute("uv", new THREE.BufferAttribute(uv, 2));
+      geo.computeBoundingSphere(); out.push({ geo, m });
+    }
+    return out;
+  }
+  function makeVehicle(c) {
+    if (!templates[c.kind]) templates[c.kind] = mergeParts(buildVehicle(c.kind, c.len, c.wid));
+    const g = new THREE.Group(), tail = std({ color: 0x7a0c0c, emissive: 0xff2414, emissiveIntensity: .35, roughness: .3, clippingPlanes: clip });
+    const haz = std({ color: 0x8a5a10, emissive: 0xffa31a, emissiveIntensity: 0, roughness: .3, clippingPlanes: clip });
+    const body = c.kind === "bus" ? vpaint(c.col, .3, .7) : c.kind === "van" ? vpaint(c.col, .35, .5) : vpaint(c.col, c.kind === "cab" ? .2 : .26, .9);
+    for (const { geo, m } of templates[c.kind]) { const mm = new THREE.Mesh(geo, m === BODY ? body : m === TAIL ? tail : m === HAZ ? haz : m); mm.castShadow = true; mm.receiveShadow = true; g.add(mm); }
+    return { g, tail, haz };
+  }
+  function buildVehicle(kind, L, W) {
+    const g = new THREE.Group(), tail = TAIL;
+    if (kind === "bus") {
+      const red = BODY;
+      part(g, L, W, .8, .1, .035, red, 0, .07, 0);
+      for (const [y, hh] of [[.31, .13], [.6, .13]]) part(g, L - .1, W + .008, hh, .09, .0, vglass, -.02, y, 0);
+      part(g, .06, W - .04, .4, .02, .0, vglass, L / 2 - .02, .3, 0);                              // big front windscreens
+      part(g, L - .12, W - .06, .02, .08, .008, vpaint("#e2e3e0", .5, .2), 0, .865, 0);             // pale roof
+      box(g, .36, .07, W - .16, vpaint("#c9ccce", .5, .2), -L / 2 + .32, .9, 0);                    // air-con pod at the back
+      for (const hx of [.15, .6]) box(g, .16, .012, .16, vtrim, hx, .885, 0);                      // escape hatches
+      const rn = new THREE.Mesh(cache("busnum", () => new THREE.PlaneGeometry(.44, .24)), roofNumMat);
+      rn.rotation.set(-Math.PI / 2, 0, -Math.PI / 2); rn.position.set(-.25, .894, 0); g.add(rn);       // 205 on the roof, read from the pavement side
+      const bl = new THREE.Mesh(cache("busblind", () => new THREE.PlaneGeometry(.42, .066)), blindMat); bl.rotation.y = Math.PI / 2; bl.position.set(L / 2 + .002, .79, 0); g.add(bl);
+      for (const sd of [-1, 1]) { box(g, .1, .012, .012, vtrim, L / 2 - .02, .56, sd * (W / 2 + .03)); box(g, .015, .07, .03, vtrim, L / 2 + .02, .52, sd * (W / 2 + .07)); }
+      for (const sd of [-1, 1]) { box(g, .02, .03, .06, vlamp, L / 2 + .002, .12, sd * .17); box(g, .02, .06, .04, tail, -L / 2 - .002, .14, sd * .2); }
+      wheelsOf(g, L, W, .095, [L / 2 - .38, -L / 2 + .5]);
+      for (const hx of [-1, 1]) for (const sd of [-1, 1]) box(g, .04, .035, .025, HAZ, hx * (L / 2 - .03), .2, sd * (W / 2 + .004));   // hazard lights at the corners
+      box(g, .3, .08, .012, vtrim, -L / 2 + .3, .2, W / 2 + .002);                                                                   // engine grille, back offside
+    } else if (kind === "van") {
+      const wht = BODY;
+      part(g, L, W, .16, .06, .03, wht, 0, .07, 0);
+      part(g, L * .66, W - .01, .2, .04, .02, wht, -L * .17, .2, 0);                              // the load box
+      part(g, .2, W - .05, .1, .05, .03, vglass, L * .2, .21, 0);                                  // cab windows
+      part(g, .14, W - .06, .02, .05, .01, wht, L * .19, .3, 0);
+      for (let k = 0; k < 3; k++) box(g, .5, .006, .02, vpaint("#c9cccc", .5, .2), -L * .17, .403, -.12 + k * .12);   // roof ribs
+      for (const sd of [-1, 1]) { box(g, .02, .025, .06, vlamp, L / 2 - .005, .15, sd * .14); box(g, .02, .06, .04, tail, -L / 2 + .002, .2, sd * .17); box(g, .05, .03, .025, vtrim, L * .3, .24, sd * (W / 2 + .02)); }
+      wheelsOf(g, L, W, .065, [L / 2 - .17, -L / 2 + .2]);
+    } else {
+      const cab = kind === "cab", body = BODY;
+      part(g, L, W, .14, .11, .04, body, 0, .07, 0);
+      const gl = cab ? .42 : .44, gh = cab ? .13 : .1, gx = cab ? -.02 : -.04;
+      part(g, gl, W - .05, gh, .08, .035, vglass, gx, .17, 0);                                       // windows all round
+      part(g, gl - .17, W - .07, .016, .07, .008, body, gx - .015, .17 + gh - .006, 0);              // roof panel
+      if (cab) box(g, .05, .025, .13, vamber, gx + .07, .17 + gh + .02, 0);
+      for (const sd of [-1, 1]) {
+        box(g, .03, .02, .07, vlamp, L / 2 - .02, .15, sd * .12);                                    // headlights
+        box(g, .025, .025, .07, tail, -L / 2 + .015, .16, sd * .12);                                 // rear lights
+        box(g, .04, .02, .025, body, gx + gl / 2 - .02, .2, sd * (W / 2 + .015));                    // mirrors
+      }
+      wheelsOf(g, L, W, .065, [L / 2 - .17, -L / 2 + .17]);
+    }
+    return g;
+  }
+  // people: a coat, shoulders, a head; they bob as they walk
+  const skin = std({ color: 0xd7a684, roughness: .7, clippingPlanes: clip }), hair = std({ color: 0x2a211c, roughness: .8, clippingPlanes: clip });
+  function makePerson(q) {
+    const g = new THREE.Group(), coat = vpaint(q.col, .8, 0);
+    const b = mesh(g, cache("torso", () => new THREE.CapsuleGeometry(.04, .1, 4, 10)), coat, 0, .1, 0); b.scale.set(.8, 1, 1.25);
+    mesh(g, cache("head", () => new THREE.SphereGeometry(.029, 12, 10)), skin, 0, .2, 0);
+    mesh(g, cache("hair", () => new THREE.SphereGeometry(.03, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2)), hair, -.004, .205, 0);
+    for (const sd of [-1, 1]) mesh(g, cache("leg", () => new THREE.CapsuleGeometry(.014, .05, 3, 6)), vtrim, 0, .035, sd * .02).name = "leg";
+    return g;
+  }
+  const vehicles = new Map(), people = new Map(), RY = RH - .3;
+  // smoke: a pool of soft grey sprites
+  const smokeTex = tex(128, 128, (x, w, h) => { for (let k = 0; k < 7; k++) { const cx = 40 + rnd() * 48, cy = 40 + rnd() * 48, r = 26 + rnd() * 20, g2 = x.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g2.addColorStop(0, "rgba(255,255,255,.55)"); g2.addColorStop(1, "rgba(255,255,255,0)"); x.fillStyle = g2; x.fillRect(0, 0, w, h); } });
+  const smoke = [], smokeAt = new THREE.Vector3(); let smokeDt = 0;
+  for (let k = 0; k < 70; k++) { const m = new THREE.SpriteMaterial({ map: smokeTex, color: 0x4a4a4c, transparent: true, depthWrite: false, opacity: 0, rotation: rnd() * 6 });
+    const sp = new THREE.Sprite(m); sp.visible = false; sp.renderOrder = 3; scene.add(sp); smoke.push({ sp, t: 1, s: 1, vx: 0, vz: 0 }); }
+  let smokeNext = 0;
+  function puff(at, strength) { const q = smoke[smokeNext++ % smoke.length]; q.t = 0; q.s = strength; q.sp.position.copy(at); q.vx = .03 + Math.random() * .05; q.vz = (Math.random() - .5) * .08; q.sp.visible = true;
+    q.sp.material.color.setScalar(.12 + Math.random() * .14); }
+  function stepSmoke(dt) {
+    for (const q of smoke) if (q.t < 1) {
+      q.t += dt / 4.5; const k = q.t;
+      q.sp.position.y += dt * (.22 - k * .1); q.sp.position.x += q.vx * dt; q.sp.position.z += q.vz * dt;
+      q.sp.scale.setScalar(.2 + k * 1.05); q.sp.material.opacity = Math.min(1, k * 8) * (1 - k) * .95 * q.s;
+      if (q.t >= 1) q.sp.visible = false;
+    }
+  }
+  function syncTraffic() {
+    const T = window.__traffic; if (!T) return;
+    const live = new Set();
+    for (const c of T.cars) {
+      live.add(c.id);
+      let v = vehicles.get(c.id); if (!v) { v = makeVehicle(c); vehicles.set(c.id, v); scene.add(v.g); }
+      const L = ROADL[c.lane];
+      v.g.position.set(L.x + c.xo, RY, c.p * L.dir); v.g.rotation.y = L.dir < 0 ? Math.PI / 2 : -Math.PI / 2;
+      v.tail.emissiveIntensity = c.brake ? 2.4 : .35;
+      v.haz.emissiveIntensity = c.broken && Math.sin(T.t * Math.PI * 3) > 0 ? 2.6 : 0;
+      if (c.broken) v.tail.emissiveIntensity = Math.sin(T.t * Math.PI * 3) > 0 ? 2.4 : .35;
+      // engine smoke: puffs from the grille at the back, billowing up and drifting off
+      if (c.smoke > 0 && Math.random() < smokeDt * 14 * c.smoke) { smokeAt.set(-c.len / 2 + .12 + Math.random() * .25, .55 + Math.random() * .2, (Math.random() - .3) * .3); v.g.localToWorld(smokeAt); puff(smokeAt, c.smoke); }
+    }
+    for (const [id, v] of vehicles) if (!live.has(id)) { scene.remove(v.g); v.tail.dispose(); vehicles.delete(id); }
+    const liveP = new Set();
+    for (const q of T.peds) {
+      liveP.add(q);
+      let m = people.get(q); if (!m) { m = makePerson(q); people.set(q, m); scene.add(m); }
+      const walking = q.state === "walk";
+      m.position.set(q.x, RY + (walking ? Math.abs(Math.sin(q.ph)) * .008 : 0), q.z);
+      m.rotation.y = q.cross ? (q.dir > 0 ? 0 : Math.PI) : (q.dir > 0 ? -Math.PI / 2 : Math.PI / 2);
+      let k = 0; for (const o of m.children) if (o.name === "leg") { o.position.x = walking ? Math.sin(q.ph + k * Math.PI) * .02 : 0; k++; }
+    }
+    for (const [q, m] of people) if (!liveP.has(q)) { scene.remove(m); people.delete(q); }
+  }
+  const ROADL = [{ x: 4.43, dir: -1 }, { x: 4.95, dir: 1 }];
   // the signal: a colour-light head on a post at the tunnel mouth
   const sig = new THREE.Group(); sig.position.set(3.2, 0, -1.22); scene.add(sig);
   cylY(sig, .03, .03, .6, M.dark, 0, .3, 0, 10);
@@ -1629,7 +2042,7 @@ if (renderer) {
   }
 
   // selection ring: a rounded outline under the picked train
-  const ringTex = tex(256, 256, (x, w, h) => { x.strokeStyle = "#fff"; x.lineWidth = 14; x.beginPath(); x.roundRect(10, 10, w - 20, h - 20, 40); x.stroke(); });
+  const ringTex = tex(256, 256, (x, w, h) => { x.strokeStyle = "#fff"; x.lineWidth = 14; x.beginPath(); x.roundRect(10, 10, w - 20, h - 20, 40); x.stroke(); }, true, 2);
   const ringMat = new THREE.MeshBasicMaterial({ map: ringTex, color: 0xffd300, transparent: true, depthWrite: false });
   const ring = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), ringMat); ring.rotation.x = -Math.PI / 2; ring.position.y = .13; ring.renderOrder = 2; scene.add(ring);
 
@@ -1660,7 +2073,7 @@ if (renderer) {
   const pv = new THREE.Vector3();
   function size() {
     const w = board.clientWidth, h = board.clientHeight; if (!w || !h) return;
-    renderer.setPixelRatio(Math.min(2.5, devicePixelRatio || 1));
+    renderer.setPixelRatio(Math.min(3, devicePixelRatio || 1));
     renderer.setSize(w, h, false);
     camera.aspect = w / h; camera.updateProjectionMatrix();
     // a tilted view isn't symmetric, so fit it by trying: move back until the corners fit, and slide the aim so they sit centred
@@ -1723,8 +2136,14 @@ if (renderer) {
     const clear = G.won || (window.__pathClear && window.__pathClear());
     sigR.emissiveIntensity = clear ? 0 : 1.6; sigG.emissiveIntensity = clear ? 1.8 : 0;
     sigLight.color.set(clear ? 0x30ff70 : 0xff3020);
+    // the traffic, and the Belisha beacons blinking
+    smokeDt = dt; syncTraffic(); stepSmoke(dt);
+    const on = Math.sin(t * Math.PI * 1.8) > -.1;
+    for (const b of beacons) b.emissiveIntensity = on ? 1.8 : .08;
     renderer.render(scene, camera);
   };
+  window.__aj3dSmoke = sec => { for (let i = 0; i < sec * 30; i++) { smokeDt = 1 / 30; syncTraffic(); stepSmoke(1 / 30); } };   // for tests
+  window.__aj3dInfo = () => Object.assign({}, renderer.info.render);   // for tests: draw calls and triangles
   window.__cellToScreen = (r, c) => {   // for tests: where a cell's centre lands on screen
     const q = new THREE.Vector3(c - 2.5, .45, r - 2.5).project(camera), rc = canvas.getBoundingClientRect();
     return { x: rc.left + (q.x + 1) / 2 * rc.width, y: rc.top + (1 - q.y) / 2 * rc.height };
