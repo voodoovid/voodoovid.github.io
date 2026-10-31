@@ -344,7 +344,7 @@ h1 .board span { color: var(--gold); }
 </div>
 <script src="../lib/gamepad.js"></script>
 <script>
-const VERSION = "v2.11";
+const VERSION = "v2.12";
 const $ = id => document.getElementById(id);
 $("version").textContent = VERSION;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -1252,7 +1252,7 @@ function busBrokeDown() {
   setTimeout(() => {
     if (!ok() || !buf["pa-delay205"]) return;
     const t = actx.currentTime + .05, d = playBuf("pa-delay205", t, 1.05, .2); if (d) { duck(t, d - 1.2, .25); paBusy = d + 2; paLast = "pa-delay205"; paT = Math.max(paT, 12); }
-  }, 1500);
+  }, 10000);
 }
 const Snd = {
   // a short run over the rail joints
@@ -1953,10 +1953,10 @@ if (renderer) {
   const wheelsOf = (g, L, W, r, xs) => { for (const x of xs) for (const s of [-1, 1]) cylZ(g, r, r, .05, vrub, x, r, s * (W / 2 - .025), 16); };
   const numberTex = (text, bg, fg, w = 128, h = 64, font = "bold 44px sans-serif") => tex(w, h, (x, ww, hh) => { x.fillStyle = bg; x.fillRect(0, 0, ww, hh); x.fillStyle = fg; x.font = font; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText(text, ww / 2, hh / 2 + 2); }, true, 3);
   // the route number on the roof, as big as the roof allows
-  const roofNumTex = tex(256, 220, (x, w, h) => { x.fillStyle = "#c8201b"; x.fillRect(0, 0, w, h); x.fillStyle = "#fff"; x.strokeStyle = "#000"; x.lineJoin = "round"; x.lineWidth = 16;
+  const roofNumTex = tex(256, 220, (x, w, h) => { x.fillStyle = "#fff"; x.strokeStyle = "#000"; x.lineJoin = "round"; x.lineWidth = 16;
     x.font = "900 170px Arial Black, Helvetica, sans-serif"; x.textAlign = "center"; x.textBaseline = "middle";
     const k = Math.min(1, (w * .94) / x.measureText("205").width); x.save(); x.translate(w / 2, h / 2 + 6); x.scale(k, 1.25); x.strokeText("205", 0, 0); x.fillText("205", 0, 0); x.restore(); }, true, 2);
-  const roofNumMat = new THREE.MeshStandardMaterial({ map: roofNumTex, roughness: .6, clippingPlanes: clip });
+  const roofNumMat = new THREE.MeshStandardMaterial({ map: roofNumTex, roughness: .6, alphaTest: .35, clippingPlanes: clip });
   const blindMat = new THREE.MeshStandardMaterial({ map: numberTex("Paddington  205", "#0a0d14", "#f4f4f0", 256, 40, "bold 24px sans-serif"), emissive: 0xffffff, emissiveIntensity: .25, emissiveMap: null, roughness: .4, clippingPlanes: clip });
   blindMat.emissiveMap = blindMat.map;
   // every vehicle faces +x in its own frame; tails (brake lights) get their own material so they can brighten
