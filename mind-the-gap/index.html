@@ -344,7 +344,7 @@ h1 .board span { color: var(--gold); }
 </div>
 <script src="../lib/gamepad.js"></script>
 <script>
-const VERSION = "v2.10";
+const VERSION = "v2.11";
 const $ = id => document.getElementById(id);
 $("version").textContent = VERSION;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -638,7 +638,7 @@ function trafficStep(dt) {
       // the 205: just past the zebra its engine starts smoking; it pulls in at the bus stop and sits there, hazards flashing,
       // for a few minutes, the smoke dying away near the end, then it carries on
       if (c.kind === "bus" && lane === 0) {
-        if (!c.broken && !c.done && carZ(c) < 1.4 && front < 2.3) { c.broken = true; c.smoke = 1; }
+        if (!c.broken && !c.done && carZ(c) < 1.4 && front < 2.3) { c.broken = true; c.smoke = 1; busBrokeDown(); }
         if (c.broken) {
           const room = 2.62 - front;   // (plus the usual standstill gap, so it draws right up to the mark)
           if (room + .16 < gap) { gap = Math.max(.001, room + .16); dv = c.v; }
@@ -694,7 +694,7 @@ function trafficStep(dt) {
   traffic.t = (traffic.t || 0) + dt;
   if (traffic.busCool > 0) traffic.busCool -= dt;
   // smoke from the 205's engine (at the back, low on the offside), for the 2D view; the 3D view makes its own
-  for (const c of traffic.cars) if (c.smoke > 0 && Math.random() < dt * 1.2 * c.smoke) {
+  for (const c of traffic.cars) if (c.smoke > 0 && Math.random() < dt * 3 * c.smoke) {
     const L = ROAD.lanes[c.lane]; traffic.puffs.push({ x: L.x + c.xo + .12, z: carZ(c) - L.dir * (c.len / 2 - .15), t: 0, s: c.smoke });
   }
   for (const f of traffic.puffs) { f.t += dt; f.x += dt * .05; f.z += dt * .03; }
@@ -729,7 +729,7 @@ function drawTraffic2d() {
     ctx.fillStyle = "#fff6d8"; const hy = L.dir < 0 ? fy : fy - 1.5; ctx.fillRect(x + 1, hy, 2.5, 1.5); ctx.fillRect(x + w - 3.5, hy, 2.5, 1.5);
     if (c.broken && Math.sin(traffic.t * Math.PI * 3) > 0) { ctx.fillStyle = "#ffb52e"; for (const [hx, hy2] of [[x, y], [x + w - 3, y], [x, y + h - 3], [x + w - 3, y + h - 3]]) ctx.fillRect(hx, hy2, 3, 3); }
   }
-  for (const f of traffic.puffs) { const k = f.t / 3; ctx.fillStyle = `rgba(70,70,72,${(1 - k) * .22 * f.s})`; ctx.beginPath(); ctx.arc(tx2(f.x), ty2(f.z), 2 + k * 5, 0, 7); ctx.fill(); }
+  for (const f of traffic.puffs) { const k = f.t / 3; ctx.fillStyle = `rgba(70,70,72,${(1 - k) * .36 * f.s})`; ctx.beginPath(); ctx.arc(tx2(f.x), ty2(f.z), 2.5 + k * 7, 0, 7); ctx.fill(); }
   for (const q of traffic.peds) {
     const x = tx2(q.x), y = ty2(q.z);
     ctx.fillStyle = q.col; ctx.beginPath(); ctx.ellipse(x, y, 2.6, 3.4, 0, 0, 7); ctx.fill();
@@ -1241,11 +1241,18 @@ function duck(t, dur, to) {
 const ok = () => soundOn && actx && actx.state === "running";
 let passT = 8, paT = 22, paBusy = 0, paLast = "";
 const LINE_PA = ["pa-bakerloo", "pa-elizabeth", "pa-victoria", "pa-jubilee", "pa-northern", "pa-central"];
-const INFO_PA = ["pa-delay205", "pa-central-delay", "pa-central-severe", "pa-doors", "pa-gap", "pa-belongings", "pa-next-train"];
+const INFO_PA = ["pa-central-delay", "pa-central-severe", "pa-doors", "pa-gap", "pa-belongings", "pa-next-train"];
 // the announcer: See it. Say it. Sorted. about a quarter of the time, otherwise a welcome to a line or station information, never the same one twice running
 function nextPa() {
   const k = Math.random(), list = k < .25 ? ["pa-sorted"] : k < .6 ? LINE_PA : INFO_PA;
   return pickSfx(list.filter(n => n !== paLast)) || pickSfx(LINE_PA.concat(INFO_PA, ["pa-sorted"]).filter(n => n !== paLast));
+}
+// the 205 has just broken down: a moment later the station announcer says so (once per breakdown)
+function busBrokeDown() {
+  setTimeout(() => {
+    if (!ok() || !buf["pa-delay205"]) return;
+    const t = actx.currentTime + .05, d = playBuf("pa-delay205", t, 1.05, .2); if (d) { duck(t, d - 1.2, .25); paBusy = d + 2; paLast = "pa-delay205"; paT = Math.max(paT, 12); }
+  }, 1500);
 }
 const Snd = {
   // a short run over the rail joints
@@ -2049,7 +2056,7 @@ if (renderer) {
     for (const q of smoke) if (q.t < 1) {
       q.t += dt / 4.5; const k = q.t;
       q.sp.position.y += dt * (.22 - k * .1); q.sp.position.x += q.vx * dt; q.sp.position.z += q.vz * dt;
-      q.sp.scale.setScalar(.15 + k * .55); q.sp.material.opacity = Math.min(1, k * 8) * (1 - k) * .4 * q.s;
+      q.sp.scale.setScalar(.18 + k * .8); q.sp.material.opacity = Math.min(1, k * 8) * (1 - k) * .6 * q.s;
       if (q.t >= 1) q.sp.visible = false;
     }
   }
@@ -2065,7 +2072,7 @@ if (renderer) {
       v.haz.emissiveIntensity = c.broken && Math.sin(T.t * Math.PI * 3) > 0 ? 2.6 : 0;
       if (c.broken) v.tail.emissiveIntensity = Math.sin(T.t * Math.PI * 3) > 0 ? 2.4 : .35;
       // engine smoke: puffs from the grille at the back, billowing up and drifting off
-      if (c.smoke > 0 && Math.random() < smokeDt * 2 * c.smoke) { smokeAt.set(-c.len / 2 + .12 + Math.random() * .25, .55 + Math.random() * .2, (Math.random() - .3) * .3); v.g.localToWorld(smokeAt); puff(smokeAt, c.smoke); }
+      if (c.smoke > 0 && Math.random() < smokeDt * 5 * c.smoke) { smokeAt.set(-c.len / 2 + .12 + Math.random() * .25, .55 + Math.random() * .2, (Math.random() - .3) * .3); v.g.localToWorld(smokeAt); puff(smokeAt, c.smoke); }
     }
     for (const [id, v] of vehicles) if (!live.has(id)) { scene.remove(v.g); v.tail.dispose(); vehicles.delete(id); }
     const liveP = new Set();
