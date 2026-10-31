@@ -344,7 +344,7 @@ h1 .board span { color: var(--gold); }
 </div>
 <script src="../lib/gamepad.js"></script>
 <script>
-const VERSION = "v2.6";
+const VERSION = "v2.7";
 const $ = id => document.getElementById(id);
 $("version").textContent = VERSION;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -718,7 +718,7 @@ function drawTraffic2d() {
     const fy = L.dir < 0 ? y : y + h;                       // the front end
     if (c.kind === "bus") {
       ctx.fillStyle = "#e4e4e0"; roundRect(x + 1.5, y + 3, w - 3, h - 6, 2); ctx.fill();
-      ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.rotate(-Math.PI / 2); ctx.fillStyle = "#111"; ctx.font = "bold 9px sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("205", 0, 1); ctx.restore();
+      ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.rotate(-Math.PI / 2); ctx.fillStyle = "#111"; ctx.font = "900 15px Arial Black, Helvetica, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("205", 0, 1); ctx.restore();
     } else {
       ctx.fillStyle = "rgba(20,28,38,.85)"; ctx.fillRect(x + 1.5, L.dir < 0 ? y + h * .22 : y + h * .62, w - 3, h * .16);
       ctx.fillStyle = "rgba(20,28,38,.7)"; ctx.fillRect(x + 1.5, L.dir < 0 ? y + h * .7 : y + h * .16, w - 3, h * .12);
@@ -1872,7 +1872,11 @@ if (renderer) {
   const part = (p, L, W, H, r, bv, m, x, y, z) => mesh(p, vslab(L, W, H, r, bv), m, x, y, z);
   const wheelsOf = (g, L, W, r, xs) => { for (const x of xs) for (const s of [-1, 1]) cylZ(g, r, r, .05, vrub, x, r, s * (W / 2 - .025), 16); };
   const numberTex = (text, bg, fg, w = 128, h = 64, font = "bold 44px sans-serif") => tex(w, h, (x, ww, hh) => { x.fillStyle = bg; x.fillRect(0, 0, ww, hh); x.fillStyle = fg; x.font = font; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText(text, ww / 2, hh / 2 + 2); }, true, 3);
-  const roofNumMat = new THREE.MeshStandardMaterial({ map: numberTex("205", "#f2f2ee", "#111"), roughness: .6, clippingPlanes: clip });
+  // the route number on the roof, as big as the roof allows
+  const roofNumTex = tex(256, 220, (x, w, h) => { x.fillStyle = "#f2f2ee"; x.fillRect(0, 0, w, h); x.fillStyle = "#111";
+    x.font = "900 170px Arial Black, Helvetica, sans-serif"; x.textAlign = "center"; x.textBaseline = "middle";
+    const k = Math.min(1, (w * .94) / x.measureText("205").width); x.save(); x.translate(w / 2, h / 2 + 6); x.scale(k, 1.25); x.fillText("205", 0, 0); x.restore(); }, true, 2);
+  const roofNumMat = new THREE.MeshStandardMaterial({ map: roofNumTex, roughness: .6, clippingPlanes: clip });
   const blindMat = new THREE.MeshStandardMaterial({ map: numberTex("205  Paddington", "#0b0b0b", "#ffc21a", 256, 40, "bold 26px sans-serif"), emissive: 0xffffff, emissiveIntensity: .25, emissiveMap: null, roughness: .4, clippingPlanes: clip });
   blindMat.emissiveMap = blindMat.map;
   // every vehicle faces +x in its own frame; tails (brake lights) get their own material so they can brighten
@@ -1913,7 +1917,7 @@ if (renderer) {
       part(g, L - .12, W - .06, .02, .08, .008, vpaint("#e2e3e0", .5, .2), 0, .865, 0);             // pale roof
       box(g, .36, .07, W - .16, vpaint("#c9ccce", .5, .2), -L / 2 + .32, .9, 0);                    // air-con pod at the back
       for (const hx of [.15, .6]) box(g, .16, .012, .16, vtrim, hx, .885, 0);                      // escape hatches
-      const rn = new THREE.Mesh(cache("busnum", () => new THREE.PlaneGeometry(.44, .24)), roofNumMat);
+      const rn = new THREE.Mesh(cache("busnum", () => new THREE.PlaneGeometry(.42, .36)), roofNumMat);
       rn.rotation.set(-Math.PI / 2, 0, -Math.PI / 2); rn.position.set(-.25, .894, 0); g.add(rn);       // 205 on the roof, read from the pavement side
       const bl = new THREE.Mesh(cache("busblind", () => new THREE.PlaneGeometry(.42, .066)), blindMat); bl.rotation.y = Math.PI / 2; bl.position.set(L / 2 + .002, .79, 0); g.add(bl);
       for (const sd of [-1, 1]) { box(g, .1, .012, .012, vtrim, L / 2 - .02, .56, sd * (W / 2 + .03)); box(g, .015, .07, .03, vtrim, L / 2 + .02, .52, sd * (W / 2 + .07)); }
