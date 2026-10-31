@@ -1,6 +1,6 @@
 // Offline support for every game on the site. Bump CACHE whenever this file changes.
 // Pages load from the network when online (so updates arrive) and from this cache when offline.
-const CACHE = "voodoovid-games-v44";
+const CACHE = "voodoovid-games-v45";
 const PAGES = [
   "./", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png",
   "hangman/", "ponchos-adventure/", "ponchos-adventure-3d/", "flip-five/", "flip-five-3d/", "lib/three.module.min.js", "lib/gamepad.js", "follow-chestnut/", "fathom/", "fathom/prompts.js", "ponchos-pills/", "mind-the-gap/", "mind-the-gap/sfx/bump.mp3", "mind-the-gap/sfx/depart.mp3", "mind-the-gap/sfx/move1.mp3", "mind-the-gap/sfx/move2.mp3", "mind-the-gap/sfx/move3.mp3", "mind-the-gap/sfx/move4.mp3", "mind-the-gap/sfx/pa-bakerloo.mp3", "mind-the-gap/sfx/pa-belongings.mp3", "mind-the-gap/sfx/pa-central-delay.mp3", "mind-the-gap/sfx/pa-central-severe.mp3", "mind-the-gap/sfx/pa-central.mp3", "mind-the-gap/sfx/pa-doors.mp3", "mind-the-gap/sfx/pa-elizabeth.mp3", "mind-the-gap/sfx/pa-gap.mp3", "mind-the-gap/sfx/pa-jubilee.mp3", "mind-the-gap/sfx/pa-mindthegap.mp3", "mind-the-gap/sfx/pa-sorted-short.mp3", "mind-the-gap/sfx/pa-next-train.mp3", "mind-the-gap/sfx/pa-northern.mp3", "mind-the-gap/sfx/pa-sorted.mp3", "mind-the-gap/sfx/pa-victoria.mp3", "mind-the-gap/sfx/pass1.mp3", "mind-the-gap/sfx/pass2.mp3", "mind-the-gap/sfx/pass3.mp3", "mind-the-gap/sfx/pass4.mp3",
