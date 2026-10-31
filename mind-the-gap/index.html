@@ -235,7 +235,7 @@ h1 .board span { color: var(--gold); }
 
     <div class="ov" id="ovTitle">
       <h2>Mind The Gap</h2>
-      <p><b>Rosie</b>, the vintage red tube train, is due out on the morning service, but the depot sidings are jammed with tube trains and engineering locos.</p>
+      <p><b>Rosie</b>, the vintage red tube train, is due out on the morning service, but the depot sidings are jammed with tube trains from every line.</p>
       <p>Shunt them along their tracks (trains only go forwards and backwards) until Rosie can run into the <b>tunnel on the right</b>.</p>
       <div class="row"><button class="big" id="btnPlay">Play</button><button id="btnPick">Levels</button><button id="btnGuide">How to play</button></div>
       <p class="keys">Drag to slide. Keys: Tab picks a train · arrows slide it (or pick the next one across) · Z undo · R restart · H hint · L levels · V 3D/2D · ? guide</p>
@@ -256,7 +256,7 @@ h1 .board span { color: var(--gold); }
         <h3>Moving the trains</h3>
         <p><b>Drag</b> any train with your finger or the mouse. Trains only run <b>forwards and backwards</b> along their own track, never sideways, and they can't pass through each other or off the edge of the yard.</p>
         <ul>
-          <li><b>Single cars</b> and yellow <b>battery locos</b> (the engineering engines) take up two squares.</li>
+          <li><b>Single cars</b> take up two squares. Each train wears the colour of its Underground line.</li>
           <li><b>Two-car trains</b> take up three squares, so they're harder to get out of the way.</li>
         </ul>
         <p>Tapping a train picks it (a gold outline shows which one). That matters for the keyboard and controller.</p>
@@ -339,7 +339,7 @@ h1 .board span { color: var(--gold); }
 </div>
 <script src="../lib/gamepad.js"></script>
 <script>
-const VERSION = "v2.2";
+const VERSION = "v2.3";
 const $ = id => document.getElementById(id);
 $("version").textContent = VERSION;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -581,23 +581,29 @@ function size() {
 }
 new ResizeObserver(size).observe($("stage"));
 
-// Trains. Two cells long: a single tube car or a yellow battery loco (the engineering engines). Three cells long:
-// a two-car train, small round tube stock or the bigger, squarer sub-surface stock. Rosie is a vintage all-red tube train.
-// Both views draw from these kinds and liveries (body, doors, skirt below the windows, roof).
-const LIVERY = {
-  rosie:   { body: "#c4231c", door: "#b3201a", skirt: "#c4231c", roof: "#5a2a24", front: "#c4231c", frame: "#e9dfc4", line: "#efe3c2", hero: true },   // 1930s-style red, cream window frames
-  modern:  { body: "#f2f2f0", door: "#dc241f", skirt: "#0019a8", roof: "#6f757c", front: "#dc241f" },   // white, red doors and front, blue skirt
-  silver:  { body: "#b4bac1", door: "#dc241f", skirt: "#8f969e", roof: "#666c73", front: "#dc241f", metal: true },   // unpainted aluminium, red doors
-  purple:  { body: "#f1f1f3", door: "#6950a1", skirt: "#5f6670", roof: "#7c8289", front: "#2c2f35" },   // white and grey, purple doors
-  orange:  { body: "#f3f3f1", door: "#ee7c0e", skirt: "#0019a8", roof: "#7c8289", front: "#2c2f35" },   // white, orange doors, blue skirt
-  loco:    { body: "#f2c230", door: "#f2c230", skirt: "#2a2c30", roof: "#3c3f44", front: "#f2c230" },   // engineering yellow
+// Trains. Every piece is tube stock: two cells long is a single car, three cells long a two-car train. Each train wears
+// the colour of a London Underground line (TfL line colours) on its body, with a darker roof and doors so it reads from above.
+// Rosie is a vintage all-red tube train. Central line red is left out so nothing else looks like her.
+// Both views draw from these liveries (body, doors, skirt below the windows, roof, cab front).
+const shadeHex = (hex, d) => { const n = parseInt(hex.slice(1), 16), c = k => Math.max(0, Math.min(255, ((n >> k) & 255) + d)); return "#" + [c(16), c(8), c(0)].map(v => v.toString(16).padStart(2, "0")).join(""); };
+const lum = hex => { const n = parseInt(hex.slice(1), 16); return (.3 * (n >> 16) + .59 * ((n >> 8) & 255) + .11 * (n & 255)) / 255; };
+const lineLivery = (name, body) => {
+  const dark = lum(body) < .25;   // the Northern line is black: lift its roof and doors instead of darkening them
+  return { name, body, door: shadeHex(body, dark ? 45 : -40), skirt: shadeHex(body, dark ? 25 : -70), roof: shadeHex(body, dark ? 30 : -55), front: body, frame: "#2a2d33" };
 };
+const LINES = [
+  lineLivery("Bakerloo", "#b36305"), lineLivery("District", "#00782a"), lineLivery("Piccadilly", "#003688"),
+  lineLivery("Victoria", "#0098d4"), lineLivery("Northern", "#1b1c1f"), lineLivery("Jubilee", "#a0a5a9"),
+  lineLivery("Metropolitan", "#9b0056"), lineLivery("Circle", "#ffd300"), lineLivery("Hammersmith & City", "#f3a9bb"),
+  lineLivery("Waterloo & City", "#95cdba"), lineLivery("Elizabeth", "#6950a1"),
+];
+const LIVERY = {
+  rosie: { body: "#c4231c", door: "#b3201a", skirt: "#c4231c", roof: "#5a2a24", front: "#c4231c", frame: "#e9dfc4", line: "#efe3c2", hero: true },   // 1930s-style red, cream window frames
+};
+// each train in a level gets a different line (a level has at most 12 others), the same every time it is played
 function trainOf(p, i) {
   if (p.hero) return { kind: "tube", cars: 1, col: LIVERY.rosie };
-  const k = (i * 5 + p.len * 3) % 4;   // a mixed depot, the same for a level every time
-  if (p.len === 3) return k === 0 ? { kind: "tube", cars: 2, col: LIVERY.silver } : k === 1 ? { kind: "tube", cars: 2, col: LIVERY.modern }
-    : { kind: "surface", cars: 2, col: k === 2 ? LIVERY.purple : LIVERY.orange };
-  return k === 0 ? { kind: "loco", cars: 1, col: LIVERY.loco } : { kind: "tube", cars: 1, col: k === 1 ? LIVERY.silver : LIVERY.modern };
+  return { kind: "tube", cars: p.len === 3 ? 2 : 1, col: LINES[(i * 7 + 3) % LINES.length] };
 }
 window.__tsTrain = trainOf;
 window.__tsLivery = LIVERY;
@@ -691,13 +697,6 @@ function draw2d() {
 function drawTrain2d(t, L) {
   const c = t.col, x0 = -L / 2 + 4, len = L - 8, W = t.kind === "surface" ? 46 : 40;
   ctx.fillStyle = "rgba(0,0,0,.3)"; roundRect(x0 + 4, -W / 2 + 4, len, W, 8); ctx.fill();   // shadow
-  if (t.kind === "loco") {
-    ctx.fillStyle = c.body; roundRect(x0, -22, len, 44, 5); ctx.fill();
-    for (const ex of [x0, x0 + len - 7]) { ctx.fillStyle = "#f2c230"; ctx.fillRect(ex, -22, 7, 44); ctx.fillStyle = "#1b1b1b"; for (let k = -22; k < 22; k += 10) ctx.fillRect(ex, k, 7, 5); }
-    ctx.fillStyle = c.roof; roundRect(x0 + 14, -16, len - 28, 32, 4); ctx.fill();
-    ctx.fillStyle = "#555a60"; for (let u = x0 + 28; u < x0 + len - 28; u += 8) ctx.fillRect(u, -10, 3, 20);
-    return;
-  }
   const n = t.cars, gap = 4, cl = (len - gap * (n - 1)) / n;
   for (let k = 0; k < n; k++) {
     const cx = x0 + k * (cl + gap);
@@ -1330,8 +1329,6 @@ if (renderer) {
     for (let r = 0; r < 16; r++) for (let c = -1; c < 9; c++) { const v = rnd(); x.fillStyle = v < .12 ? "#7a4a2e" : v < .3 ? "#a9875a" : v < .6 ? "#c4a46e" : "#b8955f";
       x.fillRect(c * 32 + (r % 2) * 16 + 1, r * 16 + 1, 30, 14); x.fillStyle = "rgba(0,0,0,.12)"; x.fillRect(c * 32 + (r % 2) * 16 + 1, r * 16 + 12, 30, 3); } });
   brickTex.wrapS = brickTex.wrapT = THREE.RepeatWrapping;
-  const coalGrille = tex(256, 64, (x, w, h) => { x.fillStyle = "#2a2e33"; x.fillRect(0, 0, w, h); x.fillStyle = "#4c535a"; for (let u = 4; u < w; u += 8) x.fillRect(u, 4, 3, h - 8); });
-  const hazardTex = tex(128, 32, (x, w, h) => { x.fillStyle = "#f2c230"; x.fillRect(0, 0, w, h); x.fillStyle = "#151515"; for (let u = -h; u < w; u += 24) { x.beginPath(); x.moveTo(u, h); x.lineTo(u + 12, h); x.lineTo(u + 12 + h, 0); x.lineTo(u + h, 0); x.fill(); } });
   // the platform edge along the top: yellow line and the famous words
   const platTex = tex(1024, 64, (x, w, h) => { x.fillStyle = "#5d5c58"; x.fillRect(0, 0, w, h);
     for (let k = 0; k < 3000; k++) { x.fillStyle = `rgba(${rnd() < .5 ? "80,78,72" : "235,232,225"},${.08 + rnd() * .12})`; x.fillRect(rnd() * w, rnd() * h, 2, 2); }
@@ -1476,29 +1473,6 @@ if (renderer) {
     }
     return c;
   }
-  // a yellow battery locomotive, two cells long: low hood, a cab at each end, hazard-striped ends
-  function loco(parent, L, col, wheels) {
-    const lg = new THREE.Group(); parent.add(lg);
-    const body = paint(col.body, .45);
-    box(lg, L - .04, .12, .62, M.under, 0, .22, 0);
-    for (const bx of [-L / 2 + .32, L / 2 - .32]) bogie(lg, bx, wheels, .5);
-    for (const s of [-1, 1]) {
-      const hz = box(lg, .03, .14, .64, new THREE.MeshStandardMaterial({ map: hazardTex, roughness: .6 }), s * (L / 2 - .015), .24, 0);
-      capsuleish(lg, .36, .62, .44, .06, .02, body, s * (L / 2 - .23), .52, 0);                 // cab
-      box(lg, .37, .12, .63, M.glass, s * (L / 2 - .23), .62, 0);                                // cab windows all round
-      capsuleish(lg, .38, .6, .04, .02, .0, paint(col.roof, .55), s * (L / 2 - .23), .76, 0);   // cab roof
-      box(lg, .06, .05, .1, M.dark, s * (L / 2 + .02), .22, 0);
-      for (const z of [-.2, .2]) box(lg, .012, .05, .06, s > 0 ? M.lamp : M.tail, s * (L / 2 - .045), .36, z);
-      cylY(lg, .012, .012, .12, M.steel, s * (L / 2 - .23), .84, .18);                             // horn post
-    }
-    capsuleish(lg, L - 1.0, .5, .36, .05, .02, body, 0, .48, 0);                                  // battery boxes under a hood
-    const gr = box(lg, L - 1.12, .006, .34, new THREE.MeshStandardMaterial({ map: coalGrille, roughness: .7, metalness: .3 }), 0, .665, 0);
-    for (const s of [-1, 1]) {   // handrails along the walkways
-      cylX(lg, .008, .008, L - .9, M.steel, 0, .5, s * .29, 6);
-      for (const u of [-.3, 0, .3]) cylY(lg, .006, .006, .2, M.steel, u, .4, s * .29, 6);
-    }
-    return lg;
-  }
   // ground shadow under each train, softer than the shadow map alone
   const blobTex = tex(64, 64, (x, w, h) => { const g = x.createRadialGradient(w / 2, h / 2, 2, w / 2, h / 2, w / 2); g.addColorStop(0, "rgba(0,0,0,.55)"); g.addColorStop(1, "rgba(0,0,0,0)"); x.fillStyle = g; x.fillRect(0, 0, w, h); });
   const blobMat = new THREE.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false });
@@ -1507,11 +1481,8 @@ if (renderer) {
     const grp = new THREE.Group(), body = new THREE.Group(); grp.add(body);
     const L = len - .1, wheels = [];
     const ao = new THREE.Mesh(new THREE.PlaneGeometry(L + .25, .8), blobMat); ao.rotation.x = -Math.PI / 2; ao.position.y = .085; grp.add(ao);
-    if (t.kind === "loco") loco(body, L, t.col, wheels);
-    else {
-      const n = t.cars, gap = .07, cl = (L - gap * (n - 1)) / n;
-      for (let k = 0; k < n; k++) car(body, -L / 2 + cl / 2 + k * (cl + gap), cl, t.col, t.kind, k === 0, k === n - 1, wheels);
-    }
+    const n = t.cars, gap = .07, cl = (L - gap * (n - 1)) / n;
+    for (let k = 0; k < n; k++) car(body, -L / 2 + cl / 2 + k * (cl + gap), cl, t.col, t.kind, k === 0, k === n - 1, wheels);
     return { grp, body, wheels, sparks: [] };
   }
 
