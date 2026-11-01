@@ -94,6 +94,10 @@ h1 .board span { color: var(--gold); }
 #ovLevels h2 { font-size: 24px; }
 .tier { width: 100%; }
 .tier h3 { margin: 4px 0 6px; font: 600 16px var(--font-display); text-align: left; display: flex; justify-content: space-between; }
+.sbBtn { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 12px; margin: 2px 0 6px; }
+.sbBtn b { font: 600 17px var(--font-display); }
+.sbBtn small { color: var(--muted); font-size: 13px; }
+.sbBtn.cur { border-color: var(--gold, #ffd24a); }
 .tier h3 span { color: var(--muted); font-weight: 400; font-size: 14px; }
 .lvgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
 .lvgrid button { padding: 6px 0 4px !important; display: flex; flex-direction: column; align-items: center; gap: 1px; font-size: 17px !important; }
@@ -278,6 +282,7 @@ h1 .board span { color: var(--gold); }
           <li><b>Restart</b> puts the level back how it started.</li>
           <li><b>Hint</b> makes the next best move for you (the train flashes white). A level you use a hint on earns only one star.</li>
           <li><b>Levels</b> lets you pick any level. Every level is open from the start.</li>
+          <li><b>Levels › Sandbox</b> makes endless random puzzles, each needing 15 to 20 moves at best. They are not saved, and <b>New puzzle</b> makes the next one.</li>
           <li>Tap the <b>Mind The Gap</b> sign at the top to hear the announcer say it. <b>?</b> opens this guide. <b>3D / 2D</b> switches the view. <b>♪</b> turns the music on or off, and <b>🔊</b> turns all sound on or off.</li>
         </ul>
       </section>
@@ -344,7 +349,7 @@ h1 .board span { color: var(--gold); }
 </div>
 <script src="../lib/gamepad.js"></script>
 <script>
-const VERSION = "v2.16";
+const VERSION = "v2.17";
 const $ = id => document.getElementById(id);
 $("version").textContent = VERSION;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -463,6 +468,53 @@ function solve(ps) {
   return null;
 }
 
+// Sandbox: endless random puzzles. Start from a solved board (Rosie at the tunnel end of her row, other trains placed at random), explore every
+// board reachable by sliding trains, work out each one's fewest moves to a win (multi-source breadth-first search from all the solved boards),
+// then pick one at random whose fewest moves is in range. The count is exact, the same measure `solve` and the stars use.
+function genSandbox(lo0 = 15, hi0 = 20) {
+  const t0 = performance.now(), LET = "BCDEFGHIJKLMNOP";
+  for (;;) {
+    const el = performance.now() - t0, lo = el < 5000 ? lo0 : lo0 - 1, hi = el < 5000 ? hi0 : hi0 + 1;   // widen a little if it is taking long
+    const occ = new Uint8Array(N * N), pcs = [{ h: true, line: EXIT_ROW, pos: N - 2, len: 2 }];
+    occ[EXIT_ROW * N + N - 2] = occ[EXIT_ROW * N + N - 1] = 1;
+    const want = 10 + Math.floor(Math.random() * 4);
+    for (let tries = 0; pcs.length < want + 1 && tries < 300; tries++) {
+      const len = Math.random() < .3 ? 3 : 2, h = Math.random() < .5, line = Math.floor(Math.random() * N), pos = Math.floor(Math.random() * (N - len + 1));
+      const cs = Array.from({ length: len }, (_, k) => h ? line * N + pos + k : (pos + k) * N + line);
+      if (cs.some(c => occ[c])) continue;
+      cs.forEach(c => occ[c] = 1); pcs.push({ h, line, pos, len });
+    }
+    const n = pcs.length; if (n < 10) continue;
+    const wt = pcs.map((_, i) => Math.pow(8, i)), states = [Int8Array.from(pcs, q => q.pos)], keys = [states[0].reduce((a, v, i) => a + v * wt[i], 0)], idx = new Map([[keys[0], 0]]), adj = [];
+    let blown = false;
+    for (let a = 0; a < states.length && !blown; a++) {
+      const st = states[a], gr = new Int8Array(N * N).fill(-1), nb = [];
+      for (let i = 0; i < n; i++) for (let k = 0; k < pcs[i].len; k++) gr[pcs[i].h ? pcs[i].line * N + st[i] + k : (st[i] + k) * N + pcs[i].line] = i;
+      for (let i = 0; i < n; i++) {
+        const q = pcs[i];
+        for (const d of [-1, 1]) for (let x = st[i] + d; ; x += d) {
+          const edge = d < 0 ? x : x + q.len - 1;
+          if (edge < 0 || edge >= N || gr[q.h ? q.line * N + edge : edge * N + q.line] >= 0) break;
+          const kk = keys[a] + (x - st[i]) * wt[i]; let j = idx.get(kk);
+          if (j === undefined) { const t = st.slice(); t[i] = x; j = states.length; idx.set(kk, j); states.push(t); keys.push(kk); }
+          nb.push(j);
+        }
+      }
+      adj.push(nb);
+      if (states.length > 60000) blown = true;
+    }
+    if (blown) continue;
+    const dist = new Int16Array(states.length).fill(-1), queue = [];
+    states.forEach((st, i) => { if (st[0] === N - 2) { dist[i] = 0; queue.push(i); } });
+    for (let h = 0; h < queue.length; h++) for (const j of adj[queue[h]]) if (dist[j] < 0) { dist[j] = dist[queue[h]] + 1; queue.push(j); }
+    const cand = []; dist.forEach((d, i) => { if (d >= lo && d <= hi) cand.push(i); });
+    if (!cand.length) continue;
+    const pick = cand[Math.floor(Math.random() * cand.length)], st = states[pick], b = Array(N * N).fill(".");
+    pcs.forEach((q, i) => { for (let k = 0; k < q.len; k++) b[q.h ? q.line * N + st[i] + k : (st[i] + k) * N + q.line] = i === 0 ? "A" : LET[i - 1]; });
+    return { b: b.join(""), min: dist[pick] };
+  }
+}
+
 // ---------- Game state ----------
 const store = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
@@ -471,7 +523,34 @@ const store = {
 let best = store.get("antjam.best", {});       // level index -> { m: fewest moves, s: stars }
 const g = { lvl: 0, ps: [], hist: [], sel: 0, won: false, hinted: false, drag: null, time: 0, hint: -1, hintT: 0, exitT: 0 };
 window.__aj = g;
+function loadSandbox(sb) {
+  g.sb = sb;
+  g.ps = parse(sb.b); g.hist = []; g.sel = 0; g.won = false; g.hinted = false; g.drag = null; g.hint = -1; g.exitT = 0;
+  g.ps.forEach(p => p.vis = p.pos);
+  g.ver = (g.ver || 0) + 1;
+  updateInfo();
+}
+// puzzles are built in a background worker (a puzzle takes up to a second or two), two kept ready; without workers they are built on the spot
+let sbBusy = false, sbCount = 0, sbWorker = null, sbQueue = [], sbWant = null;
+function sbInit() {
+  if (sbWorker !== null) return;
+  try {
+    const src = "const N = 6, EXIT_ROW = 2;\n" + genSandbox.toString() + "\nonmessage = () => postMessage(genSandbox());";
+    sbWorker = new Worker(URL.createObjectURL(new Blob([src], { type: "text/javascript" })));
+    sbWorker.onmessage = e => { sbQueue.push(e.data); if (sbWant) { const f = sbWant; sbWant = null; f(); } if (sbQueue.length < 2) sbWorker.postMessage(0); };
+    sbWorker.onerror = () => { sbWorker = false; if (sbWant) setTimeout(() => { sbQueue.push(genSandbox()); const f = sbWant; sbWant = null; f(); }, 0); };
+    sbWorker.postMessage(0); sbWorker.postMessage(0);
+  } catch (e) { sbWorker = false; }
+}
+function newSandbox() {
+  if (sbBusy) return; sbBusy = true; sbInit();
+  const go = () => { const r = sbQueue.shift(); sbCount++; loadSandbox({ b: r.b, min: r.min, n: sbCount }); sbBusy = false; if (sbWorker && sbQueue.length < 2) sbWorker.postMessage(0); };
+  if (sbQueue.length) go();
+  else { toast("Building a puzzle…"); if (sbWorker) sbWant = go; else setTimeout(() => { sbQueue.push(genSandbox()); go(); }, 40); }
+}
+const curLv = () => g.sb || LEVELS[g.lvl], lvlKey = () => g.sb ? 1000 + g.sb.n : g.lvl;
 function loadLevel(i) {
+  g.sb = null;
   g.lvl = (i + LEVELS.length) % LEVELS.length;
   g.ps = parse(LEVELS[g.lvl].b); g.hist = []; g.sel = 0; g.won = false; g.hinted = false; g.drag = null; g.hint = -1; g.exitT = 0;
   g.ps.forEach(p => p.vis = p.pos);
@@ -482,9 +561,9 @@ function loadLevel(i) {
 const stars = (moves, min, hinted) => hinted ? 1 : moves <= min ? 3 : moves <= Math.ceil(min * 1.5) ? 2 : 1;
 const tierOf = i => Math.min(3, Math.floor(i / 10));
 function updateInfo() {
-  $("lvName").innerHTML = `${TIERS[tierOf(g.lvl)]} <b>${g.lvl % 10 + 1}</b>`;
+  $("lvName").innerHTML = g.sb ? `Sandbox <b>${g.sb.n}</b>` : `${TIERS[tierOf(g.lvl)]} <b>${g.lvl % 10 + 1}</b>`;
   $("mvNow").textContent = g.hist.length;
-  $("mvMin").textContent = LEVELS[g.lvl].min;
+  $("mvMin").textContent = curLv().min;
   $("btnUndo").disabled = !g.hist.length || g.won;
 }
 // slide piece i to pos; a run of slides of the same bug counts as one move
@@ -505,7 +584,7 @@ function undo() {
   const m = g.hist.pop(); g.ps[m.i].pos = m.from; g.sel = m.i; g.hint = -1;
   Snd.walk(1); updateInfo();
 }
-function restart() { if (!g.hist.length && !g.won) return; loadLevel(g.lvl); Snd.reset(); }
+function restart() { if (!g.hist.length && !g.won) return; if (g.sb) loadSandbox(g.sb); else loadLevel(g.lvl); Snd.reset(); }
 function hint() {
   if (g.won) return;
   const m = solve(g.ps);
@@ -517,17 +596,19 @@ function hint() {
 }
 function win() {
   g.won = true; g.exitT = 0; g.sel = -1;
-  const lv = LEVELS[g.lvl], m = g.hist.length, s = stars(m, lv.min, g.hinted);
-  const b = best[g.lvl];
-  if (!b || s > b.s || (s === b.s && m < b.m)) best[g.lvl] = { m: b ? Math.min(b.m, m) : m, s: Math.max(s, b ? b.s : 0) };
-  store.set("antjam.best", best);
+  const lv = curLv(), m = g.hist.length, s = stars(m, lv.min, g.hinted);
+  if (!g.sb) {   // sandbox puzzles are not saved
+    const b = best[g.lvl];
+    if (!b || s > b.s || (s === b.s && m < b.m)) best[g.lvl] = { m: b ? Math.min(b.m, m) : m, s: Math.max(s, b ? b.s : 0) };
+    store.set("antjam.best", best);
+  }
   Snd.win();
   setTimeout(() => {
     $("winTitle").textContent = s === 3 ? "Right on time!" : "Train departed!";
     $("winStars").innerHTML = "★".repeat(s) + "<i>" + "★".repeat(3 - s) + "</i>";
     $("winText").innerHTML = `<b>${m}</b> moves · the fewest possible is <b>${lv.min}</b>` +
       (g.hinted ? "<br>(you used a hint)" : s < 3 ? `<br>Do it in ${lv.min} for three stars.` : "");
-    $("btnNext").textContent = g.lvl === LEVELS.length - 1 ? "Back to 1" : "Next";
+    $("btnNext").textContent = g.sb ? "New puzzle" : g.lvl === LEVELS.length - 1 ? "Back to 1" : "Next";
     show("ovWin");
   }, 1300);
 }
@@ -545,6 +626,11 @@ const closeHelp = () => show(helpBack);
 const openOv = () => OVS.map($).find(o => !o.hidden) || null;
 function buildLevels() {
   const box = $("tiers"); box.innerHTML = "";
+  sbInit();   // start building the first Sandbox puzzles while the menu is open
+  const sbx = document.createElement("div"); sbx.className = "tier sandbox";
+  sbx.innerHTML = `<button class="sbBtn${g.sb ? " cur" : ""}"><b>Sandbox</b><small>Endless random puzzles, 15 to 20 moves each</small></button>`;
+  sbx.querySelector("button").addEventListener("click", () => { newSandbox(); show(null); Snd.tap(); });
+  box.appendChild(sbx);
   TIERS.forEach((t, ti) => {
     const div = document.createElement("div"); div.className = "tier t" + ti;
     const got = [...Array(10).keys()].reduce((a, k) => a + (best[ti * 10 + k] ? best[ti * 10 + k].s : 0), 0);
@@ -1148,8 +1234,8 @@ tapBtn("btnCloseLevels", () => show(null));
 tapBtn("btnUndo", undo);
 tapBtn("btnReset", restart);
 tapBtn("btnHint", () => { if (!openOv()) hint(); });
-tapBtn("btnNext", () => { loadLevel(g.lvl + 1); show(null); });
-tapBtn("btnAgain", () => { loadLevel(g.lvl); show(null); });
+tapBtn("btnNext", () => { if (g.sb) newSandbox(); else loadLevel(g.lvl + 1); show(null); });
+tapBtn("btnAgain", () => { if (g.sb) loadSandbox(g.sb); else loadLevel(g.lvl); show(null); });
 tapBtn("btnWinLevels", () => show("ovLevels"));
 let soundOn = store.get("antjam.sound", true), musicOn = store.get("antjam.music", true);
 function soundLabel() {
@@ -1506,7 +1592,7 @@ function frame(now) {
   if (g.hintT > 0) g.hintT -= dt;
   Snd.ambient(dt);
   trafficStep(dt);
-  if (lastLvl !== g.lvl) { if (lastLvl >= 0) { Snd.soon(); track = (track + 1) % TRACKS.length; step = 0; nextTime = actx ? Math.max(nextTime, actx.currentTime + .1) : 0; } lastLvl = g.lvl; }
+  if (lastLvl !== lvlKey()) { if (lastLvl >= 0) { Snd.soon(); track = (track + 1) % TRACKS.length; step = 0; nextTime = actx ? Math.max(nextTime, actx.currentTime + .1) : 0; } lastLvl = lvlKey(); }
   g.ps.forEach((p, i) => {
     if (g.drag && g.drag.i === i) { p.vis = g.drag.base + g.drag.off; return; }
     let target = p.pos;
