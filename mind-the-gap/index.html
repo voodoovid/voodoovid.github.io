@@ -283,6 +283,7 @@ h1 .board span { color: var(--gold); }
           <li><b>Hint</b> makes the next best move for you (the train flashes white). A level you use a hint on earns only one star.</li>
           <li><b>Levels</b> lets you pick any level. Every level is open from the start.</li>
           <li><b>Levels › Sandbox</b> makes endless random puzzles, each needing 15 to 20 moves at best. They are not saved, and <b>New puzzle</b> makes the next one.</li>
+          <li>When the signal turns green and the way to the tunnel is clear, <b>tap Rosie</b> (or give her a small push forward) and she pulls out by herself. Sliding her all the way works too.</li>
           <li>Tap the <b>Mind The Gap</b> sign at the top to hear the announcer say it. <b>?</b> opens this guide. <b>3D / 2D</b> switches the view. <b>♪</b> turns the music on or off, and <b>🔊</b> turns all sound on or off.</li>
         </ul>
       </section>
@@ -349,7 +350,7 @@ h1 .board span { color: var(--gold); }
 </div>
 <script src="../lib/gamepad.js"></script>
 <script>
-const VERSION = "v2.17";
+const VERSION = "v2.18";
 const $ = id => document.getElementById(id);
 $("version").textContent = VERSION;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -1054,6 +1055,8 @@ const endDrag = e => {
   g.drag = null; bd.classList.remove("dragging");
   const p = g.ps[d.i];
   p.vis = d.base + d.off;
+  // the way to the tunnel is clear: tap Rosie, or give her a push forward, and she pulls out on her own
+  if (d.i === 0 && !g.won && pathClear() && (!d.moved || d.off > .4)) { moveTo(0, N - p.len); return; }
   if (d.moved) moveTo(d.i, Math.round(d.base + d.off), true);
   if (d.moved && Math.round(d.base + d.off) !== d.base) Snd.walk(0.6);
 };
