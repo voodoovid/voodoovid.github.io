@@ -344,7 +344,7 @@ h1 .board span { color: var(--gold); }
 </div>
 <script src="../lib/gamepad.js"></script>
 <script>
-const VERSION = "v2.14";
+const VERSION = "v2.15";
 const $ = id => document.getElementById(id);
 $("version").textContent = VERSION;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -596,11 +596,16 @@ function trafficInit() {
   addCar(1, 2.7, "car"); addCar(1, .6, "van"); addCar(1, -1.6, "cab");
   for (let k = 0; k < 4; k++) traffic.peds.push(stroller(-3.4 + k * 1.9));
 }
-// the 205 has pulled in: a man and a woman step off at its doors, stop on the pavement, look back at the bus, then walk away together
+// the 205 has pulled in: a few people get off right away and walk off; then a man and a woman step off the front door together,
+// walk a little way, stop, look back at the bus, pause, and walk away together
 function alight(c) {
-  const zc = carZ(c), away = Math.random() < .5 ? 1 : -1;
-  for (const [sex, dz, delay] of [["m", -.62, 0], ["f", .12, 1.1]])
-    traffic.peds.push({ alight: true, sex, x: ROAD.lanes[0].x - .27, z: zc + dz, dir: away, v: .2, col: sex === "m" ? "#2b4a7a" : "#8a2632", ph: 0, state: "inside", t: -delay, rot: Math.PI, rotTo: Math.PI, turn: 0 });
+  const zc = carZ(c), pairDir = Math.random() < .5 ? 1 : -1, bx = ROAD.lanes[0].x - .27, mk = o => traffic.peds.push(Object.assign({ alight: true, x: bx, dir: 1, v: .2, ph: 0, state: "inside", rot: Math.PI, rotTo: Math.PI, xTo: 3.93, walkT: 0 }, o));
+  // the few: out of the middle and rear doors one after another, straight off along the pavement
+  [["f", .1, 0, "#3d5a44"], ["m", .62, .35, "#5a3b2a"], ["f", .1, 1.1, "#c9b48a"], ["m", .62, 1.6, "#1d1e22"]].forEach(([sex, dz, delay, col], k) =>
+    mk({ sex, z: zc + dz, col, t: -delay, quick: true, dir: Math.random() < .5 ? 1 : -1, xTo: 3.88 + (k % 2) * .08 }));
+  // the pair: out of the front door together, side by side on the pavement
+  mk({ sex: "m", z: zc - .62, col: "#2b4a7a", t: -.3, dir: pairDir, xTo: 3.97, walkT: 2.6 });
+  mk({ sex: "f", z: zc - .62 - pairDir * .06, col: "#8a2632", t: -.3, dir: pairDir, xTo: 3.83, walkT: 1.9 });
 }
 const angDiff = (a, b) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
 function stroller(z) { const d = Math.random() < .5 ? 1 : -1; return { cross: false, x: 3.86 + Math.random() * .16, z, dir: d, v: .2 + Math.random() * .08, col: COATS[Math.floor(Math.random() * COATS.length)], ph: Math.random() * 6, state: "walk", t: 0 }; }
@@ -685,7 +690,11 @@ function trafficStep(dt) {
     if (q.alight) {
       // inside (until their turn at the door) -> step out to the pavement -> stop -> turn and look at the bus -> turn back and walk off
       if (q.state === "inside") { if (q.t >= 0) { q.state = "out"; q.t = 0; } }
-      else if (q.state === "out") { q.x -= q.v * dt; q.ph += dt * 7; if (q.x <= 3.93) { q.x = 3.93; q.state = "stop"; q.t = 0; } }
+      else if (q.state === "out") { q.x -= q.v * dt; q.ph += dt * 7; if (q.x <= q.xTo) { q.x = q.xTo; q.t = 0; q.rotTo = q.dir > 0 ? -Math.PI / 2 : Math.PI / 2; q.state = q.quick ? "away" : "walk"; } }
+      else if (q.state === "walk") {   // a little way along the pavement, together, then stop
+        if (q.t > .4) { q.z += q.dir * q.v * dt; q.ph += dt * 7; }
+        if (q.t > .4 + q.walkT) { q.state = "stop"; q.t = 0; }
+      }
       else if (q.state === "stop") { if (q.t > .5) { q.state = "look"; q.t = 0; q.rotTo = 0; } }
       else if (q.state === "look") { if (q.t > 2.1) { q.state = "away"; q.t = 0; q.rotTo = q.dir > 0 ? -Math.PI / 2 : Math.PI / 2; } }
       else if (q.state === "away") {
@@ -2106,7 +2115,7 @@ if (renderer) {
     for (const q of T.peds) {
       liveP.add(q);
       let m = people.get(q); if (!m) { m = makePerson(q); people.set(q, m); scene.add(m); }
-      const walking = q.state === "walk" || q.state === "out" || (q.state === "away" && q.t > .45);
+      const walking = (q.state === "walk" && q.t > .4) || q.state === "out" || (q.state === "away" && q.t > .45);
       m.visible = q.state !== "inside";
       m.position.set(q.x, RY + (walking ? Math.abs(Math.sin(q.ph)) * .008 : 0), q.z);
       m.rotation.y = q.alight ? q.rot : q.cross ? (q.dir > 0 ? 0 : Math.PI) : (q.dir > 0 ? -Math.PI / 2 : Math.PI / 2);
