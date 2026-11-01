@@ -77,6 +77,13 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
 .game p { margin: 0; font-size: 16px; line-height: 1.4; }
 .play { font-weight: 700; margin-top: auto; }
 @media (prefers-reduced-motion: reduce) { .game { transition: none; } }
+.other-row { margin: 22px 0 0; display: flex; justify-content: center; }
+.other-btn { font-family: var(--font-display); font-weight: 700; font-size: 22px; color: var(--chalk); background: transparent; cursor: pointer; padding: 8px 26px; border: 2px solid var(--chalk-dim); border-radius: 14px 9px 16px 10px; transition: border-color .2s, background .2s, color .2s; }
+.other-btn:hover { border-color: var(--chalk); background: rgba(255,255,255,0.05); color: var(--chalk-yellow); }
+.other-btn:focus-visible { outline: 3px solid var(--chalk-yellow); outline-offset: 3px; }
+.other-view[hidden], #mainView[hidden] { display: none; }
+.other-view .games { display: flex; flex-wrap: wrap; justify-content: center; }
+.other-view .game { width: 300px; max-width: 100%; }
 .offline { margin: 26px 0 0; padding-top: 18px; border-top: 2px dashed var(--chalk-dim); display: flex; flex-direction: column; gap: 6px; }
 .offline h2 { font-family: var(--font-display); font-size: 22px; margin: 0; color: var(--chalk-yellow); }
 .offline p { margin: 0; line-height: 1.4; }
@@ -87,19 +94,21 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
 @media (orientation: landscape) and (min-width: 1000px) and (min-height: 680px) {
   body { min-height: 100dvh; display: flex; flex-direction: column; justify-content: center; padding-inline: max(24px, env(safe-area-inset-left, 0px)) max(24px, env(safe-area-inset-right, 0px)); }
   .frame { width: 100%; max-width: 1400px; }
-  .board { padding: 26px 38px 18px; }
+  .board { padding: 20px 38px 12px; }
   .head { display: flex; align-items: baseline; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
   h1 { font-size: 64px; }
   .lede { margin: 0; font-size: 19px; }
-  hr { margin: 18px 0 20px; }
+  hr { margin: 12px 0 14px; }
   .games { grid-template-columns: repeat(4, 1fr); gap: 18px; }
-  .game { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto 1fr auto; column-gap: 18px; row-gap: 8px; padding: 22px 22px 18px; }
+  .game { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto 1fr auto; column-gap: 18px; row-gap: 6px; padding: 16px 20px 12px; }
   .game svg { width: 64px; height: 64px; }
   .game h2 { align-self: center; }
   .game p, .game .play { grid-column: 1 / -1; }
   .game h2 { font-size: 29px; line-height: 1.1; }
-  .game p { font-size: 16px; line-height: 1.42; }
-  .play { font-size: 20px; }
+  .game p { font-size: 15px; line-height: 1.36; }
+  .play { font-size: 19px; }
+  .other-row { margin-top: 10px; }
+  .other-btn { font-size: 20px; padding: 5px 24px; }
   .offline { margin-top: 20px; padding-top: 14px; flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: 18px; }
   .offline p:last-child { flex-basis: 100%; }
   .site-version { margin-top: 8px; }
@@ -128,7 +137,8 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
       <p class="lede">Pick a game. They all run in the browser, on a phone, tablet or computer.</p>
     </div>
     <hr>
-    <div class="games">
+    <div id="mainView">
+    <div class="games" id="mainGames">
       <!-- To add a game: put it in its own folder (e.g. snake/index.html) and copy one of these cards. -->
       <a class="game" href="ponchos-adventure/">
         <svg viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -204,16 +214,33 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
         <p>A deep-sea word game. Name things from seven prompts; the rarer your answer, the deeper your submarine sinks. A new daily dive every day, plus free dives.</p>
         <span class="play">Play &rarr;</span>
       </a>
-      <a class="game" href="hangman/">
-        <svg viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true">
-          <path d="M8 66h40M16 66V6h34M16 18 28 6M50 6v10"/>
-          <circle cx="50" cy="23" r="7"/>
-          <path d="M50 30v18M50 35l-8 8M50 35l8 8M50 48l-7 12M50 48l7 12"/>
+      <a class="game" href="test-chambers/">
+        <svg viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M8 60V14h40v46M8 60h56"/>
+          <ellipse cx="22" cy="38" rx="6" ry="11"/><ellipse cx="60" cy="48" rx="6" ry="11"/>
+          <path d="M30 26c8-10 20-10 26 8" stroke-dasharray="4 5"/><path d="M52 28l4 6-7 1"/>
         </svg>
-        <h2>Hangman</h2>
-        <p>Guess the word before the chalk figure is finished. Over 800 words in 14 categories, with music and sound effects.</p>
+        <h2>Test Chambers</h2>
+        <p>A first-person portal-gun puzzle game in 3D. Fire two portals, fall from a height and fling yourself across acid pits, carry cubes onto buttons, and put up with SaDos, the supervisor with opinions. Five chambers, with moody music.</p>
         <span class="play">Play &rarr;</span>
       </a>
+    </div>
+    <div class="other-row"><button type="button" class="other-btn" id="otherBtn">Other Games &rsaquo;</button></div>
+    </div>
+    <div class="other-view" id="otherView" hidden>
+      <div class="games">
+        <a class="game" href="hangman/">
+          <svg viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true">
+            <path d="M8 66h40M16 66V6h34M16 18 28 6M50 6v10"/>
+            <circle cx="50" cy="23" r="7"/>
+            <path d="M50 30v18M50 35l-8 8M50 35l8 8M50 48l-7 12M50 48l7 12"/>
+          </svg>
+          <h2>Hangman</h2>
+          <p>Guess the word before the chalk figure is finished. Over 800 words in 14 categories, with music and sound effects.</p>
+          <span class="play">Play &rarr;</span>
+        </a>
+      </div>
+      <div class="other-row"><button type="button" class="other-btn" id="otherBack">&lsaquo; Back to all games</button></div>
     </div>
     <section class="offline" id="installHelp">
       <h2>Play offline</h2>
@@ -225,7 +252,7 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
 </div>
 <script src="lib/gamepad.js"></script>
 <script>
-const SITE_VERSION = "v1.28";
+const SITE_VERSION = "v1.29";
 // Lock the screen: no rubber-band bounce or drag when swiping, unless the page really needs to scroll (phones)
 document.documentElement.style.overscrollBehavior = "none"; document.body.style.overscrollBehavior = "none";
 document.addEventListener("touchmove", e => {
@@ -250,8 +277,9 @@ if (window.navigator.standalone || matchMedia("(display-mode: standalone)").matc
 // Bluetooth controller: the d-pad / stick moves a gold highlight between the games, A opens one.
 // A game with controller support that is opened this way starts straight away.
 {
-  const PAD_GAMES = ["ponchos-adventure/", "ponchos-pills/", "follow-chestnut/", "scareisdale/", "mind-the-gap/"];
-  const grid = document.querySelector(".games");
+  const PAD_GAMES = ["ponchos-adventure/", "ponchos-pills/", "follow-chestnut/", "scareisdale/", "mind-the-gap/", "test-chambers/"];
+  const mainView = document.getElementById("mainView"), otherView = document.getElementById("otherView");
+  const grid = document.querySelector(".board");
   grid.addEventListener("click", e => {
     const a = e.target.closest("a.game"); if (!a) return;
     const href = a.getAttribute("href");
@@ -261,18 +289,26 @@ if (window.navigator.standalone || matchMedia("(display-mode: standalone)").matc
     } catch (err) {}
   });
   GamePad.init({
-    menu: () => grid,
+    menu: () => otherView.hidden ? mainView : otherView,
     // come back to the highlight on the game you played last
-    menuFirst: () => { let h = null; try { h = sessionStorage.getItem("gp.lastGame"); } catch (e) {} return h && grid.querySelector(`a.game[href="${h}"]`); },
+    menuFirst: () => { let h = null; try { h = sessionStorage.getItem("gp.lastGame"); } catch (e) {} return h && (otherView.hidden ? mainView : otherView).querySelector(`a.game[href="${h}"]`); },
     help: ["Games menu", ["↑ ↓ ← → / Stick", "Choose a game"], ["A", "Play it (controller games start right away)"], ["Select", "This screen"]]
   });
+}
+// "Other Games": the older games live behind this button
+{
+  const mv = document.getElementById("mainView"), ov = document.getElementById("otherView");
+  const show = other => { mv.hidden = other; ov.hidden = !other; try { sessionStorage.setItem("menu.other", other ? "1" : ""); } catch (e) {} window.scrollTo(0, 0); };
+  document.getElementById("otherBtn").addEventListener("click", () => show(true));
+  document.getElementById("otherBack").addEventListener("click", () => show(false));
+  try { if (sessionStorage.getItem("menu.other")) show(true); } catch (e) {}
 }
 const status = document.getElementById("offlineStatus");
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("sw.js").then(() => navigator.serviceWorker.ready).then(async () => {
     const keys = await caches.keys();
     const cache = keys.length ? await caches.open(keys[0]) : null;
-    const ok = cache && (await Promise.all(["hangman/", "scareisdale/", "ponchos-adventure/", "flip-five/", "follow-chestnut/", "fathom/", "ponchos-pills/", "mind-the-gap/"].map(p => cache.match(p)))).every(Boolean);
+    const ok = cache && (await Promise.all(["hangman/", "scareisdale/", "ponchos-adventure/", "flip-five/", "follow-chestnut/", "fathom/", "ponchos-pills/", "mind-the-gap/", "test-chambers/"].map(p => cache.match(p)))).every(Boolean);
     status.textContent = ok ? "Ready to play offline: all games are saved on this device." : "Open this page once more while online to finish saving the games.";
     status.classList.toggle("ready", !!ok);
   }).catch(() => { status.textContent = "This browser can't save the games for offline play."; });
