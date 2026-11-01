@@ -323,7 +323,7 @@ h1 .board span { color: var(--gold); }
       </section>
       <section>
         <h3>Sounds</h3>
-        <p>The trains are real recordings of wheels on track. Now and then another train goes by, and the station announcer comes over the loudspeakers: welcomes to the lines, See it. Say it. Sorted. as Rosie leaves, delays on the Central line, the doors, the gap, and of course <b>See it. Say it. Sorted.</b> Up on the road, keep an eye on the 205.</p>
+        <p>The trains are real recordings of wheels on track. Now and then another train goes by, and the station announcer comes over the loudspeakers: welcomes to the lines, a clear <b>Mind the gap.</b> as Rosie leaves on a win, delays on the Central line, the doors, the gap, and of course <b>See it. Say it. Sorted.</b> Up on the road, keep an eye on the 205.</p>
         <p class="fine">Train recordings: ESC-50 dataset (K. J. Piczak), from Freesound contributors, CC BY-NC 3.0, trimmed and faded. Announcements voiced with Kokoro TTS (Apache 2.0) through a station loudspeaker effect.</p>
       </section>
       <p class="fine" id="guideVer"></p>
@@ -344,7 +344,7 @@ h1 .board span { color: var(--gold); }
 </div>
 <script src="../lib/gamepad.js"></script>
 <script>
-const VERSION = "v2.13";
+const VERSION = "v2.14";
 const $ = id => document.getElementById(id);
 $("version").textContent = VERSION;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
@@ -596,6 +596,13 @@ function trafficInit() {
   addCar(1, 2.7, "car"); addCar(1, .6, "van"); addCar(1, -1.6, "cab");
   for (let k = 0; k < 4; k++) traffic.peds.push(stroller(-3.4 + k * 1.9));
 }
+// the 205 has pulled in: a man and a woman step off at its doors, stop on the pavement, look back at the bus, then walk away together
+function alight(c) {
+  const zc = carZ(c), away = Math.random() < .5 ? 1 : -1;
+  for (const [sex, dz, delay] of [["m", -.62, 0], ["f", .12, 1.1]])
+    traffic.peds.push({ alight: true, sex, x: ROAD.lanes[0].x - .27, z: zc + dz, dir: away, v: .2, col: sex === "m" ? "#2b4a7a" : "#8a2632", ph: 0, state: "inside", t: -delay, rot: Math.PI, rotTo: Math.PI, turn: 0 });
+}
+const angDiff = (a, b) => Math.atan2(Math.sin(b - a), Math.cos(b - a));
 function stroller(z) { const d = Math.random() < .5 ? 1 : -1; return { cross: false, x: 3.86 + Math.random() * .16, z, dir: d, v: .2 + Math.random() * .08, col: COATS[Math.floor(Math.random() * COATS.length)], ph: Math.random() * 6, state: "walk", t: 0 }; }
 function trafficStep(dt) {
   if (!traffic.cars.length && !traffic.peds.length) trafficInit();
@@ -640,6 +647,7 @@ function trafficStep(dt) {
       if (c.kind === "bus" && lane === 0) {
         if (!c.broken && !c.done && carZ(c) < 1.4 && front < 2.3) { c.broken = true; c.smoke = 1; busBrokeDown(); }
         if (c.broken) {
+          if (c.parked && !c.alit) { c.alit = true; alight(c); }
           const room = 2.62 - front;   // (plus the usual standstill gap, so it draws right up to the mark)
           if (room + .16 < gap) { gap = Math.max(.001, room + .16); dv = c.v; }
           if (room < .05 && c.v < .03) {
@@ -674,14 +682,25 @@ function trafficStep(dt) {
   }
   for (const q of traffic.peds) {
     q.t += dt;
-    if (q.cross) {
+    if (q.alight) {
+      // inside (until their turn at the door) -> step out to the pavement -> stop -> turn and look at the bus -> turn back and walk off
+      if (q.state === "inside") { if (q.t >= 0) { q.state = "out"; q.t = 0; } }
+      else if (q.state === "out") { q.x -= q.v * dt; q.ph += dt * 7; if (q.x <= 3.93) { q.x = 3.93; q.state = "stop"; q.t = 0; } }
+      else if (q.state === "stop") { if (q.t > .5) { q.state = "look"; q.t = 0; q.rotTo = 0; } }
+      else if (q.state === "look") { if (q.t > 2.1) { q.state = "away"; q.t = 0; q.rotTo = q.dir > 0 ? -Math.PI / 2 : Math.PI / 2; } }
+      else if (q.state === "away") {
+        if (q.t > .45) { q.z += q.dir * q.v * dt; q.ph += dt * 7; }
+        if (Math.abs(q.z) > 3.9) q.state = "gone";
+      }
+      q.rot += Math.max(-dt * 5, Math.min(dt * 5, angDiff(q.rot, q.rotTo)));
+    } else if (q.cross) {
       if (q.state === "wait") {
         // step out once no vehicle is on the crossing
         const onIt = traffic.cars.some(c => { const z = carZ(c); return Math.abs(z - (ROAD.cross0 + ROAD.cross1) / 2) < c.len / 2 + .35; });
         if (q.t > 1.1 && !onIt) { q.state = "walk"; q.t = 0; }
       } else {
         q.x += q.dir * q.v * dt; q.ph += dt * 9;
-        if (q.dir < 0 && q.x < 3.94) { const strollers = traffic.peds.filter(o => !o.cross).length;
+        if (q.dir < 0 && q.x < 3.94) { const strollers = traffic.peds.filter(o => !o.cross && !o.alight).length;
           if (strollers < 6) Object.assign(q, { cross: false, x: 3.9, dir: Math.random() < .5 ? 1 : -1, v: .22 }); else q.state = "gone"; }
         if (q.x > 5.6) q.state = "gone";
       }
@@ -731,8 +750,12 @@ function drawTraffic2d() {
   }
   for (const f of traffic.puffs) { const k = f.t / 3; ctx.fillStyle = `rgba(70,70,72,${(1 - k) * .36 * f.s})`; ctx.beginPath(); ctx.arc(tx2(f.x), ty2(f.z), 2.5 + k * 7, 0, 7); ctx.fill(); }
   for (const q of traffic.peds) {
+    if (q.state === "inside") continue;
     const x = tx2(q.x), y = ty2(q.z);
     ctx.fillStyle = q.col; ctx.beginPath(); ctx.ellipse(x, y, 2.6, 3.4, 0, 0, 7); ctx.fill();
+    if (q.alight) { const fx = Math.cos(q.rot), fy = -Math.sin(q.rot);   // which way they face
+      ctx.fillStyle = q.sex === "f" ? "#4a3022" : "#2a211c"; ctx.beginPath(); ctx.arc(x - fx * .6, y - fy * .6, q.sex === "f" ? 2 : 1.7, 0, 7); ctx.fill();
+      ctx.fillStyle = "#e0b892"; ctx.beginPath(); ctx.arc(x + fx * .5, y + fy * .5, 1.3, 0, 7); ctx.fill(); continue; }
     ctx.fillStyle = "#e0b892"; ctx.beginPath(); ctx.arc(x, y, 1.5, 0, 7); ctx.fill();
   }
   ctx.restore();
@@ -1035,8 +1058,8 @@ document.querySelector("h1 .board").addEventListener("click", () => { ensureAudi
 
 // ---- Hidden menu (Cmd-T / Ctrl-T): every saying, click one to hear it ----
 const SAYINGS = [
-  ["pa-mindthegap", "Mind the gap.", "Plays on Play and when you tap the title"],
-  ["pa-sorted-short", "See it. Say it. Sorted.", "Short, as Rosie leaves on a win"],
+  ["pa-mindthegap", "Mind the gap.", "Plays on Play, on a win and when you tap the title"],
+  ["pa-sorted-short", "See it. Say it. Sorted.", "Short version"],
   ["pa-sorted", "See it. Say it. Sorted.", "Full station announcement"],
   ["pa-delay205", "205 delayed", "Due to unforeseen circumstances, the 205 bus to Marble Arch has been delayed indefinitely."],
   ["pa-gap", "Mind the gap", "Platform announcement"],
@@ -1268,8 +1291,8 @@ const Snd = {
   win() {
     if (!ok()) return; const t = actx.currentTime;
     const d = playBuf("depart", t, 1.15, 0, .75); if (d) duck(t, d - 1, .3);
-    // and the announcer over the top of it, as she leaves the station
-    const v = playBuf("pa-sorted-short", t + .1, 1.05, .15); if (v) { duck(t + .1, v - 1.2, .25); paBusy = v + .1; paLast = "pa-sorted"; }
+    // and the announcer over the top of it, as she leaves the station: the female "Mind the gap."
+    const v = playBuf("pa-mindthegap", t + .1, 1.1, .15); if (v) { duck(t + .1, v - 1.2, .25); paBusy = v + .1; paLast = "pa-mindthegap"; }
     passT = Math.max(passT, 10); paT = Math.max(paT, 25);
   },
   // now and then another train goes by in the tunnel, and every so often the station announcer speaks
@@ -2040,6 +2063,10 @@ if (renderer) {
     mesh(g, cache("head", () => new THREE.SphereGeometry(.029, 12, 10)), skin, 0, .2, 0);
     mesh(g, cache("hair", () => new THREE.SphereGeometry(.03, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2)), hair, -.004, .205, 0);
     for (const sd of [-1, 1]) mesh(g, cache("leg", () => new THREE.CapsuleGeometry(.014, .05, 3, 6)), vtrim, 0, .035, sd * .02).name = "leg";
+    if (q.sex === "f") {          // the woman: long hair down her back and a skirt
+      mesh(g, cache("hairL", () => new THREE.CapsuleGeometry(.02, .05, 3, 8)), hair, -.02, .17, 0);
+      mesh(g, cache("skirt", () => new THREE.CylinderGeometry(.034, .052, .07, 12)), coat, 0, .065, 0);
+    } else if (q.sex === "m") g.scale.setScalar(1.1);   // the man: a little taller
     return g;
   }
   const vehicles = new Map(), people = new Map(), RY = RH - .3;
@@ -2079,9 +2106,10 @@ if (renderer) {
     for (const q of T.peds) {
       liveP.add(q);
       let m = people.get(q); if (!m) { m = makePerson(q); people.set(q, m); scene.add(m); }
-      const walking = q.state === "walk";
+      const walking = q.state === "walk" || q.state === "out" || (q.state === "away" && q.t > .45);
+      m.visible = q.state !== "inside";
       m.position.set(q.x, RY + (walking ? Math.abs(Math.sin(q.ph)) * .008 : 0), q.z);
-      m.rotation.y = q.cross ? (q.dir > 0 ? 0 : Math.PI) : (q.dir > 0 ? -Math.PI / 2 : Math.PI / 2);
+      m.rotation.y = q.alight ? q.rot : q.cross ? (q.dir > 0 ? 0 : Math.PI) : (q.dir > 0 ? -Math.PI / 2 : Math.PI / 2);
       let k = 0; for (const o of m.children) if (o.name === "leg") { o.position.x = walking ? Math.sin(q.ph + k * Math.PI) * .02 : 0; k++; }
     }
     for (const [q, m] of people) if (!liveP.has(q)) { scene.remove(m); people.delete(q); }
