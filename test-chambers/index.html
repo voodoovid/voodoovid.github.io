@@ -370,7 +370,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
 <script type="module">
 import * as THREE from "../lib/three.module.min.js";
 
-const VERSION = "v2.0";
+const VERSION = "v2.1";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -686,7 +686,7 @@ function level4() {
     say: {
       intro: ["The exit is up there. You are down here. I admire the confidence of whoever designed this arrangement.", "Portals do not care which way is up. Neither, I suspect, do you."],
       hint: ["Fall into a portal and you leave the other one at the same speed. If the other one faces up, you leave it going up. You are welcome."],
-      done: ["Up. Well done. I will be very surprised if this keeps happening."]
+      done: ["Well done. I will be very surprised if this keeps happening."]
     }
   };
 }
@@ -1387,10 +1387,10 @@ function groundProbe(pos, h, solids, skip) {
 }
 
 /* ---------- rays (they pass through portals) ---------- */
-function castRay(o, d, maxDist, withCubes) {
+function castRay(o, d, maxDist, withCubes, noDyn) {
   let origin = o.clone(), dir = d.clone().normalize(), remaining = maxDist, total = 0; const segs = [];
   for (let hop = 0; hop < 4; hop++) {
-    const sol = collectSolids(withCubes);
+    const sol = collectSolids(withCubes, null, noDyn);
     const oa = [origin.x, origin.y, origin.z], da = [dir.x, dir.y, dir.z];
     let bestT = remaining, best = null;
     for (let i = 0; i < sol.length; i++) { const h = rayBox(oa, da, sol[i], bestT); if (h && h.t < bestT) { bestT = h.t; best = { t: h.t, axis: h.axis, sign: h.sign, box: sol[i] }; } }
@@ -1421,7 +1421,7 @@ function pathPoint(res, s) {          // the point s metres along a ray's path (
 /* ---------- portal placement ---------- */
 const OFFS = []; for (let a = -1.4; a <= 1.401; a += 0.1) for (let b = -1.6; b <= 1.601; b += 0.1) OFFS.push([a, b]); OFFS.sort((p, q) => (p[0] * p[0] + p[1] * p[1]) - (q[0] * q[0] + q[1] * q[1]));
 function fitPortal(c, n, u, r, idx) {
-  const sol = collectSolids(false), boxes = [];
+  const sol = collectSolids(false, null, true), boxes = [];   // sentries never block a portal: it opens on the wall or floor behind or under them
   for (let i = -3; i <= 3; i++) for (let j = -4; j <= 4; j++) {
     const a = i / 3 * (PW - 0.04), b = j / 4 * (PH - 0.04);
     const x = c.x + r.x * a + u.x * b, y = c.y + r.y * a + u.y * b, z = c.z + r.z * a + u.z * b;
@@ -1447,7 +1447,7 @@ function tryPlacePortal(idx, hit) {
     { const O = portals[1 - idx];             // floor above ceiling (or the reverse): line them up so a fall loops cleanly
       if (hit.axis === 1 && O.on && O.n.y * n.y < -0.9 && Math.hypot(O.o.x - c.x, O.o.z - c.z) < 2.6) { const c2 = c.clone(); c2.x = O.o.x; c2.z = O.o.z; const b2 = fitPortal(c2, n, u, r, idx); if (b2) { c.copy(c2); boxes = b2; } } }
     if (hit.axis !== 1) {                       // sit the opening on the floor when it is close, so you can walk straight in
-      const dn = castRay(tmpC.copy(c).addScaledVector(n, 0.1), new V3(0, -1, 0), 3, false);
+      const dn = castRay(tmpC.copy(c).addScaledVector(n, 0.1), new V3(0, -1, 0), 3, false, true);
       if (dn.hit) { const fy = c.y - dn.hit.t; const want = fy + PH + 0.05; if (Math.abs(want - c.y) < 0.75) { const c2 = c.clone(); c2.y = want; const b2 = fitPortal(c2, n, u, r, idx); if (b2) { c.copy(c2); boxes = b2; } } }
     }
     placePortal(idx, c, n, u, boxes); return true;
@@ -1460,7 +1460,7 @@ function eyePos(out) { return out.set(player.p.x, player.p.y + EYE, player.p.z);
 function firePortal(idx) {
   if (state !== "play" || !world) return;
   const o = eyePos(new V3()), d = viewDir(new V3());
-  const res = castRay(o, d, 220, false);
+  const res = castRay(o, d, 220, false, true);
   kick = 1; $("cross").classList.remove("pulse"); void $("cross").offsetWidth; $("cross").classList.add("pulse");
   setGunColor(idx); sfx.shoot(idx);
   const h = res.hit;
@@ -1756,13 +1756,30 @@ function ensureAudio() {
     for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
     reverb = actx.createConvolver(); reverb.buffer = ir; revSend = actx.createGain(); revSend.gain.value = 0.55; revSend.connect(reverb); reverb.connect(musicBus);
     voiceBus = actx.createGain(); voiceBus.gain.value = 1.0; voiceBus.connect(master);
-    actx.onstatechange = () => { if (actx.state !== "running" && !document.hidden) { actx.resume().catch(() => {}); setTimeout(() => Music.kick(), 200); } };
+    actx.onstatechange = () => { if (actx.state !== "running" && !bg && !document.hidden) { actx.resume().catch(() => {}); setTimeout(() => Music.kick(), 200); } };
     Music.start();
   }
   if (actx.state !== "running") actx.resume().catch(() => {});
 }
-document.addEventListener("visibilitychange", () => { if (!actx) return; if (document.hidden) actx.suspend().catch(() => {}); else { actx.resume().catch(() => {}); Music.kick(); } });
-for (const ev of ["pointerdown", "keydown", "touchend", "click"]) addEventListener(ev, () => { if (actx && actx.state !== "running") { actx.resume().catch(() => {}); Music.kick(); } }, { passive: true, capture: true });
+let bg = false;                       // true while the page is hidden or minimised: all sound stops, nothing resumes it
+function goBackground() {
+  if (bg) return; bg = true;
+  try { if (silentEl) silentEl.pause(); } catch (e) {}
+  try { if (voiceSrc) { voiceSrc.stop(); voiceSrc = null; } } catch (e) {}
+  if (actx) actx.suspend().catch(() => {});
+  try { if (typeof state !== "undefined" && state === "play") pause(); } catch (e) {}
+}
+function goForeground() {
+  if (!bg) return; bg = false;
+  try { if (silentEl) silentEl.play().catch(() => {}); } catch (e) {}
+  if (actx) { actx.resume().catch(() => {}); Music.kick(); }
+}
+function syncVisibility() { if (document.hidden || document.visibilityState !== "visible") goBackground(); else goForeground(); }
+document.addEventListener("visibilitychange", syncVisibility);
+addEventListener("pagehide", goBackground); addEventListener("pageshow", syncVisibility);
+document.addEventListener("freeze", goBackground); document.addEventListener("resume", syncVisibility);
+setInterval(syncVisibility, 500);     // safety net: some iPad window changes never fire an event
+for (const ev of ["pointerdown", "keydown", "touchend", "click"]) addEventListener(ev, () => { if (actx && !bg && actx.state !== "running") { actx.resume().catch(() => {}); Music.kick(); } }, { passive: true, capture: true });
 function applyAudioOpts() { if (!actx) return; musicBus.gain.setTargetAtTime(opts.music ? 0.55 : 0, actx.currentTime, 0.1); sfxBus.gain.setTargetAtTime(opts.sfx ? 0.8 : 0, actx.currentTime, 0.1); }
 
 /* ---------- music: a steady, never-silent bed (drone, bass, pulse, arpeggio) with a short motif every bar ---------- */
@@ -1798,6 +1815,7 @@ const Music = (() => {
   }
   function tick() {
     if (!running || !actx) return;
+    if (bg || document.hidden) return;
     if (actx.state !== "running") { actx.resume().catch(() => {}); nextT = Math.max(nextT, actx.currentTime + 0.1); return; }
     if (nextT < actx.currentTime - 0.3) nextT = actx.currentTime + 0.05;       // after a stall, restart cleanly instead of bursting
     const T = TRACKS[tr], beat = 60 / T.bpm, eighth = beat / 2;
@@ -2087,7 +2105,7 @@ addEventListener("keydown", e => {
 });
 addEventListener("keyup", e => setKey(e, false));
 addEventListener("blur", () => { for (const k in keys) keys[k] = false; });
-let mouseMode = false, locked = false, lastMX = -1, lastMY = -1, edgeX = 0, edgeY = 0, wheelV = 0;
+let mouseMode = false, locked = false, lastMX = -1, lastMY = -1, edgeX = 0, edgeY = 0, wheelV = 0, mLookX = 0, mLookY = 0, edgeHold = 0;
 function enterMouseMode() { if (mouseMode) return; mouseMode = true; document.body.classList.add("mouselook"); }
 document.addEventListener("pointerlockchange", () => {
   locked = !!document.pointerLockElement;
@@ -2107,12 +2125,13 @@ addEventListener("mousemove", e => {
   if (state !== "play" || anyOv()) return;
   if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
   enterMouseMode();
-  if (document.pointerLockElement) { inp.lookX += e.movementX * 0.0022 * opts.sens; inp.lookY += e.movementY * 0.0022 * opts.sens * (opts.invert ? -1 : 1); return; }
+  if (document.pointerLockElement) { mLookX += clamp(e.movementX, -70, 70) * 0.0022 * opts.sens; mLookY += clamp(e.movementY, -70, 70) * 0.0022 * opts.sens * (opts.invert ? -1 : 1); return; }
   let dx = e.movementX, dy = e.movementY;
   if (!dx && !dy && lastMX >= 0) { dx = e.clientX - lastMX; dy = e.clientY - lastMY; }
   lastMX = e.clientX; lastMY = e.clientY;
-  inp.lookX += dx * 0.0034 * opts.sens; inp.lookY += dy * 0.0034 * opts.sens * (opts.invert ? -1 : 1);
-  const w = innerWidth, h = innerHeight, m = 0.07;
+  dx = clamp(dx, -70, 70); dy = clamp(dy, -70, 70);                       // a jumpy pointer event never flicks the view
+  mLookX += dx * 0.0024 * opts.sens; mLookY += dy * 0.0024 * opts.sens * (opts.invert ? -1 : 1);
+  const w = innerWidth, h = innerHeight, m = 0.045;
   edgeX = e.clientX < w * m ? -(1 - e.clientX / (w * m)) : e.clientX > w * (1 - m) ? (e.clientX - w * (1 - m)) / (w * m) : 0;
   edgeY = e.clientY < h * m ? -(1 - e.clientY / (h * m)) : e.clientY > h * (1 - m) ? (e.clientY - h * (1 - m)) / (h * m) : 0;
 }, { passive: true });
@@ -2121,8 +2140,11 @@ addEventListener("mouseleave", () => { edgeX = edgeY = 0; lastMX = -1; });
 let wheelS = 0;
 addEventListener("wheel", e => {
   if (state !== "play" || anyOv()) return; e.preventDefault(); enterMouseMode();
-  const k = e.deltaMode === 1 ? 0.06 : 0.0075, dir = opts.scrollInv ? -1 : 1;
-  wheelV = clamp(wheelV + e.deltaY * k * dir, -1.4, 1.4); wheelS = clamp(wheelS + e.deltaX * k, -1.4, 1.4);
+  const k = e.deltaMode === 1 ? 0.04 : 0.0042, dir = opts.scrollInv ? -1 : 1;
+  let wy = e.deltaY, wx = e.deltaX;
+  if (Math.abs(wy) < 1.2) wy = 0; if (Math.abs(wx) < 1.2) wx = 0;            // dead zone: finger resting on the pad
+  if (Math.abs(wx) < Math.abs(wy) * 0.6) wx = 0; else if (Math.abs(wy) < Math.abs(wx) * 0.6) wy = 0;   // a mostly-vertical swipe never sidesteps, and the other way round
+  wheelV = clamp(wheelV + wy * k * dir, -1, 1); wheelS = clamp(wheelS + wx * k, -1, 1);
 }, { passive: false });
 
 /* ---------- touch ---------- */
@@ -2384,11 +2406,15 @@ function frame(ts) {
   const playing = state === "play" || state === "dead";
   if (playing) {
     const pad = readPad();
-    if (mouseMode && !document.pointerLockElement) { player.yaw -= edgeX * 1.9 * opts.sens * dt; inp.lookY += edgeY * 1.2 * opts.sens * dt * (opts.invert ? -1 : 1); }
+    { const sm = 1 - Math.exp(-dt * 26), ax = mLookX * sm, ay = mLookY * sm; mLookX -= ax; mLookY -= ay; inp.lookX += ax; inp.lookY += ay; if (Math.abs(mLookX) < 1e-5) mLookX = 0; if (Math.abs(mLookY) < 1e-5) mLookY = 0; }   // trackpad look is eased over a few frames
+    if (mouseMode && !document.pointerLockElement) {
+      const on = edgeX || edgeY; edgeHold = on ? Math.min(1, edgeHold + dt * 2.5) : 0;        // edge turning eases in, so grazing the edge doesn't spin the view
+      player.yaw -= Math.sign(edgeX) * edgeX * edgeX * 1.5 * opts.sens * dt * edgeHold; inp.lookY += Math.sign(edgeY) * edgeY * edgeY * 0.9 * opts.sens * dt * edgeHold * (opts.invert ? -1 : 1);
+    }
     player.yaw -= inp.lookX + pad.lx * 2.6 * opts.sens * dt;
     player.pitch = clamp(player.pitch - (inp.lookY + pad.ly * 2.1 * opts.sens * dt * (opts.invert ? -1 : 1)), -1.5, 1.5);
     inp.lookX = inp.lookY = 0;
-    wheelV *= Math.exp(-dt * 7); wheelS *= Math.exp(-dt * 7); if (Math.abs(wheelV) < 0.02) wheelV = 0; if (Math.abs(wheelS) < 0.02) wheelS = 0;
+    wheelV *= Math.exp(-dt * 9); wheelS *= Math.exp(-dt * 9); if (Math.abs(wheelV) < 0.04) wheelV = 0; if (Math.abs(wheelS) < 0.04) wheelS = 0;
     inp.fwd = clamp((keys.f ? 1 : 0) - (keys.b ? 1 : 0) - stick.y - pad.my + wheelV, -1, 1);
     inp.right = clamp((keys.r ? 1 : 0) - (keys.l ? 1 : 0) + stick.x + pad.mx + wheelS, -1, 1);
     acc += dt; let n = 0;
