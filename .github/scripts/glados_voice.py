@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Turns the natural Kokoro SaDos clips into the flat, cold, slightly glitchy SaDos voice.
 usage: glados_voice.py IN_DIR OUT_DIR   (reads IN_DIR/*.mp3, writes OUT_DIR/*.mp3 and prints {hash: seconds})
+Stutters grow with the chamber: glados_levels.json maps each clip's hash to its chamber (0 = general lines), see `progress`.
 Chain: channel vocoder on a near-monotone buzz (stepped pitch) mixed with the dry voice, a few stutter glitches,
 a touch of sample-hold grit, a hollow comb, a short metallic echo, then a deliberate 0.93x slow-down.
 Original (natural) clips: git show 0ff98cc:test-chambers/voice/<hash>.mp3
@@ -13,6 +14,12 @@ SR = 24000
 DRY, WET = 0.34, 0.80        # dry voice and vocoded voice levels
 F0 = 168.0                   # buzz pitch (Hz); steps +-1 semitone every ~0.15 s
 SLOW = 0.93
+LEVELS = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "glados_levels.json")))
+
+def progress(h):
+    # 0 at chamber 1 .. 1 at chamber 12; general lines (chamber 0) sit a little above the start
+    c = LEVELS.get(h, 0)
+    return 0.15 if c == 0 else (c - 1) / 11.0
 
 def decode(path):
     raw = subprocess.run(["ffmpeg", "-v", "error", "-i", path, "-ar", str(SR), "-ac", "1", "-f", "f32le", "-"], capture_output=True, check=True).stdout
@@ -46,8 +53,8 @@ def vocode(x, rng):
     rms = lambda a: np.sqrt(np.mean(a ** 2) + 1e-12)
     return out * (rms(x) / rms(out))
 
-def glitch(x, rng):
-    # a few short stutters at loud moments
+def glitch(x, rng, p):
+    # a few short stutters at loud moments; rare early on, about as many as clip length allows by the last chambers
     n = len(x); frame = int(0.03 * SR)
     e = np.array([np.abs(x[i:i + frame]).mean() for i in range(0, n - frame, frame)])
     if len(e) < 20: return x
@@ -56,13 +63,15 @@ def glitch(x, rng):
     if len(loud) == 0: return x
     k = 1 if n < 2.5 * SR else 2 if n < 6 * SR else 3
     picks = sorted(rng.choice(loud, size=min(k, len(loud)), replace=False))
+    chance = 0.05 + 0.75 * p ** 1.2                        # each possible stutter happens with this chance
+    picks = [q for q in picks if rng.random() < chance]
     y = x.copy(); shift = 0
     for p in picks:
         a = p * frame + shift; L = int(rng.uniform(0.035, 0.06) * SR)
         seg = y[a:a + L].copy()
         if len(seg) < L: continue
         fade = np.linspace(0, 1, 120); seg[:120] *= fade; seg[-120:] *= fade[::-1]
-        reps = int(rng.choice([2, 3]))
+        reps = int(rng.choice([2, 3] if p > 0.5 else [2]))
         y = np.concatenate([y[:a + L], np.tile(seg, reps), y[a + L:]]); shift += L * reps
     return y
 
@@ -77,12 +86,12 @@ def grit(x):
     q = np.round(hold * 90) / 90
     return x * 0.8 + q * 0.2
 
-def process(x, seed):
+def process(x, seed, p):
     rng = np.random.default_rng(seed)
     pad = np.zeros(int(0.12 * SR)); x = np.concatenate([pad, x, pad])
     v = vocode(x, rng)
     y = DRY * x + WET * v
-    y = glitch(y, rng); y = grit(y); y = comb(y)
+    y = glitch(y, rng, p); y = grit(y); y = comb(y)
     y = np.tanh(y * 1.25) / np.tanh(1.25)
     y *= 0.89 / (np.max(np.abs(y)) + 1e-9)
     f = int(0.01 * SR); y[:f] *= np.linspace(0, 1, f); y[-f:] *= np.linspace(1, 0, f)
@@ -93,7 +102,7 @@ if __name__ == "__main__":
     for fn in sorted(os.listdir(src)):
         if not fn.endswith(".mp3"): continue
         h = fn[:-4]; x = decode(os.path.join(src, fn))
-        y = process(x, zlib.crc32(h.encode()))
+        y = process(x, zlib.crc32(h.encode()), progress(h))
         out = os.path.join(dst, fn); encode(y, out)
         durs[h] = round(len(y) / SR / SLOW, 2)
     print(json.dumps(durs))
