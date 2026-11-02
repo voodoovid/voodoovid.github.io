@@ -370,7 +370,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
 <script type="module">
 import * as THREE from "../lib/three.module.min.js";
 
-const VERSION = "v2.1";
+const VERSION = "v2.2";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -2271,10 +2271,47 @@ function fxTracer(from, to, col) {
   m.position.copy(from).add(to).multiplyScalar(0.5); m.lookAt(to); m.scale.set(1, 1, len); scene.add(m);
   fxs.push({ kind: "tracer", m, t: 0, dur: 0.09 });
 }
+// a floor portal opened under a sentry: it sinks in and drops out of the other portal, lying on its side
+function sentryHole(s) {
+  if (!bothPortals()) return null;
+  for (const P of portals) {
+    if (P.n.y < 0.7) continue;
+    tmpA.set(s.base.x - P.o.x, s.base.y - P.o.y, s.base.z - P.o.z);
+    if (Math.abs(tmpA.dot(P.n)) < 0.3 && Math.abs(tmpA.dot(P.r)) < PW - 0.15 && Math.abs(tmpA.dot(P.u)) < PH - 0.15) return P;
+  }
+  return null;
+}
+function warpSentry(s, P) {
+  const O = portals[1 - P.idx], sol = collectSolids(false, null, true), c = s.base.clone().applyMatrix4(P.T), cands = [];
+  if (Math.abs(O.n.y) > 0.7) {
+    if (O.n.y < 0) cands.push(O.o.clone().addScaledVector(O.n, 0.3));                              // out of a ceiling: drops to the floor
+    else for (const [v, k] of [[O.r, 1], [O.r, -1], [O.u, 1], [O.u, -1]]) cands.push(O.o.clone().addScaledVector(v, k * (PW + 0.55)).addScaledVector(O.n, 0.1));
+  } else cands.push(O.o.clone().addScaledVector(O.n, 0.55));                                         // out of a wall
+  let land = null;
+  for (const q of cands) {
+    if (inAny(sol, q.x, q.y + 0.4, q.z) || inAny(sol, q.x, q.y + 1.2, q.z)) continue;
+    const dn = castRay(new V3(q.x, q.y + 0.4, q.z), new V3(0, -1, 0), 40, false, true);
+    if (dn.hit) { land = new V3(q.x, q.y + 0.4 - dn.hit.t, q.z); break; }
+  }
+  if (!land) land = c.clone().addScaledVector(O.n, 0.5);
+  s.base.copy(land); s.group.position.copy(land);
+  s.box.min[0] = land.x - .3; s.box.max[0] = land.x + .3; s.box.min[2] = land.z - .3; s.box.max[2] = land.z + .3; s.box.min[1] = land.y; s.box.max[1] = land.y + (s.state === "off" ? .45 : 1.3);
+  const fx = Math.abs(O.n.y) > 0.7 ? Math.sin(land.x * 7 + land.z * 3) : O.n.x, fz = Math.abs(O.n.y) > 0.7 ? Math.cos(land.x * 3 + land.z * 7) : O.n.z;
+  s.yaw = Math.atan2(-fx, -fz); s.group.rotation.set(0, s.yaw, 0);
+  sfx.enter(O.idx, 0.6);
+  if (s.state !== "off") tipSentry(s, "portal"); else s.fall = 0.6;
+}
 function updateSentries(dt, time) {
   if (!world) return; const pl = player, alive = state === "play";
   for (const s of world.sentries) {
     const g = s.group;
+    const hole = sentryHole(s);
+    if (hole) {                                          // portal under its feet: down it goes
+      s.sink = (s.sink || 0) + dt / 0.35; s.laser.visible = false; const e = Math.min(1, s.sink);
+      g.position.set(s.base.x, s.base.y - e * e * 1.5, s.base.z); g.rotation.z = Math.sin(e * 6) * 0.08 * e;
+      if (s.sink >= 1) { warpSentry(s, hole); s.sink = 0; g.rotation.z = 0; }
+      continue;
+    } else if (s.sink > 0) { s.sink = 0; g.rotation.z = 0; g.position.y = s.base.y; }
     if (s.state === "off") {                             // topple over and go dark
       s.fall = Math.min(1, s.fall + dt * 2.4); const e = s.fall * s.fall; g.rotation.x = -e * 1.35; g.position.y = s.base.y + e * 0.1;
       for (const f of s.flaps) { f.piv.rotation.y = -f.sx * 0.15; f.mz.material.opacity = 0; }
