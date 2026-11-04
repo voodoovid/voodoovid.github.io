@@ -239,6 +239,16 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
           <p>Guess the word before the chalk figure is finished. Over 800 words in 14 categories, with music and sound effects.</p>
           <span class="play">Play &rarr;</span>
         </a>
+        <a class="game" href="aeroplan/">
+          <svg viewBox="0 0 72 72" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M8 40l56-22-14 36-12-12-8 14v-16z"/>
+            <path d="M38 42l26-24"/>
+            <path d="M10 62h20M40 62h22"/>
+          </svg>
+          <h2>Aeroplan Tracker</h2>
+          <p>Log flights and tickets, see the SQC and points each one earns, track status progress and work out what your points are really worth.</p>
+          <span class="play">Open &rarr;</span>
+        </a>
       </div>
       <div class="other-row"><button type="button" class="other-btn" id="otherBack">&lsaquo; Back to all games</button></div>
     </div>
@@ -252,7 +262,7 @@ hr { border: 0; border-top: 2px dashed var(--chalk-dim); margin: 22px 0 26px; }
 </div>
 <script src="lib/gamepad.js"></script>
 <script>
-const SITE_VERSION = "v1.29";
+const SITE_VERSION = "v1.30";
 // Lock the screen: no rubber-band bounce or drag when swiping, unless the page really needs to scroll (phones)
 document.documentElement.style.overscrollBehavior = "none"; document.body.style.overscrollBehavior = "none";
 document.addEventListener("touchmove", e => {

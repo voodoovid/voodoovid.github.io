@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Aeroplan Tracker</title>
+<meta name="theme-color" content="#121418">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<style>
+/* Aeroplan Tracker: flights, SQC, points earned and value per point. Single dark theme like the rest of the site. */
+:root {
+  color-scheme: dark;
+  --bg: #121418; --card: #1c1f26; --card2: #252a33; --line: #343a46;
+  --text: #eef0f4; --dim: #9aa3b2; --red: #e8333f; --red-dim: #8f1f27;
+  --green: #4fd18b; --gold: #ffd166; --blue: #6fb6ff;
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--bg); color: var(--text); font: 15px/1.35 system-ui, -apple-system, "Segoe UI", sans-serif;
+  display: flex; flex-direction: column; overflow: hidden; padding-top: var(--safe-top); padding-bottom: env(safe-area-inset-bottom, 0px); }
+[hidden] { display: none !important; }
+header { display: flex; align-items: center; gap: 10px; padding: 10px 16px 8px; border-bottom: 1px solid var(--line); flex: none; }
+header h1 { font-size: 19px; margin: 0; font-weight: 800; letter-spacing: .01em; }
+header h1 span { color: var(--red); }
+.ver { margin-left: auto; color: var(--dim); font-size: 12px; }
+main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 16px 20px; }
+.wrap { max-width: 760px; margin: 0 auto; }
+nav.tabs { flex: none; display: flex; border-top: 1px solid var(--line); background: #16191e; }
+nav.tabs button { flex: 1; background: none; border: 0; color: var(--dim); font: 600 13px system-ui, sans-serif; padding: 9px 4px 10px; cursor: pointer; }
+nav.tabs button b { display: block; font-size: 19px; line-height: 1.1; }
+nav.tabs button.on { color: var(--text); box-shadow: inset 0 3px 0 var(--red); }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 10px; }
+.card h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); margin: 0 0 8px; font-weight: 700; }
+.row { display: flex; align-items: center; gap: 8px; }
+.grow { flex: 1; min-width: 0; }
+.btn { background: var(--card2); color: var(--text); border: 1px solid var(--line); border-radius: 9px; padding: 8px 14px; font: 600 14px system-ui, sans-serif; cursor: pointer; }
+.btn.primary { background: var(--red); border-color: var(--red); color: #fff; }
+.btn.danger { color: #ff8a8f; }
+.btn.small { padding: 5px 10px; font-size: 13px; }
+.btn:active { transform: scale(.97); }
+.toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+select, input { background: var(--card2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; font: 15px system-ui, sans-serif; width: 100%; min-width: 0; }
+input[type=checkbox] { width: auto; }
+input[name=from], input[name=to] { text-transform: uppercase; }
+label.f { display: block; font-size: 12px; color: var(--dim); }
+label.f > input, label.f > select { margin-top: 3px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+.grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px 10px; }
+.span2 { grid-column: span 2; } .span3 { grid-column: 1 / -1; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.stat { background: var(--card2); border-radius: 10px; padding: 9px 11px; }
+.stat .k { font-size: 12px; color: var(--dim); }
+.stat .v { font-size: 20px; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.stat .s { font-size: 12px; color: var(--dim); }
+.good { color: var(--green); } .bad { color: #ff8a8f; } .gold { color: var(--gold); }
+.flight { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.flight .route { font-weight: 800; font-size: 17px; }
+.flight .meta { color: var(--dim); font-size: 13px; }
+.flight .nums { text-align: right; font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.flight .nums b { font-size: 15px; }
+.tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 9px; background: var(--card2); color: var(--dim); margin-left: 4px; vertical-align: 2px; }
+.tag.pts { background: #2a2140; color: #c9b2ff; } .tag.cash { background: #1f3326; color: var(--green); }
+.empty { text-align: center; color: var(--dim); padding: 30px 10px; }
+.bar { height: 12px; background: var(--card2); border-radius: 6px; overflow: hidden; position: relative; margin: 6px 0 4px; }
+.bar i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, var(--red-dim), var(--red)); border-radius: 6px; }
+.ticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--dim); }
+.tiers { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; margin-top: 8px; }
+.tiers div { text-align: center; font-size: 11px; padding: 5px 2px; border-radius: 7px; background: var(--card2); color: var(--dim); }
+.tiers div.hit { background: var(--red-dim); color: #fff; font-weight: 700; }
+.preview { background: var(--card2); border-radius: 10px; padding: 9px 11px; margin-top: 10px; font-size: 14px; }
+.preview .row { justify-content: space-between; }
+.note { font-size: 12px; color: var(--dim); margin: 6px 0 0; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 5px 4px; border-bottom: 1px solid var(--line); }
+th { color: var(--dim); font-weight: 600; } td.r, th.r { text-align: right; }
+dialog { background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 14px; padding: 0; width: min(560px, calc(100vw - 20px)); max-height: calc(100dvh - 30px); }
+dialog::backdrop { background: rgba(0,0,0,.6); }
+dialog form { display: flex; flex-direction: column; max-height: calc(100dvh - 32px); }
+dialog .dh { padding: 12px 14px 8px; font-weight: 800; font-size: 17px; border-bottom: 1px solid var(--line); }
+dialog .db { padding: 10px 14px; overflow-y: auto; }
+dialog .df { padding: 10px 14px; border-top: 1px solid var(--line); display: flex; gap: 8px; }
+.seg { display: flex; background: var(--card2); border-radius: 9px; padding: 3px; gap: 3px; }
+.seg button { flex: 1; border: 0; background: none; color: var(--dim); font: 600 14px system-ui, sans-serif; padding: 6px; border-radius: 7px; cursor: pointer; }
+.seg button.on { background: var(--red); color: #fff; }
+.sect { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); margin: 12px 0 6px; font-weight: 700; }
+@media (max-width: 420px) { .grid3 { grid-template-columns: 1fr 1fr; } .stat .v { font-size: 18px; } }
+</style>
+</head>
+<body>
+<!-- Shared "back to the games menu" button: identical in every game on the site -->
+<a class="games-pill" id="gamesPill" href="../" hidden aria-label="Back to the games menu">&lsaquo; Games</a>
+<style>
+.games-pill { position: fixed; z-index: 9999; top: calc(var(--safe-top, env(safe-area-inset-top, 0px)) + 10px); left: calc(env(safe-area-inset-left, 0px) + 8px);
+  display: inline-flex; align-items: center; gap: 3px; height: 34px; padding: 0 14px 0 11px; box-sizing: border-box; border-radius: 17px;
+  background: #ffd166; color: #241a05; border: 2px solid #fff3c4; box-shadow: 0 2px 10px rgba(0,0,0,.5);
+  font: 700 15px/1 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: .01em; text-decoration: none; -webkit-tap-highlight-color: transparent; }
+.games-pill:active { transform: scale(.95); }
+.games-pill:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+.games-pill[hidden] { display: none !important; }
+</style>
+<script>
+(() => {
+  const pill = document.getElementById("gamesPill");
+  // Where the status bar ends. The installed app sometimes reports 0 here (after the device turns), which put this button
+  // and the titles under the blurred status bar. So in the app use at least the status bar's height, plus a little air.
+  const safeTop = () => {
+    const d = document.documentElement, p = document.createElement("div");
+    p.style.cssText = "position:fixed;top:0;left:0;width:0;visibility:hidden;height:env(safe-area-inset-top,0px)";
+    d.appendChild(p); let t = p.offsetHeight; p.remove();
+    if (navigator.standalone || matchMedia("(display-mode: standalone)").matches)
+      t = Math.max(t, Math.min(screen.width, screen.height) >= 700 ? 24 : innerHeight > innerWidth ? 54 : 16) + 8;
+    d.style.setProperty("--safe-top", t + "px");
+  };
+  safeTop(); addEventListener("resize", safeTop); addEventListener("orientationchange", () => setTimeout(safeTop, 250));
+  // Only on the games site, not when a page is opened on its own
+  if (!/\/(hangman|scareisdale|ponchos-adventure|ponchos-adventure-3d|flip-five|flip-five-3d|follow-chestnut|fathom|ponchos-pills|ant-jam|mind-the-gap|test-chambers|aeroplan)\//.test(location.pathname)) return;
+  pill.hidden = false;
+  // Lock the screen: no rubber-band bounce or drag when swiping, except inside something that really scrolls
+  document.documentElement.style.overscrollBehavior = "none"; document.body.style.overscrollBehavior = "none";
+  const canScroll = el => {
+    for (; el && el !== document.documentElement; el = el.parentElement) {
+      if (el.closest && el.closest("input, textarea, select")) return true;
+      const s = getComputedStyle(el);
+      if (/(auto|scroll)/.test(s.overflowY + s.overflowX) && (el.scrollHeight > el.clientHeight + 1 || el.scrollWidth > el.clientWidth + 1)) return true;
+    }
+    const d = document.documentElement;
+    return d.scrollHeight > innerHeight + 1 || d.scrollWidth > innerWidth + 1;
+  };
+  document.addEventListener("touchmove", e => { if (e.touches.length === 1 && e.cancelable && !canScroll(e.target)) e.preventDefault(); }, { passive: false });
+  // Nudge the game's top row right so nothing sits under the button
+  const fit = () => {
+    for (const el of document.querySelectorAll("[data-pill-gap]")) {
+      el.style.paddingLeft = ""; el.style.paddingRight = "";
+      // the controller chip (lib/gamepad.js) sits just right of the button when it shows, so clear both
+      const p = pill.getBoundingClientRect(), r = el.getBoundingClientRect(), chip = document.getElementById("gpChip");
+      const right = chip && !chip.hidden && chip.classList.contains("by-pill") ? Math.max(p.right, chip.getBoundingClientRect().right) : p.right;
+      if (r.height && r.top < p.bottom + 4 && r.bottom > p.top) {
+        const need = Math.ceil(right + 10 - r.left);
+        // a centred title gets the same room on both sides so it stays centred
+        if (need > 0) { el.style.boxSizing = "border-box"; el.style.paddingLeft = need + "px"; if (getComputedStyle(el).textAlign === "center") el.style.paddingRight = need + "px"; }
+      }
+    }
+  };
+  window.__pillFit = fit;
+  addEventListener("DOMContentLoaded", fit); addEventListener("load", fit); addEventListener("resize", fit);
+  addEventListener("orientationchange", () => setTimeout(fit, 250));
+  if (document.fonts) document.fonts.ready.then(fit);
+  // A tap on the button always goes back, even when iOS drops the click (it can after the phone is turned sideways):
+  // watch touches for the whole page, before the game sees them, and treat a short tap on or just around the button as a press
+  const near = (x, y) => { const r = pill.getBoundingClientRect(); return x > r.left - 10 && x < r.right + 10 && y > r.top - 10 && y < r.bottom + 10; };
+  let tap = null;
+  addEventListener("touchstart", e => { const t = e.touches[0]; tap = e.touches.length === 1 && near(t.clientX, t.clientY) ? [t.clientX, t.clientY] : null; }, { capture: true, passive: true });
+  addEventListener("touchend", e => {
+    const t = e.changedTouches[0];
+    if (tap && near(t.clientX, t.clientY) && Math.hypot(t.clientX - tap[0], t.clientY - tap[1]) < 30) { if (e.cancelable) e.preventDefault(); location.href = pill.href; }
+    tap = null;
+  }, { capture: true, passive: false });
+  // after turning, lay the button out afresh so where it is drawn and where it answers taps agree
+  addEventListener("orientationchange", () => setTimeout(() => { pill.style.display = "none"; void pill.offsetWidth; pill.style.display = ""; if (scrollY || scrollX) scrollTo(0, 0); }, 300));
+})();
+</script>
+
+<header data-pill-gap>
+  <h1>Aeroplan <span>Tracker</span></h1>
+  <span class="ver" id="ver"></span>
+</header>
+<main><div class="wrap" id="view"></div></main>
+<nav class="tabs" id="tabs">
+  <button data-tab="flights" class="on"><b>✈︎</b>Flights</button>
+  <button data-tab="summary"><b>▤</b>Summary</button>
+  <button data-tab="points"><b>◎</b>Points</button>
+  <button data-tab="settings"><b>⚙︎</b>Settings</button>
+</nav>
+
+<dialog id="dlg"><form method="dialog" id="dlgForm">
+  <div class="dh" id="dlgTitle"></div>
+  <div class="db" id="dlgBody"></div>
+  <div class="df" id="dlgFoot"></div>
+</form></dialog>
+
+<script>
+"use strict";
+const VERSION = "v1.0";
+document.getElementById("ver").textContent = VERSION;
+
+/* ---------- Rules (Aeroplan, travel from Jan 1 2026; all editable in Settings) ----------
+   Points on Air Canada tickets: per CAD of base fare + carrier surcharges (taxes excluded), by status.
+   SQC on Air Canada tickets: Basic 0, Standard 2 per CAD, Flex and higher 4 per CAD. Air Canada Vacations 1 per CAD.
+   Reward (points) tickets and partner-ticketed flights earn no SQC. */
+const STATUSES = ["Member", "25K", "35K", "50K", "75K", "Super Elite"];
+const TIERS = [["25K", 25000], ["35K", 35000], ["50K", 50000], ["75K", 75000], ["Super Elite", 125000]];
+const FARES = ["Basic", "Standard", "Flex", "Comfort", "Latitude", "Premium Economy (Lowest)", "Premium Economy (Flex)", "Business (Lowest)", "Business (Flex)"];
+const fareTier = f => f === "Basic" ? "basic" : f === "Standard" ? "standard" : "flex";
+const BOOKINGS = { ac: "Air Canada ticket", partner: "Partner ticket", vacations: "Air Canada Vacations" };
+const DEFAULTS = {
+  status: "Member", usdRate: 1.38, benchmark: 2.0, cardRate: 0, forgone: false,
+  earn: { "Member": 1, "25K": 2, "35K": 3, "50K": 4, "75K": 5, "Super Elite": 6 },
+  sqc: { basic: 0, standard: 2, flex: 4, vacations: 1 },
+};
+
+/* ---------- Storage ---------- */
+const KEY = "aeroplan.data.v1";
+const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch (e) { return null; } };
+let db = load() || { flights: [], buys: [], otherSqc: {}, settings: {} };
+db.settings = Object.assign({}, DEFAULTS, db.settings, {
+  earn: Object.assign({}, DEFAULTS.earn, db.settings && db.settings.earn),
+  sqc: Object.assign({}, DEFAULTS.sqc, db.settings && db.settings.sqc),
+});
+db.otherSqc = db.otherSqc || {}; db.buys = db.buys || [];
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) {} };
+const S = () => db.settings;
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+/* ---------- Formatting ---------- */
+const n0 = v => Math.round(v || 0).toLocaleString("en-CA");
+const money = v => (v < 0 ? "−$" : "$") + Math.abs(v || 0).toLocaleString("en-CA", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const cents = v => isFinite(v) ? v.toFixed(2) + "¢" : "—";
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const num = v => { const x = parseFloat(String(v).replace(/[^0-9.\-]/g, "")); return isFinite(x) ? x : 0; };
+const today = () => new Date().toISOString().slice(0, 10);
+const yearOf = f => (f.date || "").slice(0, 4) || String(new Date().getFullYear());
+
+/* ---------- Calculations ---------- */
+// Cost per point of every purchased point (weighted average)
+function buyStats() {
+  let pts = 0, paid = 0;
+  for (const b of db.buys) { pts += num(b.points); paid += num(b.price); }
+  return { pts, paid, cpp: pts ? paid / pts * 100 : NaN };
+}
+function calc(f) {
+  const s = S(), rate = f.currency === "USD" ? num(f.rate) || s.usdRate : 1;
+  const base = num(f.base) * rate, taxes = num(f.taxes) * rate;
+  const r = { base, taxes, paid: base + taxes, rate, sqc: 0, pts: 0, cardPts: 0, used: 0, value: NaN, cpp: NaN };
+  const status = f.status || s.status;
+  if (f.pay === "points") {
+    r.paid = taxes; r.base = 0;
+    r.used = num(f.pointsUsed);
+    const cash = num(f.cashPrice) * rate;           // what the same ticket would cost in cash (all in)
+    r.cashPrice = cash;
+    let value = cash - taxes;                          // money the points saved you
+    if (s.forgone && cash) {                           // points the cash ticket would have earned, valued at the benchmark
+      const forgonePts = Math.max(0, cash - taxes) * (s.earn[status] || 1);
+      value -= forgonePts * s.benchmark / 100;
+      r.forgonePts = forgonePts;
+    }
+    r.value = cash ? value : NaN;
+    r.cpp = r.used && cash ? value / r.used * 100 : NaN;
+    r.cardPts = taxes * s.cardRate;
+  } else {
+    if (f.booking === "ac") {
+      r.sqc = base * (s.sqc[fareTier(f.fare)] || 0);
+      r.pts = base * (s.earn[status] || 1);
+    } else if (f.booking === "vacations") {
+      r.sqc = base * s.sqc.vacations;
+      r.pts = 0;
+    }
+    r.cardPts = r.paid * s.cardRate;
+  }
+  r.estSqc = r.sqc; r.estPts = r.pts;
+  if (f.sqcActual !== "" && f.sqcActual != null) r.sqc = num(f.sqcActual);
+  if (f.ptsActual !== "" && f.ptsActual != null) r.pts = num(f.ptsActual);
+  return r;
+}
+
+/* ---------- Tabs ---------- */
+let tab = "flights", year = String(new Date().getFullYear()), filter = "all";
+try { tab = localStorage.getItem("aeroplan.tab") || tab; } catch (e) {}
+const view = document.getElementById("view");
+document.getElementById("tabs").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  tab = b.dataset.tab; try { localStorage.setItem("aeroplan.tab", tab); } catch (e) {}
+  render();
+});
+function render() {
+  for (const b of document.querySelectorAll("#tabs button")) b.classList.toggle("on", b.dataset.tab === tab);
+  ({ flights: renderFlights, summary: renderSummary, points: renderPoints, settings: renderSettings })[tab]();
+  document.querySelector("main").scrollTop = 0;
+}
+const years = () => {
+  const ys = new Set(db.flights.map(yearOf)); ys.add(String(new Date().getFullYear())); ys.add(year);
+  return [...ys].sort().reverse();
+};
+const yearSelect = (all) => `<select id="yearSel" style="width:auto">${all ? `<option value="all"${year === "all" ? " selected" : ""}>All years</option>` : ""}${years().map(y => `<option${y === year ? " selected" : ""}>${y}</option>`).join("")}</select>`;
+function bindYear() {
+  const el = document.getElementById("yearSel");
+  if (el) el.onchange = () => { year = el.value; render(); };
+}
+
+/* ---------- Flights ---------- */
+function renderFlights() {
+  let list = db.flights.slice().sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  if (year !== "all") list = list.filter(f => yearOf(f) === year);
+  if (filter !== "all") list = list.filter(f => (f.pay === "points") === (filter === "points"));
+  view.innerHTML = `
+    <div class="toolbar">
+      <button class="btn primary" id="add">+ Add flight</button>
+      <span class="grow"></span>
+      ${yearSelect(true)}
+      <select id="filt" style="width:auto">
+        <option value="all">All</option><option value="cash"${filter === "cash" ? " selected" : ""}>Cash</option><option value="points"${filter === "points" ? " selected" : ""}>Points</option>
+      </select>
+    </div>
+    ${list.length ? list.map(f => {
+      const r = calc(f), pts = f.pay === "points";
+      return `<div class="card flight" data-id="${f.id}">
+        <div class="grow">
+          <div class="route">${esc(f.from || "?")} → ${esc(f.to || "?")}${f.rt ? " ⇄" : ""}<span class="tag ${pts ? "pts" : "cash"}">${pts ? "POINTS" : "CASH"}</span></div>
+          <div class="meta">${esc(f.date || "no date")} · ${esc(f.fare)}${f.booking !== "ac" ? " · " + BOOKINGS[f.booking] : ""}${f.flightNo ? " · " + esc(f.flightNo) : ""}</div>
+          ${f.notes ? `<div class="meta">${esc(f.notes)}</div>` : ""}
+        </div>
+        <div class="nums">${pts
+          ? `<b>${n0(r.used)} pts</b><br>+ ${money(r.paid)}<br><span class="${r.cpp >= S().benchmark ? "good" : "bad"}">${cents(r.cpp)}/pt</span>`
+          : `<b>${money(r.paid)}</b><br><span class="gold">${n0(r.sqc)} SQC</span><br>+${n0(r.pts + r.cardPts)} pts`}</div>
+      </div>`;
+    }).join("") : `<div class="empty">No flights${year !== "all" ? " in " + year : ""} yet.<br>Tap <b>+ Add flight</b> to log a ticket.</div>`}`;
+  document.getElementById("add").onclick = () => editFlight(null);
+  document.getElementById("filt").onchange = e => { filter = e.target.value; render(); };
+  bindYear();
+  for (const el of view.querySelectorAll(".flight")) el.onclick = () => editFlight(db.flights.find(f => f.id === el.dataset.id));
+}
+
+const dlg = document.getElementById("dlg");
+function openDialog(title, body, foot, onBind) {
+  document.getElementById("dlgTitle").textContent = title;
+  document.getElementById("dlgBody").innerHTML = body;
+  document.getElementById("dlgFoot").innerHTML = foot;
+  onBind();
+  dlg.showModal();
+  document.getElementById("dlgBody").scrollTop = 0;
+}
+
+function editFlight(f) {
+  const isNew = !f;
+  const d = f ? Object.assign({}, f) : { id: uid(), date: today(), from: "", to: "", rt: false, flightNo: "", booking: "ac", fare: "Standard", pay: "cash",
+    currency: "CAD", rate: S().usdRate, base: "", taxes: "", pointsUsed: "", cashPrice: "", status: S().status, sqcActual: "", ptsActual: "", notes: "" };
+  const opt = (arr, v) => arr.map(x => `<option${x === v ? " selected" : ""}>${x}</option>`).join("");
+  openDialog(isNew ? "Add flight" : "Edit flight", `
+    <div class="seg" id="paySeg"><button type="button" data-v="cash">Paid cash</button><button type="button" data-v="points">Paid with points</button></div>
+    <div class="sect">Trip</div>
+    <div class="grid3">
+      <label class="f">From<input name="from" maxlength="4" placeholder="YYZ" autocapitalize="characters"></label>
+      <label class="f">To<input name="to" maxlength="4" placeholder="YVR" autocapitalize="characters"></label>
+      <label class="f">Date<input name="date" type="date"></label>
+      <label class="f">Flight / PNR<input name="flightNo" placeholder="AC 117"></label>
+      <label class="f span2">Ticket<select name="booking">${Object.entries(BOOKINGS).map(([k, v]) => `<option value="${k}"${k === d.booking ? " selected" : ""}>${v}</option>`).join("")}</select></label>
+      <label class="f span2">Fare<select name="fare">${opt(FARES, d.fare)}</select></label>
+      <label class="f" style="display:flex;align-items:center;gap:6px;margin-top:16px"><input type="checkbox" name="rt">Round trip</label>
+    </div>
+    <div class="sect">Price</div>
+    <div class="grid3">
+      <label class="f">Currency<select name="currency"><option>CAD</option><option>USD</option></select></label>
+      <label class="f" id="rateBox">USD → CAD<input name="rate" inputmode="decimal"></label>
+      <label class="f">Your status<select name="status">${opt(STATUSES, d.status)}</select></label>
+      <label class="f cashOnly span2">Base fare + carrier surcharges<input name="base" inputmode="decimal" placeholder="0.00"></label>
+      <label class="f">Taxes &amp; fees<input name="taxes" inputmode="decimal" placeholder="0.00"></label>
+      <label class="f ptsOnly">Points used<input name="pointsUsed" inputmode="numeric" placeholder="25000"></label>
+      <label class="f ptsOnly span2">Cash price of same ticket (all in)<input name="cashPrice" inputmode="decimal" placeholder="0.00"></label>
+    </div>
+    <div class="sect">Actual (optional, overrides the estimate)</div>
+    <div class="grid3">
+      <label class="f cashOnly">SQC received<input name="sqcActual" inputmode="numeric" placeholder="est."></label>
+      <label class="f cashOnly">Points received<input name="ptsActual" inputmode="numeric" placeholder="est."></label>
+      <label class="f span3">Notes<input name="notes" placeholder="e.g. eUpgrade cleared"></label>
+    </div>
+    <div class="preview" id="prev"></div>
+    <p class="note">Base fare + carrier surcharges is the fare minus taxes; Air Canada shows it as "Base fare" and "Air Transportation Charges" in the price breakdown.</p>`,
+    `${isNew ? "" : `<button type="button" class="btn danger" id="del">Delete</button>`}<span class="grow"></span>
+     <button type="button" class="btn" id="cancel">Cancel</button><button type="button" class="btn primary" id="ok">Save</button>`,
+    () => {
+      const form = document.getElementById("dlgForm");
+      for (const [k, v] of Object.entries(d)) { const el = form.elements[k]; if (!el) continue; if (el.type === "checkbox") el.checked = !!v; else el.value = v; }
+      const read = () => {
+        for (const k of Object.keys(d)) { const el = form.elements[k]; if (!el) continue; d[k] = el.type === "checkbox" ? el.checked : el.value; }
+        d.from = d.from.toUpperCase().trim(); d.to = d.to.toUpperCase().trim();
+      };
+      const update = () => {
+        read();
+        const pts = d.pay === "points";
+        for (const b of form.querySelectorAll("#paySeg button")) b.classList.toggle("on", b.dataset.v === d.pay);
+        for (const el of form.querySelectorAll(".cashOnly")) el.hidden = pts;
+        for (const el of form.querySelectorAll(".ptsOnly")) el.hidden = !pts;
+        document.getElementById("rateBox").hidden = d.currency !== "USD";
+        const r = calc(d), bs = buyStats();
+        document.getElementById("prev").innerHTML = pts ? `
+          <div class="row"><span>Points used</span><b>${n0(r.used)}</b></div>
+          <div class="row"><span>Cash paid (taxes, CAD)</span><b>${money(r.paid)}</b></div>
+          <div class="row"><span>Value of the points</span><b>${isFinite(r.value) ? money(r.value) : "enter cash price"}</b></div>
+          ${r.forgonePts ? `<div class="row"><span>…after points a cash ticket would earn</span><b>−${n0(r.forgonePts)} pts</b></div>` : ""}
+          <div class="row"><span>Value per point</span><b class="${r.cpp >= S().benchmark ? "good" : "bad"}">${cents(r.cpp)}</b></div>
+          ${isFinite(bs.cpp) && isFinite(r.cpp) ? `<div class="row"><span>vs your purchase cost ${cents(bs.cpp)}</span><b class="${r.cpp >= bs.cpp ? "good" : "bad"}">${money((r.cpp - bs.cpp) * r.used / 100)}</b></div>` : ""}
+          <div class="row"><span>SQC</span><b>0 (rewards earn none)</b></div>` : `
+          <div class="row"><span>Total paid (CAD)</span><b>${money(r.paid)}</b></div>
+          <div class="row"><span>Estimated SQC</span><b class="gold">${n0(r.estSqc)}</b></div>
+          <div class="row"><span>Estimated points</span><b>${n0(r.estPts)}${S().cardRate ? ` + ${n0(r.cardPts)} card` : ""}</b></div>
+          <div class="row"><span>SQC per $ paid</span><b>${r.paid ? (r.sqc / r.paid).toFixed(2) : "—"}</b></div>
+          ${d.booking === "partner" ? `<p class="note">Partner tickets earn no SQC; enter the points the partner chart gives under Actual.</p>` : ""}
+          ${d.booking === "ac" && fareTier(d.fare) === "basic" ? `<p class="note">Basic fares earn points but no SQC.</p>` : ""}`;
+      };
+      form.querySelector("#paySeg").onclick = e => { const b = e.target.closest("button"); if (!b) return; d.pay = b.dataset.v; update(); };
+      form.oninput = form.onchange = update;
+      update();
+      document.getElementById("cancel").onclick = () => dlg.close();
+      document.getElementById("ok").onclick = () => {
+        read();
+        const i = db.flights.findIndex(x => x.id === d.id);
+        if (i >= 0) db.flights[i] = d; else db.flights.push(d);
+        if (d.date) year = yearOf(d);
+        save(); dlg.close(); render();
+      };
+      const del = document.getElementById("del");
+      if (del) del.onclick = () => { if (!confirm("Delete this flight?")) return; db.flights = db.flights.filter(x => x.id !== d.id); save(); dlg.close(); render(); };
+    });
+}
+
+/* ---------- Summary ---------- */
+function renderSummary() {
+  if (year === "all") year = String(new Date().getFullYear());
+  const fl = db.flights.filter(f => yearOf(f) === year);
+  let sqc = 0, pts = 0, cardPts = 0, spend = 0, cashN = 0, ptsN = 0, used = 0, value = 0, valued = 0, rewardTaxes = 0;
+  for (const f of fl) {
+    const r = calc(f);
+    if (f.pay === "points") { ptsN++; used += r.used; rewardTaxes += r.paid; if (isFinite(r.value)) { value += r.value; valued += r.used; } }
+    else { cashN++; sqc += r.sqc; pts += r.pts; spend += r.paid; }
+    cardPts += r.cardPts;
+  }
+  const other = num(db.otherSqc[year]);
+  const total = sqc + other;
+  const top = TIERS[TIERS.length - 1][1];
+  const next = TIERS.find(t => total < t[1]);
+  const hit = [...TIERS].reverse().find(t => total >= t[1]);
+  const avgCpp = valued ? value / valued * 100 : NaN;
+  const bs = buyStats();
+  view.innerHTML = `
+    <div class="toolbar"><b style="font-size:17px">Qualifying year</b><span class="grow"></span>${yearSelect(false)}</div>
+    <div class="card">
+      <h2>Status progress</h2>
+      <div class="row"><span class="grow"><b style="font-size:24px" class="gold">${n0(total)}</b> SQC</span>
+        <span>${hit ? `Earned <b>${hit[0]}</b>` : "No status yet"}</span></div>
+      <div class="bar"><i style="width:${Math.min(100, total / top * 100)}%"></i></div>
+      <div class="ticks"><span>0</span><span>${n0(top)}</span></div>
+      <div class="tiers">${TIERS.map(t => `<div class="${total >= t[1] ? "hit" : ""}">${t[0]}<br>${n0(t[1])}</div>`).join("")}</div>
+      <p class="note">${next ? `<b>${n0(next[1] - total)}</b> SQC to ${next[0]}: about <b>${money((next[1] - total) / S().sqc.flex)}</b> of Flex fares or <b>${money((next[1] - total) / S().sqc.standard)}</b> of Standard (base fare + surcharges).` : "Top tier reached."}</p>
+      <label class="f" style="margin-top:8px">Other SQC this year (credit cards, Vacations, bonuses)<input id="otherSqc" inputmode="numeric" value="${other || ""}" placeholder="0"></label>
+    </div>
+    <div class="card"><h2>Cash tickets</h2><div class="stats">
+      <div class="stat"><div class="k">Flights</div><div class="v">${cashN}</div></div>
+      <div class="stat"><div class="k">Spent (CAD)</div><div class="v">${money(spend)}</div></div>
+      <div class="stat"><div class="k">SQC from flights</div><div class="v gold">${n0(sqc)}</div><div class="s">${spend ? (sqc / spend).toFixed(2) + " per $ paid" : ""}</div></div>
+      <div class="stat"><div class="k">Points earned</div><div class="v">${n0(pts + cardPts)}</div><div class="s">${cardPts ? n0(cardPts) + " from card · " : ""}worth ${money((pts + cardPts) * S().benchmark / 100)} at ${S().benchmark}¢</div></div>
+      <div class="stat"><div class="k">Cost per SQC</div><div class="v">${sqc ? money(spend / sqc) : "—"}</div></div>
+      <div class="stat"><div class="k">Effective rebate</div><div class="v">${spend ? ((pts + cardPts) * S().benchmark / 100 / spend * 100).toFixed(1) + "%" : "—"}</div><div class="s">points value ÷ spend</div></div>
+    </div></div>
+    <div class="card"><h2>Reward tickets</h2><div class="stats">
+      <div class="stat"><div class="k">Flights</div><div class="v">${ptsN}</div></div>
+      <div class="stat"><div class="k">Points redeemed</div><div class="v">${n0(used)}</div></div>
+      <div class="stat"><div class="k">Taxes paid</div><div class="v">${money(rewardTaxes)}</div></div>
+      <div class="stat"><div class="k">Cash value saved</div><div class="v good">${money(value)}</div></div>
+      <div class="stat"><div class="k">Avg value per point</div><div class="v ${avgCpp >= S().benchmark ? "good" : "bad"}">${cents(avgCpp)}</div><div class="s">benchmark ${S().benchmark}¢</div></div>
+      <div class="stat"><div class="k">vs bought points</div><div class="v ${avgCpp >= bs.cpp ? "good" : "bad"}">${isFinite(bs.cpp) && valued ? money((avgCpp - bs.cpp) * valued / 100) : "—"}</div><div class="s">${isFinite(bs.cpp) ? "paid " + cents(bs.cpp) + "/pt" : "log purchases in Points"}</div></div>
+    </div></div>`;
+  bindYear();
+  const o = document.getElementById("otherSqc");
+  o.onchange = () => { db.otherSqc[year] = num(o.value); save(); renderSummary(); };
+}
+
+/* ---------- Points (purchases + value calculator) ---------- */
+function renderPoints() {
+  const bs = buyStats();
+  const rewards = db.flights.filter(f => f.pay === "points").map(f => ({ f, r: calc(f) })).filter(x => isFinite(x.r.cpp));
+  view.innerHTML = `
+    <div class="card"><h2>Quick value calculator</h2>
+      <div class="grid3">
+        <label class="f">Cash price (CAD)<input id="qCash" inputmode="decimal" placeholder="850"></label>
+        <label class="f">Points needed<input id="qPts" inputmode="numeric" placeholder="35000"></label>
+        <label class="f">Taxes on reward<input id="qTax" inputmode="decimal" placeholder="90"></label>
+      </div>
+      <div class="preview" id="qOut">Enter a cash price and the points it costs.</div>
+    </div>
+    <div class="card"><h2>Points you bought</h2>
+      <div class="stats" style="margin-bottom:10px">
+        <div class="stat"><div class="k">Points bought</div><div class="v">${n0(bs.pts)}</div></div>
+        <div class="stat"><div class="k">Paid</div><div class="v">${money(bs.paid)}</div></div>
+        <div class="stat"><div class="k">Cost per point</div><div class="v">${cents(bs.cpp)}</div></div>
+      </div>
+      <div class="grid3">
+        <label class="f">Date<input id="bDate" type="date" value="${today()}"></label>
+        <label class="f">Points (incl. bonus)<input id="bPts" inputmode="numeric"></label>
+        <label class="f">Price paid (CAD, incl. tax)<input id="bPrice" inputmode="decimal"></label>
+      </div>
+      <div class="row" style="margin-top:8px"><span class="note grow" id="bOut"></span><button class="btn primary small" id="bAdd">Add purchase</button></div>
+      ${db.buys.length ? `<table style="margin-top:10px"><tr><th>Date</th><th class="r">Points</th><th class="r">Paid</th><th class="r">¢/pt</th><th></th></tr>
+        ${db.buys.slice().sort((a, b) => (b.date || "").localeCompare(a.date || "")).map(b => `<tr><td>${esc(b.date)}</td><td class="r">${n0(b.points)}</td><td class="r">${money(num(b.price))}</td><td class="r">${cents(num(b.price) / num(b.points) * 100)}</td><td class="r"><button class="btn small danger" data-del="${b.id}">✕</button></td></tr>`).join("")}</table>` : ""}
+    </div>
+    <div class="card"><h2>Your redemptions, best first</h2>
+      ${rewards.length ? `<table><tr><th>Trip</th><th class="r">Points</th><th class="r">Saved</th><th class="r">¢/pt</th></tr>
+        ${rewards.sort((a, b) => b.r.cpp - a.r.cpp).map(({ f, r }) => `<tr><td>${esc(f.from)}→${esc(f.to)}<br><span class="note">${esc(f.date)}</span></td><td class="r">${n0(r.used)}</td><td class="r">${money(r.value)}</td><td class="r ${r.cpp >= (isFinite(bs.cpp) ? bs.cpp : S().benchmark) ? "good" : "bad"}">${cents(r.cpp)}</td></tr>`).join("")}</table>`
+      : `<p class="note">Log a flight as <b>Paid with points</b> with its cash price to see its value here.</p>`}
+    </div>`;
+  const q = () => {
+    const cash = num(document.getElementById("qCash").value), p = num(document.getElementById("qPts").value), t = num(document.getElementById("qTax").value);
+    const out = document.getElementById("qOut");
+    if (!cash || !p) { out.textContent = "Enter a cash price and the points it costs."; return; }
+    const cpp = (cash - t) / p * 100, ref = isFinite(bs.cpp) ? bs.cpp : S().benchmark;
+    out.innerHTML = `<div class="row"><span>Value per point</span><b class="${cpp >= ref ? "good" : "bad"}">${cents(cpp)}</b></div>
+      <div class="row"><span>Points at ${isFinite(bs.cpp) ? "your cost" : "benchmark"} (${cents(ref)})</span><b>${money(p * ref / 100)}</b></div>
+      <div class="row"><span>${cpp >= ref ? "Use points: you come out ahead by" : "Pay cash: points are worth more elsewhere by"}</span><b>${money(Math.abs((cpp - ref) * p / 100))}</b></div>
+      <div class="row"><span>Break-even points</span><b>${n0((cash - t) / ref * 100)}</b></div>`;
+  };
+  for (const id of ["qCash", "qPts", "qTax"]) document.getElementById(id).oninput = q;
+  const bq = () => { const p = num(document.getElementById("bPts").value), pr = num(document.getElementById("bPrice").value);
+    document.getElementById("bOut").textContent = p && pr ? "= " + cents(pr / p * 100) + " per point" : ""; };
+  document.getElementById("bPts").oninput = document.getElementById("bPrice").oninput = bq;
+  document.getElementById("bAdd").onclick = () => {
+    const p = num(document.getElementById("bPts").value), pr = num(document.getElementById("bPrice").value);
+    if (!p || !pr) return;
+    db.buys.push({ id: uid(), date: document.getElementById("bDate").value, points: p, price: pr }); save(); renderPoints();
+  };
+  for (const b of view.querySelectorAll("[data-del]")) b.onclick = () => { if (!confirm("Delete this purchase?")) return; db.buys = db.buys.filter(x => x.id !== b.dataset.del); save(); renderPoints(); };
+}
+
+/* ---------- Settings ---------- */
+function renderSettings() {
+  const s = S();
+  view.innerHTML = `
+    <div class="card"><h2>You</h2><div class="grid2">
+      <label class="f">Current status (default for new flights)<select id="sStatus">${STATUSES.map(x => `<option${x === s.status ? " selected" : ""}>${x}</option>`).join("")}</select></label>
+      <label class="f">USD → CAD rate<input id="sUsd" inputmode="decimal" value="${s.usdRate}"></label>
+      <label class="f">Benchmark value (¢ per point)<input id="sBench" inputmode="decimal" value="${s.benchmark}"></label>
+      <label class="f">Credit card points per $ (on tickets)<input id="sCard" inputmode="decimal" value="${s.cardRate}"></label>
+      <label class="f span2" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="sForgone"${s.forgone ? " checked" : ""}>Count points a cash ticket would have earned against reward value</label>
+    </div></div>
+    <div class="card"><h2>Points per CAD (Air Canada tickets)</h2><div class="grid3">
+      ${STATUSES.map(x => `<label class="f">${x}<input data-earn="${x}" inputmode="decimal" value="${s.earn[x]}"></label>`).join("")}
+    </div><p class="note">On base fare + carrier surcharges, all fares including Basic (2026 rules).</p></div>
+    <div class="card"><h2>SQC per CAD</h2><div class="grid2">
+      <label class="f">Basic<input data-sqc="basic" inputmode="decimal" value="${s.sqc.basic}"></label>
+      <label class="f">Standard<input data-sqc="standard" inputmode="decimal" value="${s.sqc.standard}"></label>
+      <label class="f">Flex and higher<input data-sqc="flex" inputmode="decimal" value="${s.sqc.flex}"></label>
+      <label class="f">Air Canada Vacations<input data-sqc="vacations" inputmode="decimal" value="${s.sqc.vacations}"></label>
+    </div><p class="note">Reward tickets and partner-ticketed flights earn no SQC. Rules change: check aircanada.com and adjust these if they do.</p>
+      <div class="row" style="margin-top:8px"><span class="grow"></span><button class="btn small" id="sReset">Reset rules to defaults</button></div></div>
+    <div class="card"><h2>Your data</h2>
+      <p class="note" style="margin:0 0 8px">Saved only on this device. Export a backup now and then.</p>
+      <div class="toolbar" style="margin:0">
+        <button class="btn" id="eJson">Export backup</button>
+        <button class="btn" id="eCsv">Export CSV</button>
+        <button class="btn" id="iJson">Import backup</button>
+        <input type="file" id="iFile" accept=".json,application/json" hidden>
+        <span class="grow"></span><button class="btn danger" id="wipe">Erase all</button>
+      </div></div>`;
+  const set = (k, v) => { s[k] = v; save(); };
+  document.getElementById("sStatus").onchange = e => set("status", e.target.value);
+  document.getElementById("sUsd").onchange = e => set("usdRate", num(e.target.value) || DEFAULTS.usdRate);
+  document.getElementById("sBench").onchange = e => set("benchmark", num(e.target.value) || DEFAULTS.benchmark);
+  document.getElementById("sCard").onchange = e => set("cardRate", num(e.target.value));
+  document.getElementById("sForgone").onchange = e => set("forgone", e.target.checked);
+  for (const el of view.querySelectorAll("[data-earn]")) el.onchange = () => { s.earn[el.dataset.earn] = num(el.value); save(); };
+  for (const el of view.querySelectorAll("[data-sqc]")) el.onchange = () => { s.sqc[el.dataset.sqc] = num(el.value); save(); };
+  document.getElementById("sReset").onclick = () => { s.earn = Object.assign({}, DEFAULTS.earn); s.sqc = Object.assign({}, DEFAULTS.sqc); save(); renderSettings(); };
+  const download = (name, text, type) => {
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type })); a.download = name;
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+  };
+  document.getElementById("eJson").onclick = () => download(`aeroplan-backup-${today()}.json`, JSON.stringify(db, null, 1), "application/json");
+  document.getElementById("eCsv").onclick = () => {
+    const cols = ["date", "from", "to", "flightNo", "booking", "fare", "pay", "currency", "base", "taxes", "pointsUsed", "cashPrice", "status"];
+    const q = v => `"${String(v == null ? "" : v).replace(/"/g, '""')}"`;
+    const lines = [cols.concat(["paidCAD", "SQC", "pointsEarned", "centsPerPoint", "notes"]).join(",")];
+    for (const f of db.flights) { const r = calc(f); lines.push(cols.map(c => q(f[c])).concat([r.paid.toFixed(2), Math.round(r.sqc), Math.round(r.pts + r.cardPts), isFinite(r.cpp) ? r.cpp.toFixed(2) : "", q(f.notes)]).join(",")); }
+    download(`aeroplan-flights-${today()}.csv`, lines.join("\n"), "text/csv");
+  };
+  const file = document.getElementById("iFile");
+  document.getElementById("iJson").onclick = () => file.click();
+  file.onchange = async () => {
+    try {
+      const d = JSON.parse(await file.files[0].text());
+      if (!Array.isArray(d.flights)) throw 0;
+      if (!confirm(`Replace your data with ${d.flights.length} flights from this backup?`)) return;
+      db = { flights: d.flights, buys: d.buys || [], otherSqc: d.otherSqc || {}, settings: Object.assign({}, DEFAULTS, d.settings) };
+      db.settings.earn = Object.assign({}, DEFAULTS.earn, d.settings && d.settings.earn);
+      db.settings.sqc = Object.assign({}, DEFAULTS.sqc, d.settings && d.settings.sqc);
+      save(); render();
+    } catch (e) { alert("That file isn't an Aeroplan Tracker backup."); }
+  };
+  document.getElementById("wipe").onclick = () => {
+    if (!confirm("Erase every flight, purchase and setting on this device?")) return;
+    db = { flights: [], buys: [], otherSqc: {}, settings: JSON.parse(JSON.stringify(DEFAULTS)) }; save(); render();
+  };
+}
+
+window.__ap = { calc, db: () => db };
+render();
+</script>
+<script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});</script>
+</body>
+</html>
