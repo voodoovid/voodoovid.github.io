@@ -182,7 +182,7 @@ dialog .df { padding: 10px 14px; border-top: 1px solid var(--line); display: fle
 
 <script>
 "use strict";
-const VERSION = "v1.0";
+const VERSION = "v1.1";
 document.getElementById("ver").textContent = VERSION;
 
 /* ---------- Rules (Aeroplan, travel from Jan 1 2026; all editable in Settings) ----------
@@ -193,9 +193,16 @@ const STATUSES = ["Member", "25K", "35K", "50K", "75K", "Super Elite"];
 const TIERS = [["25K", 25000], ["35K", 35000], ["50K", 50000], ["75K", 75000], ["Super Elite", 125000]];
 const FARES = ["Basic", "Standard", "Flex", "Comfort", "Latitude", "Premium Economy (Lowest)", "Premium Economy (Flex)", "Business (Lowest)", "Business (Flex)"];
 const fareTier = f => f === "Basic" ? "basic" : f === "Standard" ? "standard" : "flex";
+// Aeroplan credit cards: points per $ on Air Canada purchases, and SQC per block of card spending (capped per year)
+const CARDS = {
+  none: { name: "No Aeroplan card", rate: 0, step: 5000, amt: 0, cap: 0 },
+  vip: { name: "Visa Infinite Privilege (TD / CIBC)", rate: 2, step: 5000, amt: 1000, cap: 25000 },
+  custom: { name: "Other card (set below)" },
+};
 const BOOKINGS = { ac: "Air Canada ticket", partner: "Partner ticket", vacations: "Air Canada Vacations" };
 const DEFAULTS = {
-  status: "Member", usdRate: 1.38, benchmark: 2.0, cardRate: 0, forgone: false,
+  status: "Member", usdRate: 1.38, benchmark: 2.0, forgone: false,
+  card: "none", cardRate: 0, cardSqcStep: 5000, cardSqcAmt: 1000, cardSqcCap: 25000,
   earn: { "Member": 1, "25K": 2, "35K": 3, "50K": 4, "75K": 5, "Super Elite": 6 },
   sqc: { basic: 0, standard: 2, flex: 4, vacations: 1 },
 };
@@ -208,7 +215,7 @@ db.settings = Object.assign({}, DEFAULTS, db.settings, {
   earn: Object.assign({}, DEFAULTS.earn, db.settings && db.settings.earn),
   sqc: Object.assign({}, DEFAULTS.sqc, db.settings && db.settings.sqc),
 });
-db.otherSqc = db.otherSqc || {}; db.buys = db.buys || [];
+db.otherSqc = db.otherSqc || {}; db.buys = db.buys || []; db.cardSpend = db.cardSpend || {};
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) {} };
 const S = () => db.settings;
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -223,6 +230,16 @@ const today = () => new Date().toISOString().slice(0, 10);
 const yearOf = f => (f.date || "").slice(0, 4) || String(new Date().getFullYear());
 
 /* ---------- Calculations ---------- */
+// SQC from Aeroplan card spending in a year: flights charged to the card plus the other spending entered
+function cardSqc(y) {
+  const s = S();
+  let spend = num(db.cardSpend[y]), flights = 0;
+  if (s.cardRate || s.cardSqcAmt) for (const f of db.flights) if (yearOf(f) === y && f.onCard !== false) flights += calc(f).paid;
+  spend += flights;
+  const sqc = s.cardSqcStep > 0 ? Math.min(s.cardSqcCap || Infinity, Math.floor(spend / s.cardSqcStep) * s.cardSqcAmt) : 0;
+  const toNext = s.cardSqcStep > 0 && sqc < (s.cardSqcCap || Infinity) ? s.cardSqcStep - spend % s.cardSqcStep : 0;
+  return { spend, flights, sqc, toNext };
+}
 // Cost per point of every purchased point (weighted average)
 function buyStats() {
   let pts = 0, paid = 0;
@@ -247,7 +264,7 @@ function calc(f) {
     }
     r.value = cash ? value : NaN;
     r.cpp = r.used && cash ? value / r.used * 100 : NaN;
-    r.cardPts = taxes * s.cardRate;
+    r.cardPts = f.onCard === false ? 0 : taxes * s.cardRate;
   } else {
     if (f.booking === "ac") {
       r.sqc = base * (s.sqc[fareTier(f.fare)] || 0);
@@ -256,7 +273,7 @@ function calc(f) {
       r.sqc = base * s.sqc.vacations;
       r.pts = 0;
     }
-    r.cardPts = r.paid * s.cardRate;
+    r.cardPts = f.onCard === false ? 0 : r.paid * s.cardRate;
   }
   r.estSqc = r.sqc; r.estPts = r.pts;
   if (f.sqcActual !== "" && f.sqcActual != null) r.sqc = num(f.sqcActual);
@@ -334,7 +351,7 @@ function openDialog(title, body, foot, onBind) {
 function editFlight(f) {
   const isNew = !f;
   const d = f ? Object.assign({}, f) : { id: uid(), date: today(), from: "", to: "", rt: false, flightNo: "", booking: "ac", fare: "Standard", pay: "cash",
-    currency: "CAD", rate: S().usdRate, base: "", taxes: "", pointsUsed: "", cashPrice: "", status: S().status, sqcActual: "", ptsActual: "", notes: "" };
+    currency: "CAD", rate: S().usdRate, base: "", taxes: "", pointsUsed: "", cashPrice: "", status: S().status, onCard: S().card !== "none", sqcActual: "", ptsActual: "", notes: "" };
   const opt = (arr, v) => arr.map(x => `<option${x === v ? " selected" : ""}>${x}</option>`).join("");
   openDialog(isNew ? "Add flight" : "Edit flight", `
     <div class="seg" id="paySeg"><button type="button" data-v="cash">Paid cash</button><button type="button" data-v="points">Paid with points</button></div>
@@ -347,6 +364,7 @@ function editFlight(f) {
       <label class="f span2">Ticket<select name="booking">${Object.entries(BOOKINGS).map(([k, v]) => `<option value="${k}"${k === d.booking ? " selected" : ""}>${v}</option>`).join("")}</select></label>
       <label class="f span2">Fare<select name="fare">${opt(FARES, d.fare)}</select></label>
       <label class="f" style="display:flex;align-items:center;gap:6px;margin-top:16px"><input type="checkbox" name="rt">Round trip</label>
+      <label class="f span3" style="display:flex;align-items:center;gap:6px"><input type="checkbox" name="onCard">Charged to my Aeroplan credit card</label>
     </div>
     <div class="sect">Price</div>
     <div class="grid3">
@@ -370,6 +388,7 @@ function editFlight(f) {
      <button type="button" class="btn" id="cancel">Cancel</button><button type="button" class="btn primary" id="ok">Save</button>`,
     () => {
       const form = document.getElementById("dlgForm");
+      if (d.onCard === undefined) d.onCard = true;
       for (const [k, v] of Object.entries(d)) { const el = form.elements[k]; if (!el) continue; if (el.type === "checkbox") el.checked = !!v; else el.value = v; }
       const read = () => {
         for (const k of Object.keys(d)) { const el = form.elements[k]; if (!el) continue; d[k] = el.type === "checkbox" ? el.checked : el.value; }
@@ -393,7 +412,8 @@ function editFlight(f) {
           <div class="row"><span>SQC</span><b>0 (rewards earn none)</b></div>` : `
           <div class="row"><span>Total paid (CAD)</span><b>${money(r.paid)}</b></div>
           <div class="row"><span>Estimated SQC</span><b class="gold">${n0(r.estSqc)}</b></div>
-          <div class="row"><span>Estimated points</span><b>${n0(r.estPts)}${S().cardRate ? ` + ${n0(r.cardPts)} card` : ""}</b></div>
+          <div class="row"><span>Estimated points</span><b>${n0(r.estPts)}${r.cardPts ? ` + ${n0(r.cardPts)} card` : ""}</b></div>
+          ${r.cardPts ? `<div class="row"><span>Counts toward card SQC</span><b>${money(r.paid)} of spend</b></div>` : ""}
           <div class="row"><span>SQC per $ paid</span><b>${r.paid ? (r.sqc / r.paid).toFixed(2) : "—"}</b></div>
           ${d.booking === "partner" ? `<p class="note">Partner tickets earn no SQC; enter the points the partner chart gives under Actual.</p>` : ""}
           ${d.booking === "ac" && fareTier(d.fare) === "basic" ? `<p class="note">Basic fares earn points but no SQC.</p>` : ""}`;
@@ -425,8 +445,8 @@ function renderSummary() {
     else { cashN++; sqc += r.sqc; pts += r.pts; spend += r.paid; }
     cardPts += r.cardPts;
   }
-  const other = num(db.otherSqc[year]);
-  const total = sqc + other;
+  const other = num(db.otherSqc[year]), card = cardSqc(year), hasCard = S().card !== "none";
+  const total = sqc + other + card.sqc;
   const top = TIERS[TIERS.length - 1][1];
   const next = TIERS.find(t => total < t[1]);
   const hit = [...TIERS].reverse().find(t => total >= t[1]);
@@ -442,7 +462,13 @@ function renderSummary() {
       <div class="ticks"><span>0</span><span>${n0(top)}</span></div>
       <div class="tiers">${TIERS.map(t => `<div class="${total >= t[1] ? "hit" : ""}">${t[0]}<br>${n0(t[1])}</div>`).join("")}</div>
       <p class="note">${next ? `<b>${n0(next[1] - total)}</b> SQC to ${next[0]}: about <b>${money((next[1] - total) / S().sqc.flex)}</b> of Flex fares or <b>${money((next[1] - total) / S().sqc.standard)}</b> of Standard (base fare + surcharges).` : "Top tier reached."}</p>
-      <label class="f" style="margin-top:8px">Other SQC this year (credit cards, Vacations, bonuses)<input id="otherSqc" inputmode="numeric" value="${other || ""}" placeholder="0"></label>
+      <table style="margin-top:8px"><tr><td>From flights</td><td class="r">${n0(sqc)}</td></tr>
+        ${hasCard ? `<tr><td>From card spending</td><td class="r">${n0(card.sqc)}</td></tr>` : ""}
+        ${other ? `<tr><td>Other</td><td class="r">${n0(other)}</td></tr>` : ""}</table>
+      ${hasCard ? `<label class="f" style="margin-top:8px">Other card spending this year (not flights)<input id="cardSpend" inputmode="decimal" value="${num(db.cardSpend[year]) || ""}" placeholder="0.00"></label>
+      <p class="note">Card spend ${money(card.spend)} (${money(card.flights)} in flights) = ${n0(card.sqc)} SQC${S().cardSqcCap && card.sqc >= S().cardSqcCap ? " (yearly cap reached)" : card.toNext ? `; spend ${money(card.toNext)} more for the next ${n0(S().cardSqcAmt)}` : ""}.</p>`
+      : `<p class="note">Have an Aeroplan credit card? Pick it in Settings to count its SQC and points.</p>`}
+      <label class="f" style="margin-top:8px">Other SQC this year (Vacations packages, bought SQC, bonuses)<input id="otherSqc" inputmode="numeric" value="${other || ""}" placeholder="0"></label>
     </div>
     <div class="card"><h2>Cash tickets</h2><div class="stats">
       <div class="stat"><div class="k">Flights</div><div class="v">${cashN}</div></div>
@@ -463,6 +489,8 @@ function renderSummary() {
   bindYear();
   const o = document.getElementById("otherSqc");
   o.onchange = () => { db.otherSqc[year] = num(o.value); save(); renderSummary(); };
+  const cs = document.getElementById("cardSpend");
+  if (cs) cs.onchange = () => { db.cardSpend[year] = num(cs.value); save(); renderSummary(); };
 }
 
 /* ---------- Points (purchases + value calculator) ---------- */
@@ -528,9 +556,17 @@ function renderSettings() {
       <label class="f">Current status (default for new flights)<select id="sStatus">${STATUSES.map(x => `<option${x === s.status ? " selected" : ""}>${x}</option>`).join("")}</select></label>
       <label class="f">USD → CAD rate<input id="sUsd" inputmode="decimal" value="${s.usdRate}"></label>
       <label class="f">Benchmark value (¢ per point)<input id="sBench" inputmode="decimal" value="${s.benchmark}"></label>
-      <label class="f">Credit card points per $ (on tickets)<input id="sCard" inputmode="decimal" value="${s.cardRate}"></label>
       <label class="f span2" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="sForgone"${s.forgone ? " checked" : ""}>Count points a cash ticket would have earned against reward value</label>
     </div></div>
+    <div class="card"><h2>Aeroplan credit card</h2>
+      <label class="f">Card<select id="sCardType">${Object.entries(CARDS).map(([k, c]) => `<option value="${k}"${k === s.card ? " selected" : ""}>${c.name}</option>`).join("")}</select></label>
+      <div class="grid2" style="margin-top:8px"${s.card === "none" ? " hidden" : ""}>
+        <label class="f">Points per $ on Air Canada<input id="sCard" inputmode="decimal" value="${s.cardRate}"></label>
+        <label class="f">SQC per block<input id="sSqcAmt" inputmode="numeric" value="${s.cardSqcAmt}"></label>
+        <label class="f">Block of card spending ($)<input id="sSqcStep" inputmode="decimal" value="${s.cardSqcStep}"></label>
+        <label class="f">Yearly SQC cap<input id="sSqcCap" inputmode="numeric" value="${s.cardSqcCap}"></label>
+      </div>
+      <p class="note">Visa Infinite Privilege: 2 points per $ on Air Canada (taxes included) and 1,000 SQC per $5,000 of any card spending, up to 25,000 SQC a year. Card points come on top of the flight's own points.</p></div>
     <div class="card"><h2>Points per CAD (Air Canada tickets)</h2><div class="grid3">
       ${STATUSES.map(x => `<label class="f">${x}<input data-earn="${x}" inputmode="decimal" value="${s.earn[x]}"></label>`).join("")}
     </div><p class="note">On base fare + carrier surcharges, all fares including Basic (2026 rules).</p></div>
@@ -554,7 +590,16 @@ function renderSettings() {
   document.getElementById("sStatus").onchange = e => set("status", e.target.value);
   document.getElementById("sUsd").onchange = e => set("usdRate", num(e.target.value) || DEFAULTS.usdRate);
   document.getElementById("sBench").onchange = e => set("benchmark", num(e.target.value) || DEFAULTS.benchmark);
-  document.getElementById("sCard").onchange = e => set("cardRate", num(e.target.value));
+  document.getElementById("sCardType").onchange = e => {
+    const c = CARDS[e.target.value]; s.card = e.target.value;
+    if (c.rate != null) { s.cardRate = c.rate; s.cardSqcStep = c.step; s.cardSqcAmt = c.amt; s.cardSqcCap = c.cap; }
+    save(); renderSettings();
+  };
+  const custom = () => { if (s.card === "vip") { s.card = "custom"; document.getElementById("sCardType").value = "custom"; } };
+  document.getElementById("sCard").onchange = e => { custom(); set("cardRate", num(e.target.value)); };
+  document.getElementById("sSqcAmt").onchange = e => { custom(); set("cardSqcAmt", num(e.target.value)); };
+  document.getElementById("sSqcStep").onchange = e => { custom(); set("cardSqcStep", num(e.target.value)); };
+  document.getElementById("sSqcCap").onchange = e => { custom(); set("cardSqcCap", num(e.target.value)); };
   document.getElementById("sForgone").onchange = e => set("forgone", e.target.checked);
   for (const el of view.querySelectorAll("[data-earn]")) el.onchange = () => { s.earn[el.dataset.earn] = num(el.value); save(); };
   for (const el of view.querySelectorAll("[data-sqc]")) el.onchange = () => { s.sqc[el.dataset.sqc] = num(el.value); save(); };
@@ -578,7 +623,7 @@ function renderSettings() {
       const d = JSON.parse(await file.files[0].text());
       if (!Array.isArray(d.flights)) throw 0;
       if (!confirm(`Replace your data with ${d.flights.length} flights from this backup?`)) return;
-      db = { flights: d.flights, buys: d.buys || [], otherSqc: d.otherSqc || {}, settings: Object.assign({}, DEFAULTS, d.settings) };
+      db = { flights: d.flights, buys: d.buys || [], otherSqc: d.otherSqc || {}, cardSpend: d.cardSpend || {}, settings: Object.assign({}, DEFAULTS, d.settings) };
       db.settings.earn = Object.assign({}, DEFAULTS.earn, d.settings && d.settings.earn);
       db.settings.sqc = Object.assign({}, DEFAULTS.sqc, d.settings && d.settings.sqc);
       save(); render();
@@ -586,11 +631,11 @@ function renderSettings() {
   };
   document.getElementById("wipe").onclick = () => {
     if (!confirm("Erase every flight, purchase and setting on this device?")) return;
-    db = { flights: [], buys: [], otherSqc: {}, settings: JSON.parse(JSON.stringify(DEFAULTS)) }; save(); render();
+    db = { flights: [], buys: [], otherSqc: {}, cardSpend: {}, settings: JSON.parse(JSON.stringify(DEFAULTS)) }; save(); render();
   };
 }
 
-window.__ap = { calc, db: () => db };
+window.__ap = { calc, cardSqc, db: () => db };
 render();
 </script>
 <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});</script>
