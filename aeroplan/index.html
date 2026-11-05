@@ -182,7 +182,7 @@ dialog .df { padding: 10px 14px; border-top: 1px solid var(--line); display: fle
 
 <script>
 "use strict";
-const VERSION = "v1.2";
+const VERSION = "v1.3";
 document.getElementById("ver").textContent = VERSION;
 
 /* ---------- Rules (Aeroplan, travel from Jan 1 2026; all editable in Settings) ----------
@@ -255,12 +255,6 @@ function headStart(y) {
   if (S().card === "none") return { sqc: 0, est: 0 };
   const prev = earnedSqc(String(+y - 1));
   return { sqc: prev >= TIERS[0][1] ? Math.round(prev * 0.1) : 0, prev };
-}
-// Cost per point of every purchased point (weighted average)
-function buyStats() {
-  let pts = 0, paid = 0;
-  for (const b of db.buys) { pts += num(b.points); paid += num(b.price); }
-  return { pts, paid, cpp: pts ? paid / pts * 100 : NaN };
 }
 function calc(f) {
   const s = S(), rate = f.currency === "USD" ? num(f.rate) || s.usdRate : 1;
@@ -417,14 +411,13 @@ function editFlight(f) {
         for (const el of form.querySelectorAll(".cashOnly")) el.hidden = pts;
         for (const el of form.querySelectorAll(".ptsOnly")) el.hidden = !pts;
         document.getElementById("rateBox").hidden = d.currency !== "USD";
-        const r = calc(d), bs = buyStats();
+        const r = calc(d);
         document.getElementById("prev").innerHTML = pts ? `
           <div class="row"><span>Points used</span><b>${n0(r.used)}</b></div>
           <div class="row"><span>Cash paid (taxes, CAD)</span><b>${money(r.paid)}</b></div>
           <div class="row"><span>Value of the points</span><b>${isFinite(r.value) ? money(r.value) : "enter cash price"}</b></div>
           ${r.forgonePts ? `<div class="row"><span>…after points a cash ticket would earn</span><b>−${n0(r.forgonePts)} pts</b></div>` : ""}
           <div class="row"><span>Value per point</span><b class="${r.cpp >= S().benchmark ? "good" : "bad"}">${cents(r.cpp)}</b></div>
-          ${isFinite(bs.cpp) && isFinite(r.cpp) ? `<div class="row"><span>vs your purchase cost ${cents(bs.cpp)}</span><b class="${r.cpp >= bs.cpp ? "good" : "bad"}">${money((r.cpp - bs.cpp) * r.used / 100)}</b></div>` : ""}
           <div class="row"><span>SQC</span><b>0 (rewards earn none)</b></div>` : `
           <div class="row"><span>Total paid (CAD)</span><b>${money(r.paid)}</b></div>
           <div class="row"><span>Estimated SQC</span><b class="gold">${n0(r.estSqc)}</b></div>
@@ -468,7 +461,6 @@ function renderSummary() {
   const next = TIERS.find(t => total < t[1]);
   const hit = [...TIERS].reverse().find(t => total >= t[1]);
   const avgCpp = valued ? value / valued * 100 : NaN;
-  const bs = buyStats();
   view.innerHTML = `
     <div class="toolbar"><b style="font-size:17px">Qualifying year</b><span class="grow"></span>${yearSelect(false)}</div>
     <div class="card">
@@ -505,7 +497,7 @@ function renderSummary() {
       <div class="stat"><div class="k">Taxes paid</div><div class="v">${money(rewardTaxes)}</div></div>
       <div class="stat"><div class="k">Cash value saved</div><div class="v good">${money(value)}</div></div>
       <div class="stat"><div class="k">Avg value per point</div><div class="v ${avgCpp >= S().benchmark ? "good" : "bad"}">${cents(avgCpp)}</div><div class="s">benchmark ${S().benchmark}¢</div></div>
-      <div class="stat"><div class="k">vs bought points</div><div class="v ${avgCpp >= bs.cpp ? "good" : "bad"}">${isFinite(bs.cpp) && valued ? money((avgCpp - bs.cpp) * valued / 100) : "—"}</div><div class="s">${isFinite(bs.cpp) ? "paid " + cents(bs.cpp) + "/pt" : "log purchases in Points"}</div></div>
+      <div class="stat"><div class="k">vs benchmark</div><div class="v ${avgCpp >= S().benchmark ? "good" : "bad"}">${valued ? money((avgCpp - S().benchmark) * valued / 100) : "—"}</div><div class="s">extra value over ${S().benchmark}¢/pt</div></div>
     </div></div>`;
   bindYear();
   const o = document.getElementById("otherSqc");
@@ -518,9 +510,9 @@ function renderSummary() {
   if (cs) cs.onchange = () => { db.cardSpend[year] = num(cs.value); save(); renderSummary(); };
 }
 
-/* ---------- Points (purchases + value calculator) ---------- */
+/* ---------- Points (value calculator + redemptions) ---------- */
 function renderPoints() {
-  const bs = buyStats();
+  const ref = S().benchmark;
   const rewards = db.flights.filter(f => f.pay === "points").map(f => ({ f, r: calc(f) })).filter(x => isFinite(x.r.cpp));
   view.innerHTML = `
     <div class="card"><h2>Quick value calculator</h2>
@@ -531,46 +523,22 @@ function renderPoints() {
       </div>
       <div class="preview" id="qOut">Enter a cash price and the points it costs.</div>
     </div>
-    <div class="card"><h2>Points you bought</h2>
-      <div class="stats" style="margin-bottom:10px">
-        <div class="stat"><div class="k">Points bought</div><div class="v">${n0(bs.pts)}</div></div>
-        <div class="stat"><div class="k">Paid</div><div class="v">${money(bs.paid)}</div></div>
-        <div class="stat"><div class="k">Cost per point</div><div class="v">${cents(bs.cpp)}</div></div>
-      </div>
-      <div class="grid3">
-        <label class="f">Date<input id="bDate" type="date" value="${today()}"></label>
-        <label class="f">Points (incl. bonus)<input id="bPts" inputmode="numeric"></label>
-        <label class="f">Price paid (CAD, incl. tax)<input id="bPrice" inputmode="decimal"></label>
-      </div>
-      <div class="row" style="margin-top:8px"><span class="note grow" id="bOut"></span><button class="btn primary small" id="bAdd">Add purchase</button></div>
-      ${db.buys.length ? `<table style="margin-top:10px"><tr><th>Date</th><th class="r">Points</th><th class="r">Paid</th><th class="r">¢/pt</th><th></th></tr>
-        ${db.buys.slice().sort((a, b) => (b.date || "").localeCompare(a.date || "")).map(b => `<tr><td>${esc(b.date)}</td><td class="r">${n0(b.points)}</td><td class="r">${money(num(b.price))}</td><td class="r">${cents(num(b.price) / num(b.points) * 100)}</td><td class="r"><button class="btn small danger" data-del="${b.id}">✕</button></td></tr>`).join("")}</table>` : ""}
-    </div>
     <div class="card"><h2>Your redemptions, best first</h2>
       ${rewards.length ? `<table><tr><th>Trip</th><th class="r">Points</th><th class="r">Saved</th><th class="r">¢/pt</th></tr>
-        ${rewards.sort((a, b) => b.r.cpp - a.r.cpp).map(({ f, r }) => `<tr><td>${esc(f.from)}→${esc(f.to)}<br><span class="note">${esc(f.date)}</span></td><td class="r">${n0(r.used)}</td><td class="r">${money(r.value)}</td><td class="r ${r.cpp >= (isFinite(bs.cpp) ? bs.cpp : S().benchmark) ? "good" : "bad"}">${cents(r.cpp)}</td></tr>`).join("")}</table>`
+        ${rewards.sort((a, b) => b.r.cpp - a.r.cpp).map(({ f, r }) => `<tr><td>${esc(f.from)}→${esc(f.to)}<br><span class="note">${esc(f.date)}</span></td><td class="r">${n0(r.used)}</td><td class="r">${money(r.value)}</td><td class="r ${r.cpp >= ref ? "good" : "bad"}">${cents(r.cpp)}</td></tr>`).join("")}</table>`
       : `<p class="note">Log a flight as <b>Paid with points</b> with its cash price to see its value here.</p>`}
     </div>`;
   const q = () => {
     const cash = num(document.getElementById("qCash").value), p = num(document.getElementById("qPts").value), t = num(document.getElementById("qTax").value);
     const out = document.getElementById("qOut");
     if (!cash || !p) { out.textContent = "Enter a cash price and the points it costs."; return; }
-    const cpp = (cash - t) / p * 100, ref = isFinite(bs.cpp) ? bs.cpp : S().benchmark;
+    const cpp = (cash - t) / p * 100;
     out.innerHTML = `<div class="row"><span>Value per point</span><b class="${cpp >= ref ? "good" : "bad"}">${cents(cpp)}</b></div>
-      <div class="row"><span>Points at ${isFinite(bs.cpp) ? "your cost" : "benchmark"} (${cents(ref)})</span><b>${money(p * ref / 100)}</b></div>
+      <div class="row"><span>Points at benchmark (${cents(ref)})</span><b>${money(p * ref / 100)}</b></div>
       <div class="row"><span>${cpp >= ref ? "Use points: you come out ahead by" : "Pay cash: points are worth more elsewhere by"}</span><b>${money(Math.abs((cpp - ref) * p / 100))}</b></div>
       <div class="row"><span>Break-even points</span><b>${n0((cash - t) / ref * 100)}</b></div>`;
   };
   for (const id of ["qCash", "qPts", "qTax"]) document.getElementById(id).oninput = q;
-  const bq = () => { const p = num(document.getElementById("bPts").value), pr = num(document.getElementById("bPrice").value);
-    document.getElementById("bOut").textContent = p && pr ? "= " + cents(pr / p * 100) + " per point" : ""; };
-  document.getElementById("bPts").oninput = document.getElementById("bPrice").oninput = bq;
-  document.getElementById("bAdd").onclick = () => {
-    const p = num(document.getElementById("bPts").value), pr = num(document.getElementById("bPrice").value);
-    if (!p || !pr) return;
-    db.buys.push({ id: uid(), date: document.getElementById("bDate").value, points: p, price: pr }); save(); renderPoints();
-  };
-  for (const b of view.querySelectorAll("[data-del]")) b.onclick = () => { if (!confirm("Delete this purchase?")) return; db.buys = db.buys.filter(x => x.id !== b.dataset.del); save(); renderPoints(); };
 }
 
 /* ---------- Settings ---------- */
