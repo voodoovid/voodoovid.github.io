@@ -182,7 +182,7 @@ dialog .df { padding: 10px 14px; border-top: 1px solid var(--line); display: fle
 
 <script>
 "use strict";
-const VERSION = "v1.1";
+const VERSION = "v1.2";
 document.getElementById("ver").textContent = VERSION;
 
 /* ---------- Rules (Aeroplan, travel from Jan 1 2026; all editable in Settings) ----------
@@ -215,7 +215,7 @@ db.settings = Object.assign({}, DEFAULTS, db.settings, {
   earn: Object.assign({}, DEFAULTS.earn, db.settings && db.settings.earn),
   sqc: Object.assign({}, DEFAULTS.sqc, db.settings && db.settings.sqc),
 });
-db.otherSqc = db.otherSqc || {}; db.buys = db.buys || []; db.cardSpend = db.cardSpend || {};
+db.otherSqc = db.otherSqc || {}; db.buys = db.buys || []; db.cardSpend = db.cardSpend || {}; db.cardMax = db.cardMax || {}; db.headStart = db.headStart || {};
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(db)); } catch (e) {} };
 const S = () => db.settings;
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -236,9 +236,25 @@ function cardSqc(y) {
   let spend = num(db.cardSpend[y]), flights = 0;
   if (s.cardRate || s.cardSqcAmt) for (const f of db.flights) if (yearOf(f) === y && f.onCard !== false) flights += calc(f).paid;
   spend += flights;
+  if (db.cardMax[y] && s.cardSqcCap) return { spend, flights, sqc: s.cardSqcCap, toNext: 0, max: true };
   const sqc = s.cardSqcStep > 0 ? Math.min(s.cardSqcCap || Infinity, Math.floor(spend / s.cardSqcStep) * s.cardSqcAmt) : 0;
   const toNext = s.cardSqcStep > 0 && sqc < (s.cardSqcCap || Infinity) ? s.cardSqcStep - spend % s.cardSqcStep : 0;
   return { spend, flights, sqc, toNext };
+}
+// SQC earned in a year (flights + card + other), before any Head Start
+function earnedSqc(y) {
+  let sqc = 0;
+  for (const f of db.flights) if (yearOf(f) === y && f.pay !== "points") sqc += calc(f).sqc;
+  return sqc + num(db.otherSqc[y]) + (S().card !== "none" ? cardSqc(y).sqc : 0);
+}
+// Head Start: premium Aeroplan cardholders who requalify for status get 10% of last year's SQC, no cap.
+// An amount typed in for the year replaces the estimate (e.g. the real deposit, or converted 2025 SQM).
+function headStart(y) {
+  const typed = db.headStart[y];
+  if (typed !== undefined && typed !== "") return { sqc: num(typed), typed: true };
+  if (S().card === "none") return { sqc: 0, est: 0 };
+  const prev = earnedSqc(String(+y - 1));
+  return { sqc: prev >= TIERS[0][1] ? Math.round(prev * 0.1) : 0, prev };
 }
 // Cost per point of every purchased point (weighted average)
 function buyStats() {
@@ -446,7 +462,8 @@ function renderSummary() {
     cardPts += r.cardPts;
   }
   const other = num(db.otherSqc[year]), card = cardSqc(year), hasCard = S().card !== "none";
-  const total = sqc + other + card.sqc;
+  const hs = headStart(year);
+  const total = sqc + other + card.sqc + hs.sqc;
   const top = TIERS[TIERS.length - 1][1];
   const next = TIERS.find(t => total < t[1]);
   const hit = [...TIERS].reverse().find(t => total >= t[1]);
@@ -464,10 +481,14 @@ function renderSummary() {
       <p class="note">${next ? `<b>${n0(next[1] - total)}</b> SQC to ${next[0]}: about <b>${money((next[1] - total) / S().sqc.flex)}</b> of Flex fares or <b>${money((next[1] - total) / S().sqc.standard)}</b> of Standard (base fare + surcharges).` : "Top tier reached."}</p>
       <table style="margin-top:8px"><tr><td>From flights</td><td class="r">${n0(sqc)}</td></tr>
         ${hasCard ? `<tr><td>From card spending</td><td class="r">${n0(card.sqc)}</td></tr>` : ""}
+        ${hasCard || hs.sqc ? `<tr><td>Head Start (10% of ${+year - 1})</td><td class="r">${n0(hs.sqc)}</td></tr>` : ""}
         ${other ? `<tr><td>Other</td><td class="r">${n0(other)}</td></tr>` : ""}</table>
-      ${hasCard ? `<label class="f" style="margin-top:8px">Other card spending this year (not flights)<input id="cardSpend" inputmode="decimal" value="${num(db.cardSpend[year]) || ""}" placeholder="0.00"></label>
+      ${hasCard ? `<label class="f" style="display:flex;align-items:center;gap:8px;margin-top:10px;color:var(--text);font-size:14px"><input type="checkbox" id="cardMax"${card.max ? " checked" : ""}>I'll hit the full ${n0(S().cardSqcCap)} card SQC this year</label>` : ""}
+      ${hasCard && !card.max ? `<label class="f" style="margin-top:8px">Other card spending this year (not flights)<input id="cardSpend" inputmode="decimal" value="${num(db.cardSpend[year]) || ""}" placeholder="0.00"></label>
       <p class="note">Card spend ${money(card.spend)} (${money(card.flights)} in flights) = ${n0(card.sqc)} SQC${S().cardSqcCap && card.sqc >= S().cardSqcCap ? " (yearly cap reached)" : card.toNext ? `; spend ${money(card.toNext)} more for the next ${n0(S().cardSqcAmt)}` : ""}.</p>`
-      : `<p class="note">Have an Aeroplan credit card? Pick it in Settings to count its SQC and points.</p>`}
+      : hasCard ? "" : `<p class="note">Have an Aeroplan credit card? Pick it in Settings to count its SQC and points.</p>`}
+      ${hasCard ? `<label class="f" style="margin-top:8px">Head Start SQC for ${year}<input id="hsSqc" inputmode="numeric" value="${hs.typed ? hs.sqc : ""}" placeholder="auto: ${n0(hs.sqc)}"></label>
+      <p class="note">${hs.typed ? "Using the amount you entered; clear it to estimate." : hs.prev >= TIERS[0][1] ? `10% of the ${n0(hs.prev)} SQC you earned in ${+year - 1}.` : `${+year - 1} shows ${n0(hs.prev)} SQC, below 25K, so no Head Start is estimated.`} Primary holders of a premium Aeroplan card who requalify for status get it, added by the end of March. Enter the real amount once it posts.</p>` : ""}
       <label class="f" style="margin-top:8px">Other SQC this year (Vacations packages, bought SQC, bonuses)<input id="otherSqc" inputmode="numeric" value="${other || ""}" placeholder="0"></label>
     </div>
     <div class="card"><h2>Cash tickets</h2><div class="stats">
@@ -489,6 +510,10 @@ function renderSummary() {
   bindYear();
   const o = document.getElementById("otherSqc");
   o.onchange = () => { db.otherSqc[year] = num(o.value); save(); renderSummary(); };
+  const cm = document.getElementById("cardMax");
+  if (cm) cm.onchange = () => { db.cardMax[year] = cm.checked; save(); renderSummary(); };
+  const hsi = document.getElementById("hsSqc");
+  if (hsi) hsi.onchange = () => { db.headStart[year] = hsi.value.trim() === "" ? "" : num(hsi.value); save(); renderSummary(); };
   const cs = document.getElementById("cardSpend");
   if (cs) cs.onchange = () => { db.cardSpend[year] = num(cs.value); save(); renderSummary(); };
 }
@@ -566,7 +591,7 @@ function renderSettings() {
         <label class="f">Block of card spending ($)<input id="sSqcStep" inputmode="decimal" value="${s.cardSqcStep}"></label>
         <label class="f">Yearly SQC cap<input id="sSqcCap" inputmode="numeric" value="${s.cardSqcCap}"></label>
       </div>
-      <p class="note">Visa Infinite Privilege: 2 points per $ on Air Canada (taxes included) and 1,000 SQC per $5,000 of any card spending, up to 25,000 SQC a year. Card points come on top of the flight's own points.</p></div>
+      <p class="note">Visa Infinite Privilege: 2 points per $ on Air Canada (taxes included) and 1,000 SQC per $5,000 of any card spending, up to 25,000 SQC a year. Premium cardholders who requalify also get a Head Start of 10% of last year's SQC. Card points come on top of the flight's own points.</p></div>
     <div class="card"><h2>Points per CAD (Air Canada tickets)</h2><div class="grid3">
       ${STATUSES.map(x => `<label class="f">${x}<input data-earn="${x}" inputmode="decimal" value="${s.earn[x]}"></label>`).join("")}
     </div><p class="note">On base fare + carrier surcharges, all fares including Basic (2026 rules).</p></div>
@@ -623,7 +648,7 @@ function renderSettings() {
       const d = JSON.parse(await file.files[0].text());
       if (!Array.isArray(d.flights)) throw 0;
       if (!confirm(`Replace your data with ${d.flights.length} flights from this backup?`)) return;
-      db = { flights: d.flights, buys: d.buys || [], otherSqc: d.otherSqc || {}, cardSpend: d.cardSpend || {}, settings: Object.assign({}, DEFAULTS, d.settings) };
+      db = { flights: d.flights, buys: d.buys || [], otherSqc: d.otherSqc || {}, cardSpend: d.cardSpend || {}, cardMax: d.cardMax || {}, headStart: d.headStart || {}, settings: Object.assign({}, DEFAULTS, d.settings) };
       db.settings.earn = Object.assign({}, DEFAULTS.earn, d.settings && d.settings.earn);
       db.settings.sqc = Object.assign({}, DEFAULTS.sqc, d.settings && d.settings.sqc);
       save(); render();
@@ -631,11 +656,11 @@ function renderSettings() {
   };
   document.getElementById("wipe").onclick = () => {
     if (!confirm("Erase every flight, purchase and setting on this device?")) return;
-    db = { flights: [], buys: [], otherSqc: {}, cardSpend: {}, settings: JSON.parse(JSON.stringify(DEFAULTS)) }; save(); render();
+    db = { flights: [], buys: [], otherSqc: {}, cardSpend: {}, cardMax: {}, headStart: {}, settings: JSON.parse(JSON.stringify(DEFAULTS)) }; save(); render();
   };
 }
 
-window.__ap = { calc, cardSqc, db: () => db };
+window.__ap = { calc, cardSqc, headStart, db: () => db };
 render();
 </script>
 <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});</script>
