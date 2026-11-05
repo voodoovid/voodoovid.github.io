@@ -894,7 +894,7 @@ dialog::backdrop { background: var(--scrim); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.47";
+const VERSION = "v2.48";
 
 // ---------- Words ----------
 // ANSWERS: the words New word picks from: Wordle's original 2,309 answers plus every later answer the NYT has used (a GitHub job adds new ones: .github/scripts/add_wordle_answers.py). EXTRA: every other word Wordle accepts as a guess.
@@ -1928,16 +1928,16 @@ function start(data) {
   const ok = saved && typeof saved.answer === "string" && valid.has(saved.answer) && Array.isArray(saved.guesses) &&
     saved.guesses.length <= 6 && saved.guesses.every(w => typeof w === "string" && w.length === 5);
   paintOpts();
-  if (ok) { G = { answer: saved.answer, guesses: saved.guesses, cur: EMPTY, over: !!saved.over, won: !!saved.won, test: !!saved.test && !saved.daily, daily: saved.daily || "", num: saved.num || 0 }; G.cur = layOut(String(saved.cur || ""));
-    // Opened with nothing entered: cancel that word (not a loss, no stats) so the end screen, and Today's Wordle, is there.
-    // An untouched Wordle is swapped for a normal word so its answer isn't shown; the Wordle itself stays available.
-    if (!G.over && G.guesses.length === 0 && G.cur === EMPTY) {
-      if (G.daily) G = { answer: pickAnswer(), guesses: [], cur: EMPTY, over: false, won: false, test: false };
-      G.over = true; G.won = false; save("game", G);
-    }
-    daily = load("daily", {});   // before the first paint, so the Today's Wordle button is already there
-    paint(); }
-  else newGame();
+  if (ok) { G = { answer: saved.answer, guesses: saved.guesses, cur: EMPTY, over: !!saved.over, won: !!saved.won, test: !!saved.test && !saved.daily, daily: saved.daily || "", num: saved.num || 0 }; G.cur = layOut(String(saved.cur || "")); }
+  else newGame();   // first ever open (nothing saved): a fresh word
+  // Opened with nothing entered (a saved word or the very first one): cancel that word (not a loss, no stats) so the end
+  // screen, and Today's Wordle, is there. An untouched Wordle is swapped for a normal word so its answer isn't shown.
+  if (!G.over && G.guesses.length === 0 && G.cur === EMPTY) {
+    if (G.daily) G = { answer: pickAnswer(), guesses: [], cur: EMPTY, over: false, won: false, test: false };
+    G.over = true; G.won = false; G.test = false; save("game", G);
+  }
+  daily = load("daily", {});   // before the first paint, so the Today's Wordle button is already there
+  paint();
   fitAll();
   daily = load("daily", {}); fetchDaily();
 }
