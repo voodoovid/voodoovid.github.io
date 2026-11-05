@@ -879,7 +879,7 @@ dialog::backdrop { background: var(--scrim); }
         <h3 class="mh"><span class="no">11</span>Troubleshooting</h3>
         <details class="qa"><summary>A word I am sure is real is rejected</summary><p>The game says <b>Not in the word list</b> for anything outside <button type="button" class="xref" data-go="m-typing">Wordle's own list</button>. Proper names, abbreviations and very rare words are not on it.</p></details>
         <details class="qa"><summary>I cannot change a green letter</summary><p>Green letters are locked while <button type="button" class="xref" data-go="m-greens">Must keep greens</button> is on. Switch it off in <button type="button" class="xref" data-go="m-settings">Settings</button> if you want full control of every spot.</p></details>
-        <details class="qa"><summary>There is no Today's Wordle button</summary><p>The <button type="button" class="xref" data-go="m-wordle">Today's Wordle</button> button appears on the screen at the end of a game, only while today's puzzle is available and you have not finished it. The device has to download the day's word first, so go online at least once that day.</p></details>
+        <details class="qa"><summary>There is no Today's Wordle button</summary><p>The <button type="button" class="xref" data-go="m-wordle">Today's Wordle</button> button appears on the screen at the end of a game, only while today's puzzle is available and you have not finished it. The device has to download the day's word first, so go online at least once that day. Opening the game with no letters entered ends that word (it isn't counted anywhere) so the button is there straight away.</p></details>
         <details class="qa"><summary>I hear no music or sound</summary><p>Browsers wait for your first tap or key press before they allow sound. Then check the <button type="button" class="xref" data-go="m-sound">Music and Sound effects</button> switches, the music button in the top bar, and your device's volume.</p></details>
         <details class="qa"><summary>My statistics disappeared</summary><p><button type="button" class="xref" data-go="m-devices">Results are saved per device and per browser</button>. A different device, a different browser, private browsing or cleared site data starts with an empty record.</p></details>
         <details class="qa"><summary>The board looks flat</summary><p>The 3D board is switched off, or the device cannot draw it. Look for <b>3D board</b> in <button type="button" class="xref" data-go="m-settings">Settings</button>.</p></details>
@@ -894,7 +894,7 @@ dialog::backdrop { background: var(--scrim); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.46";
+const VERSION = "v2.47";
 
 // ---------- Words ----------
 // ANSWERS: the words New word picks from: Wordle's original 2,309 answers plus every later answer the NYT has used (a GitHub job adds new ones: .github/scripts/add_wordle_answers.py). EXTRA: every other word Wordle accepts as a guess.
@@ -1929,6 +1929,13 @@ function start(data) {
     saved.guesses.length <= 6 && saved.guesses.every(w => typeof w === "string" && w.length === 5);
   paintOpts();
   if (ok) { G = { answer: saved.answer, guesses: saved.guesses, cur: EMPTY, over: !!saved.over, won: !!saved.won, test: !!saved.test && !saved.daily, daily: saved.daily || "", num: saved.num || 0 }; G.cur = layOut(String(saved.cur || ""));
+    // Opened with nothing entered: cancel that word (not a loss, no stats) so the end screen, and Today's Wordle, is there.
+    // An untouched Wordle is swapped for a normal word so its answer isn't shown; the Wordle itself stays available.
+    if (!G.over && G.guesses.length === 0 && G.cur === EMPTY) {
+      if (G.daily) G = { answer: pickAnswer(), guesses: [], cur: EMPTY, over: false, won: false, test: false };
+      G.over = true; G.won = false; save("game", G);
+    }
+    daily = load("daily", {});   // before the first paint, so the Today's Wordle button is already there
     paint(); }
   else newGame();
   fitAll();
