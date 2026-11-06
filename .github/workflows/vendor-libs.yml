@@ -1,0 +1,61 @@
+name: Vendor libraries
+
+# Copies third-party libraries into lib/ so games load them from this site (works offline, no CDN at play time).
+#   lib/rapier/        @dimforge/rapier3d-compat (physics engine, WASM inlined)
+#   lib/three-addons/  three.js r170 examples/jsm parts (postprocessing, shaders, math, environments, utils)
+# Edit the versions below and push (or run it by hand) to refresh them.
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/vendor-libs.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: vendor-libs
+  cancel-in-progress: false
+
+env:
+  RAPIER_VERSION: "0.14.0"
+  THREE_VERSION: "0.170.0"
+
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch packages
+        run: |
+          set -e
+          mkdir -p /tmp/pk && cd /tmp/pk
+          npm pack "@dimforge/rapier3d-compat@${RAPIER_VERSION}" "three@${THREE_VERSION}" >/dev/null
+          mkdir rapier three
+          tar -xzf dimforge-rapier3d-compat-*.tgz -C rapier
+          tar -xzf three-*.tgz -C three
+      - name: Copy into lib/
+        run: |
+          set -e
+          rm -rf lib/rapier lib/three-addons
+          mkdir -p lib/rapier lib/three-addons
+          cp /tmp/pk/rapier/package/*.js lib/rapier/
+          cp /tmp/pk/rapier/package/LICENSE* lib/rapier/ 2>/dev/null || true
+          echo "@dimforge/rapier3d-compat ${RAPIER_VERSION}" > lib/rapier/VERSION.txt
+          for d in postprocessing shaders math environments utils; do
+            cp -r "/tmp/pk/three/package/examples/jsm/$d" lib/three-addons/
+          done
+          cp /tmp/pk/three/package/LICENSE lib/three-addons/LICENSE
+          echo "three ${THREE_VERSION} examples/jsm" > lib/three-addons/VERSION.txt
+          ls -la lib/rapier
+          du -sh lib/rapier lib/three-addons
+      - name: Commit
+        run: |
+          git add lib/rapier lib/three-addons
+          if git diff --cached --quiet; then echo "no change"; exit 0; fi
+          git config user.name "vendor-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Vendor rapier3d-compat ${RAPIER_VERSION} and three.js ${THREE_VERSION} addons into lib/"
+          git pull --rebase origin main
+          git push origin HEAD:main
