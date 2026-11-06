@@ -1,1 +1,47 @@
-[]
+[
+ {
+  "hash": "ccbb4152",
+  "chamber": 5,
+  "text": "Bring the cube. Do not lose the cube. You will lose the cube."
+ },
+ {
+  "hash": "b146ce66",
+  "chamber": 5,
+  "text": "Five chambers done. I would tell you how many are left, but it would only discourage you."
+ },
+ {
+  "hash": "cecaf133",
+  "chamber": 12,
+  "text": "This chamber uses everything so far: the cube, the light, the field, and the sentries, who have been waiting."
+ },
+ {
+  "hash": "548dd754",
+  "chamber": 0,
+  "text": "Do not worry about that one. The next you is already on the way."
+ },
+ {
+  "hash": "f09d66fc",
+  "chamber": 0,
+  "text": "You have disabled a sentry. It will lie there sulking for the rest of the test."
+ },
+ {
+  "hash": "f8aa291b",
+  "chamber": 0,
+  "text": "The receiver is lit. That is the first thing in here you have made happy."
+ },
+ {
+  "hash": "cc06d795",
+  "chamber": 0,
+  "text": "Click once and your aim locks to the centre of the screen. Then slide on the trackpad to look around, and swipe with two fingers to walk. Click for a blue portal, and two finger click for orange."
+ },
+ {
+  "hash": "2244d2d2",
+  "chamber": 0,
+  "text": "The left stick walks, and the right stick looks. The left trigger or bumper fires blue, and the right one fires orange. Select shows every button."
+ },
+ {
+  "hash": "c502dcf2",
+  "chamber": 0,
+  "text": "You are the most promising subject I have tested today. You are also the only one."
+ }
+]

@@ -381,7 +381,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 await RAPIER.init();
 
-const VERSION = "v3.2";
+const VERSION = "v3.3";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -725,9 +725,9 @@ function level5() {
       { kind: "exit", a: "EXIT", pos: [32, 4.4, 6], n: [-1, 0, 0], w: 2.2, h: .75 }
     ],
     say: {
-      intro: ["Final chamber. Bring the cube. Do not lose the cube. You will lose the cube.", "The button is over there. You are over here. This is the whole test."],
+      intro: ["Bring the cube. Do not lose the cube. You will lose the cube.", "The button is over there. You are over here. This is the whole test."],
       hint: ["You can hold the cube while you fall. Put it down on the round button, and the door will open. I would applaud, but I am a ceiling."],
-      done: ["Testing complete. You may now leave, or remain. The acid is not going anywhere."]
+      done: ["Five chambers done. I would tell you how many are left, but it would only discourage you."]
     }
   };
 }
@@ -874,7 +874,7 @@ function level12() {
   return Object.assign(h, {
     num: 12, name: "The Last Word", track: 1,
     say: {
-      intro: ["Last chamber. It uses everything: the cube, the light, the field, and the sentries, who have been waiting.", "I would wish you luck. I would also be lying, and I only do that when I have to."],
+      intro: ["This chamber uses everything so far: the cube, the light, the field, and the sentries, who have been waiting.", "I would wish you luck. I would also be lying, and I only do that when I have to."],
       hint: ["The door needs both the plate and the receiver. The light and the cube must cross the wall separately. Think about what the portals can carry, and when."],
       done: ["Twelve chambers. That was the easy half. I did not mention there was another half. I am mentioning it now."]
     }
@@ -2277,22 +2277,22 @@ const sfx = {
 
 /* ---------- SaDos ---------- */
 const LINES = {
-  death: ["Acid. The oldest trick in the facility, and you fell for it.", "Please do not take that personally. Everyone does it once.", "That is what the acid is for. It is not decorative.", "I have noted the cause of death as optimism.", "Don't worry. We have thousands of you.", "Your hands are still there. Stop. That was a joke."],
+  death: ["Acid. The oldest trick in the facility, and you fell for it.", "Please do not take that personally. Everyone does it once.", "That is what the acid is for. It is not decorative.", "I have noted the cause of death as optimism.", "Don't worry. We have thousands of you.", "Do not worry about that one. The next you is already on the way."],
   first: ["Congratulations. You have made a hole in my wall.", "Oh, a portal. Look at you."],
   bad: ["That surface is not portal-friendly. It is not you-friendly either.", "Dark panels reject portals. I was going to say it is not personal, but it is quite personal."],
   fast: ["Impressive speed. Terrible landing technique.", "I measured that. You were not as fast as you think."],
   sadosCube: ["The cube has been recycled. It took it better than you would have.", "Do try to keep the cube out of the acid. It has feelings. They are mine."],
   sadosGrab: ["Excellent. You have found the cube. I suggest you do not name it."],
-  sentryOff: ["You have disabled a sentry. It was in the middle of a sentence. Well, a burst.", "That was a very expensive robot. It was also very rude."],
+  sentryOff: ["You have disabled a sentry. It will lie there sulking for the rest of the test.", "That was a very expensive robot. It was also very rude."],
   burn: ["That was a laser. It is not for looking at, and it is certainly not for standing in."],
-  receiverOn: ["Light, delivered to a receiver. Humans have been trying to do that for centuries."],
+  receiverOn: ["The receiver is lit. That is the first thing in here you have made happy."],
   fieldHit: ["A reset field. It closes all your portals. It is not personal. It is just very efficient."],
   tipTouch: ["Drag on the left side of the screen to walk, and on the right side to look around. The blue and orange buttons fire your portals. The question mark in the corner explains everything else."],
-  tipTrack: ["Slide on the trackpad to look around. Swipe with two fingers to walk. Click for a blue portal, and two finger click for orange. The question mark in the corner explains everything else."],
+  tipTrack: ["Click once and your aim locks to the centre of the screen. Then slide on the trackpad to look around, and swipe with two fingers to walk. Click for a blue portal, and two finger click for orange."],
   tipKeys: ["Use W A S D to walk, the mouse to look, and click for blue, right click for orange. Press H at any time for the guide."],
-  tipPad: ["The left stick walks, and the right stick looks. The left bumper fires blue, and the right bumper fires orange. Select shows every button."],
+  tipPad: ["The left stick walks, and the right stick looks. The left trigger or bumper fires blue, and the right one fires orange. Select shows every button."],
   idle: ["Are you still there? I am not asking out of concern.", "Take your time. It is not my time being wasted.", "I am not a patient AI. I am just a ceiling-mounted one.", "The exit is still in the same place. It has not moved.", "Statistically, most subjects are done by now. I have the numbers right here, somewhere."],
-  random: ["You are doing quite well, for someone who is doing it by accident.", "Please remember that the cake is not a lie. Sorry. That was someone else's line. I will write my own.", "Your aim is steady. Your decision making is not.", "I will be honest with you. I am not required to be.", "Science does not need you to enjoy it.", "I did not build this chamber for you. I built it for someone smarter, and they left."]
+  random: ["You are doing quite well, for someone who is doing it by accident.", "You are the most promising subject I have tested today. You are also the only one.", "Your aim is steady. Your decision making is not.", "I will be honest with you. I am not required to be.", "Science does not need you to enjoy it.", "I did not build this chamber for you. I built it for someone smarter, and they left."]
 };
 const sadosEl = $("sub");
 let subQ = [], subBusy = false, subTimer = 0, lastSay = 0, voiceSrc = null;
