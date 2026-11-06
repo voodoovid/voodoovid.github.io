@@ -1,0 +1,558 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Rebuild Lab</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#07090c">
+<style>
+/* Test Chambers Rebuild Lab: green/red checks that every new piece works on this device before the full rebuild.
+   Everything starts below the status bar (safe-area padding on #page), so nothing is drawn or fades under it. */
+:root { color-scheme: dark; --bg: #07090c; --panel: #0e1318; --line: rgba(255,255,255,.08); --ink: #eef2f5; --dim: rgba(238,242,245,.58);
+  --blue: #2fa4ff; --orange: #ff9d2e; --pass: #2fd47a; --fail: #ff4d5e; --warn: #f4b942; --run: #7fb6ff;
+  --font: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--font); -webkit-text-size-adjust: 100%; }
+body { overflow: hidden; }
+#page { position: fixed; inset: 0; display: flex; flex-direction: column;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) calc(env(safe-area-inset-right, 0px) + 16px) calc(env(safe-area-inset-bottom, 0px) + 12px) calc(env(safe-area-inset-left, 0px) + 16px); }
+header { display: flex; align-items: center; gap: 14px; padding: 4px 2px 12px; border-bottom: 1px solid var(--line); }
+.logo { width: 34px; height: 34px; border-radius: 50%; position: relative; flex: none;
+  background: radial-gradient(circle at 35% 50%, var(--blue) 0 34%, transparent 35%), radial-gradient(circle at 65% 50%, var(--orange) 0 34%, transparent 35%), #111820;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.12) inset; }
+.title b { display: block; font-size: 11px; letter-spacing: .26em; color: var(--dim); font-weight: 700; }
+.title span { display: block; font-size: 20px; font-weight: 700; letter-spacing: .05em; }
+#summary { margin-left: auto; text-align: right; font-size: 13px; color: var(--dim); line-height: 1.35; }
+#summary strong { display: block; font-size: 15px; color: var(--ink); letter-spacing: .02em; }
+#runBtn { flex: none; border: 0; border-radius: 22px; padding: 11px 20px; font: 700 15px/1 var(--font); letter-spacing: .04em; color: #071018;
+  background: linear-gradient(180deg, #59baff, #2b8fe0); cursor: pointer; box-shadow: 0 6px 18px rgba(47,164,255,.25); }
+#runBtn:disabled { opacity: .45; cursor: default; }
+main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(330px, 1fr) 1.25fr; gap: 16px; padding-top: 14px; }
+#list { overflow-y: auto; -webkit-overflow-scrolling: touch; padding-right: 4px; }
+.row { display: grid; grid-template-columns: 66px 1fr; gap: 12px; align-items: start; padding: 11px 12px; margin-bottom: 8px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+.chip { font: 800 11px/1 var(--font); letter-spacing: .12em; text-align: center; padding: 7px 0; border-radius: 6px; margin-top: 1px;
+  background: rgba(255,255,255,.06); color: var(--dim); }
+.row[data-s="run"] .chip { background: rgba(127,182,255,.14); color: var(--run); }
+.row[data-s="pass"] .chip { background: rgba(47,212,122,.16); color: var(--pass); }
+.row[data-s="fail"] .chip { background: rgba(255,77,94,.16); color: var(--fail); }
+.row[data-s="warn"] .chip, .row[data-s="ask"] .chip { background: rgba(244,185,66,.16); color: var(--warn); }
+.row[data-s="pass"] { border-color: rgba(47,212,122,.28); }
+.row[data-s="fail"] { border-color: rgba(255,77,94,.35); }
+.row h3 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: .01em; }
+.row p { margin: 3px 0 0; font-size: 12.5px; color: var(--dim); line-height: 1.4; }
+.row .det { color: var(--ink); opacity: .86; font-variant-numeric: tabular-nums; }
+.ask { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.ask button { border: 1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.05); color: var(--ink); border-radius: 16px;
+  padding: 7px 14px; font: 600 13px/1 var(--font); cursor: pointer; }
+.ask button.yes { border-color: rgba(47,212,122,.5); color: var(--pass); }
+.ask button.no { border-color: rgba(255,77,94,.5); color: var(--fail); }
+#view { position: relative; min-height: 0; border-radius: 14px; overflow: hidden; background: #000; border: 1px solid var(--line); }
+#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+#hud { position: absolute; left: 12px; top: 10px; right: 12px; display: flex; justify-content: space-between; pointer-events: none;
+  font-size: 12px; letter-spacing: .14em; font-weight: 700; color: rgba(255,255,255,.8); text-shadow: 0 1px 4px rgba(0,0,0,.8); }
+#fps { font-variant-numeric: tabular-nums; }
+#idle { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 24px;
+  color: var(--dim); font-size: 14px; line-height: 1.5; background: radial-gradient(ellipse at center, #111a22, #000 70%); }
+#ver { position: absolute; right: 12px; bottom: 9px; font-size: 11px; color: rgba(255,255,255,.55); letter-spacing: .08em; pointer-events: none; }
+@media (max-width: 760px) and (orientation: portrait) {
+  body { overflow: auto; }
+  #page { position: static; min-height: 100%; }
+  main { grid-template-columns: 1fr; }
+  #view { height: 46vh; order: -1; }
+  #list { overflow: visible; }
+  #summary { display: none; }
+}
+</style>
+<script type="importmap">{ "imports": { "three": "../lib/three.module.min.js", "three/addons/": "../lib/three-addons/" } }</script>
+</head>
+<body>
+<div id="page">
+  <header>
+    <div class="logo" aria-hidden="true"></div>
+    <div class="title"><b>TEST CHAMBERS</b><span>Rebuild Lab</span></div>
+    <div id="summary"><strong>Not run yet</strong>Tap Run all checks (sound will play)</div>
+    <button id="runBtn">Run all checks</button>
+  </header>
+  <main>
+    <section id="list"></section>
+    <section id="view">
+      <canvas id="gl"></canvas>
+      <div id="hud"><span id="scene">LIVE CHAMBER</span><span id="fps"></span></div>
+      <div id="idle">The test chamber appears here while the checks run:<br>real physics, live portal views, soft shadows and glow.</div>
+      <div id="ver"></div>
+    </section>
+  </main>
+</div>
+
+<script type="module">
+import * as THREE from "three";
+
+const LAB_VERSION = "Lab v0.1";
+document.getElementById("ver").textContent = LAB_VERSION;
+
+// ---------- check rows ----------
+const CHECKS = [
+  ["webgl",   "WebGL 2 graphics",        "The 3D features the new renderer needs."],
+  ["rapier",  "Physics engine loads",    "Rapier, a real rigid-body engine, from this site (offline-safe)."],
+  ["stack",   "Cube physics",            "Three stacked cubes stay put; a tossed cube tumbles and settles."],
+  ["walker",  "Player movement",         "Walks up a small step, stops at a wall and slides along it."],
+  ["momentum","Portal momentum",         "Speed and direction carry from a wall portal out of a floor portal."],
+  ["fx",      "Lighting effects load",   "Glow (bloom), tone mapping and reflections."],
+  ["portal",  "Live portal view",        "A portal shows a real-time view out of the other portal."],
+  ["perf",    "Frame rate",              "Full chamber: two live portals, shadows, glow, physics for 6 s."],
+  ["voice",   "SaDos voice in a room",   "A recorded line plays through new room acoustics."],
+  ["offline", "Works offline",           "New files are stored by the Games app for offline play."],
+];
+const listEl = document.getElementById("list");
+const rows = {};
+for (const [id, name, what] of CHECKS) {
+  const el = document.createElement("div");
+  el.className = "row"; el.dataset.s = "idle";
+  el.innerHTML = `<div class="chip">READY</div><div><h3>${name}</h3><p>${what}</p><p class="det"></p><div class="ask" hidden></div></div>`;
+  listEl.appendChild(el);
+  rows[id] = el;
+}
+const LABEL = { idle: "READY", run: "TESTING", pass: "PASS", fail: "FAIL", warn: "CHECK", ask: "LISTEN" };
+const results = {};
+function set(id, s, detail) {
+  const el = rows[id]; el.dataset.s = s; el.querySelector(".chip").textContent = LABEL[s];
+  if (detail !== undefined) el.querySelector(".det").textContent = detail;
+  if (s !== "run" && s !== "ask") results[id] = s;
+  updateSummary();
+}
+function updateSummary() {
+  const done = Object.values(results), n = CHECKS.length;
+  const p = done.filter(s => s === "pass").length, f = done.filter(s => s === "fail").length, w = done.filter(s => s === "warn").length;
+  const sum = document.getElementById("summary");
+  if (!done.length) return;
+  const head = done.length < n ? `${done.length} of ${n} done` : f ? `${f} failed` : w ? `${p} passed, ${w} to check` : `All ${n} passed`;
+  sum.innerHTML = `<strong style="color:${f ? "var(--fail)" : done.length < n ? "var(--ink)" : w ? "var(--warn)" : "var(--pass)"}">${head}</strong>${p} pass · ${w} check · ${f} fail`;
+}
+const fmt = (x, d = 2) => Number(x).toFixed(d);
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const frame = () => new Promise(r => requestAnimationFrame(r));
+async function guard(id, fn) {
+  set(id, "run", "");
+  try { await fn(); } catch (e) { set(id, "fail", (e && e.message) || String(e)); }
+}
+
+// ---------- renderer ----------
+const canvas = document.getElementById("gl");
+let renderer = null;
+function makeRenderer() {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: "high-performance" });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 0.85;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.autoUpdate = false;
+  renderer.localClippingEnabled = false;
+}
+function viewSize() { const r = document.getElementById("view").getBoundingClientRect(); return [Math.max(1, Math.round(r.width)), Math.max(1, Math.round(r.height))]; }
+
+// ---------- physics ----------
+let RAPIER = null;
+
+function stackTest() {
+  const world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
+  world.timestep = 1 / 120;
+  world.createCollider(RAPIER.ColliderDesc.cuboid(10, 0.5, 10).setTranslation(0, -0.5, 0).setFriction(0.8));
+  const mk = (x, y, z) => {
+    const b = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y, z).setCcdEnabled(true));
+    world.createCollider(RAPIER.ColliderDesc.cuboid(0.45, 0.45, 0.45).setDensity(30).setFriction(0.8).setRestitution(0.05), b);
+    return b;
+  };
+  const stack = [mk(0, 0.46, 0), mk(0, 1.38, 0), mk(0, 2.30, 0)];
+  const toss = mk(3, 3, 0);
+  toss.setLinvel({ x: -2.5, y: 1, z: 1.2 }, true); toss.setAngvel({ x: 4, y: 2, z: -6 }, true);
+  const t0 = performance.now(), steps = 600;
+  for (let i = 0; i < steps; i++) world.step();
+  const ms = (performance.now() - t0) / steps;
+  const ys = stack.map(b => b.translation().y);
+  const want = [0.45, 1.35, 2.25];
+  const stackOk = ys.every((y, i) => Math.abs(y - want[i]) < 0.06) && stack.every(b => Math.hypot(b.translation().x, b.translation().z) < 0.08);
+  const tv = toss.linvel(), tp = toss.translation();
+  const tossOk = Math.hypot(tv.x, tv.y, tv.z) < 0.05 && tp.y > 0.4 && tp.y < 2.8;
+  world.free();
+  return { ok: stackOk && tossOk, detail: `Stack heights ${ys.map(y => fmt(y)).join(" / ")} m · tossed cube resting at ${fmt(tp.y)} m · ${fmt(ms, 3)} ms per step` };
+}
+
+function walkerTest() {
+  const world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
+  world.timestep = 1 / 120;
+  world.createCollider(RAPIER.ColliderDesc.cuboid(20, 0.5, 20).setTranslation(0, -0.5, 0));
+  world.createCollider(RAPIER.ColliderDesc.cuboid(0.75, 0.125, 3).setTranslation(2.25, 0.125, 0));   // step: 25 cm high, x 1.5 to 3
+  world.createCollider(RAPIER.ColliderDesc.cuboid(0.5, 2, 10).setTranslation(6.5, 2, 0));          // wall face at x = 6
+  const body = world.createRigidBody(RAPIER.RigidBodyDesc.kinematicPositionBased().setTranslation(0, 0.82, 0));
+  const col = world.createCollider(RAPIER.ColliderDesc.capsule(0.5, 0.3), body);
+  const cc = world.createCharacterController(0.02);
+  cc.enableAutostep(0.35, 0.2, true);
+  cc.enableSnapToGround(0.3);
+  cc.setSlideEnabled(true);
+  world.step();
+  let vy = 0, onStep = false, maxX = 0;
+  const dt = 1 / 120;
+  const walk = (vx, vz, n) => {
+    for (let i = 0; i < n; i++) {
+      vy -= 9.81 * dt;
+      cc.computeColliderMovement(col, { x: vx * dt, y: vy * dt, z: vz * dt });
+      const m = cc.computedMovement(), p = body.translation();
+      if (cc.computedGrounded()) vy = 0;
+      body.setNextKinematicTranslation({ x: p.x + m.x, y: p.y + m.y, z: p.z + m.z });
+      world.step();
+      const q = body.translation();
+      if (q.x > 1.9 && q.x < 2.6 && Math.abs(q.y - 0.8 - 0.25) < 0.06) onStep = true;
+      maxX = Math.max(maxX, q.x);
+    }
+  };
+  walk(3, 0, 240);                 // 2 s straight ahead over the step towards the wall
+  const zBefore = body.translation().z;
+  walk(3, 3, 180);                 // diagonal into the wall: should slide along +z
+  const p = body.translation();
+  const wallOk = maxX < 6 - 0.3 + 0.05 && p.x > 5.4;
+  const slideOk = p.z - zBefore > 3;
+  world.free();
+  const ok = onStep && wallOk && slideOk;
+  return { ok, detail: `Climbed step: ${onStep ? "yes" : "no"} · stopped at wall (x ${fmt(maxX)} of 5.70): ${wallOk ? "yes" : "no"} · slid along wall ${fmt(p.z - zBefore)} m` };
+}
+
+// ---------- portal maths ----------
+// A portal is an Object3D whose local +Z points out of the surface. Anything entering A leaves B the same way it went in.
+const FLIP = new THREE.Matrix4().makeRotationY(Math.PI);
+function portalMatrix(A, B) { return new THREE.Matrix4().multiplyMatrices(B.matrixWorld, FLIP).multiply(A.matrixWorld.clone().invert()); }
+function makePortalFrame(pos, normal, up) {
+  const o = new THREE.Object3D(); o.position.copy(pos);
+  const z = normal.clone().normalize(), x = new THREE.Vector3().crossVectors(up, z).normalize(), y = new THREE.Vector3().crossVectors(z, x);
+  o.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z)); o.updateMatrixWorld(true); return o;
+}
+function momentumTest() {
+  const A = makePortalFrame(new THREE.Vector3(-7, 2, 0), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0));   // on a wall
+  const B = makePortalFrame(new THREE.Vector3(3, 0, 4), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, -1));   // on the floor
+  const M = portalMatrix(A, B), R = new THREE.Matrix3().setFromMatrix4(M);
+  const vin = new THREE.Vector3(-14, -3, 2);                                        // flying into the wall portal
+  const vout = vin.clone().applyMatrix3(R);
+  const inN = -vin.dot(new THREE.Vector3(1, 0, 0)), outN = vout.dot(new THREE.Vector3(0, 1, 0));
+  const pin = new THREE.Vector3(-7, 2.4, 0.3), pout = pin.clone().applyMatrix4(M);   // a point on portal A lands on portal B
+  const ok = Math.abs(vin.length() - vout.length()) < 1e-6 && Math.abs(inN - outN) < 1e-6 && outN > 0 && Math.abs(pout.y) < 1e-6
+    && Math.hypot(pout.x - 3, pout.z - 4) < 0.6;
+  return { ok, detail: `In ${fmt(vin.length())} m/s → out ${fmt(vout.length())} m/s, straight up out of the floor at ${fmt(outN)} m/s` };
+}
+
+// ---------- the live chamber ----------
+let FX = null;           // { EffectComposer, RenderPass, UnrealBloomPass, OutputPass, RoomEnvironment }
+let scene, cam, composer, bloom, portals = [], cubeMesh, chamberWorld = null, cubeBody = null, nextToss = 0;
+let running = false, bench = null, lastT = 0, simAcc = 0;
+
+function canvasTex(w, h, paint, repeat) {
+  const c = document.createElement("canvas"); c.width = w; c.height = h; paint(c.getContext("2d"), w, h);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = renderer.capabilities.getMaxAnisotropy(); if (repeat) t.repeat.set(repeat[0], repeat[1]); return t;
+}
+function noise(g, w, h, a) { const d = g.getImageData(0, 0, w, h); for (let i = 0; i < d.data.length; i += 4) { const n = (Math.random() - 0.5) * a; d.data[i] += n; d.data[i + 1] += n; d.data[i + 2] += n; } g.putImageData(d, 0, 0); }
+
+function panelTex(light) {
+  return canvasTex(512, 512, (g, w, h) => {
+    g.fillStyle = light ? "#d9dde0" : "#2b3238"; g.fillRect(0, 0, w, h);
+    for (let y = 0; y < 2; y++) for (let x = 0; x < 2; x++) {
+      const v = light ? 214 + Math.random() * 14 : 40 + Math.random() * 10;
+      g.fillStyle = `rgb(${v},${v + 3},${v + 6})`; g.fillRect(x * 256 + 5, y * 256 + 5, 246, 246);
+    }
+    noise(g, w, h, light ? 10 : 8);
+    g.strokeStyle = light ? "rgba(40,48,56,.55)" : "rgba(0,0,0,.7)"; g.lineWidth = 6;
+    for (let i = 0; i <= 2; i++) { g.beginPath(); g.moveTo(i * 256, 0); g.lineTo(i * 256, h); g.stroke(); g.beginPath(); g.moveTo(0, i * 256); g.lineTo(w, i * 256); g.stroke(); }
+    if (!light) { g.fillStyle = "rgba(255,255,255,.05)"; for (let i = 0; i < 40; i++) g.fillRect(Math.random() * w, Math.random() * h, 2, 2); }
+  });
+}
+
+function buildChamber() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x05070a);
+  if (FX) {
+    const pm = new THREE.PMREMGenerator(renderer);
+    scene.environment = pm.fromScene(new FX.RoomEnvironment(), 0.04).texture;
+    scene.environmentIntensity = 0.35;
+  }
+  const W = 14, H = 7, L = 18;
+  const white = new THREE.MeshStandardMaterial({ map: panelTex(true), roughness: 0.62, metalness: 0.0 });
+  const dark = new THREE.MeshStandardMaterial({ map: panelTex(false), roughness: 0.38, metalness: 0.55 });
+  const box = (w, h, d, mat, x, y, z, rep) => {
+    const m = mat.clone(); if (m.map && rep) { m.map = m.map.clone(); m.map.repeat.set(rep[0], rep[1]); m.map.needsUpdate = true; }
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); mesh.position.set(x, y, z); mesh.receiveShadow = true; mesh.castShadow = true; scene.add(mesh); return mesh;
+  };
+  box(W, 0.2, L, dark, 0, -0.1, 0, [W / 2, L / 2]);
+  box(W, 0.2, L, dark, 0, H + 0.1, 0, [W / 2, L / 2]);
+  box(0.2, H, L, white, -W / 2 - 0.1, H / 2, 0, [L / 2, H / 2]);
+  box(0.2, H, L, white, W / 2 + 0.1, H / 2, 0, [L / 2, H / 2]);
+  box(W, H, 0.2, white, 0, H / 2, -L / 2 - 0.1, [W / 2, H / 2]);
+  box(W, H, 0.2, white, 0, H / 2, L / 2 + 0.1, [W / 2, H / 2]);
+  box(3, 1.2, 4, dark, 3.5, 0.6, -5.5, [1.5, 1]);      // a raised ledge
+  box(0.8, 4.5, 0.8, dark, -3, 2.25, 3.5, [0.4, 2]);   // pillars
+  box(0.8, 4.5, 0.8, dark, 2.2, 2.25, 5.5, [0.4, 2]);
+  // glowing light strips (bright enough to bloom)
+  const strip = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0xdff2ff, emissiveIntensity: 3 });
+  for (const x of [-W / 2 + 0.35, W / 2 - 0.35]) { const s = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.06, L - 1), strip); s.position.set(x, H - 0.05, 0); scene.add(s); }
+  const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 1.0, 0.18, 48), new THREE.MeshStandardMaterial({ color: 0x30363c, metalness: 0.7, roughness: 0.3 }));
+  pad.position.set(-2.5, 0.09, -4); pad.receiveShadow = true; scene.add(pad);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.78, 0.035, 12, 64), new THREE.MeshStandardMaterial({ color: 0, emissive: 0xff7a1a, emissiveIntensity: 5 }));
+  ring.rotation.x = Math.PI / 2; ring.position.set(-2.5, 0.19, -4); scene.add(ring);
+
+  scene.add(new THREE.HemisphereLight(0xdfe9f5, 0x1a1f24, 0.4));
+  const spot = new THREE.SpotLight(0xffffff, 110, 30, Math.PI / 3.2, 0.55, 1.6);
+  spot.position.set(0, H - 0.4, 1); spot.target.position.set(0, 0, -1); spot.castShadow = true;
+  spot.shadow.mapSize.set(2048, 2048); spot.shadow.bias = -0.0004; spot.shadow.normalBias = 0.02; spot.shadow.radius = 4;
+  scene.add(spot, spot.target);
+  for (const [x, z] of [[-5, -6], [5, 6]]) { const p = new THREE.PointLight(0xcfe3ff, 30, 16, 1.8); p.position.set(x, H - 1, z); scene.add(p); }
+
+  // the cube
+  const cubeSkin = canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = "#9aa3ab"; g.fillRect(0, 0, w, h); noise(g, w, h, 18);
+    g.fillStyle = "#59616a"; g.fillRect(0, 0, w, 34); g.fillRect(0, h - 34, w, 34); g.fillRect(0, 0, 34, h); g.fillRect(w - 34, 0, 34, h);
+    g.strokeStyle = "#2c3238"; g.lineWidth = 4; g.strokeRect(60, 60, w - 120, h - 120);
+  });
+  const cubeGlow = canvasTex(256, 256, (g, w, h) => { g.fillStyle = "#000"; g.fillRect(0, 0, w, h); g.fillStyle = "#4fd2ff"; g.fillRect(72, 72, w - 144, h - 144); });
+  cubeMesh = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 0.9), new THREE.MeshStandardMaterial({ map: cubeSkin, metalness: 0.55, roughness: 0.42, emissiveMap: cubeGlow, emissive: 0xffffff, emissiveIntensity: 1.1 }));
+  cubeMesh.castShadow = true; cubeMesh.receiveShadow = true; cubeMesh.position.set(0, 0.45, -2); scene.add(cubeMesh);
+
+  // two portals with live views
+  const [w, h] = viewSize(), pr = renderer.getPixelRatio();
+  const mkPortal = (pos, normal, color) => {
+    const frameObj = makePortalFrame(pos, normal, new THREE.Vector3(0, 1, 0));
+    const rt = new THREE.WebGLRenderTarget(w * pr, h * pr, { type: THREE.HalfFloatType, samples: 2 });
+    const surf = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 2.3), new THREE.ShaderMaterial({
+      uniforms: { tex: { value: rt.texture }, res: { value: new THREE.Vector2(w * pr, h * pr) } },
+      vertexShader: "varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }",
+      fragmentShader: `uniform sampler2D tex; uniform vec2 res; varying vec2 vUv;
+        void main(){ vec2 e = (vUv - 0.5) * 2.0; if (dot(e, e) > 1.0) discard;
+          gl_FragColor = vec4(texture2D(tex, gl_FragCoord.xy / res).rgb, 1.0);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }`,
+    }));
+    surf.position.copy(pos).addScaledVector(normal, 0.012); surf.quaternion.copy(frameObj.quaternion);
+    const rimShape = new THREE.Shape(); rimShape.absellipse(0, 0, 0.76, 1.22, 0, Math.PI * 2);
+    const hole = new THREE.Path(); hole.absellipse(0, 0, 0.7, 1.15, 0, Math.PI * 2, true); rimShape.holes.push(hole);
+    const rim = new THREE.Mesh(new THREE.ShapeGeometry(rimShape, 64), new THREE.MeshBasicMaterial({ color: new THREE.Color(color).multiplyScalar(4) }));
+    rim.position.copy(pos).addScaledVector(normal, 0.02); rim.quaternion.copy(frameObj.quaternion);
+    scene.add(surf, rim);
+    const light = new THREE.PointLight(color, 6, 4, 2); light.position.copy(pos).addScaledVector(normal, 0.5); scene.add(light);
+    return { frame: frameObj, rt, surf, rim, normal: normal.clone(), pos: pos.clone(), cam: new THREE.PerspectiveCamera() };
+  };
+  portals = [
+    mkPortal(new THREE.Vector3(-W / 2 + 0.001, 1.45, -1.5), new THREE.Vector3(1, 0, 0), 0x2fa4ff),
+    mkPortal(new THREE.Vector3(W / 2 - 0.001, 1.45, 3.0), new THREE.Vector3(-1, 0, 0), 0xff9d2e),
+  ];
+  portals[0].other = portals[1]; portals[1].other = portals[0];
+
+  cam = new THREE.PerspectiveCamera(70, w / h, 0.05, 80);
+  if (FX) {
+    const rt = new THREE.WebGLRenderTarget(w * pr, h * pr, { type: THREE.HalfFloatType, samples: 4 });
+    composer = new FX.EffectComposer(renderer, rt);
+    composer.addPass(new FX.RenderPass(scene, cam));
+    bloom = new FX.UnrealBloomPass(new THREE.Vector2(w / 2, h / 2), 0.4, 0.45, 1.0);
+    composer.addPass(bloom);
+    composer.addPass(new FX.OutputPass());
+  }
+  if (RAPIER) {
+    chamberWorld = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
+    chamberWorld.timestep = 1 / 120;
+    const fixed = (hx, hy, hz, x, y, z) => chamberWorld.createCollider(RAPIER.ColliderDesc.cuboid(hx, hy, hz).setTranslation(x, y, z).setFriction(0.7));
+    fixed(W / 2, 0.1, L / 2, 0, -0.1, 0); fixed(W / 2, 0.1, L / 2, 0, H + 0.1, 0);
+    fixed(0.1, H / 2, L / 2, -W / 2 - 0.1, H / 2, 0); fixed(0.1, H / 2, L / 2, W / 2 + 0.1, H / 2, 0);
+    fixed(W / 2, H / 2, 0.1, 0, H / 2, -L / 2 - 0.1); fixed(W / 2, H / 2, 0.1, 0, H / 2, L / 2 + 0.1);
+    fixed(1.5, 0.6, 2, 3.5, 0.6, -5.5); fixed(0.4, 2.25, 0.4, -3, 2.25, 3.5); fixed(0.4, 2.25, 0.4, 2.2, 2.25, 5.5);
+    fixed(0.95, 0.09, 0.95, -2.5, 0.09, -4);
+    cubeBody = chamberWorld.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(0, 3, -2).setCcdEnabled(true));
+    chamberWorld.createCollider(RAPIER.ColliderDesc.cuboid(0.45, 0.45, 0.45).setDensity(30).setFriction(0.7).setRestitution(0.15), cubeBody);
+  }
+}
+
+function tossCube(t) {
+  if (!cubeBody) return;
+  const a = t * 1.7;
+  cubeBody.setTranslation({ x: Math.sin(a) * 2, y: 4.5, z: -1 + Math.cos(a) * 2 }, true);
+  cubeBody.setLinvel({ x: Math.cos(a) * 3, y: 1, z: -Math.sin(a) * 2.5 }, true);
+  cubeBody.setAngvel({ x: 3 + Math.sin(a) * 3, y: 2, z: -4 }, true);
+}
+
+const _m = new THREE.Matrix4(), _plane = new THREE.Plane();
+function renderPortal(p) {
+  // What portal p shows is what comes out of the other one: move the camera through p to the far side of p.other.
+  const q = p.other;
+  _m.multiplyMatrices(portalMatrix(p.frame, q.frame), cam.matrixWorld);
+  _m.decompose(p.cam.position, p.cam.quaternion, p.cam.scale);
+  p.cam.projectionMatrix.copy(cam.projectionMatrix); p.cam.projectionMatrixInverse.copy(cam.projectionMatrixInverse);
+  p.cam.updateMatrixWorld(true);
+  _plane.setFromNormalAndCoplanarPoint(q.normal, q.pos);   // keep only what is in front of the exit portal
+  q.surf.visible = q.rim.visible = false; p.surf.visible = false;
+  renderer.clippingPlanes = [_plane];
+  renderer.setRenderTarget(p.rt); renderer.render(scene, p.cam);
+  renderer.clippingPlanes = []; renderer.setRenderTarget(null);
+  q.surf.visible = q.rim.visible = true; p.surf.visible = true;
+}
+
+function resize() {
+  if (!renderer) return;
+  const [w, h] = viewSize(), pr = renderer.getPixelRatio();
+  renderer.setSize(w, h, false);
+  if (cam) { cam.aspect = w / h; cam.updateProjectionMatrix(); }
+  for (const p of portals) { p.rt.setSize(w * pr, h * pr); p.surf.material.uniforms.res.value.set(w * pr, h * pr); }
+  if (composer) composer.setSize(w, h);
+  if (bloom) bloom.resolution.set(w / 2, h / 2);
+}
+addEventListener("resize", resize);
+
+function tick(now) {
+  if (!running) return;
+  requestAnimationFrame(tick);
+  const t = now / 1000, dt = Math.min(0.1, lastT ? t - lastT : 0.016); lastT = t;
+  if (bench) bench.push(dt);
+  // physics at 120 Hz
+  if (chamberWorld) {
+    simAcc += dt; let n = 0;
+    while (simAcc >= 1 / 120 && n < 8) { chamberWorld.step(); simAcc -= 1 / 120; n++; }
+    if (t > nextToss) { tossCube(t); nextToss = t + 4; }
+    const p = cubeBody.translation(), r = cubeBody.rotation();
+    cubeMesh.position.set(p.x, p.y, p.z); cubeMesh.quaternion.set(r.x, r.y, r.z, r.w);
+  } else { cubeMesh.position.y = 0.45 + Math.abs(Math.sin(t * 2)) * 1.5; cubeMesh.rotation.y = t; }
+  // a slow camera drift through the chamber, always facing the blue portal side
+  cam.position.set(1.5 + Math.sin(t * 0.23) * 2.6, 1.75 + Math.sin(t * 0.41) * 0.35, 4.2 + Math.cos(t * 0.19) * 2.2);
+  cam.lookAt(-4 + Math.sin(t * 0.13) * 2, 1.6, -1.5 + Math.cos(t * 0.17) * 2);
+  cam.updateMatrixWorld(true);
+  for (const p of portals) renderPortal(p);
+  renderer.shadowMap.needsUpdate = true;
+  if (composer) composer.render(); else renderer.render(scene, cam);
+  if (bench) document.getElementById("fps").textContent = `${Math.round(1 / Math.max(dt, 1e-3))} FPS`;
+}
+
+function startChamber() {
+  document.getElementById("idle").hidden = true;
+  if (!scene) { buildChamber(); resize(); }
+  if (!running) { running = true; lastT = 0; requestAnimationFrame(tick); }
+}
+
+// ---------- voice ----------
+let actx = null;
+function roomImpulse(ctx, secs, decay) {
+  const len = Math.floor(ctx.sampleRate * secs), buf = ctx.createBuffer(2, len, ctx.sampleRate), pre = Math.floor(ctx.sampleRate * 0.018);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = buf.getChannelData(ch); let lp = 0;
+    for (let i = pre; i < len; i++) { const n = Math.random() * 2 - 1; lp += (n - lp) * 0.35; d[i] = lp * Math.pow(1 - (i - pre) / (len - pre), decay); }
+  }
+  return buf;
+}
+async function voiceTest() {
+  if (!actx) throw new Error("Sound needs a tap: use the Run all checks button");
+  const keys = Object.keys(window.TC_VOICE || {});
+  if (!keys.length) throw new Error("Voice list (lines.js) did not load");
+  const res = await fetch(`voice/${keys[0]}.mp3`); if (!res.ok) throw new Error(`Voice clip not found (${res.status})`);
+  const buf = await actx.decodeAudioData(await res.arrayBuffer());
+  const src = actx.createBufferSource(); src.buffer = buf;
+  const dry = actx.createGain(); dry.gain.value = 0.85;
+  const wet = actx.createGain(); wet.gain.value = 0.42;
+  const verb = actx.createConvolver(); verb.buffer = roomImpulse(actx, 2.2, 3.2);
+  const hp = actx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 220;
+  src.connect(dry).connect(actx.destination); src.connect(hp).connect(verb).connect(wet).connect(actx.destination);
+  set("voice", "run", `Playing a ${fmt(buf.duration, 1)} s line…`);
+  await new Promise(r => { src.onended = r; src.start(); setTimeout(r, (buf.duration + 4) * 1000); });
+  await wait(900);
+  set("voice", "ask", `Played ${fmt(buf.duration, 1)} s of SaDos with room echo. Did you hear it?`);
+  const ask = rows.voice.querySelector(".ask"); ask.hidden = false;
+  ask.innerHTML = `<button class="yes">Yes, I heard it</button><button class="no">No sound</button><button class="again">Play again</button>`;
+  return new Promise(resolve => {
+    ask.querySelector(".yes").onclick = () => { ask.hidden = true; set("voice", "pass", `Heard on this device (${fmt(buf.duration, 1)} s clip, room reverb)`); resolve(); };
+    ask.querySelector(".no").onclick = () => { ask.hidden = true; set("voice", "fail", "Played but not heard: check volume, Silent switch and Bluetooth output"); resolve(); };
+    ask.querySelector(".again").onclick = () => { const s = actx.createBufferSource(); s.buffer = buf; s.connect(dry); s.connect(hp); actx.resume(); s.start(); };
+  });
+}
+
+// ---------- run everything ----------
+async function runAll() {
+  const btn = document.getElementById("runBtn"); btn.disabled = true; btn.textContent = "Running…";
+  for (const k of Object.keys(results)) delete results[k];
+  for (const [id] of CHECKS) { set(id, "idle", ""); delete results[id]; rows[id].querySelector(".ask").hidden = true; }
+  // Sound must start inside the tap
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    actx.resume();
+    const b = actx.createBuffer(1, 1, 22050), s = actx.createBufferSource(); s.buffer = b; s.connect(actx.destination); s.start();
+  } catch (e) {}
+
+  await guard("webgl", async () => {
+    if (!renderer) makeRenderer();
+    const gl = renderer.getContext(), c = renderer.capabilities;
+    if (!c.isWebGL2) throw new Error("This browser only offers WebGL 1");
+    const half = !!gl.getExtension("EXT_color_buffer_half_float") || !!gl.getExtension("EXT_color_buffer_float");
+    set("webgl", half ? "pass" : "warn", `Max texture ${c.maxTextureSize} px · MSAA ×${c.maxSamples} · HDR targets: ${half ? "yes" : "no"} · ${gl.getParameter(gl.VERSION)}`);
+  });
+  await guard("rapier", async () => {
+    const t0 = performance.now();
+    const mod = await import("../lib/rapier/rapier.es.js");
+    RAPIER = mod.default || mod; await RAPIER.init();
+    set("rapier", "pass", `Rapier ${RAPIER.version ? RAPIER.version() : ""} ready in ${Math.round(performance.now() - t0)} ms`);
+  });
+  if (!RAPIER) { set("stack", "fail", "Skipped: no physics engine"); set("walker", "fail", "Skipped: no physics engine"); }
+  else {
+    await guard("stack", async () => { const r = stackTest(); set("stack", r.ok ? "pass" : "fail", r.detail); });
+    await guard("walker", async () => { const r = walkerTest(); set("walker", r.ok ? "pass" : "fail", r.detail); });
+  }
+  await guard("momentum", async () => { const r = momentumTest(); set("momentum", r.ok ? "pass" : "fail", r.detail); });
+  await guard("fx", async () => {
+    const [ec, rp, ub, op, re] = await Promise.all([
+      import("three/addons/postprocessing/EffectComposer.js"), import("three/addons/postprocessing/RenderPass.js"),
+      import("three/addons/postprocessing/UnrealBloomPass.js"), import("three/addons/postprocessing/OutputPass.js"),
+      import("three/addons/environments/RoomEnvironment.js")]);
+    FX = { EffectComposer: ec.EffectComposer, RenderPass: rp.RenderPass, UnrealBloomPass: ub.UnrealBloomPass, OutputPass: op.OutputPass, RoomEnvironment: re.RoomEnvironment };
+    set("fx", "pass", "Bloom, filmic tone mapping, image-based reflections");
+  });
+  if (!renderer) { for (const id of ["portal", "perf"]) set(id, "fail", "Skipped: no WebGL 2"); }
+  else {
+    await guard("portal", async () => {
+      startChamber(); await frame(); await frame();
+      // render portal 0's view into a small readable target and make sure there's a real picture in it
+      const p = portals[0], small = new THREE.WebGLRenderTarget(96, 64);
+      const q = p.other; _m.multiplyMatrices(portalMatrix(p.frame, q.frame), cam.matrixWorld); _m.decompose(p.cam.position, p.cam.quaternion, p.cam.scale);
+      p.cam.projectionMatrix.copy(cam.projectionMatrix); p.cam.projectionMatrixInverse.copy(cam.projectionMatrixInverse); p.cam.updateMatrixWorld(true);
+      _plane.setFromNormalAndCoplanarPoint(q.normal, q.pos); renderer.clippingPlanes = [_plane];
+      renderer.setRenderTarget(small); renderer.render(scene, p.cam); renderer.setRenderTarget(null); renderer.clippingPlanes = [];
+      const px = new Uint8Array(96 * 64 * 4); renderer.readRenderTargetPixels(small, 0, 0, 96, 64, px); small.dispose();
+      let s = 0, s2 = 0; const n = 96 * 64;
+      for (let i = 0; i < px.length; i += 4) { const l = 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]; s += l; s2 += l * l; }
+      const mean = s / n, sd = Math.sqrt(Math.max(0, s2 / n - mean * mean));
+      const ok = mean > 8 && sd > 6;
+      set("portal", ok ? "pass" : "fail", `Through-portal picture: brightness ${Math.round(mean)}, detail ${fmt(sd, 1)} (needs > 6) · depth 1 in this test`);
+    });
+    await guard("perf", async () => {
+      startChamber(); await wait(400);
+      bench = []; await wait(6000); const d = bench; bench = null; document.getElementById("fps").textContent = "";
+      if (d.length < 2) throw new Error("The chamber did not animate");
+      const fps = d.length / d.reduce((a, b) => a + b, 0);
+      const sorted = [...d].sort((a, b) => b - a), low = 1 / sorted[Math.max(0, Math.floor(d.length * 0.01))];
+      const s = fps >= 55 ? "pass" : fps >= 40 ? "warn" : "fail";
+      set("perf", s, `${fmt(fps, 0)} FPS average · ${fmt(low, 0)} FPS worst 1% · ${renderer.getPixelRatio()}× pixels${s === "warn" ? " · playable, the game will offer a lower quality setting" : ""}`);
+    });
+  }
+  await guard("voice", voiceTest);
+  await guard("offline", async () => {
+    if (!("caches" in window) || !("serviceWorker" in navigator)) throw new Error("This browser can't store files for offline play");
+    const reg = await navigator.serviceWorker.getRegistration("../");
+    const files = ["../lib/rapier/rapier.es.js", "../lib/three-addons/postprocessing/UnrealBloomPass.js"];
+    let stored = 0;
+    for (const f of files) if (await caches.match(new URL(f, location.href).href)) stored++;
+    if (reg && navigator.serviceWorker.controller && stored === files.length) set("offline", "pass", "Games app is storing the new physics and effects files");
+    else set("offline", "warn", reg ? `Games app active, ${stored} of ${files.length} new files stored so far (they're added to the offline list in the full build)` : "Open the Games app once first; the full build adds these files to its offline list");
+  });
+  btn.disabled = false; btn.textContent = "Run again";
+}
+document.getElementById("runBtn").addEventListener("click", runAll);
+
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js").catch(() => {});
+window.__lab = { get results() { return results; }, runAll, rows };
+</script>
+<script src="lines.js"></script>
+</body>
+</html>
