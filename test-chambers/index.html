@@ -381,7 +381,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 await RAPIER.init();
 
-const VERSION = "v3.3";
+const VERSION = "v3.4";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -831,7 +831,7 @@ function level10() {                                  // the old freefall, now w
   const L = 32, h = hall({ L, W: 12, H: 17, zc: 6, pits: [[10, 18]] });
   const B = h.boxes; B.push(bx(0, 13, 0, 9, 14, 3.5));
   h.boxes = B; h.cubes = [[6.6, 14.35, 1.8]]; h.plates = [{ pos: [26, 0, 6], door: "d1" }]; h.doors = [exitDoor(L, 6)];
-  h.sentries = [{ pos: [29.5, 0, 2], yaw: Math.PI / 2 }, { pos: [29.5, 0, 10], yaw: Math.PI / 2 }, { pos: [22, 0, 11.3], yaw: Math.PI / 2, cone: 70 }];
+  h.sentries = [{ pos: [29.5, 0, 2], yaw: Math.PI / 2, range: 12 }, { pos: [29.5, 0, 10], yaw: Math.PI / 2, range: 12 }, { pos: [22, 0, 11.3], yaw: Math.PI / 2, cone: 70, range: 12 }];
   h.start = { pos: [2.6, 14, 1.7], yaw: Math.PI, pitch: -0.3 };
   h.lamps.push(lamp(4, 9, 7, .45, 9));
   h.signs.push(chSign(10, "GANTRY", 15, 5.2), hint("THE CUBE IS COMING WITH YOU", [0, 6.4, 8.5], [1, 0, 0], 4.6, 1));
@@ -1758,9 +1758,9 @@ function teleportPlayer(P) {
   let roll = 2 * Math.atan2(_qb.z, _qb.w); if (roll > Math.PI) roll -= Math.PI * 2; if (roll < -Math.PI) roll += Math.PI * 2;
   cam.roll = roll;
   camOffset.copy(eyeCam).sub(eyePos(tmpA));
-  if (holding) {                 // bring the held cube along, unless it already went through ahead of us
-    const hp = holding.p.clone().applyMatrix4(P.T), eyeNow = eyePos(tmpC);
-    if (hp.distanceTo(eyeNow) < holding.p.distanceTo(eyeNow)) { _rq.setFromRotationMatrix(_rm.extractRotation(P.T)); setCubeState(holding, hp, holding.q.clone().premultiply(_rq)); holding.pv.copy(hp); }
+  if (holding) {                 // the cube you're holding comes out with you, in front of you, keeping your speed
+    const t = holdTarget().target; _rq.setFromRotationMatrix(_rm.extractRotation(P.T));
+    setCubeState(holding, t, holding.q.clone().premultiply(_rq), pl.v); holding.pv.copy(t); holding.snag = 0;
   }
   const eyeNew = eyePos(prevEye);
   sfx.enter(P.idx);
@@ -1861,6 +1861,21 @@ function setCubeState(c, pos, q, lin, ang) {
   c.body.setLinvel(lin || { x: 0, y: 0, z: 0 }, true); c.body.setAngvel(ang || { x: 0, y: 0, z: 0 }, true);
   c.p.set(pos.x, pos.y, pos.z); if (q) c.q.set(q.x, q.y, q.z, q.w); if (lin) c.v.set(lin.x, lin.y, lin.z); else c.v.set(0, 0, 0);
 }
+// Where a lost cube comes back: its own spot, unless the player has left that part of the chamber behind (a gantry you
+// can't climb back to); then it drops just in front of the player, on solid floor away from acid.
+function cubeHome(c) {
+  const sp = new V3(...c.spawn), pl = player;
+  if (state !== "play" || Math.abs(pl.p.y - HY - (sp.y - 0.35)) < 2.5) return sp;
+  const f = viewDir(new V3()); f.y = 0; if (f.lengthSq() < 1e-4) f.set(0, 0, -1); f.normalize();
+  for (const d of [1.4, 1.0, -1.2]) {
+    const q = pl.p.clone().addScaledVector(f, d); q.y = pl.p.y + 0.4;
+    if (inAny(world.solids, q.x, q.y, q.z)) continue;
+    const fy = floorBelow(q.x, q.y, q.z, 4); if (fy === null || fy < pl.p.y - HY - 0.6) continue;
+    if (world.acid.some(a => q.x > a.x0 && q.x < a.x1 && q.z > a.z0 && q.z < a.z1)) continue;
+    return new V3(q.x, fy + 0.6, q.z);
+  }
+  return sp;
+}
 // before the physics step: which walls each cube may pass into (it is in front of a portal opening)
 function cubesBeforeStep() {
   for (const c of world.cubes) {
@@ -1887,13 +1902,16 @@ function cubesAfterStep() {
         }
       }
     }
-    for (const a of world.acid) if (c.p.x > a.x0 && c.p.x < a.x1 && c.p.z > a.z0 && c.p.z < a.z1 && c.p.y - 0.35 < a.y + 0.1) { respawnCube(c); break; }
-    if (c.p.y < -30) respawnCube(c);
+    if (c.held) { c.lostT = 0; continue; }
+    const inAcid = world.acid.some(a => c.p.x > a.x0 && c.p.x < a.x1 && c.p.z > a.z0 && c.p.z < a.z1 && c.p.y - 0.35 < a.y + 0.1);
+    const inside = world.air.some(a => c.p.x > a.min[0] - 0.6 && c.p.x < a.max[0] + 0.6 && c.p.y > a.min[1] - 0.6 && c.p.y < a.max[1] + 0.6 && c.p.z > a.min[2] - 0.6 && c.p.z < a.max[2] + 0.6);
+    c.lostT = inAcid || c.p.y < -30 ? 1 : inside ? 0 : (c.lostT || 0) + 1 / 120;
+    if (c.lostT > 0.5 && (player.ground || state !== "play")) respawnCube(c);
   }
 }
 function respawnCube(c) {
   sfx.fizzle(); if (holding === c) dropCube(true);
-  c.held = false; setCubeState(c, new V3(...c.spawn), new QT());
+  c.held = false; c.lostT = 0; setCubeState(c, cubeHome(c), new QT());
   if (!run.said.cube) { run.said.cube = 1; say("sadosCube"); }
 }
 function floorBelow(x, y, z, maxD) {            // y of the first solid surface straight under a point, or null
@@ -1961,18 +1979,21 @@ function dropCube(quiet) {
 }
 // the held cube rides a spring towards a point in front of the eye, so it bumps into walls instead of passing through them
 const _hq = new QT(), _he = new THREE.Euler();
-function holdUpdate(dt) {
-  const c = holding; if (!c) return;
+function holdTarget() {             // the point in front of the eye where a held cube wants to be (rays follow portals)
   const eye = eyePos(new V3()), f = viewDir(new V3());
   const ray = castRay(eye, f, 2.2, false);
   const dist = Math.max(0.9, Math.min(1.75, ray.hit ? ray.hit.dist - 0.5 : 1.75));
-  const target = pathPoint(ray, dist) || eye.clone().addScaledVector(f, dist);
+  return { target: pathPoint(ray, dist) || eye.clone().addScaledVector(f, dist), ray, dist };
+}
+function holdUpdate(dt) {
+  const c = holding; if (!c) return;
+  const { target, ray, dist } = holdTarget();
   const gap = tmpA.copy(target).sub(c.p);
   const viaPortal = ray.segs.length > 1 && dist > ray.segs[0].len;
   if (gap.length() > 1.4 && viaPortal) { setCubeState(c, target, c.q); c.pv.copy(target); c.snag = 0; return; }   // held out through a portal: it goes through
-  c.snag = gap.length() > 1.2 ? (c.snag || 0) + dt : 0;
+  c.snag = gap.length() > 1.2 && player.ground ? (c.snag || 0) + dt : 0;      // never let go in mid-air
   if (c.snag > 0.5) { dropCube(); return; }                    // snagged on something for a while: let go rather than pull it through a wall
-  gap.multiplyScalar(16).clampLength(0, 24); c.body.setLinvel(gap, true);
+  gap.multiplyScalar(16).clampLength(0, 24).add(player.v); c.body.setLinvel(gap, true);   // moves with you, plus a spring towards the spot
   // turn it to face the player, keeping it level
   _hq.setFromEuler(_he.set(0, player.yaw, 0)); const dq = _hq.multiply(tmpQ.copy(c.q).invert());
   if (dq.w < 0) { dq.x = -dq.x; dq.y = -dq.y; dq.z = -dq.z; dq.w = -dq.w; }
@@ -2053,14 +2074,14 @@ function physicsStep(dt) {
 function die(kind) {
   if (state !== "play") return;
   state = "dead"; run.deadT = 0; sfx.death(); flash("r"); player.hp = 0;
-  if (holding) dropCube();
+  if (holding) { const c = holding; dropCube(true); c.returnOnRespawn = true; }
   say("death");
 }
 function respawn() {
   const s = world.lv.start, pl = player;
   pl.p.set(s.pos[0], s.pos[1] + HY, s.pos[2]); pl.v.set(0, 0, 0); pl.yaw = s.yaw; pl.pitch = s.pitch; pl.ground = false;
   cam.roll = 0; camOffset.set(0, 0, 0); eyePos(prevEye); state = "play"; pl.hp = 100; run.sinceHit = 9; hurtFlash = 0;
-  for (const c of world.cubes) if (c.p.y < world.lv.start.pos[1] - 40) respawnCube(c);
+  for (const c of world.cubes) if (c.p.y < world.lv.start.pos[1] - 40 || c.returnOnRespawn) { c.returnOnRespawn = false; respawnCube(c); }
 }
 function resetLevelState() {
   run.time = 0; run.portals = 0; run.top = 0; run.idle = 0; run.hinted = 0; run.said = {}; run.deadT = 0; holding = null;
@@ -2777,6 +2798,7 @@ let beamHum = 0;
 function updateBeams(dt, time) {
   if (!world) return; const pl = player, alive = state === "play";
   for (const r of world.receivers) r.lit = false;
+  const carried = holding; if (carried) carried.held = false;      // rays skip held cubes; light shouldn't, so a carried cube is a shield
   for (const b of world.beams) {
     const res = castRay(b.o, b.dir, 160, true, true);
     let i = 0;
@@ -2801,6 +2823,7 @@ function updateBeams(dt, time) {
       if (Math.random() < dt * 30) fxSpark(h.point.clone().addScaledVector(res.dir, -0.05));
     }
   }
+  if (carried) carried.held = true;
   for (const r of world.receivers) {
     if (r.lit && !r.wasLit) { sfx.lit(); if (!run.said.lit) { run.said.lit = 1; say("receiverOn"); } } r.wasLit = r.lit;
     r.glow += ((r.lit ? 1 : 0) - r.glow) * Math.min(1, dt * 8); const k = .45 + r.glow * 1.25; r.mat.color.setRGB(k, k * (.95 + r.glow * .05), k * (1 - r.glow * .2));
