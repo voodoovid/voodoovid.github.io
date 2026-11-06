@@ -40,7 +40,8 @@ def main(model, voices):
     with tempfile.TemporaryDirectory() as tmp:
         natural = os.path.join(tmp, "natural"); os.makedirs(natural)
         for t in todo:
-            samples, sr = kokoro.create(t["text"], voice="af_heart", speed=1.0, lang="en-us")
+            speak = t["text"].replace("SaDos", "Sahdos")      # her name is said "SAH-dos"
+            samples, sr = kokoro.create(speak, voice="af_heart", speed=1.0, lang="en-us")
             wav = os.path.join(tmp, t["hash"] + ".wav"); sf.write(wav, np.asarray(samples, dtype=np.float32), sr)
             subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", wav, "-codec:a", "libmp3lame", "-b:a", "96k", os.path.join(natural, t["hash"] + ".mp3")], check=True)
             print("spoke", t["hash"], t["text"][:60])
@@ -58,6 +59,7 @@ def main(model, voices):
     new = [f'"test-chambers/voice/{h}.mp3"' for h in durs if f"test-chambers/voice/{h}.mp3" not in sw]
     if new:
         sw = sw.replace('"test-chambers/lines.js",', '"test-chambers/lines.js", ' + ", ".join(new) + ",", 1)
+    if durs:                     # new or re-recorded clips: a new cache name makes installed copies fetch them
         sw = re.sub(r'const CACHE = "voodoovid-games-v(\d+)";', lambda k: f'const CACHE = "voodoovid-games-v{int(k.group(1)) + 1}";', sw, 1)
         open(sw_path, "w").write(sw)
     json.dump([], open(os.path.join(TC, "voice-todo.json"), "w"))

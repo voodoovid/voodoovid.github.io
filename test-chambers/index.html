@@ -381,7 +381,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 await RAPIER.init();
 
-const VERSION = "v3.1";
+const VERSION = "v3.2";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -2596,12 +2596,13 @@ let padFire = [false, false];
   GamePad.init({
     map: {
       a: d => { if (d && state === "play") inp.jumpQ = true; }, x: d => { if (d && state === "play") useAction(); }, y: d => { if (d && state === "play") beginLevel(levelIdx, true); },
-      lb: fire(0), lt: fire(0), rb: fire(1), rt: fire(1), start: d => { if (d) { if (state === "play") pause(); else if (state === "paused") resume(); } }
+      lb: fire(0), lt: fire(0), rb: fire(1), rt: fire(1),
+      start: d => { if (!d) return; if (anyOv() === "ovDone" && !$("bNext").hidden) { $("bNext").click(); return; } if (state === "play") pause(); else if (state === "paused") resume(); }
     },
-    menu: anyOv,
+    menu: () => { const o = anyOv(); return o ? $(o) : null; },       // the open card itself, so the d-pad can move between its buttons
     menuBack: d => { if (!d) return; const o = anyOv(); if (o === "ovPause") resume(); else if (o === "ovChambers") showOv(chFrom); else if (o === "ovOptions") showOv(optsFrom); else if (o === "ovHow") showOv(howFrom); },
     autoStart: () => { if (!$("ovTitle").hidden) $("bPlay").click(); },
-    help: ["In a chamber", ["Left stick", "Walk"], ["Right stick", "Look"], ["LT / LB", "Blue portal"], ["RT / RB", "Orange portal"], ["A", "Jump"], ["X", "Pick up / put down the cube"], ["Y", "Restart chamber"], ["Start", "Pause"], ["Select", "This screen"],
+    help: ["In a chamber", ["Left stick", "Walk"], ["Right stick", "Look"], ["LT / LB", "Blue portal"], ["RT / RB", "Orange portal"], ["A", "Jump"], ["X", "Pick up / put down the cube"], ["Y", "Restart chamber"], ["Start", "Pause · next chamber on the results card"], ["Select", "This screen"],
       "In menus", ["↑ ↓ ← →", "Move the highlight"], ["A", "Press"], ["B", "Back"]]
   });
   $("vOpt").before(GamePad.settingsButton());
