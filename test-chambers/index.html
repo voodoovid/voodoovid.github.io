@@ -120,7 +120,9 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
 .opt button, .opt select { font: 700 13px var(--font); letter-spacing: .12em; padding: 8px 14px; min-width: 84px; border-radius: 3px; border: 1px solid rgba(255,255,255,.4); background: rgba(255,255,255,.08); color: var(--ink); text-transform: uppercase; }
 .opt button.on { background: #f2f5f7; color: #0b0f13; }
 .opt input[type=range] { width: 170px; accent-color: #fff; }
-.grid5 { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 10px; }
+.grid5 { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; margin-top: 10px; }
+#ovChambers .card { width: min(880px, 100%); overflow-y: auto; }
+#ovChambers .chbtn { padding: 10px 12px; } #ovChambers .chbtn b { font-size: 22px; } #ovChambers .chbtn span { font-size: 10.5px; letter-spacing: .1em; }
 .chbtn { text-align: left; padding: 14px; border: 1px solid rgba(255,255,255,.28); border-radius: 3px; background: rgba(255,255,255,.05); color: var(--ink); cursor: pointer; font-family: var(--font); }
 .chbtn b { display: block; font-size: 30px; font-weight: 800; letter-spacing: .04em; }
 .chbtn span { display: block; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); margin-top: 4px; font-weight: 700; }
@@ -308,7 +310,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
             <li><b>BLUE</b> / <b>ORANGE</b>: fire that portal at the crosshair.</li>
             <li><b>JUMP</b>. <b>GRAB</b>: pick up or put down a cube, or tip over a sentry.</li></ul></div>
           <div class="gsec"><h3>Trackpad &amp; keyboard</h3><ul>
-            <li><b>Slide</b> on the trackpad to look around. At the screen edge it keeps turning.</li>
+            <li><b>Click once</b> and the pointer locks to the centre, under the gun's sights. Then <b>slide</b> on the trackpad to look around.</li>
             <li><b>Two-finger swipe up / down</b> to walk forward / back; sideways to sidestep.</li>
             <li><b>Click</b>: blue portal. <b>Two-finger click</b> (or right click): orange.</li>
             <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows walk &middot; <kbd>Space</kbd> jump &middot; <kbd>E</kbd> grab</li>
@@ -379,7 +381,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 await RAPIER.init();
 
-const VERSION = "v3.0";
+const VERSION = "v3.1";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -732,7 +734,8 @@ function level5() {
 /* ---------- chambers 6 to 12: sentries, light beams, reset fields ---------- */
 // a rectangular hall along +x: floor at y = 0, optional acid pits, an exit alcove (door optional) at x = L
 function hall(o) {
-  const L = o.L, Wd = o.W || 12, H = o.H || 7, zc = o.zc || Wd / 2, B = [], air = [[0, 0, 0, L, H, Wd]], acid = [], lamps = [], fixtures = [];
+  // o.ey: the exit stands on a ledge this high (o.ledge deep, dark face unless o.ledgeMat), reached some other way than walking
+  const L = o.L, Wd = o.W || 12, H = o.H || 7, zc = o.zc || Wd / 2, ey = o.ey || 0, B = [], air = [[0, 0, 0, L, H, Wd]], acid = [], lamps = [], fixtures = [];
   let x = -2;
   for (const [a, b] of (o.pits || [])) {
     B.push(bx(x, -4, -2, a, 0, Wd + 2)); B.push(bx(a, -6, -2, b, -4, Wd + 2, "dark")); x = b;
@@ -740,21 +743,24 @@ function hall(o) {
   }
   B.push(bx(x, -4, -2, L, 0, Wd + 2));
   B.push(bx(-2, -6, -2, L + 6, H + 2, 0)); B.push(bx(-2, -6, Wd, L + 6, H + 2, Wd + 2)); B.push(bx(-2, -6, 0, 0, H + 2, Wd)); B.push(bx(-2, H, 0, L, H + 2, Wd));
-  alcove(B, L, 0, Wd, zc, 3, 0, 3.2, 4, -6, H + 2);
-  air.push([L, 0, zc - 1.5, L + 4, 3.2, zc + 1.5]);
+  alcove(B, L, 0, Wd, zc, 3, ey, 3.2, 4, -6, H + 2);
+  air.push([L, ey, zc - 1.5, L + 4, ey + 3.2, zc + 1.5]);
+  if (ey > 0) { const d = o.ledge || 5; B.push(bx(L - d, 0, 0, L, ey, Wd, o.ledgeMat || "dark")); }
   for (let lx = 4; lx < L; lx += 9) { lamps.push(lamp(lx, H - .3, Wd / 2, .55, 10)); fixtures.push([lx, H, Wd / 2]); }
-  lamps.push(lamp(L + 2.2, 2.9, zc, .75, 5, ...WARM));
+  lamps.push(lamp(L + 2.2, ey + 2.9, zc, .75, 5, ...WARM));
   return {
-    boxes: B, air, acid, lamps, fixtures, H, zc,
-    exit: { min: [L + 2, 0, zc - 1.2], max: [L + 4, 2.4, zc + 1.2] }, exitLight: { x: L + 3.97, y0: .4, y1: 2.8, z0: zc - 1.1, z1: zc + 1.1 },
-    doors: [], plates: [], cubes: [], sentries: [], beams: [], receivers: [], fields: [],
-    signs: [{ kind: "exit", a: "EXIT", pos: [L, 4.4, zc], n: [-1, 0, 0], w: 2.2, h: .75 }],
+    boxes: B, air, acid, lamps, fixtures, H, zc, ey,
+    exit: { min: [L + 2, ey, zc - 1.2], max: [L + 4, ey + 2.4, zc + 1.2] }, exitLight: { x: L + 3.97, y0: ey + .4, y1: ey + 2.8, z0: zc - 1.1, z1: zc + 1.1 },
+    doors: [], plates: [], cubes: [], sentries: [], beams: [], receivers: [], fields: [], pads: [],
+    signs: [{ kind: "exit", a: "EXIT", pos: [L, ey + 4.4, zc], n: [-1, 0, 0], w: 2.2, h: .75 }],
     start: { pos: [2, 0, Wd / 2], yaw: -Math.PI / 2, pitch: -0.05 }
   };
 }
 const chSign = (num, name, x, w = 4.4) => ({ kind: "chamber", a: "TEST CHAMBER " + String(num).padStart(2, "0"), b: name, pos: [x, 4.3, 0], n: [0, 0, 1], w, h: 1.15 });
 const hint = (a, pos, n, w = 4, h = .9) => ({ kind: "hint", a, pos, n, w, h });
-const exitDoor = (L, zc, id = "d1", need = 1) => ({ id, min: [L, 0, zc - 1.5], max: [L + .6, 3.2, zc + 1.5], rise: 3.5, need });
+const exitDoor = (L, zc, id = "d1", need = 1, y = 0) => ({ id, min: [L, y, zc - 1.5], max: [L + .6, y + 3.2, zc + 1.5], rise: 3.5, need });
+// launch pad velocity that lands a body starting at `from` on `to` after T seconds
+const launchTo = (from, to, T) => [(to[0] - from[0]) / T, (to[1] - from[1]) / T + 0.5 * GRAV * T, (to[2] - from[2]) / T];
 // a wall with a doorway (z0..z1, up to 3.2) at x = X, thickness t
 function partition(B, X, t, Wd, H, z0, z1) { B.push(bx(X, 0, 0, X + t, H, z0)); B.push(bx(X, 0, z1, X + t, H, Wd)); B.push(bx(X, 3.2, z0, X + t, H, z1)); }
 
@@ -870,12 +876,172 @@ function level12() {
     say: {
       intro: ["Last chamber. It uses everything: the cube, the light, the field, and the sentries, who have been waiting.", "I would wish you luck. I would also be lying, and I only do that when I have to."],
       hint: ["The door needs both the plate and the receiver. The light and the cube must cross the wall separately. Think about what the portals can carry, and when."],
-      done: ["Testing complete. You were not the best subject. You were, however, the most recent."]
+      done: ["Twelve chambers. That was the easy half. I did not mention there was another half. I am mentioning it now."]
     }
   });
 }
 
-const LEVEL_FUNCS = [level1, level2, level3, level4, level5, level6, level7, level8, level9, level10, level11, level12];
+/* ---------- chambers 13 to 24: launch pads, raised exits, flings, and everything together ----------
+   Original layouts. They follow the usual craft of portal puzzles: show one idea on its own, then make it matter,
+   then combine it with the others, and close the obvious shortcuts with dark panels so the intended idea is the way through. */
+function darken(b) { b.mat = "dark"; b.portal = false; return b; }
+const skin = (x0, y0, z0, x1, y1, z1) => bx(x0, y0, z0, x1, y1, z1, "dark");    // a dark skin over a white surface
+function level13() {
+  const L = 28, h = hall({ L, W: 12, H: 8, zc: 6, pits: [[8, 18]] });
+  for (const b of h.boxes) darken(b);                         // no white anywhere: the pad is the only way across
+  h.pads = [{ pos: [4.5, 0, 6], from: [4.5, 0.92, 6], to: [21.5, 0.92, 6], T: 1.15 }];
+  h.cubes = [[3, 0.35, 9.5]]; h.plates = [{ pos: [24, 0, 6], door: "d1" }]; h.doors = [exitDoor(L, 6)];
+  h.signs.push(chSign(13, "AIR MAIL", 4.6), hint("THE PAD THROWS WHATEVER IS ON IT", [5, 3.2, 12], [0, 0, -1], 5.2, 1));
+  return Object.assign(h, { num: 13, name: "Air Mail", track: 0, say: {
+    intro: ["Welcome to the second half. I have installed launch pads. They are like stairs, but faster and less forgiving.", "There are no white panels in here. Your portal gun is, for once, purely decorative."],
+    hint: ["Step on the pad with the cube in your hands. It throws whatever is on it. Including you."],
+    done: ["You flew a cube across an acid pit. Somewhere, a postal service is weeping with envy."] } });
+}
+function level14() {
+  const L = 24, h = hall({ L, W: 12, H: 11, zc: 6, ey: 5, ledge: 6 });
+  h.cubes = [[4, 0.35, 9]]; h.plates = [{ pos: [20.5, 5, 9], door: "d1" }]; h.doors = [exitDoor(L, 6, "d1", 1, 5)];
+  h.sentries = [{ pos: [22.5, 5, 10.5], yaw: Math.PI / 2, range: 14 }];
+  h.lamps.push(lamp(21, 10.6, 6, .5, 9));
+  h.signs.push(chSign(14, "UPSTAIRS", 4.6), hint("THE EXIT IS UP THERE", [12, 7.5, 12], [0, 0, -1], 4.2, 1));
+  return Object.assign(h, { num: 14, name: "Upstairs", track: 1, say: {
+    intro: ["The exit is on a ledge. The ledge has no stairs. I removed them. They were making things too easy.", "The plate up there wants the cube down here. And the sentry up there wants you."],
+    hint: ["The wall above the ledge is white. Put a portal there, and one down here, and take the cube with you. Then come at the sentry from behind."],
+    done: ["You went upstairs without stairs. Your ancestors would be confused, and a little proud."] } });
+}
+function level15() {
+  const L = 34, h = hall({ L, W: 12, H: 18, zc: 6, pits: [[6, 17]] });
+  h.boxes.push(bx(0, 13, 0, 5, 14, 4));
+  h.start = { pos: [2.5, 14, 2], yaw: Math.PI, pitch: -0.3 };
+  h.cubes = [[21, 0.35, 10]]; h.plates = [{ pos: [27, 0, 6], door: "d1" }]; h.doors = [exitDoor(L, 6)];
+  h.lamps.push(lamp(3, 9, 6, .45, 9));
+  h.signs.push(chSign(15, "LONG JUMP", 9, 5), hint("HIGHER OUT, FURTHER ACROSS", [0, 9, 8], [1, 0, 0], 4.4, 1));
+  return Object.assign(h, { num: 15, name: "Long Jump", track: 2, say: {
+    intro: ["This pit is longer than the last one. I measured it myself, with a subject.", "What goes in fast comes out fast. Where it comes out is up to you."],
+    hint: ["Fall into a floor portal and leave by one high on the back wall. The higher it is, the further you fly before you land."],
+    done: ["You cleared it. I have updated the record, and the subject I measured it with."] } });
+}
+function level16() {
+  const L = 34, W = 14, H = 12, h = hall({ L, W, H, zc: 7, pits: [[9, 26]] });
+  const B = h.boxes;
+  // the near side is dark except for one window high on the right-hand wall, which only the pad's arc can reach
+  B.push(skin(0, 0, 0, 9.6, 0.02, W), skin(0, 0, 0, 0.1, H, W), skin(0, 0, 0, 12, H, 0.1));
+  B.push(skin(0, 0, W - 0.1, 5.5, H, W), skin(9.5, 0, W - 0.1, 12, H, W), skin(5.5, 0, W - 0.1, 9.5, 4.5, W), skin(5.5, 9, W - 0.1, 9.5, H, W));
+  B.push(skin(0, H - 0.1, 0, 12, H, W));
+  h.pads = [{ pos: [4, 0.02, 7], from: [4, 0.94, 7], to: [7.5, 6.8, 13.6], T: 0.75 }];
+  h.signs.push(chSign(16, "BOUNCE", 4.6), hint("CATCH YOURSELF IN MID AIR", [7.5, 10.2, 14], [0, 0, -1], 4.2, .9));
+  return Object.assign(h, { num: 16, name: "Bounce", track: 0, say: {
+    intro: ["The pad throws you at a wall. This is not a mistake. Well. It is not only a mistake.", "There is one white panel on this side, and it is very high up. You will be very high up too, briefly."],
+    hint: ["Put one portal on that high window, and the other one across the pit. Then let the pad throw you into the window."],
+    done: ["You turned a wall into a door, in mid air. I have seen worse ideas succeed, but not many."] } });
+}
+function level17() {
+  const L = 30, h = hall({ L, W: 12, H: 9, zc: 6 });
+  h.boxes.push(bx(14, 0, 1.5, 15.5, 9, 4.5));
+  h.beams = [{ pos: [0.02, 1.15, 3], dir: [1, 0, 0] }];
+  h.receivers = [{ pos: [21, 9, 9], n: [0, -1, 0], w: 2.2, h: 2.2, door: "d1" }];
+  h.cubes = [[3, 0.35, 10]]; h.plates = [{ pos: [24, 0, 3], door: "d1" }]; h.doors = [exitDoor(L, 6, "d1", 2)];
+  h.signs.push(chSign(17, "SKYLIGHT", 4.6), hint("THE TARGET IS ON THE CEILING", [21, 4, 12], [0, 0, -1], 4.6, 1));
+  return Object.assign(h, { num: 17, name: "Skylight", track: 1, say: {
+    intro: ["The receiver is on the ceiling. The laser is on the floor. They have never met. You are going to introduce them.", "The door also wants the cube on its plate. It is a door with expensive tastes."],
+    hint: ["Light goes up out of a floor portal just as happily as it goes sideways. Catch the beam on the pillar, and send it up from right under the target."],
+    done: ["You sent light through the floor and into the ceiling. The building is impressed. I am cautiously neutral."] } });
+}
+function level18() {
+  const L = 32, h = hall({ L, W: 12, H: 7, zc: 6 });
+  h.fields = [{ min: [15.85, 0, 0], max: [16.15, 7, 12] }];
+  h.cubes = [[24, 0.35, 10]]; h.plates = [{ pos: [8, 0, 3], door: "d1" }]; h.doors = [exitDoor(L, 6)];
+  h.signs.push(chSign(18, "FIELD TRIP", 4.6), hint("THE CUBE LIVES OVER THERE. THE PLATE LIVES HERE.", [8, 3.2, 12], [0, 0, -1], 6, 1));
+  return Object.assign(h, { num: 18, name: "Field Trip", track: 2, say: {
+    intro: ["The field runs wall to wall. You can walk through it. The cube cannot. Your portals will not survive it either.", "The cube is on the far side. The plate is on this side. You see the difficulty."],
+    hint: ["Fetch the cube by portal, not on foot. Set the portals up from the far side, shooting back through the field, then carry it through."],
+    done: ["The cube went through a wall without touching the field. That is called thinking with doors."] } });
+}
+function level19() {
+  const L = 40, h = hall({ L, W: 10, H: 9, zc: 5 });
+  h.beams = [10, 13, 16].map(x => ({ pos: [x, 1.1, 0.02], dir: [0, 0, 1] }));
+  h.pads = [{ pos: [5, 0, 5], from: [5, 0.92, 5], to: [22, 0.92, 5], T: 1.2 }];
+  h.cubes = [[3, 0.35, 8]]; h.plates = [{ pos: [26, 0, 5], door: "d1" }]; h.doors = [exitDoor(L, 5)];
+  h.sentries = [{ pos: [36.5, 0, 1.5], yaw: Math.PI / 2, range: 9 }, { pos: [36.5, 0, 8.5], yaw: Math.PI / 2, range: 9 }];
+  h.signs.push(chSign(19, "GAUNTLET", 4.6), hint("OVER THE LIGHT, NOT THROUGH IT", [13, 3.4, 10], [0, 0, -1], 4.6, 1));
+  return Object.assign(h, { num: 19, name: "Gauntlet", track: 0, say: {
+    intro: ["Three lasers, three sentries, one cube. I call it a gauntlet. The sentries call it lunch.", "There is a pad. There is always a pad now. I have grown fond of them."],
+    hint: ["Take the cube onto the pad and you will both fly over the lasers. The sentries guard the door, so do not walk up to them. Arrive behind them instead."],
+    done: ["You ran the gauntlet. It ran out of ideas before you did. Do not let it go to your head."] } });
+}
+function level20() {
+  const L = 44, h = hall({ L, W: 12, H: 22, zc: 6, pits: [[8, 18], [26, 35]] });
+  const B = h.boxes;
+  B.push(bx(0, 15, 0, 6, 16, 4));                                      // the start gantry
+  B.push(bx(18, 0, 0, 26, 10, 12));                                    // the island
+  B.push(skin(0, 21.9, 0, L, 22, 12));                               // a dark ceiling
+  B.push(skin(35, 0, 0, L, 0.02, 12), skin(26, 0, 0, L, 22, 0.1), skin(26, 0, 11.9, L, 22, 12));   // the far side is dark
+  h.start = { pos: [3, 16, 2], yaw: Math.PI, pitch: -0.3 };
+  h.pads = [{ pos: [24.5, 10, 2], from: [24.5, 10.92, 2], to: [38.5, 0.92, 6], T: 1.15 }];       // off to one side, so a fast landing doesn't slide onto it
+  h.cubes = [[20.5, 10.35, 9.5]]; h.plates = [{ pos: [40, 0, 6], door: "d1" }]; h.doors = [exitDoor(L, 6)];
+  h.lamps.push(lamp(3, 12, 6, .45, 10), lamp(22, 16, 6, .5, 10));
+  h.signs.push(chSign(20, "SECOND WIND", 10, 5), hint("ISLAND FIRST", [0, 10, 8], [1, 0, 0], 3, .9));
+  return Object.assign(h, { num: 20, name: "Second Wind", track: 1, say: {
+    intro: ["Two pits. One island. One cube, which is on the island, because I put it there.", "Get to the island. Then get off the island. In that order, ideally."],
+    hint: ["A fall from the gantry, out of a portal high on the back wall, lands you on the island. The pad there will do the rest. Take the cube."],
+    done: ["Two pits, no swimming. You are becoming difficult to impress, which makes two of us."] } });
+}
+function level21() {
+  const L = 32, h = hall({ L, W: 12, H: 12, zc: 6 });
+  h.boxes.push(bx(0, 7, 0, 5, 8, 12));                                 // the balcony you start on
+  h.boxes.push(bx(16, 0, 0, 20, 5, 4));                                // the shelf the cube sits on
+  h.boxes.push(bx(20, 0, 9.5, 21, 9, 11.5));                           // a white pillar in the beam's path
+  h.start = { pos: [2.5, 8, 6], yaw: -Math.PI / 2, pitch: -0.3 };
+  h.cubes = [[18, 5.35, 2]]; h.plates = [{ pos: [8, 0, 7], door: "d1" }];
+  h.beams = [{ pos: [0.02, 1.15, 10.5], dir: [1, 0, 0] }];
+  h.receivers = [{ pos: [26, 4, 0], n: [0, 0, 1], w: 2.2, h: 2.2, door: "d1" }];
+  h.doors = [exitDoor(L, 6, "d1", 2)];
+  h.sentries = [{ pos: [30.5, 0, 10.5], yaw: Math.PI / 2, cone: 40, range: 6 }];
+  h.signs.push(chSign(21, "RETRIEVAL", 10), hint("WHAT IS UP CAN COME DOWN", [18, 6.6, 12], [0, 0, -1], 4.4, 1));
+  return Object.assign(h, { num: 21, name: "Retrieval", track: 2, say: {
+    intro: ["The cube is on a shelf you cannot reach. The door wants it on a plate you can. It also wants the laser on its target.", "One pair of portals, two jobs. You will have to take turns."],
+    hint: ["A portal under the cube lets it fall to you. Once it is on the plate, use the portals again for the light: the pillar, then high on the far wall."],
+    done: ["You brought the cube down and the light round. Multitasking. I did not know you had it in you."] } });
+}
+function level22() {
+  const L = 34, h = hall({ L, W: 12, H: 9, zc: 6, pits: [[10, 26]] });
+  h.boxes.push(bx(10, -4, 4.5, 26, 0, 7.5));                           // a white bridge over the acid
+  h.boxes.push(bx(6, 0, 1.5, 7, 2.4, 4.5, "dark"), bx(6, 0, 7.5, 7, 2.4, 10.5, "dark"));   // cover at the start
+  h.sentries = [{ pos: [15, 0, 6], yaw: Math.PI / 2, range: 13 }, { pos: [19, 0, 6], yaw: Math.PI / 2, range: 13 }, { pos: [23, 0, 6], yaw: Math.PI / 2, range: 13 }];
+  h.doors = [];
+  h.signs.push(chSign(22, "DISPOSAL", 4.6), hint("THE BRIDGE TAKES PORTALS", [5, 3.4, 12], [0, 0, -1], 4.2, 1));
+  return Object.assign(h, { num: 22, name: "Disposal", track: 0, say: {
+    intro: ["Three sentries are standing on the only bridge. They are not moving, and neither, for now, are you.", "I am told they are very expensive. I am also told they are very heavy."],
+    hint: ["Open a portal under a sentry and it falls through. Put the other portal somewhere it will not enjoy coming out of. Above the acid, for example."],
+    done: ["You threw away three sentries. I will be invoicing you. I will be invoicing you in my head."] } });
+}
+function level23() {
+  const L = 50, W = 12, H = 16, h = hall({ L, W, H, zc: 6, pits: [[10, 44]] });
+  const B = h.boxes;
+  B.push(skin(10, 0, 0, L, H, 0.1), skin(10, 0, W - 0.1, L, H, W), skin(10, H - 0.1, 0, L, H, W), skin(44, 0, 0, L, 0.02, W));
+  h.signs.push(chSign(23, "TERMINAL VELOCITY", 4, 5.6), hint("FALLING IS FREE. KEEP DOING IT.", [5, 4, 12], [0, 0, -1], 4.8, 1));
+  h.lamps.push(lamp(5, 14, 6, .5, 10));
+  return Object.assign(h, { num: 23, name: "Terminal Velocity", track: 1, say: {
+    intro: ["This pit is thirty four metres long. Nothing in here can throw you that far. Except gravity, if you let it practise.", "There is a floor and a ceiling over here. You may have noticed they line up."],
+    hint: ["Floor portal, ceiling portal straight above it, and fall. Keep falling. When you are fast enough, move the ceiling portal to the back wall."],
+    done: ["Seventy metres a second. You have never been more streamlined. Or more like a projectile."] } });
+}
+function level24() {
+  const L = 40, W = 14, h = hall({ L, W, H: 10, zc: 7, pits: [[6, 14]] });
+  h.pads = [{ pos: [3.5, 0, 7], from: [3.5, 0.92, 7], to: [17.5, 0.92, 7], T: 1.15 }];
+  h.fields = [{ min: [23.85, 0, 0], max: [24.15, 10, W] }];
+  h.boxes.push(bx(34, 0, 1.5, 36, 3, 2.5));                           // pillar beside the emitter
+  h.beams = [{ pos: [35, 1.15, 0.02], dir: [0, 0, 1] }];
+  h.receivers = [{ pos: [30, 7, 0], n: [0, 0, 1], w: 2.2, h: 2.2, door: "d1" }];
+  h.cubes = [[2, 0.35, 11]]; h.plates = [{ pos: [31, 0, 10.5], door: "d1" }]; h.doors = [exitDoor(L, 7, "d1", 2)];
+  h.sentries = [{ pos: [38.5, 0, 2], yaw: Math.PI / 2, cone: 40, range: 6 }, { pos: [38.5, 0, 12], yaw: Math.PI / 2, cone: 40, range: 6 }];   // they guard the corners: keep to the middle
+  h.signs.push(chSign(24, "FINAL EXAM", 9.6, 5), hint("PAD. FIELD. LIGHT. CUBE. DOOR.", [20, 3.4, 14], [0, 0, -1], 5, 1));
+  return Object.assign(h, { num: 24, name: "Final Exam", track: 2, say: {
+    intro: ["The final chamber. A pad, a pit, a field, a laser, a cube, two sentries, and a door that wants all of it.", "I have prepared a speech for when you finish. I have also prepared one for when you do not. Both are short."],
+    hint: ["Fly the cube over the pit, take it through the field by portal, put it on the plate. Then catch the light at the pillar and send it up to the target."],
+    done: ["Testing is complete. All of it. You may go. I will be here, grading."] } });
+}
+
+const LEVEL_FUNCS = [level1, level2, level3, level4, level5, level6, level7, level8, level9, level10, level11, level12, level13, level14, level15, level16, level17, level18, level19, level20, level21, level22, level23, level24];
 
 /* =====================================================================================
    Renderer, scene, portals
@@ -1120,65 +1286,61 @@ const gunCore = new THREE.MeshBasicMaterial({ color: new THREE.Color("#2fa4ff").
 const gunRingMat = new THREE.MeshBasicMaterial({ color: new THREE.Color("#2fa4ff").multiplyScalar(1.3) });
 const gunLedB = new THREE.MeshBasicMaterial({ color: 0x143a5a }), gunLedO = new THREE.MeshBasicMaterial({ color: 0x5a3414 });
 const gunParts = { rings: new THREE.Group(), prongs: new THREE.Group(), core: null, flash: null, trigger: null, cells: [] };
+// The gun ("Gyre", an original design): a gunmetal body with glowing vents between its fins, ending in an open ring emitter
+// where two copper gimbal rings spin round a floating core. Two thin matte struts hold the ring.
 {
-  const ceramic = new THREE.MeshStandardMaterial({ color: 0xf2f4f6, roughness: .24, metalness: .06, envMapIntensity: 1.1 });
-  const ceramic2 = new THREE.MeshStandardMaterial({ color: 0xdde2e7, roughness: .32, metalness: .1, envMapIntensity: 1.1 });
-  const graphite = new THREE.MeshStandardMaterial({ color: 0x22272c, roughness: .42, metalness: .7, envMapIntensity: 1.2 });
-  const steel = new THREE.MeshStandardMaterial({ color: 0xb4bcc4, roughness: .2, metalness: .95, envMapIntensity: 1.4 });
-  const glass = new THREE.MeshStandardMaterial({ color: 0xc8dcea, roughness: .05, metalness: 0, transparent: true, opacity: .3, envMapIntensity: 1.6, depthWrite: false });
-  const along = m => { m.rotation.x = Math.PI / 2; return m; };
-  const cyl = (rt, rb, h, seg, mat, z) => { const m = along(new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat)); m.position.z = z; gun.add(m); return m; };
-  const tor = (r, t, mat, z, parent) => { const m = new THREE.Mesh(new THREE.TorusGeometry(r, t, 14, 48), mat); m.position.z = z; (parent || gun).add(m); return m; };
-  // rear housing with vents, then the main shell
-  cyl(0.052, 0.056, 0.05, 40, ceramic2, 0.115);
-  cyl(0.056, 0.052, 0.17, 40, ceramic, 0.0);
-  for (let i = 0; i < 6; i++) { const v = new THREE.Mesh(new THREE.BoxGeometry(0.052, 0.0035, 0.0075), graphite); v.position.set(0, 0.0545, -0.05 + i * 0.0145); gun.add(v); const v2 = v.clone(); v2.position.y = -0.0545; gun.add(v2); }
-  tor(0.0555, 0.004, graphite, -0.088); tor(0.0505, 0.0045, steel, 0.085);
-  cyl(0.048, 0.056, 0.15, 40, ceramic, -0.17);
-  tor(0.049, 0.0035, graphite, -0.2); tor(0.0505, 0.003, graphite, -0.145);
-  // side power cells
-  for (const sx of [-1, 1]) {
-    const cell = along(new THREE.Mesh(new THREE.CylinderGeometry(0.0125, 0.0125, 0.1, 18), graphite)); cell.position.set(sx * 0.0625, 0.0, -0.045); gun.add(cell);
-    const strip = new THREE.Mesh(new THREE.BoxGeometry(0.003, 0.003, 0.082), gunRingMat); strip.position.set(sx * 0.0745, 0.0, -0.045); gun.add(strip); gunParts.cells.push(strip);
-    const clip = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.026, 0.012), steel); clip.position.set(sx * 0.054, 0.0, 0.0); gun.add(clip);
+  const shell = new THREE.MeshStandardMaterial({ color: 0x59636d, metalness: .7, roughness: .34, envMapIntensity: 1.2 });
+  const alloy = new THREE.MeshStandardMaterial({ color: 0xa9b3bc, metalness: .9, roughness: .24, envMapIntensity: 1.3 });
+  const rubber = new THREE.MeshStandardMaterial({ color: 0x15181b, metalness: 0, roughness: .85 });
+  const copper = new THREE.MeshStandardMaterial({ color: 0xc27a4a, metalness: 1, roughness: .28, envMapIntensity: 1.3 });
+  const chrome = new THREE.MeshStandardMaterial({ color: 0xd8dde2, metalness: 1, roughness: .12, envMapIntensity: 1.5 });
+  const strut = new THREE.MeshStandardMaterial({ color: 0x2a2f34, metalness: 0, roughness: .9 });       // matte composite, not shiny metal
+  const rbox = (w, h, d, r) => {
+    const sh = new THREE.Shape(), x = w / 2 - r, y = h / 2 - r;
+    sh.moveTo(-x, -h / 2); sh.lineTo(x, -h / 2); sh.quadraticCurveTo(w / 2, -h / 2, w / 2, -y); sh.lineTo(w / 2, y); sh.quadraticCurveTo(w / 2, h / 2, x, h / 2);
+    sh.lineTo(-x, h / 2); sh.quadraticCurveTo(-w / 2, h / 2, -w / 2, y); sh.lineTo(-w / 2, -y); sh.quadraticCurveTo(-w / 2, -h / 2, -x, -h / 2);
+    const g = new THREE.ExtrudeGeometry(sh, { depth: Math.max(1e-4, d - 2 * r), bevelEnabled: true, bevelSize: r, bevelThickness: r, bevelSegments: 3, curveSegments: 6 });
+    g.translate(0, 0, -(d - 2 * r) / 2); return g;
+  };
+  const add = (geo, mat, x, y, z, parent = gun) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); parent.add(m); return m; };
+  const body = add(new THREE.CylinderGeometry(0.05, 0.058, 0.28, 40), shell, 0, 0, 0); body.rotation.x = Math.PI / 2;
+  for (let i = 0; i < 6; i++) {
+    const a = i / 6 * Math.PI * 2, b = a + Math.PI / 6;
+    const fin = add(rbox(0.012, 0.03, 0.09, 0.003), alloy, Math.cos(a) * 0.056, Math.sin(a) * 0.056, 0.02); fin.rotation.z = a;
+    const slot = add(new THREE.BoxGeometry(0.004, 0.008, 0.07), gunRingMat, Math.cos(b) * 0.0545, Math.sin(b) * 0.0545, 0.02); slot.rotation.z = b; gunParts.cells.push(slot);
   }
-  // energy chamber: glass tube, glowing core, spinning rings
-  cyl(0.036, 0.036, 0.16, 36, glass, -0.285).renderOrder = 4;
-  const core = new THREE.Mesh(new THREE.SphereGeometry(0.0175, 24, 18), gunCore); core.position.z = -0.285; gun.add(core); gunParts.core = core;
-  const halo = new THREE.Mesh(new THREE.SphereGeometry(0.03, 20, 14), new THREE.MeshBasicMaterial({ color: new THREE.Color("#2fa4ff"), transparent: true, opacity: .16, depthWrite: false, blending: THREE.AdditiveBlending })); halo.position.z = -0.285; gun.add(halo); gunParts.halo = halo;
-  gunParts.rings.position.z = -0.285; gun.add(gunParts.rings);
-  for (let i = 0; i < 3; i++) { const r = new THREE.Mesh(new THREE.TorusGeometry(0.027, 0.0016, 8, 40), gunRingMat); r.rotation.set(i * 1.05, i * 0.6, 0); gunParts.rings.add(r); }
-  // clamps, muzzle ring, claws
-  tor(0.0425, 0.0055, steel, -0.215); tor(0.041, 0.005, steel, -0.36);
-  tor(0.033, 0.0035, gunRingMat, -0.372);
-  gun.add(gunParts.prongs);
-  for (let i = 0; i < 3; i++) {
-    const a = i / 3 * Math.PI * 2 + Math.PI / 6, ca = Math.cos(a), sa = Math.sin(a);
-    const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(ca * 0.041, sa * 0.041, -0.34), new THREE.Vector3(ca * 0.056, sa * 0.056, -0.385), new THREE.Vector3(ca * 0.05, sa * 0.05, -0.43), new THREE.Vector3(ca * 0.021, sa * 0.021, -0.485)]);
-    const claw = new THREE.Mesh(new THREE.TubeGeometry(curve, 24, 0.0062, 8), steel); gunParts.prongs.add(claw);
-    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.0085, 12, 10), gunRingMat); tip.position.set(ca * 0.021, sa * 0.021, -0.485); gunParts.prongs.add(tip);
-  }
-  // grip, trigger guard, top rail with portal indicators
-  const grip = new THREE.Mesh(new THREE.CapsuleGeometry(0.0235, 0.085, 6, 14), graphite); grip.position.set(0, -0.098, 0.05); grip.rotation.x = 0.38; gun.add(grip);
-  const guard = new THREE.Mesh(new THREE.TorusGeometry(0.02, 0.0035, 8, 24, Math.PI), graphite); guard.position.set(0, -0.06, -0.02); guard.rotation.set(0, Math.PI / 2, -Math.PI / 2 + 0.2); gun.add(guard);
-  const trig = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.026, 0.01), steel); trig.position.set(0, -0.07, -0.005); trig.rotation.x = 0.35; gun.add(trig); gunParts.trigger = trig;
-  const rail = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.006, 0.12), graphite); rail.position.set(0, 0.059, -0.02); gun.add(rail);
-  const ledB = new THREE.Mesh(new THREE.SphereGeometry(0.0062, 12, 10), gunLedB); ledB.position.set(-0.0075, 0.065, -0.058); gun.add(ledB);
-  const ledO = new THREE.Mesh(new THREE.SphereGeometry(0.0062, 12, 10), gunLedO); ledO.position.set(0.0075, 0.065, -0.058); gun.add(ledO);
-  const under = along(new THREE.Mesh(new THREE.CylinderGeometry(0.0095, 0.0095, 0.13, 14), steel)); under.position.set(0, -0.049, -0.19); gun.add(under);
+  for (const z of [-0.1, 0.12]) add(new THREE.TorusGeometry(0.056, 0.004, 8, 48), alloy, 0, 0, z);
+  add(new THREE.CylinderGeometry(0.044, 0.05, 0.02, 32), alloy, 0, 0, 0.15).rotation.x = Math.PI / 2;
+  add(new THREE.CylinderGeometry(0.03, 0.045, 0.08, 28), alloy, 0, 0, -0.17).rotation.x = Math.PI / 2;
+  // the emitter: ring, glow, struts, gimbals, core
+  gunParts.prongs.position.z = -0.27; gun.add(gunParts.prongs);
+  add(new THREE.TorusGeometry(0.075, 0.011, 16, 72), chrome, 0, 0, 0, gunParts.prongs);
+  add(new THREE.TorusGeometry(0.075, 0.004, 8, 72), gunRingMat, 0, 0, 0.008, gunParts.prongs);
+  for (const sx of [-1, 1]) { const a = add(new THREE.BoxGeometry(0.004, 0.005, 0.085), strut, sx * 0.05, 0, 0.035, gunParts.prongs); a.rotation.y = sx * 0.5; }
+  gunParts.rings.position.z = -0.27; gun.add(gunParts.rings);
+  const g1 = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.004, 8, 56), copper), g2 = new THREE.Mesh(new THREE.TorusGeometry(0.038, 0.004, 8, 56), copper);
+  g2.rotation.set(1.2, 0.4, 0); gunParts.rings.add(g1, g2);
+  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.018, 1), gunCore); core.position.z = -0.27; gun.add(core); gunParts.core = core;
+  const halo = new THREE.Mesh(new THREE.SphereGeometry(0.032, 20, 14), new THREE.MeshBasicMaterial({ color: new THREE.Color("#2fa4ff"), transparent: true, opacity: .18, depthWrite: false, blending: THREE.AdditiveBlending })); halo.position.z = -0.27; gun.add(halo); gunParts.halo = halo;
+  // grip, trigger, battery pack with the two portal lights
+  const grip = add(rbox(0.042, 0.12, 0.055, 0.014), rubber, 0, -0.095, 0.06); grip.rotation.x = 0.3;
+  const guard = add(new THREE.TorusGeometry(0.02, 0.0035, 8, 24, Math.PI), shell, 0, -0.058, -0.0); guard.rotation.set(0, Math.PI / 2, -Math.PI / 2 + 0.2);
+  const trig = add(new THREE.BoxGeometry(0.008, 0.026, 0.01), chrome, 0, -0.068, 0.012); trig.rotation.x = 0.35; gunParts.trigger = trig;
+  add(rbox(0.07, 0.05, 0.1, 0.012), alloy, 0, -0.045, -0.06);
+  add(new THREE.SphereGeometry(0.006, 12, 10), gunLedB, -0.012, -0.018, -0.112); add(new THREE.SphereGeometry(0.006, 12, 10), gunLedO, 0.012, -0.018, -0.112);
   // muzzle flash
   const fc = document.createElement("canvas"); fc.width = fc.height = 128; const fg = fc.getContext("2d"), gr = fg.createRadialGradient(64, 64, 0, 64, 64, 64);
   gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(.25, "rgba(255,255,255,.7)"); gr.addColorStop(1, "rgba(255,255,255,0)"); fg.fillStyle = gr; fg.fillRect(0, 0, 128, 128);
   const flash = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(fc), color: 0x2fa4ff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0 }));
-  flash.position.z = -0.5; flash.scale.setScalar(0.2); gun.add(flash); gunParts.flash = flash;
+  flash.position.z = -0.3; flash.scale.setScalar(0.2); gun.add(flash); gunParts.flash = flash;
 }
 gun.position.set(0.25, -0.24, -0.66); gun.rotation.y = 0.07; gun.scale.setScalar(0.5);
 let gunTint = new THREE.Color("#2fa4ff");
 function setGunColor(idx) { gunTint.set(idx ? "#ff9d2e" : "#2fa4ff"); }
 let gunSpin = 0;
 function updateGun(dt, time, kickV) {
-  gunCore.color.lerp(tmpCol.copy(gunTint).multiplyScalar(1.5), Math.min(1, dt * 10));
-  gunRingMat.color.lerp(tmpCol.copy(gunTint).multiplyScalar(1.3), Math.min(1, dt * 10));
+  gunCore.color.lerp(tmpCol.copy(gunTint).multiplyScalar(3.2), Math.min(1, dt * 10));
+  gunRingMat.color.lerp(tmpCol.copy(gunTint).multiplyScalar(2.4), Math.min(1, dt * 10));
   gunParts.halo.material.color.copy(gunTint);
   gunParts.flash.material.color.copy(gunTint); gunParts.flash.material.opacity = Math.min(1, kickV * 1.25);
   gunSpin += dt * (1.4 + kickV * 26 + (holding ? 5 : 0));
@@ -1242,8 +1404,10 @@ function buildLevel(idx) {
     const g = new THREE.Group();
     const base = new THREE.Mesh(new THREE.CylinderGeometry(0.88, 0.98, 0.1, 32), MAT.plateBase); base.position.y = 0.05;
     const top = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.66, 0.07, 32), MAT.plateTop.clone()); top.position.y = 0.105; top.userData.ownMat = 1;
-    g.add(base, top); g.position.set(p.pos[0], p.pos[1], p.pos[2]); levelGroup.add(g);
-    W.plates.push({ pos: p.pos.slice(), door: p.door, top, group: g, pressed: false, press: 0 });
+    const ringMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(.5, .32, .12) });
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.93, 0.035, 10, 64), ringMat); ring.rotation.x = Math.PI / 2; ring.position.y = 0.1; ring.userData.ownMat = 1;
+    g.add(base, top, ring); g.position.set(p.pos[0], p.pos[1], p.pos[2]); levelGroup.add(g);
+    W.plates.push({ pos: p.pos.slice(), door: p.door, top, group: g, pressed: false, press: 0, ringMat, aim: 0 });
   }
   // cubes
   for (const c of lv.cubes) {
@@ -1283,8 +1447,34 @@ function buildLevel(idx) {
     else { m.rotation.x = Math.PI / 2; m.scale.set(ext[0], ext[2], 1); }
     levelGroup.add(m); W.fields.push({ min: f.min, max: f.max, mesh: m, tex, cool: 0 });
   }
+  // launch pads: step on (or drop a cube on) one and it throws you along a fixed arc
+  W.pads = [];
+  for (const d of (lv.pads || [])) {
+    const g = new THREE.Group(); g.position.set(...d.pos);
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.08, 0.1, 40), MAT.plateBase); base.position.y = 0.05;
+    const ringMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(.4, 1.6, 2.6) }); ringMat.userData = {};
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.78, 0.045, 10, 56), ringMat); ring.rotation.x = Math.PI / 2; ring.position.y = 0.11; ring.userData.ownMat = 1;
+    const sh = new THREE.Shape(); sh.moveTo(0, 0.42); sh.lineTo(0.28, 0.02); sh.lineTo(0.1, 0.02); sh.lineTo(0.1, -0.38); sh.lineTo(-0.1, -0.38); sh.lineTo(-0.1, 0.02); sh.lineTo(-0.28, 0.02);
+    const arrow = new THREE.Mesh(new THREE.ShapeGeometry(sh), ringMat); arrow.rotation.x = -Math.PI / 2; arrow.position.y = 0.105;
+    arrow.rotation.z = Math.atan2(-(d.to[0] - d.pos[0]), -(d.to[2] - d.pos[2])) + Math.PI;
+    g.add(base, ring, arrow); levelGroup.add(g);
+    W.pads.push({ pos: d.pos.slice(), to: d.to, from: d.from, T: d.T, ringMat, cool: 0, flash: 0 });
+  }
   makePhysics(W);
   return W;
+}
+function padsStep(dt) {
+  const pl = player;
+  for (const pd of world.pads) {
+    pd.cool = Math.max(0, pd.cool - dt); pd.flash = Math.max(0, pd.flash - dt * 3);
+    const on = (p, h) => Math.abs(p.x - pd.pos[0]) < 0.9 && Math.abs(p.z - pd.pos[2]) < 0.9 && p.y - h < pd.pos[1] + 0.3 && p.y - h > pd.pos[1] - 0.2;
+    if (pd.cool > 0) continue;
+    const throwFrom = p => new V3(...launchTo([p.x, p.y, p.z], [pd.to[0], pd.to[1] - pd.from[1] + p.y, pd.to[2]], pd.T));   // same landing spot from anywhere on the pad
+    if (state === "play" && on(pl.p, HY) && pl.v.y <= 0.5) { pl.v.copy(throwFrom(pl.p)); pl.ground = false; pl.air = 1; pd.cool = 0.5; pd.flash = 1; sfx.launch(); }
+    for (const c of world.cubes) if (!c.held && on(c.p, 0.35) && c.v.y <= 0.5) {
+      setCubeState(c, c.p, c.q, throwFrom(c.p), { x: 2, y: 0.5, z: -1.5 }); pd.cool = 0.5; pd.flash = 1; sfx.launch();
+    }
+  }
 }
 function removeCubes() { if (!world) return; for (const c of world.cubes) { scene.remove(c.mesh, c.ghost, c.shadow); for (const m of c.mats) m.dispose(); for (const m of c.gmats) m.dispose(); c.shadow.material.dispose(); } world.cubes = []; }
 
@@ -1712,6 +1902,17 @@ function floorBelow(x, y, z, maxD) {            // y of the first solid surface 
   return best === null ? null : y - best;
 }
 const _gq = new QT(), _gm = new M4();
+// which plate (if any) a cube at this spot would press if it dropped straight down
+function plateUnder(p) { for (const pl of world.plates) if (Math.abs(p.x - pl.pos[0]) < 0.8 && Math.abs(p.z - pl.pos[2]) < 0.8 && p.y > pl.pos[1] - 0.2) return pl; return null; }
+const LAND_ON = new THREE.Color(.4, 2.8, 1.0), LAND_OFF = new THREE.Color(1.2, 1.25, 1.3);
+let _land = null;
+function landMarker() {               // a thin ring on the floor under the held cube: white, or green when it is over a plate
+  if (!_land) {
+    _land = new THREE.Mesh(new THREE.RingGeometry(0.42, 0.5, 4, 1, Math.PI / 4), new THREE.MeshBasicMaterial({ color: LAND_OFF.clone(), transparent: true, opacity: .85, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 }));
+    _land.rotation.x = -Math.PI / 2; _land.renderOrder = 3; _land.frustumCulled = false; scene.add(_land);
+  }
+  return _land;
+}
 function cubeGhost(c, dt) {
   c.mesh.position.copy(c.p); c.mesh.quaternion.copy(c.q);
   for (const m of c.mats) m.clippingPlanes = null; c.ghost.visible = false;
@@ -1798,6 +1999,11 @@ function physicsStep(dt) {
     if (add > 0) { const a = Math.min(add, 8 * dt * WALK * wish); pl.v.x += dx * a; pl.v.z += dz * a; }
   }
   inp.jumpQ = false;
+  // falling in a floor-to-ceiling portal loop with hands off the controls: the sideways drift dies away, so the loop holds
+  if (!pl.ground && wish < 0.01 && bothPortals()) {
+    const F = portals[0].n.y > 0.9 ? portals[0] : portals[1].n.y > 0.9 ? portals[1] : null, C = F && portals[1 - F.idx];
+    if (F && C.n.y < -0.9 && Math.hypot(pl.p.x - F.o.x, pl.p.z - F.o.z) < 1.8) { const k = Math.exp(-6 * dt); pl.v.x = pl.v.x * k + (F.o.x - pl.p.x) * 3 * dt; pl.v.z = pl.v.z * k + (F.o.z - pl.p.z) * 3 * dt; }
+  }
   pl.v.y = Math.max(-TERM, pl.v.y - GRAV * dt);
   const sp3 = pl.v.length(); if (sp3 > 90) pl.v.multiplyScalar(90 / sp3);
   const vyBefore = pl.v.y, wasGround = pl.ground;
@@ -1806,6 +2012,7 @@ function physicsStep(dt) {
   if (pl.ground) pl.air = 0; else pl.air = (pl.air || 0) + dt;
   if (contact < 0 && !wasGround && -vyBefore > 5) { sfx.land(-vyBefore); onLanded(-vyBefore); }
   tryPortalPlayer();
+  padsStep(dt);
   // the rest of the world: doors and sentries carry their colliders, the held cube is pulled along, then the engine steps
   for (const d of W.doors) syncCollider(d.box);
   for (const s of W.sentries) syncCollider(s.box);
@@ -2046,6 +2253,7 @@ function noise(t, dur, vol, f0, f1, q, type) {
 }
 const SFX = fn => (...a) => { if (!actx || !opts.sfx || actx.state !== "running") return; try { fn(actx.currentTime + 0.005, ...a); } catch (e) {} };
 const sfx = {
+  launch: SFX(t => { osc("sine", 90, 420, t, 0.35, 0.3); osc("triangle", 180, 900, t, 0.3, 0.12); noise(t, 0.4, 0.16, 300, 3000, 1.5); }),
   shoot: SFX((t, i) => { osc("sawtooth", i ? 520 : 760, i ? 220 : 340, t, 0.22, 0.12); osc("sine", i ? 180 : 260, 70, t, 0.25, 0.2); noise(t, 0.18, 0.12, 3200, 600, 1.2); }),
   open: SFX((t, i) => { osc("sine", i ? 300 : 420, i ? 700 : 900, t, 0.4, 0.16); osc("triangle", i ? 150 : 210, i ? 350 : 450, t, 0.45, 0.12); noise(t, 0.35, 0.1, 500, 4000, 2); }),
   fizzle: SFX(t => { noise(t, 0.3, 0.2, 2400, 300, 3); osc("square", 180, 60, t, 0.25, 0.08); }),
@@ -2197,7 +2405,7 @@ function pause() {
   state = "paused"; unlockPointer(); inp.fwd = inp.right = 0; showOv("ovPause");
 }
 function resume() { if (state !== "paused") return; hideOv(); state = "play"; syncTouch(); lockPointer(); }
-const CH_NAMES = ["Doorway", "Delivery", "Freefall", "Lift", "Special Delivery", "Sentry Duty", "Redirect", "Reset", "Two Keys", "Gantry", "Crossfire", "The Last Word"];
+const CH_NAMES = ["Doorway", "Delivery", "Freefall", "Lift", "Special Delivery", "Sentry Duty", "Redirect", "Reset", "Two Keys", "Gantry", "Crossfire", "The Last Word", "Air Mail", "Upstairs", "Long Jump", "Bounce", "Skylight", "Field Trip", "Gauntlet", "Second Wind", "Retrieval", "Disposal", "Terminal Velocity", "Final Exam"];
 function buildChambers() {
   const g = $("chGrid"), pr = store.get("progress3", 0); g.innerHTML = "";
   LEVEL_FUNCS.forEach((f, i) => {
@@ -2275,6 +2483,11 @@ addEventListener("keydown", e => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (GamePad.helpOpen && GamePad.helpOpen()) return;
   const k = e.key.toLowerCase();
+  if (anyOv() && k === "enter" && !e.repeat) {       // Return presses the card's main button (Next chamber, Play, Resume), unless a button already has focus
+    const ae = document.activeElement, ov = $(anyOv());
+    if (!(ae && ae.tagName === "BUTTON" && ov.contains(ae))) { const b = [...ov.querySelectorAll(".btn.primary")].find(x => !x.hidden && x.offsetParent); if (b) { e.preventDefault(); ensureAudio(); b.click(); } }
+    return;
+  }
   if (anyOv()) { if (k === "escape") { if (state === "paused" && anyOv() === "ovPause") resume(); else if (anyOv() === "ovChambers") showOv(chFrom); else if (anyOv() === "ovOptions") showOv(optsFrom); else if (anyOv() === "ovHow") showOv(howFrom); } else if ((k === "h" || k === "?") && anyOv() === "ovHow") showOv(howFrom); return; }
   if (state !== "play" && state !== "dead") return;
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(k)) e.preventDefault();
@@ -2290,18 +2503,20 @@ addEventListener("keydown", e => {
 });
 addEventListener("keyup", e => setKey(e, false));
 addEventListener("blur", () => { for (const k in keys) keys[k] = false; });
-let mouseMode = false, locked = false, lastMX = -1, lastMY = -1, edgeX = 0, edgeY = 0, wheelV = 0, mLookX = 0, mLookY = 0, edgeHold = 0;
+let lockFailed = false, lockAsked = false, mouseMode = false, locked = false, lastMX = -1, lastMY = -1, edgeX = 0, edgeY = 0, wheelV = 0, mLookX = 0, mLookY = 0, edgeHold = 0;
 function enterMouseMode() { if (mouseMode) return; mouseMode = true; document.body.classList.add("mouselook"); }
 document.addEventListener("pointerlockchange", () => {
   locked = !!document.pointerLockElement;
   if (!locked && state === "play" && !isTouch) pause();
 });
-function tryLock() { if (!canvas.requestPointerLock || document.pointerLockElement) return; try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
+document.addEventListener("pointerlockerror", () => { lockFailed = true; });
+function tryLock() { setTimeout(() => { if (!document.pointerLockElement) lockFailed = true; }, 600); tryLock0(); }
+function tryLock0() { if (!canvas.requestPointerLock || document.pointerLockElement) return; try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
 canvas.addEventListener("mousedown", e => {
   if (state !== "play") return;
   enterMouseMode();
   if (!isTouch && !document.pointerLockElement) { lockPointer(); return; }
-  if (isTouch && !document.pointerLockElement) tryLock();
+  if (isTouch && !document.pointerLockElement && canvas.requestPointerLock && !lockFailed) { tryLock(); return; }
   if (e.button === 0) firePortal(0); else if (e.button === 2) firePortal(1); else if (e.button === 1) useAction();
 });
 addEventListener("contextmenu", e => e.preventDefault());
@@ -2310,7 +2525,9 @@ addEventListener("mousemove", e => {
   if (state !== "play" || anyOv()) return;
   if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
   enterMouseMode();
-  if (document.pointerLockElement) { mLookX += clamp(e.movementX, -70, 70) * 0.0022 * opts.sens; mLookY += clamp(e.movementY, -70, 70) * 0.0022 * opts.sens * (opts.invert ? -1 : 1); return; }
+  // locked to the centre (the gun's sights): the view follows the trackpad one to one, straight away, with no easing
+  if (document.pointerLockElement) { const dx = Math.abs(e.movementX) > 400 ? 0 : e.movementX, dy = Math.abs(e.movementY) > 400 ? 0 : e.movementY; inp.lookX += dx * 0.0022 * opts.sens; inp.lookY += dy * 0.0022 * opts.sens * (opts.invert ? -1 : 1); return; }
+  if (!lockAsked && !lockFailed && canvas.requestPointerLock) { lockAsked = true; toast("Click once to lock your aim to the centre"); }
   let dx = e.movementX, dy = e.movementY;
   if (!dx && !dy && lastMX >= 0) { dx = e.clientX - lastMX; dy = e.clientY - lastMY; }
   lastMX = e.clientX; lastMY = e.clientY;
@@ -2576,7 +2793,7 @@ function updateBeams(dt, time) {
       for (const r of world.receivers) {
         const ax = r.n.x !== 0 ? 0 : r.n.z !== 0 ? 2 : 1, sg = Math.sign(r.n.getComponent(ax));
         if (h.axis !== ax || h.sign !== sg) continue;
-        const pt = h.point, ha = r.horiz, off = Math.abs(pt.getComponent(ha) - r.pos.getComponent(ha)), vo = Math.abs(pt.y - r.pos.y);
+        const pt = h.point, ha = r.horiz, off = Math.abs(pt.getComponent(ha) - r.pos.getComponent(ha)), vo = ax === 1 ? Math.abs(pt.z - r.pos.z) : Math.abs(pt.y - r.pos.y);
         if (off <= r.w / 2 + 0.05 && vo <= r.h / 2 + 0.05) r.lit = true;
       }
       if (h.box.mat === "cube") { for (const c of world.cubes) if (cubeBox(c) === h.box || c.held) { c.heat = Math.min(1, (c.heat || 0) + dt * 2); } }
@@ -2664,7 +2881,22 @@ function frame(ts) {
   updateSentries(dt, ts / 1000); updateBeams(dt, ts / 1000); updateFields(dt);
   updateFx(dt);
   for (const c of world.cubes) cubeGhost(c, dt);
-  for (const pl of world.plates) { pl.press += ((pl.pressed ? 1 : 0) - pl.press) * Math.min(1, dt * 14); pl.top.position.y = pl.pos[1] + 0.07 - pl.press * 0.05; }
+  // A cube that would land on a plate (held over it, or falling onto it) lights the plate's ring green and pulses; a pressed plate glows steady green
+  const lm = landMarker(); lm.visible = false;
+  if (holding) {
+    const c = holding, fy = floorBelow(c.p.x, c.p.y - 0.3, c.p.z, 8);
+    if (fy !== null) { lm.visible = true; lm.position.set(c.p.x, fy + 0.02, c.p.z); lm.rotation.z += dt * 1.5; }
+    lm.material.color.copy(plateUnder(c.p) ? LAND_ON : LAND_OFF);
+  }
+  for (const pd of world.pads) pd.ringMat.color.setRGB(.4 + pd.flash * 2, 1.6 + pd.flash * 2, 2.6 + pd.flash);
+  for (const pl of world.plates) {
+    pl.press += ((pl.pressed ? 1 : 0) - pl.press) * Math.min(1, dt * 14); pl.top.position.y = pl.pos[1] + 0.07 - pl.press * 0.05;
+    let over = false; for (const c of world.cubes) if ((c.held || c.v.y < -0.5) && plateUnder(c.p) === pl) over = true;
+    pl.aim += ((over ? 1 : 0) - pl.aim) * Math.min(1, dt * 12);
+    const pulse = 0.65 + 0.35 * Math.sin(performance.now() / 120);
+    if (pl.pressed) pl.ringMat.color.setRGB(.35, 2.6, .9);
+    else pl.ringMat.color.setRGB(.5 + (.35 * pulse - .5) * pl.aim, .32 + (2.6 * pulse - .32) * pl.aim, .12 + (.9 * pulse - .12) * pl.aim);
+  }
   for (const P of portals) { P.open += ((P.on ? 1 : 0) - P.open) * Math.min(1, dt * 9); }
   renderFrame(ts / 1000);
 }
@@ -2679,7 +2911,7 @@ function boot() {
   $("loading").hidden = true;
   requestAnimationFrame(frame);
 }
-window.__tc = { setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, allLines: () => ({ LINES, levels: LEVEL_FUNCS.map(f => f().say) }), lineHash, get state() { return state; }, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
+window.__tc = { hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, allLines: () => ({ LINES, levels: LEVEL_FUNCS.map(f => f().say) }), lineHash, get state() { return state; }, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
 try { boot(); } catch (err) { console.error(err); $("loading").hidden = false; $("loading").innerHTML = '<div style="max-width:420px;text-align:center;line-height:1.6;font-size:13px;letter-spacing:.05em">Something went wrong starting the game.<br><small>' + String(err && err.message || err) + "</small></div>"; }
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>

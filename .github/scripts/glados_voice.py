@@ -19,7 +19,7 @@ LEVELS = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
 def progress(h):
     # 0 at chamber 1 .. 1 at chamber 12; general lines (chamber 0) sit a little above the start
     c = LEVELS.get(h, 0)
-    return 0.15 if c == 0 else (c - 1) / 11.0
+    return 0.15 if c == 0 else min(1.0, (c - 1) / 11.0)    # chambers 12 to 24 all stutter at full strength
 
 def decode(path):
     raw = subprocess.run(["ffmpeg", "-v", "error", "-i", path, "-ar", str(SR), "-ac", "1", "-f", "f32le", "-"], capture_output=True, check=True).stdout

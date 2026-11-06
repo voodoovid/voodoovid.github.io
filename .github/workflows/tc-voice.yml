@@ -1,0 +1,46 @@
+name: Test Chambers voice
+
+# Records new SaDos lines listed in test-chambers/voice-todo.json (Kokoro TTS + the SaDos effect), then commits the clips,
+# lines.js and the offline list. The sandbox Claude works in can't download the voice model; this runner can.
+on:
+  push:
+    branches: [main]
+    paths:
+      - test-chambers/voice-todo.json
+      - .github/scripts/tc_voice.py
+      - .github/workflows/tc-voice.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tc-voice
+  cancel-in-progress: false
+
+jobs:
+  voice:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tools
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+          pip install --quiet kokoro-onnx soundfile numpy scipy
+      - name: Voice model
+        run: |
+          mkdir -p /tmp/kokoro && cd /tmp/kokoro
+          curl -sSLf -O https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx
+          curl -sSLf -O https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin
+          ls -la
+      - name: Record the lines
+        run: python3 .github/scripts/tc_voice.py /tmp/kokoro/kokoro-v1.0.onnx /tmp/kokoro/voices-v1.0.bin
+      - name: Commit
+        run: |
+          git add test-chambers/voice test-chambers/lines.js test-chambers/voice-todo.json sw.js .github/scripts/glados_levels.json
+          if git diff --cached --quiet; then echo "no change"; exit 0; fi
+          git config user.name "voice-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Test Chambers: record new SaDos lines"
+          git pull --rebase origin main
+          git push origin HEAD:main

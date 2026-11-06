@@ -96,7 +96,7 @@ main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(330p
 <script type="module">
 import * as THREE from "three";
 
-const LAB_VERSION = "Lab v0.2";
+const LAB_VERSION = "Lab v0.3";
 document.getElementById("ver").textContent = LAB_VERSION;
 
 // ---------- check rows ----------
@@ -111,6 +111,7 @@ const CHECKS = [
   ["perf",    "Frame rate",              "Full chamber: two live portals, shadows, glow, physics for 6 s."],
   ["voice",   "SaDos voice in a room",   "A recorded line plays through new room acoustics."],
   ["offline", "Works offline",           "New files are stored by the Games app for offline play."],
+  ["lock",    "Trackpad aim lock",       "Tap Test lock with the trackpad, then move it: the pointer should vanish and the aim stay centred."],
 ];
 const listEl = document.getElementById("list");
 const rows = {};
@@ -499,7 +500,8 @@ function gunGyre(M) {
   const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.045, 0.08, 24), M.panel); neck.rotation.x = Math.PI / 2; neck.position.z = -0.17; g.add(neck);
   const ring = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.011, 14, 64), M.chrome); ring.position.z = -0.27; g.add(ring);
   const ringGlow = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.004, 8, 64), M.glow); ringGlow.position.z = -0.262; g.add(ringGlow); P.glows.push(ringGlow);
-  for (const sx of [-1, 1]) { const arm = new THREE.Mesh(rbox(0.012, 0.016, 0.08, 0.004), M.chrome); arm.position.set(sx * 0.05, 0, -0.235); arm.rotation.y = sx * 0.5; g.add(arm); }
+  const strut = new THREE.MeshStandardMaterial({ color: 0x2a2f34, metalness: 0, roughness: 0.9 });     // thin matte struts (the user's pick)
+  for (const sx of [-1, 1]) { const arm = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.005, 0.085), strut); arm.position.set(sx * 0.05, 0, -0.235); arm.rotation.y = sx * 0.5; g.add(arm); }
   const g1 = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.004, 8, 48), M.copper), g2 = new THREE.Mesh(new THREE.TorusGeometry(0.038, 0.004, 8, 48), M.copper);
   g1.position.z = g2.position.z = -0.27; g.add(g1, g2); P.spin.push(g1, g2);
   const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.018, 1), M.glow); core.position.z = -0.27; g.add(core); P.glows.push(core); P.core = core;
@@ -600,7 +602,7 @@ async function voiceTest() {
 async function runAll() {
   const btn = document.getElementById("runBtn"); btn.disabled = true; btn.textContent = "Running…";
   for (const k of Object.keys(results)) delete results[k];
-  for (const [id] of CHECKS) { set(id, "idle", ""); delete results[id]; rows[id].querySelector(".ask").hidden = true; }
+  for (const [id] of CHECKS) { if (id === "lock") continue; set(id, "idle", ""); delete results[id]; rows[id].querySelector(".ask").hidden = true; }
   // Sound must start inside the tap
   try {
     if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
@@ -675,6 +677,23 @@ async function runAll() {
   btn.disabled = false; btn.textContent = "Run again";
 }
 document.getElementById("runBtn").addEventListener("click", runAll);
+// pointer lock: on iPad with a trackpad the game locks the pointer to the centre so the view follows it one to one
+{
+  const ask = rows.lock.querySelector(".ask"); ask.hidden = false;
+  ask.innerHTML = `<button class="yes" id="lockBtn">Test lock</button>`;
+  let moves = 0, dist = 0;
+  const onMove = e => { if (!document.pointerLockElement) return; moves++; dist += Math.abs(e.movementX) + Math.abs(e.movementY);
+    if (dist > 120) { document.removeEventListener("mousemove", onMove); set("lock", "pass", `Locked to the centre, ${moves} movements read (${Math.round(dist)} px)`); setTimeout(() => { try { document.exitPointerLock(); } catch (e) {} }, 300); } };
+  document.addEventListener("pointerlockchange", () => { if (document.pointerLockElement) { set("lock", "ask", "Locked. Now move your finger on the trackpad…"); } });
+  document.addEventListener("pointerlockerror", () => set("lock", "fail", "This browser refused to lock the pointer; the game will fall back to following the cursor"));
+  document.getElementById("lockBtn").addEventListener("click", () => {
+    const el = document.getElementById("view");
+    if (!el.requestPointerLock) { set("lock", "fail", "Pointer lock isn't available in this browser"); return; }
+    moves = 0; dist = 0; document.addEventListener("mousemove", onMove);
+    try { const pr = el.requestPointerLock(); if (pr && pr.catch) pr.catch(() => set("lock", "fail", "This browser refused to lock the pointer")); } catch (e) { set("lock", "fail", "This browser refused to lock the pointer"); }
+    setTimeout(() => { if (!document.pointerLockElement && results.lock !== "fail") set("lock", "fail", "The pointer didn't lock (no change after 1.5 s)"); }, 1500);
+  });
+}
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js").catch(() => {});
 window.__lab = { get results() { return results; }, runAll, rows };
