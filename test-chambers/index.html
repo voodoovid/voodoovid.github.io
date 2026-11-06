@@ -21,6 +21,7 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; oversc
   font-family: var(--font); color: var(--ink); }
 #stage { position: fixed; left: 0; right: 0; bottom: 0; top: var(--safe-top, env(safe-area-inset-top, 0px)); background: #000; overflow: hidden; }
 #gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+#vig { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 75% 70% at 50% 50%, rgba(0,0,0,0) 60%, rgba(0,0,0,.28) 100%); }
 
 /* ---- HUD ---- */
 #hud { position: absolute; inset: 0; pointer-events: none; }
@@ -215,6 +216,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
 
 <div id="stage">
   <canvas id="gl"></canvas>
+  <div id="vig"></div>
 
   <div id="hud" hidden>
     <div id="hudTop" data-pill-gap>
@@ -367,10 +369,17 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
 </div>
 <script src="../lib/gamepad.js"></script>
 <script src="lines.js"></script>
+<script type="importmap">{ "imports": { "three": "../lib/three.module.min.js", "three/addons/": "../lib/three-addons/" } }</script>
 <script type="module">
 import * as THREE from "../lib/three.module.min.js";
+import RAPIER from "../lib/rapier/rapier.es.js";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+await RAPIER.init();
 
-const VERSION = "v2.3";
+const VERSION = "v3.0";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -507,11 +516,11 @@ function wrapText(g, text, x, y, maxW, lh) {
 /* ---------- baked lighting: every static surface gets per-vertex light from the lamps (with shadows and corner darkening) ---------- */
 const CELL = 0.5, TILE = 2;
 const AX = [[1, 2], [2, 0], [0, 1]];
-const AMB = 0.52;
+const AMB = 0.42;
 function shadeVertex(p, n, a, occ, lamps) {
   const sp = [p[0] + n[0] * 0.05, p[1] + n[1] * 0.05, p[2] + n[2] * 0.05];
   let r = AMB, g = AMB, b = AMB * 1.02;
-  if (n[1] < -0.5) { r += .22; g += .22; b += .24; }          // ceilings catch a little bounce
+  if (n[1] < -0.5) { r += .17; g += .17; b += .19; }          // ceilings catch a little bounce
   else if (n[1] > 0.5) { r += .04; g += .04; b += .05; }
   for (const L of lamps) {
     const dx = L.x - sp[0], dy = L.y - sp[1], dz = L.z - sp[2], d2 = dx * dx + dy * dy + dz * dz, d = Math.sqrt(d2);
@@ -524,17 +533,18 @@ function shadeVertex(p, n, a, occ, lamps) {
   const [t1, t2] = AX[a]; let ao = 1;
   for (const [ta, s] of [[t1, 1], [t1, -1], [t2, 1], [t2, -1]]) {
     const q = [p[0] + n[0] * 0.28, p[1] + n[1] * 0.28, p[2] + n[2] * 0.28]; q[ta] += s * 0.55;
-    if (inAny(occ, q[0], q[1], q[2])) ao -= 0.13;
+    if (inAny(occ, q[0], q[1], q[2])) ao -= 0.16;
   }
-  ao = Math.max(.55, ao);
-  return [Math.min(1.15, r * ao), Math.min(1.15, g * ao), Math.min(1.15, b * ao)];
+  ao = Math.max(.46, ao);
+  return [Math.min(1.3, r * ao), Math.min(1.3, g * ao), Math.min(1.3, b * ao)];
 }
 function bakeFaces(list, occ, lamps, air, out, uvOrigin) {
   for (const b of list) for (let a = 0; a < 3; a++) for (const s of [-1, 1]) {
     const [t1, t2] = AX[a], plane = s > 0 ? b.max[a] : b.min[a];
     const l1 = b.max[t1] - b.min[t1], l2 = b.max[t2] - b.min[t2];
     const n1 = Math.max(1, Math.round(l1 / CELL)), n2 = Math.max(1, Math.round(l2 / CELL));
-    const G = out[b.mat] || (out[b.mat] = { p: [], n: [], uv: [], c: [], idx: [] });
+    const key = b.mat === "white" && a === 1 && s > 0 ? "floor" : b.mat;     // white floors get their own glossier finish
+    const G = out[key] || (out[key] = { p: [], n: [], uv: [], c: [], idx: [] });
     for (let i = 0; i < n1; i++) for (let j = 0; j < n2; j++) {
       const u0 = b.min[t1] + l1 * i / n1, u1 = b.min[t1] + l1 * (i + 1) / n1, v0 = b.min[t2] + l2 * j / n2, v1 = b.min[t2] + l2 * (j + 1) / n2;
       const q = [0, 0, 0]; q[a] = plane + s * 0.06; q[t1] = (u0 + u1) / 2; q[t2] = (v0 + v1) / 2;
@@ -881,6 +891,7 @@ if (!renderer) {
 }
 renderer.localClippingEnabled = true;
 renderer.setClearColor(0x05070a);
+renderer.toneMapping = THREE.NeutralToneMapping; renderer.toneMappingExposure = 0.92;
 MAXANISO = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 const scene = new THREE.Scene();
 const levelGroup = new THREE.Group(); scene.add(levelGroup);
@@ -891,14 +902,13 @@ const PW = 0.7, PH = 1.1;               // half width / half height of a portal 
 const QUAL = { pr: Math.min(window.devicePixelRatio || 1, 1.5), prMax: Math.min(window.devicePixelRatio || 1, 1.5), rtScale: 0.7, depth: 2 };
 const TEX = { white: whiteTex(), dark: darkTex(), acid: acidTex() };
 const MAT = {
-  white: new THREE.MeshBasicMaterial({ map: TEX.white, vertexColors: true }),
-  dark: new THREE.MeshBasicMaterial({ map: TEX.dark, vertexColors: true }),
-  lamp: new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 1.6, 1.55) }),
-  exitLight: new THREE.MeshBasicMaterial({ color: new THREE.Color(1.5, 1.7, 1.55) }),
+  white: null, dark: null,                 // set up below, once the reflection map exists
+  lamp: new THREE.MeshBasicMaterial({ color: new THREE.Color(4.2, 4.2, 4.0) }),
+  exitLight: new THREE.MeshBasicMaterial({ color: new THREE.Color(2.6, 3.2, 2.7) }),
   plateBase: new THREE.MeshBasicMaterial({ color: 0x23272c }),
-  plateTop: new THREE.MeshBasicMaterial({ color: 0xff5a2a }),
-  doorRed: new THREE.MeshBasicMaterial({ color: new THREE.Color(1.5, .25, .15) }),
-  doorGreen: new THREE.MeshBasicMaterial({ color: new THREE.Color(.3, 1.4, .5) })
+  plateTop: new THREE.MeshBasicMaterial({ color: new THREE.Color(1.9, .45, .2) }),
+  doorRed: new THREE.MeshBasicMaterial({ color: new THREE.Color(3.2, .45, .25) }),
+  doorGreen: new THREE.MeshBasicMaterial({ color: new THREE.Color(.5, 3.0, 1.0) })
 };
 
 /* ---------- reflections and lights for the 3D objects (cubes, sentries, the gun) ---------- */
@@ -915,6 +925,41 @@ let ENV = null;
   const t = new THREE.CanvasTexture(c); t.mapping = THREE.EquirectangularReflectionMapping; t.colorSpace = THREE.SRGBColorSpace;
   const pm = new THREE.PMREMGenerator(renderer); ENV = pm.fromEquirectangular(t).texture; pm.dispose(); t.dispose();
 }
+// Walls and floors: the lamps' light is baked into the vertex colours (soft shadows, dark corners); on top of that each panel has
+// bevelled edges and seams (normal map) that catch real reflections, glossier on the dark metal. Reflections dim where the bake is dark.
+function panelNormal(dark) {
+  const S = 512, R = rng(dark ? 31 : 17), hgt = new Float32Array(S * S);
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const lx = x % 256, ly = y % 256, e = Math.min(lx, ly, 255 - lx, 255 - ly);   // distance to the panel's edge (2x2 panels per tile)
+    let h = e < 2 ? 0 : e < 6 ? (e - 2) / 4 : 1;                                     // recessed seam with a rounded lip
+    if (e > 6 && e < 9) h -= 0.18;                                                   // the inner groove
+    for (const [cx, cy] of [[15, 15], [241, 15], [15, 241], [241, 241]]) { const d = Math.hypot(lx - cx, ly - cy); if (d < 3) h += (1 - d / 3) * 0.6; }   // rivets
+    hgt[y * S + x] = h + (R() - 0.5) * (dark ? 0.03 : 0.015);
+  }
+  const c = document.createElement("canvas"); c.width = c.height = S; const g = c.getContext("2d"), img = g.createImageData(S, S), k = dark ? 3.2 : 2.6;
+  const H = (x, y) => hgt[((y + S) % S) * S + ((x + S) % S)];
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    const dx = (H(x + 1, y) - H(x - 1, y)) * k, dy = (H(x, y + 1) - H(x, y - 1)) * k, l = Math.hypot(dx, dy, 1), o = (y * S + x) * 4;
+    img.data[o] = (-dx / l * .5 + .5) * 255; img.data[o + 1] = (dy / l * .5 + .5) * 255; img.data[o + 2] = (1 / l * .5 + .5) * 255; img.data[o + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = MAXANISO; return t;
+}
+function bakedMat(map, normalMap, rough, metal, envI, color = 0xffffff) {
+  const m = new THREE.MeshStandardMaterial({ color, map, normalMap, normalScale: new THREE.Vector2(1, 1), roughness: rough, metalness: metal, vertexColors: true, envMap: ENV, envMapIntensity: envI });
+  m.onBeforeCompile = sh => {
+    sh.fragmentShader = sh.fragmentShader.replace("#include <lights_fragment_end>", `#include <lights_fragment_end>
+      reflectedLight.directDiffuse = vec3(0.0); reflectedLight.directSpecular = vec3(0.0);
+      reflectedLight.indirectDiffuse = diffuseColor.rgb;
+      reflectedLight.indirectSpecular *= clamp(dot(vColor, vec3(0.3333)) * 1.15, 0.0, 1.0);`);
+  };
+  m.customProgramCacheKey = () => "baked";
+  return m;
+}
+const NRM_WHITE = panelNormal(false);
+MAT.white = bakedMat(TEX.white, NRM_WHITE, 0.5, 0.0, 0.55);
+MAT.floor = bakedMat(TEX.white, NRM_WHITE, 0.26, 0.0, 0.95, 0xc4cad0);
+MAT.dark = bakedMat(TEX.dark, panelNormal(true), 0.32, 0.45, 0.9);
 scene.add(new THREE.HemisphereLight(0xeaf1f8, 0x5b636c, 1.15));
 { const sun = new THREE.DirectionalLight(0xffffff, 1.5); sun.position.set(-0.35, 1, 0.45); scene.add(sun); }
 
@@ -1205,7 +1250,7 @@ function buildLevel(idx) {
     const A = makeCube(), Bg = makeCube(); Bg.group.visible = false;
     const sh = new THREE.Mesh(SHADOW_GEO, new THREE.MeshBasicMaterial({ map: SHADOW_TEX, transparent: true, depthWrite: false, opacity: .6, polygonOffset: true, polygonOffsetFactor: -2 })); sh.visible = false; sh.frustumCulled = false; sh.renderOrder = 2;
     scene.add(A.group, Bg.group, sh);
-    W.cubes.push({ p: new V3(...c), v: new V3(), spawn: c.slice(), mesh: A.group, ghost: Bg.group, mats: A.mats, gmats: Bg.mats, shadow: sh, held: false, hv: new V3(), yaw: 0 });
+    W.cubes.push({ p: new V3(...c), v: new V3(), spawn: c.slice(), mesh: A.group, ghost: Bg.group, mats: A.mats, gmats: Bg.mats, shadow: sh, held: false, hv: new V3(), yaw: 0, q: new QT(), pv: new V3(...c) });
   }
   // sentries (turret robots)
   W.sentries = []; W.beams = []; W.receivers = []; W.fields = []; W.dyn = [];
@@ -1238,6 +1283,7 @@ function buildLevel(idx) {
     else { m.rotation.x = Math.PI / 2; m.scale.set(ext[0], ext[2], 1); }
     levelGroup.add(m); W.fields.push({ min: f.min, max: f.max, mesh: m, tex, cool: 0 });
   }
+  makePhysics(W);
   return W;
 }
 function removeCubes() { if (!world) return; for (const c of world.cubes) { scene.remove(c.mesh, c.ghost, c.shadow); for (const m of c.mats) m.dispose(); for (const m of c.gmats) m.dispose(); c.shadow.material.dispose(); } world.cubes = []; }
@@ -1257,13 +1303,20 @@ function sizeTargets(w, h) {
   rtW = w; rtH = h;
   for (let p = 0; p < 2; p++) for (let k = 1; k <= 3; k++) {
     if (rts[p][k]) rts[p][k].dispose();
-    const rt = new THREE.WebGLRenderTarget(w, h, { samples: 4, depthBuffer: true, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, generateMipmaps: false });
+    const rt = new THREE.WebGLRenderTarget(w, h, { samples: 4, type: THREE.HalfFloatType, depthBuffer: true, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, generateMipmaps: false });
     rts[p][k] = rt;
   }
 }
+// The frame is drawn in high dynamic range, so lamps, portal rims and lit lenses can glow (bloom), then tone mapped for the screen.
+const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType, samples: 4 }));
+const scenePass = new RenderPass(scene, camera);
+const gunPass = new RenderPass(gunScene, gunCam); gunPass.clear = false; gunPass.clearDepth = true;
+const bloomPass = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.32, 0.38, 1.02);
+composer.addPass(scenePass); composer.addPass(gunPass); composer.addPass(bloomPass); composer.addPass(new OutputPass());
 function resize() {
   const w = Math.max(2, stageEl.clientWidth), h = Math.max(2, stageEl.clientHeight);
   renderer.setPixelRatio(QUAL.pr); renderer.setSize(w, h, false);
+  composer.setPixelRatio(QUAL.pr); composer.setSize(w, h); bloomPass.enabled = QUAL.depth > 1 || QUAL.pr > 1;
   camera.aspect = w / h; camera.updateProjectionMatrix();
   gunCam.aspect = w / h; gunCam.updateProjectionMatrix();
   sizeTargets(Math.max(128, Math.floor(w * QUAL.pr * QUAL.rtScale)), Math.max(128, Math.floor(h * QUAL.pr * QUAL.rtScale)));
@@ -1307,8 +1360,8 @@ function renderFrame(time) {
   }
   renderer.getDrawingBufferSize(_dbs);
   for (let p = 0; p < 2; p++) { const P = portals[p]; P.mat.uniforms.uRes.value.copy(_dbs); if (jobs[p].length) { P.mat.uniforms.tMap.value = rts[p][1].texture; P.mat.uniforms.uHas.value = 1; } else { P.mat.uniforms.uHas.value = 0; P.mat.uniforms.tMap.value = null; } }
-  renderer.render(scene, camera);
-  if (showGun) { renderer.clearDepth(); renderer.autoClear = false; renderer.render(gunScene, gunCam); renderer.autoClear = true; }
+  gunPass.enabled = showGun;
+  composer.render();
 }
 
 /* =====================================================================================
@@ -1515,7 +1568,10 @@ function teleportPlayer(P) {
   let roll = 2 * Math.atan2(_qb.z, _qb.w); if (roll > Math.PI) roll -= Math.PI * 2; if (roll < -Math.PI) roll += Math.PI * 2;
   cam.roll = roll;
   camOffset.copy(eyeCam).sub(eyePos(tmpA));
-  if (holding) { holding.p.applyMatrix4(P.T); }
+  if (holding) {                 // bring the held cube along, unless it already went through ahead of us
+    const hp = holding.p.clone().applyMatrix4(P.T), eyeNow = eyePos(tmpC);
+    if (hp.distanceTo(eyeNow) < holding.p.distanceTo(eyeNow)) { _rq.setFromRotationMatrix(_rm.extractRotation(P.T)); setCubeState(holding, hp, holding.q.clone().premultiply(_rq)); holding.pv.copy(hp); }
+  }
   const eyeNew = eyePos(prevEye);
   sfx.enter(P.idx);
   run.ports = (run.ports || 0) + 1;
@@ -1530,7 +1586,7 @@ function tryPortalPlayer() {
       tmpC.lerpVectors(prevEye, eye, t).sub(P.o);
       if (Math.abs(tmpC.dot(P.r)) < PW - 0.04 && Math.abs(tmpC.dot(P.u)) < PH - 0.04) {
         teleportPlayer(P);
-        collectSolids(true); computeSkip(player.p, .12, 0, _skip); depenetrate(player.p, H_PL, _sol, _skip);
+        if (phys) phys.pc.setTranslation(player.p);
         eyePos(prevEye); return true;
       }
     }
@@ -1538,25 +1594,118 @@ function tryPortalPlayer() {
   eyePos(prevEye); return false;
 }
 
-/* ---------- cubes ---------- */
-function updateCube(c, dt) {
-  if (c.held) return;
-  const pv = c.p.clone();
-  c.v.y = Math.max(-TERM, c.v.y - GRAV * dt);
-  collectSolids(false); computeSkip(c.p, .35, .3, _skip);
-  const contact = moveBody(c.p, c.v, H_CUBE, dt, _sol, _skip);
-  if (contact < 0) { const k = Math.exp(-7 * dt); c.v.x *= k; c.v.z *= k; }
-  if (bothPortals()) for (const P of portals) {
-    const d0 = P.n.dot(tmpA.copy(pv).sub(P.o)), d1 = P.n.dot(tmpB.copy(c.p).sub(P.o));
-    if (d0 >= 0 && d1 < 0) {
-      const t = d0 / (d0 - d1); tmpC.lerpVectors(pv, c.p, t).sub(P.o);
-      if (Math.abs(tmpC.dot(P.r)) < PW - 0.2 && Math.abs(tmpC.dot(P.u)) < PH - 0.2) { c.p.applyMatrix4(P.T); c.v.applyMatrix3(P.R); sfx.enter(P.idx, 0.5); break; }
-    }
-  }
-  for (const a of world.acid) if (c.p.x > a.x0 && c.p.x < a.x1 && c.p.z > a.z0 && c.p.z < a.z1 && c.p.y - 0.35 < a.y + 0.1) { respawnCube(c); break; }
-  if (c.p.y < -30) respawnCube(c);
+/* ---------- physics engine (Rapier) ----------
+   Every level box, door and sentry is a collider; cubes are real rigid bodies (they tumble, stack and slide); the player is a
+   kinematic character controller (steps up small ledges, slides along walls, pushes cubes). Walls a portal is cut into are
+   ignored by whatever is in front of the opening: the player through the controller's filter, cubes through a contact hook. */
+const G_WORLD = 1, G_PLAYER = 2, G_CUBE = 4;
+const grp = (member, filter) => ((member & 0xffff) << 16) | (filter & 0xffff);
+const CUBE_FREE = grp(G_CUBE, 0xffff), CUBE_HELD = grp(G_CUBE, 0xffff & ~G_PLAYER);
+let phys = null;
+const handleOf = c => typeof c === "number" ? c : c.handle;
+const PHYS_HOOKS = {
+  filterContactPair(h1, h2) {
+    const a = phys.byHandle.get(handleOf(h1)), b = phys.byHandle.get(handleOf(h2));
+    const c = a && a.isCube ? a : b && b.isCube ? b : null, other = c === a ? b : a;
+    if (c && other && !other.isCube && c.skipB.includes(other)) return RAPIER.SolverFlags.EMPTY;
+    return RAPIER.SolverFlags.COMPUTE_IMPULSE;
+  },
+  filterIntersectionPair() { return true; }
+};
+function fixedCollider(w, b) {
+  const hx = (b.max[0] - b.min[0]) / 2, hy = (b.max[1] - b.min[1]) / 2, hz = (b.max[2] - b.min[2]) / 2;
+  const col = w.createCollider(RAPIER.ColliderDesc.cuboid(Math.max(hx, .005), Math.max(hy, .005), Math.max(hz, .005))
+    .setTranslation(b.min[0] + hx, b.min[1] + hy, b.min[2] + hz).setFriction(0.7).setCollisionGroups(grp(G_WORLD, 0xffff)));
+  b.col = col; b.colDim = hx + "," + hy + "," + hz; phys.byHandle.set(col.handle, b); return col;
 }
-function respawnCube(c) { sfx.fizzle(); c.p.set(...c.spawn); c.v.set(0, 0, 0); c.held = false; if (holding === c) holding = null; if (!run.said.cube) { run.said.cube = 1; say("sadosCube"); } }
+function syncCollider(b) {            // a door or sentry box moved or changed size: move its collider to match
+  const hx = (b.max[0] - b.min[0]) / 2, hy = (b.max[1] - b.min[1]) / 2, hz = (b.max[2] - b.min[2]) / 2, dim = hx + "," + hy + "," + hz;
+  if (dim !== b.colDim) { b.col.setHalfExtents({ x: Math.max(hx, .005), y: Math.max(hy, .005), z: Math.max(hz, .005) }); b.colDim = dim; }
+  b.col.setTranslation({ x: b.min[0] + hx, y: b.min[1] + hy, z: b.min[2] + hz });
+}
+function addCubeBody(c) {
+  const w = phys.world;
+  const body = w.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(c.p.x, c.p.y, c.p.z).setCcdEnabled(true).setLinearDamping(0.04).setAngularDamping(0.4));
+  const col = w.createCollider(RAPIER.ColliderDesc.roundCuboid(0.31, 0.31, 0.31, 0.04).setDensity(60).setFriction(0.75).setRestitution(0.08)
+    .setCollisionGroups(CUBE_FREE).setActiveHooks(RAPIER.ActiveHooks.FILTER_CONTACT_PAIRS), body);
+  c.body = body; c.col = col; c.isCube = true; c.skipB = []; c.q = new QT(); c.ccd = true;
+  phys.byHandle.set(col.handle, c);
+}
+function makePhysics(W) {
+  if (phys) { try { phys.world.free(); phys.events.free(); } catch (e) {} }
+  const w = new RAPIER.World({ x: 0, y: -GRAV, z: 0 }); w.timestep = 1 / 120;
+  phys = { world: w, events: new RAPIER.EventQueue(true), byHandle: new Map() };
+  for (const b of W.solids) fixedCollider(w, b);
+  for (const d of W.doors) fixedCollider(w, d.box);
+  for (const s of W.sentries) fixedCollider(w, s.box);
+  phys.pc = w.createCollider(RAPIER.ColliderDesc.capsule(HY - HX, HX).setTranslation(player.p.x, player.p.y, player.p.z).setCollisionGroups(grp(G_PLAYER, 0xffff)));
+  const cc = phys.cc = w.createCharacterController(0.012);
+  cc.setUp({ x: 0, y: 1, z: 0 }); cc.setSlideEnabled(true);
+  cc.enableAutostep(0.32, 0.22, false); cc.enableSnapToGround(0.22);
+  cc.setMaxSlopeClimbAngle(50 * Math.PI / 180); cc.setMinSlopeSlideAngle(55 * Math.PI / 180);
+  cc.setApplyImpulsesToDynamicBodies(true); cc.setCharacterMass(70);
+  for (const c of W.cubes) addCubeBody(c);
+}
+// move the player by its velocity with the character controller; returns -1 when it landed or stands on something, 1 when it hit a ceiling
+const _pskip = new Set();
+function movePlayer(dt) {
+  const pl = player, P = phys;
+  computeSkip(pl.p, .12, 0, _skip); _pskip.clear(); for (const b of _skip) if (b.col) _pskip.add(b.col.handle);
+  const heldH = holding && holding.col ? holding.col.handle : -1;
+  P.pc.setTranslation(pl.p);
+  const wx = pl.v.x * dt, wy = pl.v.y * dt, wz = pl.v.z * dt;
+  P.cc.computeColliderMovement(P.pc, { x: wx, y: wy, z: wz }, RAPIER.QueryFilterFlags.EXCLUDE_SENSORS, undefined,
+    col => { const h = col.handle; return h !== heldH && !_pskip.has(h); });
+  const m = P.cc.computedMovement(), grounded = P.cc.computedGrounded();
+  pl.p.x += m.x; pl.p.y += m.y; pl.p.z += m.z; P.pc.setTranslation(pl.p);
+  if (Math.abs(m.x) < Math.abs(wx) - 1e-4) pl.v.x = m.x / dt;          // stopped or slowed by something: keep only what really moved
+  if (Math.abs(m.z) < Math.abs(wz) - 1e-4) pl.v.z = m.z / dt;
+  let contact = 0;
+  if (wy > 0 && m.y < wy - 1e-4 && !grounded) { contact = 1; pl.v.y = Math.min(pl.v.y, 0); }
+  if (grounded && pl.v.y <= 0) { contact = -1; pl.v.y = 0; }
+  else if (wy < 0 && m.y > wy + 1e-4) { contact = -1; pl.v.y = 0; }
+  return contact;
+}
+function setCubeState(c, pos, q, lin, ang) {
+  c.body.setTranslation(pos, true); if (q) c.body.setRotation(q, true);
+  c.body.setLinvel(lin || { x: 0, y: 0, z: 0 }, true); c.body.setAngvel(ang || { x: 0, y: 0, z: 0 }, true);
+  c.p.set(pos.x, pos.y, pos.z); if (q) c.q.set(q.x, q.y, q.z, q.w); if (lin) c.v.set(lin.x, lin.y, lin.z); else c.v.set(0, 0, 0);
+}
+// before the physics step: which walls each cube may pass into (it is in front of a portal opening)
+function cubesBeforeStep() {
+  for (const c of world.cubes) {
+    c.pv = c.pv || new V3(); c.pv.copy(c.p);
+    computeSkip(c.p, .35, .3, _skip); c.skipB = _skip.slice();
+    const wantCcd = !c.skipB.length; if (wantCcd !== c.ccd) { c.body.enableCcd(wantCcd); c.ccd = wantCcd; }
+  }
+}
+const _rq = new QT(), _rm = new M4(), _av = new V3();
+function cubesAfterStep() {
+  for (const c of world.cubes) {
+    const t = c.body.translation(), r = c.body.rotation(), v = c.body.linvel();
+    c.p.set(t.x, t.y, t.z); c.q.set(r.x, r.y, r.z, r.w); c.v.set(v.x, v.y, v.z);
+    if (c.v.length() > TERM) { c.v.setLength(TERM); c.body.setLinvel(c.v, true); }
+    if (!c.held && bothPortals()) for (const P of portals) {      // through a portal: same speed, same spin, out of the other one
+      const d0 = P.n.dot(tmpA.copy(c.pv).sub(P.o)), d1 = P.n.dot(tmpB.copy(c.p).sub(P.o));
+      if (d0 >= 0 && d1 < 0) {
+        const k = d0 / (d0 - d1); tmpC.lerpVectors(c.pv, c.p, k).sub(P.o);
+        if (Math.abs(tmpC.dot(P.r)) < PW - 0.2 && Math.abs(tmpC.dot(P.u)) < PH - 0.2) {
+          _rq.setFromRotationMatrix(_rm.extractRotation(P.T));
+          const a = c.body.angvel(); _av.set(a.x, a.y, a.z).applyMatrix3(P.R);
+          setCubeState(c, c.p.clone().applyMatrix4(P.T), c.q.clone().premultiply(_rq), c.v.clone().applyMatrix3(P.R), { x: _av.x, y: _av.y, z: _av.z });
+          sfx.enter(P.idx, 0.5); break;
+        }
+      }
+    }
+    for (const a of world.acid) if (c.p.x > a.x0 && c.p.x < a.x1 && c.p.z > a.z0 && c.p.z < a.z1 && c.p.y - 0.35 < a.y + 0.1) { respawnCube(c); break; }
+    if (c.p.y < -30) respawnCube(c);
+  }
+}
+function respawnCube(c) {
+  sfx.fizzle(); if (holding === c) dropCube(true);
+  c.held = false; setCubeState(c, new V3(...c.spawn), new QT());
+  if (!run.said.cube) { run.said.cube = 1; say("sadosCube"); }
+}
 function floorBelow(x, y, z, maxD) {            // y of the first solid surface straight under a point, or null
   const o = [x, y, z], d = [0, -1, 0]; let best = null;
   for (const b of world.solids) { const h = rayBox(o, d, b, maxD); if (h && h.axis === 1 && (best === null || h.t < best)) best = h.t; }
@@ -1564,8 +1713,7 @@ function floorBelow(x, y, z, maxD) {            // y of the first solid surface 
 }
 const _gq = new QT(), _gm = new M4();
 function cubeGhost(c, dt) {
-  if (c.held) c.yaw += angDiff(player.yaw, c.yaw) * Math.min(1, dt * 10);
-  c.mesh.position.copy(c.p); c.mesh.rotation.y = c.yaw;
+  c.mesh.position.copy(c.p); c.mesh.quaternion.copy(c.q);
   for (const m of c.mats) m.clippingPlanes = null; c.ghost.visible = false;
   // soft contact shadow on whatever is below
   const fy = floorBelow(c.p.x, c.p.y, c.p.z, 7);
@@ -1599,24 +1747,38 @@ function useAction() {
     if (dp > bs) { bs = dp; best = c; }
   }
   if (!best) { for (const sn of world.sentries) { if (sn.state === "off") continue; tmpA.set(sn.base.x, sn.base.y + 0.8, sn.base.z).sub(eye); const dist = tmpA.length(); if (dist > 2.8 || tmpA.dot(f) / dist < 0.8) continue; tipSentry(sn, "grab"); toast("Sentry down"); return; } }
-  if (best) { holding = best; best.held = true; best.v.set(0, 0, 0); sfx.grab(); toast("Holding the cube. Press grab again to put it down."); if (!run.said.grab) { run.said.grab = 1; say("sadosGrab"); } }
+  if (best) {
+    holding = best; best.held = true; best.body.setGravityScale(0, true); best.col.setCollisionGroups(CUBE_HELD); best.body.setAngularDamping(6);
+    sfx.grab(); toast("Holding the cube. Press grab again to put it down."); if (!run.said.grab) { run.said.grab = 1; say("sadosGrab"); }
+  }
 }
-function dropCube() {
+function dropCube(quiet) {
   const c = holding; if (!c) return; holding = null; c.held = false;
-  c.v.copy(c.hv).clampLength(0, 30);
-  collectSolids(false); computeSkip(c.p, .35, .3, _skip); depenetrate(c.p, H_CUBE, _sol, _skip); sfx.drop();
+  c.body.setGravityScale(1, true); c.col.setCollisionGroups(CUBE_FREE); c.body.setAngularDamping(0.4);
+  const v = c.body.linvel(); c.v.set(v.x, v.y, v.z).clampLength(0, 30); c.body.setLinvel(c.v, true);
+  if (!quiet) sfx.drop();
 }
+// the held cube rides a spring towards a point in front of the eye, so it bumps into walls instead of passing through them
+const _hq = new QT(), _he = new THREE.Euler();
 function holdUpdate(dt) {
   const c = holding; if (!c) return;
   const eye = eyePos(new V3()), f = viewDir(new V3());
   const ray = castRay(eye, f, 2.2, false);
   const dist = Math.max(0.9, Math.min(1.75, ray.hit ? ray.hit.dist - 0.5 : 1.75));
   const target = pathPoint(ray, dist) || eye.clone().addScaledVector(f, dist);
-  const before = c.p.clone();
-  if (c.p.distanceTo(target) < 0.7) c.p.lerp(target, 1 - Math.exp(-dt * 28)); else c.p.copy(target);
-  c.hv.copy(c.p).sub(before).divideScalar(Math.max(dt, 1e-3)).multiplyScalar(0.8);
-  if (c.p.distanceTo(eye) > 4.2) dropCube();
+  const gap = tmpA.copy(target).sub(c.p);
+  const viaPortal = ray.segs.length > 1 && dist > ray.segs[0].len;
+  if (gap.length() > 1.4 && viaPortal) { setCubeState(c, target, c.q); c.pv.copy(target); c.snag = 0; return; }   // held out through a portal: it goes through
+  c.snag = gap.length() > 1.2 ? (c.snag || 0) + dt : 0;
+  if (c.snag > 0.5) { dropCube(); return; }                    // snagged on something for a while: let go rather than pull it through a wall
+  gap.multiplyScalar(16).clampLength(0, 24); c.body.setLinvel(gap, true);
+  // turn it to face the player, keeping it level
+  _hq.setFromEuler(_he.set(0, player.yaw, 0)); const dq = _hq.multiply(tmpQ.copy(c.q).invert());
+  if (dq.w < 0) { dq.x = -dq.x; dq.y = -dq.y; dq.z = -dq.z; dq.w = -dq.w; }
+  const ang = 2 * Math.acos(Math.min(1, dq.w)), s = Math.sqrt(Math.max(1e-9, 1 - dq.w * dq.w)), k = Math.min(ang * 10, 12);
+  c.body.setAngvel({ x: dq.x / s * k, y: dq.y / s * k, z: dq.z / s * k }, true);
 }
+const tmpQ = new QT();
 
 /* ---------- main physics step ---------- */
 function physicsStep(dt) {
@@ -1629,8 +1791,9 @@ function physicsStep(dt) {
     const sp = Math.hypot(pl.v.x, pl.v.z);
     if (sp > 0.01) { const ns = Math.max(0, sp - Math.max(sp, 1.5) * 9 * dt) / sp; pl.v.x *= ns; pl.v.z *= ns; }
     if (wish > 0.01) { const dx = wx / wish, dz = wz / wish, add = WALK * wish - (pl.v.x * dx + pl.v.z * dz); if (add > 0) { const a = Math.min(add, 10 * dt * WALK); pl.v.x += dx * a; pl.v.z += dz * a; } }
-    if (inp.jumpQ && alive) { pl.v.y = JUMP_V; pl.ground = false; sfx.jump(); }
-  } else if (wish > 0.01) {
+    if (inp.jumpQ && alive) { pl.v.y = JUMP_V; pl.ground = false; pl.air = 1; sfx.jump(); }
+  } else if (inp.jumpQ && alive && (pl.air || 0) < 0.12 && pl.v.y <= 0.5) { pl.v.y = JUMP_V; pl.air = 1; sfx.jump(); }   // a moment's grace after walking off an edge
+  else if (wish > 0.01) {
     const dx = wx / wish, dz = wz / wish, add = 3.6 * wish - (pl.v.x * dx + pl.v.z * dz);
     if (add > 0) { const a = Math.min(add, 8 * dt * WALK * wish); pl.v.x += dx * a; pl.v.z += dz * a; }
   }
@@ -1638,11 +1801,18 @@ function physicsStep(dt) {
   pl.v.y = Math.max(-TERM, pl.v.y - GRAV * dt);
   const sp3 = pl.v.length(); if (sp3 > 90) pl.v.multiplyScalar(90 / sp3);
   const vyBefore = pl.v.y, wasGround = pl.ground;
-  collectSolids(true); computeSkip(pl.p, .12, 0, _skip);
-  const contact = moveBody(pl.p, pl.v, H_PL, dt, _sol, _skip);
-  pl.ground = contact < 0 || (pl.v.y < 1 && groundProbe(pl.p, H_PL, _sol, _skip));
+  const contact = movePlayer(dt);
+  pl.ground = contact < 0;
+  if (pl.ground) pl.air = 0; else pl.air = (pl.air || 0) + dt;
   if (contact < 0 && !wasGround && -vyBefore > 5) { sfx.land(-vyBefore); onLanded(-vyBefore); }
   tryPortalPlayer();
+  // the rest of the world: doors and sentries carry their colliders, the held cube is pulled along, then the engine steps
+  for (const d of W.doors) syncCollider(d.box);
+  for (const s of W.sentries) syncCollider(s.box);
+  holdUpdate(dt);
+  cubesBeforeStep();
+  phys.world.timestep = dt; phys.world.step(phys.events, PHYS_HOOKS);
+  cubesAfterStep();
   const speed = pl.v.length(); if (speed > run.top) run.top = speed;
   if (pl.ground) { stepAcc += Math.hypot(pl.v.x, pl.v.z) * dt; if (stepAcc > 2.3) { stepAcc = 0; sfx.step(); } }
   // hazards
@@ -1650,8 +1820,7 @@ function physicsStep(dt) {
     for (const a of W.acid) if (pl.p.x > a.x0 && pl.p.x < a.x1 && pl.p.z > a.z0 && pl.p.z < a.z1 && pl.p.y - HY < a.y + 0.12) { die("acid"); break; }
     if (pl.p.y < -30) die("void");
   }
-  // cubes, plates, doors
-  for (const c of W.cubes) updateCube(c, dt);
+  // plates, doors
   for (const d of W.doors) { d.want = 0; d.cnt = 0; }
   for (const r of W.receivers) if (r.lit) for (const d of W.doors) if (d.id === r.door) d.cnt++;
   for (const p of W.plates) {
@@ -1694,7 +1863,7 @@ function startLevel(idx, quiet) {
   removeCubes(); disposeLevel();
   levelIdx = idx; buildLevel(idx); resetLevelState(); respawn();
   $("chNum").textContent = "CHAMBER " + String(idx + 1).padStart(2, "0"); $("chTitle").textContent = world.lv.name;
-  Music.set(world.lv.track); Music.kick();
+  Music.set(world.lv.track); Music.kick(); setVoiceRoom(roomSize());
   preloadVoice([...(world.lv.say.intro || []), ...(world.lv.say.hint || []), ...(world.lv.say.done || [])]);
   state = "play";
   if (!quiet) setTimeout(() => { if (state === "play" && levelIdx === idx) say("intro"); }, 1400);
@@ -1707,8 +1876,8 @@ function startLevel(idx, quiet) {
 function completeLevel() {
   if (state !== "play") return;
   state = "done"; sfx.complete(); if (holding) dropCube();
-  const next = Math.max(store.get("progress", 0), levelIdx + 1); store.set("progress", Math.min(next, LEVEL_FUNCS.length - 1));
-  if (levelIdx + 1 >= LEVEL_FUNCS.length) store.set("finished", 1);
+  const next = Math.max(store.get("progress3", 0), levelIdx + 1); store.set("progress3", Math.min(next, LEVEL_FUNCS.length - 1));
+  if (levelIdx + 1 >= LEVEL_FUNCS.length) store.set("finished3", 1);
   const m = Math.floor(run.time / 60), s = Math.floor(run.time % 60);
   $("dNum").textContent = "CHAMBER " + String(levelIdx + 1).padStart(2, "0") + " · " + world.lv.name.toUpperCase();
   $("dTitle").textContent = levelIdx + 1 >= LEVEL_FUNCS.length ? "Testing complete" : "Chamber complete";
@@ -1727,7 +1896,18 @@ function onLanded(v) { if (v > 26 && !run.said.speed) { run.said.speed = 1; say(
 /* =====================================================================================
    Audio: generative music, synthesized effects, SaDos (device voice + subtitles)
    ===================================================================================== */
-let actx = null, master, musicBus, sfxBus, reverb, revSend, voiceBus;
+let actx = null, master, musicBus, sfxBus, reverb, revSend, voiceBus, voiceHP, voiceRoom, voiceWet;
+function roomSize() { let m = 10; for (const a of world.lv.air || []) m = Math.max(m, a[3] - a[0], a[4] - a[1], a[5] - a[2]); return m; }
+function setVoiceRoom(size) {          // early reflections plus a tiled-room tail; bigger chambers ring longer
+  if (!actx || !voiceRoom) return;
+  const secs = clamp(0.7 + size / 22, 0.9, 2.4), sr = actx.sampleRate, len = Math.floor(sr * secs), ir = actx.createBuffer(2, len, sr);
+  for (let c = 0; c < 2; c++) {
+    const d = ir.getChannelData(c); let lp = 0;
+    for (let i = Math.floor(sr * 0.012); i < len; i++) { const n = Math.random() * 2 - 1; lp += (n - lp) * 0.42; d[i] = lp * Math.pow(1 - i / len, 3.4); }
+    for (let k = 0; k < 7; k++) { const at = Math.floor(sr * (0.018 + k * size / 1400 + Math.random() * 0.01)); if (at < len) d[at] += (c ? -1 : 1) * (0.5 - k * 0.06); }
+  }
+  voiceRoom.buffer = ir;
+}
 let silentEl = null;
 function iosUnlock() {
   try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch (e) {}
@@ -1756,6 +1936,11 @@ function ensureAudio() {
     for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
     reverb = actx.createConvolver(); reverb.buffer = ir; revSend = actx.createGain(); revSend.gain.value = 0.55; revSend.connect(reverb); reverb.connect(musicBus);
     voiceBus = actx.createGain(); voiceBus.gain.value = 1.0; voiceBus.connect(master);
+    // SaDos speaks into the chamber: a little of her voice comes back off the walls (the size of the room sets the tail)
+    voiceHP = actx.createBiquadFilter(); voiceHP.type = "highpass"; voiceHP.frequency.value = 240;
+    voiceRoom = actx.createConvolver(); voiceWet = actx.createGain(); voiceWet.gain.value = 0.34;
+    voiceBus.connect(voiceHP); voiceHP.connect(voiceRoom); voiceRoom.connect(voiceWet); voiceWet.connect(master);
+    setVoiceRoom(world ? roomSize() : 20);
     actx.onstatechange = () => { if (actx.state !== "running" && !bg && !document.hidden) { actx.resume().catch(() => {}); setTimeout(() => Music.kick(), 200); } };
     Music.start();
   }
@@ -1996,11 +2181,11 @@ function unlockPointer() { try { if (document.pointerLockElement) document.exitP
 
 /* ---------- state transitions ---------- */
 function goTitle() {
-  sadosShutUp(); unlockPointer(); startLevel(Math.min(store.get("progress", 0), LEVEL_FUNCS.length - 1), true);
+  sadosShutUp(); unlockPointer(); startLevel(Math.min(store.get("progress3", 0), LEVEL_FUNCS.length - 1), true);
   state = "title"; showOv("ovTitle"); $("hud").hidden = true; refreshTitle();
 }
 function refreshTitle() {
-  const pr = store.get("progress", 0);
+  const pr = store.get("progress3", 0);
   $("playSub").textContent = pr > 0 ? "Continue at chamber " + String(pr + 1).padStart(2, "0") : "Start with chamber 01";
 }
 function beginLevel(i, quiet) {
@@ -2014,7 +2199,7 @@ function pause() {
 function resume() { if (state !== "paused") return; hideOv(); state = "play"; syncTouch(); lockPointer(); }
 const CH_NAMES = ["Doorway", "Delivery", "Freefall", "Lift", "Special Delivery", "Sentry Duty", "Redirect", "Reset", "Two Keys", "Gantry", "Crossfire", "The Last Word"];
 function buildChambers() {
-  const g = $("chGrid"), pr = store.get("progress", 0); g.innerHTML = "";
+  const g = $("chGrid"), pr = store.get("progress3", 0); g.innerHTML = "";
   LEVEL_FUNCS.forEach((f, i) => {
     const b = document.createElement("button"); b.type = "button"; b.className = "chbtn" + (i === levelIdx && state !== "title" ? " cur" : "");
     b.innerHTML = "<b>" + String(i + 1).padStart(2, "0") + "</b><span>" + (i <= pr ? CH_NAMES[i] : "Locked") + "</span>";
@@ -2023,7 +2208,7 @@ function buildChambers() {
   });
 }
 const click = (id, fn) => $(id).addEventListener("click", e => { ensureAudio(); fn(e); });
-click("bPlay", () => beginLevel(Math.min(store.get("progress", 0), LEVEL_FUNCS.length - 1)));
+click("bPlay", () => beginLevel(Math.min(store.get("progress3", 0), LEVEL_FUNCS.length - 1)));
 click("bChambers", () => { chFrom = "ovTitle"; buildChambers(); showOv("ovChambers"); });
 click("bChBack", () => showOv(chFrom));
 click("bOptions", () => { optsFrom = "ovTitle"; syncOpts(); showOv("ovOptions"); });
@@ -2457,7 +2642,7 @@ function frame(ts) {
     acc += dt; let n = 0;
     while (acc >= STEP && n++ < 12) { physicsStep(STEP); acc -= STEP; run.time += STEP; }
     if (n >= 12) acc = 0;
-    holdUpdate(dt); sadosTick(dt);
+    sadosTick(dt);
     cam.yaw = player.yaw; cam.pitch = player.pitch;
     cam.roll *= Math.exp(-dt * 6); if (Math.abs(cam.roll) < 1e-3) cam.roll = 0;
     camOffset.multiplyScalar(Math.exp(-dt * 16));
@@ -2489,12 +2674,12 @@ function boot() {
   resize(); applyQuality();
   addEventListener("resize", () => resize()); addEventListener("orientationchange", () => setTimeout(resize, 200));
   if (window.visualViewport) visualViewport.addEventListener("resize", () => setTimeout(resize, 50));
-  startLevel(Math.min(store.get("progress", 0), LEVEL_FUNCS.length - 1), true); state = "title";
+  startLevel(Math.min(store.get("progress3", 0), LEVEL_FUNCS.length - 1), true); state = "title";
   showOv("ovTitle"); $("hud").hidden = true; refreshTitle(); syncOpts();
   $("loading").hidden = true;
   requestAnimationFrame(frame);
 }
-window.__tc = { allLines: () => ({ LINES, levels: LEVEL_FUNCS.map(f => f().say) }), lineHash, get state() { return state; }, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
+window.__tc = { setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, allLines: () => ({ LINES, levels: LEVEL_FUNCS.map(f => f().say) }), lineHash, get state() { return state; }, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
 try { boot(); } catch (err) { console.error(err); $("loading").hidden = false; $("loading").innerHTML = '<div style="max-width:420px;text-align:center;line-height:1.6;font-size:13px;letter-spacing:.05em">Something went wrong starting the game.<br><small>' + String(err && err.message || err) + "</small></div>"; }
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>

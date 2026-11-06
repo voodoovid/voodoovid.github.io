@@ -55,6 +55,10 @@ main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(330p
 #hud { position: absolute; left: 12px; top: 10px; right: 12px; display: flex; justify-content: space-between; pointer-events: none;
   font-size: 12px; letter-spacing: .14em; font-weight: 700; color: rgba(255,255,255,.8); text-shadow: 0 1px 4px rgba(0,0,0,.8); }
 #fps { font-variant-numeric: tabular-nums; }
+#tabs { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; gap: 4px; padding: 4px; border-radius: 22px;
+  background: rgba(8,12,16,.72); border: 1px solid rgba(255,255,255,.12); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); z-index: 2; }
+#tabs button { border: 0; background: transparent; color: var(--dim); font: 700 12.5px/1 var(--font); letter-spacing: .04em; padding: 9px 13px; border-radius: 18px; cursor: pointer; white-space: nowrap; }
+#tabs button.on { background: rgba(255,255,255,.14); color: var(--ink); }
 #idle { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; padding: 24px;
   color: var(--dim); font-size: 14px; line-height: 1.5; background: radial-gradient(ellipse at center, #111a22, #000 70%); }
 #ver { position: absolute; right: 12px; bottom: 9px; font-size: 11px; color: rgba(255,255,255,.55); letter-spacing: .08em; pointer-events: none; }
@@ -82,6 +86,7 @@ main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(330p
     <section id="view">
       <canvas id="gl"></canvas>
       <div id="hud"><span id="scene">LIVE CHAMBER</span><span id="fps"></span></div>
+      <div id="tabs"><button data-v="chamber" class="on">Chamber</button><button data-v="A">Gun A · Vector</button><button data-v="B">Gun B · Gyre</button></div>
       <div id="idle">The test chamber appears here while the checks run:<br>real physics, live portal views, soft shadows and glow.</div>
       <div id="ver"></div>
     </section>
@@ -91,7 +96,7 @@ main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(330p
 <script type="module">
 import * as THREE from "three";
 
-const LAB_VERSION = "Lab v0.1";
+const LAB_VERSION = "Lab v0.2";
 document.getElementById("ver").textContent = LAB_VERSION;
 
 // ---------- check rows ----------
@@ -410,6 +415,8 @@ function tick(now) {
   if (!running) return;
   requestAnimationFrame(tick);
   const t = now / 1000, dt = Math.min(0.1, lastT ? t - lastT : 0.016); lastT = t;
+  if (viewMode !== "chamber" && gunView && !bench) { drawGun(t); return; }
+  if (!scene) return;
   if (bench) bench.push(dt);
   // physics at 120 Hz
   if (chamberWorld) {
@@ -428,6 +435,125 @@ function tick(now) {
   if (composer) composer.render(); else renderer.render(scene, cam);
   if (bench) document.getElementById("fps").textContent = `${Math.round(1 / Math.max(dt, 1e-3))} FPS`;
 }
+
+
+// ---------- portal gun concepts (original designs) ----------
+let gunView = null;          // { scene, cam, rig, parts } while a gun tab is showing
+function gunMats() {
+  return {
+    shell: new THREE.MeshStandardMaterial({ color: 0x59636d, metalness: 0.7, roughness: 0.34 }),
+    panel: new THREE.MeshStandardMaterial({ color: 0xa9b3bc, metalness: 0.9, roughness: 0.24 }),
+    dark: new THREE.MeshStandardMaterial({ color: 0x1d2227, metalness: 0.6, roughness: 0.4 }),
+    rubber: new THREE.MeshStandardMaterial({ color: 0x15181b, metalness: 0.0, roughness: 0.85 }),
+    copper: new THREE.MeshStandardMaterial({ color: 0xc27a4a, metalness: 1.0, roughness: 0.28 }),
+    chrome: new THREE.MeshStandardMaterial({ color: 0xd8dde2, metalness: 1.0, roughness: 0.12 }),
+    glow: new THREE.MeshBasicMaterial({ color: new THREE.Color(0x2fa4ff).multiplyScalar(3) }),
+    glass: new THREE.MeshPhysicalMaterial({ color: 0x9fd4ff, metalness: 0, roughness: 0.05, transparent: true, opacity: 0.35, depthWrite: false }),
+  };
+}
+function rbox(w, h, d, r, seg = 3) {          // a rounded box: machined edges catch the light
+  const sh = new THREE.Shape(), x = w / 2 - r, y = h / 2 - r;
+  sh.moveTo(-x, -h / 2); sh.lineTo(x, -h / 2); sh.quadraticCurveTo(w / 2, -h / 2, w / 2, -y); sh.lineTo(w / 2, y); sh.quadraticCurveTo(w / 2, h / 2, x, h / 2);
+  sh.lineTo(-x, h / 2); sh.quadraticCurveTo(-w / 2, h / 2, -w / 2, y); sh.lineTo(-w / 2, -y); sh.quadraticCurveTo(-w / 2, -h / 2, -x, -h / 2);
+  const g = new THREE.ExtrudeGeometry(sh, { depth: d - 2 * r, bevelEnabled: true, bevelSize: r, bevelThickness: r, bevelSegments: seg, curveSegments: 6 });
+  g.translate(0, 0, -(d - 2 * r) / 2); return g;
+}
+// A: "Vector" — an angular graphite body, a glowing core window along the top, copper coils and twin emitter rails out front
+function gunVector(M) {
+  const g = new THREE.Group(), P = { glows: [], spin: [] };
+  const body = new THREE.Mesh(rbox(0.11, 0.1, 0.34, 0.018), M.shell); g.add(body);
+  const nose = new THREE.Mesh(rbox(0.085, 0.075, 0.12, 0.014), M.panel); nose.position.z = -0.22; g.add(nose);
+  const win = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.012, 0.2), M.glow); win.position.set(0, 0.051, -0.02); g.add(win); P.glows.push(win);
+  const winGlass = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.016, 0.21), M.glass); winGlass.position.set(0, 0.053, -0.02); g.add(winGlass);
+  for (let i = 0; i < 4; i++) { const c = new THREE.Mesh(new THREE.TorusGeometry(0.047, 0.006, 10, 40), M.copper); c.position.z = -0.17 - i * 0.022; g.add(c); }
+  for (const sx of [-1, 1]) {
+    const rail = new THREE.Mesh(rbox(0.016, 0.022, 0.2, 0.005), M.chrome); rail.position.set(sx * 0.03, 0, -0.36); g.add(rail);
+    const tip = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.012, 0.03), M.glow); tip.position.set(sx * 0.03, 0, -0.455); g.add(tip); P.glows.push(tip);
+    const fin = new THREE.Mesh(rbox(0.006, 0.05, 0.12, 0.002), M.panel); fin.position.set(sx * 0.058, 0.01, 0.06); g.add(fin);
+  }
+  const arc = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.06, 8), M.glow); arc.rotation.z = Math.PI / 2; arc.position.set(0, 0, -0.44); g.add(arc); P.glows.push(arc); P.arc = arc;
+  const grip = new THREE.Mesh(rbox(0.045, 0.13, 0.06, 0.014), M.rubber); grip.position.set(0, -0.1, 0.07); grip.rotation.x = 0.32; g.add(grip);
+  const guard = new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.005, 8, 24, Math.PI), M.shell); guard.rotation.set(0, Math.PI / 2, Math.PI / 2 + 0.2); guard.position.set(0, -0.06, 0.0); g.add(guard);
+  const sight = new THREE.Mesh(rbox(0.02, 0.016, 0.06, 0.004), M.panel); sight.position.set(0, 0.068, 0.11); g.add(sight);
+  for (const sx of [-1, 1]) {
+    const plate = new THREE.Mesh(rbox(0.004, 0.064, 0.2, 0.0015), M.panel); plate.position.set(sx * 0.056, 0.004, 0.0); g.add(plate);
+    for (let i = 0; i < 3; i++) { const slot = new THREE.Mesh(new THREE.BoxGeometry(0.002, 0.008, 0.05), M.glow); slot.position.set(sx * 0.0585, 0.022 - i * 0.018, -0.03); g.add(slot); P.glows.push(slot); }
+    for (const [y, z] of [[0.028, 0.085], [-0.022, 0.085], [0.028, -0.085], [-0.022, -0.085]]) { const sc = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.003, 10), M.dark); sc.rotation.z = Math.PI / 2; sc.position.set(sx * 0.0585, y, z); g.add(sc); }
+    for (let i = 0; i < 6; i++) { const wrap = new THREE.Mesh(new THREE.TorusGeometry(0.0125, 0.0022, 6, 20), M.copper); wrap.rotation.y = Math.PI / 2; wrap.rotation.x = Math.PI / 2; wrap.position.set(sx * 0.03, 0, -0.3 - i * 0.022); g.add(wrap); }
+  }
+  for (let i = 0; i < 5; i++) { const fin = new THREE.Mesh(rbox(0.08, 0.016, 0.006, 0.002), M.dark); fin.position.set(0, 0.058, 0.07 + i * 0.016); g.add(fin); }
+  const bar = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.004, 0.17), M.glow); bar.position.set(0, 0, -0.36); g.add(bar); P.glows.push(bar);
+  return { g, P };
+}
+// B: "Gyre" — a compact gunmetal body that ends in an open ring emitter; two gimbal rings spin round a floating core
+function gunGyre(M) {
+  const g = new THREE.Group(), P = { glows: [], spin: [] };
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.058, 0.28, 32), M.shell); body.rotation.x = Math.PI / 2; g.add(body);
+  for (let i = 0; i < 6; i++) {
+    const a = i / 6 * Math.PI * 2, b = a + Math.PI / 6;
+    const v = new THREE.Mesh(rbox(0.012, 0.03, 0.09, 0.003), M.panel); v.position.set(Math.cos(a) * 0.056, Math.sin(a) * 0.056, 0.02); v.rotation.z = a; g.add(v);
+    const slot = new THREE.Mesh(new THREE.BoxGeometry(0.004, 0.008, 0.07), M.glow); slot.position.set(Math.cos(b) * 0.0545, Math.sin(b) * 0.0545, 0.02); slot.rotation.z = b; g.add(slot); P.glows.push(slot);
+  }
+  for (const z of [-0.1, 0.12]) { const band = new THREE.Mesh(new THREE.TorusGeometry(0.056, 0.004, 8, 48), M.panel); band.position.z = z; g.add(band); }
+  const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.044, 0.05, 0.02, 32), M.panel); cap.rotation.x = Math.PI / 2; cap.position.z = 0.15; g.add(cap);
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.045, 0.08, 24), M.panel); neck.rotation.x = Math.PI / 2; neck.position.z = -0.17; g.add(neck);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.011, 14, 64), M.chrome); ring.position.z = -0.27; g.add(ring);
+  const ringGlow = new THREE.Mesh(new THREE.TorusGeometry(0.075, 0.004, 8, 64), M.glow); ringGlow.position.z = -0.262; g.add(ringGlow); P.glows.push(ringGlow);
+  for (const sx of [-1, 1]) { const arm = new THREE.Mesh(rbox(0.012, 0.016, 0.08, 0.004), M.chrome); arm.position.set(sx * 0.05, 0, -0.235); arm.rotation.y = sx * 0.5; g.add(arm); }
+  const g1 = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.004, 8, 48), M.copper), g2 = new THREE.Mesh(new THREE.TorusGeometry(0.038, 0.004, 8, 48), M.copper);
+  g1.position.z = g2.position.z = -0.27; g.add(g1, g2); P.spin.push(g1, g2);
+  const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.018, 1), M.glow); core.position.z = -0.27; g.add(core); P.glows.push(core); P.core = core;
+  const grip = new THREE.Mesh(rbox(0.042, 0.12, 0.055, 0.014), M.rubber); grip.position.set(0, -0.095, 0.06); grip.rotation.x = 0.3; g.add(grip);
+  const pack = new THREE.Mesh(rbox(0.07, 0.05, 0.1, 0.012), M.panel); pack.position.set(0, -0.045, -0.06); g.add(pack);
+  const led = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.004, 0.004), M.glow); led.position.set(0, -0.02, -0.111); g.add(led); P.glows.push(led);
+  return { g, P };
+}
+async function showGun(which) {
+  if (!renderer) { makeRenderer(); resize(); }
+  document.getElementById("idle").hidden = true;
+  if (!gunView) {
+    const sc = new THREE.Scene(); sc.background = new THREE.Color(0x0a0e12);
+    const { RoomEnvironment } = await import("three/addons/environments/RoomEnvironment.js");
+    const pm = new THREE.PMREMGenerator(renderer); sc.environment = pm.fromScene(new RoomEnvironment(), 0.03).texture; sc.environmentIntensity = 1.5;
+    const key = new THREE.DirectionalLight(0xffffff, 3.2); key.position.set(-1, 2, 1.5); sc.add(key);
+    const rim = new THREE.DirectionalLight(0x9cc8ff, 1.4); rim.position.set(1.5, 0.5, -2); sc.add(rim);
+    const floor = new THREE.Mesh(new THREE.CircleGeometry(0.6, 64), new THREE.MeshStandardMaterial({ color: 0x14191e, metalness: 0.6, roughness: 0.35 })); floor.rotation.x = -Math.PI / 2; floor.position.y = -0.16; sc.add(floor);
+    const cam = new THREE.PerspectiveCamera(32, 1, 0.01, 10); cam.position.set(0.55, 0.18, 0.55); cam.lookAt(0, -0.02, -0.08);
+    gunView = { scene: sc, cam, rig: null, which: null };
+  }
+  if (gunView.which !== which) {
+    if (gunView.rig) gunView.scene.remove(gunView.rig.g);
+    const M = gunMats(), r = which === "A" ? gunVector(M) : gunGyre(M), pivot = new THREE.Group();
+    const c = new THREE.Box3().setFromObject(r.g).getCenter(new THREE.Vector3()); r.g.position.sub(c); r.base = r.g.position.z;
+    pivot.add(r.g); gunView.rig = { ...r, M, g: pivot, inner: r.g }; gunView.scene.add(pivot); gunView.which = which;
+  }
+  document.getElementById("scene").textContent = which === "A" ? "GUN A · VECTOR" : "GUN B · GYRE";
+  if (!running) { running = true; lastT = 0; requestAnimationFrame(tick); }
+}
+function drawGun(t) {
+  const { scene: sc, cam, rig } = gunView, [w, h] = viewSize();
+  if (cam.aspect !== w / h) {           // frame the whole gun whatever the panel's shape
+    cam.aspect = w / h; cam.updateProjectionMatrix();
+    const d = 0.36 / Math.tan(cam.fov * Math.PI / 360) / Math.min(1, cam.aspect);
+    cam.position.set(0.62, 0.26, 0.74).normalize().multiplyScalar(d); cam.lookAt(0, 0, 0);
+  }
+  const shot = (t % 2.4) < 0.18, col = Math.floor(t / 2.4) % 2 ? 0xff9d2e : 0x2fa4ff;   // fires every 2.4 s, alternating blue and orange
+  const k = shot ? 1 - (t % 2.4) / 0.18 : 0;
+  rig.M.glow.color.set(col).multiplyScalar(3 + k * 4);
+  rig.g.rotation.y = t * 0.45; rig.inner.position.z = rig.base + k * 0.025;
+  for (const [i, r] of rig.P.spin.entries()) { r.rotation.x = t * (1.6 + i) + k * 3; r.rotation.y = t * (1.1 - i * 0.4); }
+  if (rig.P.core) rig.P.core.scale.setScalar(1 + Math.sin(t * 6) * 0.12 + k * 0.8);
+  if (rig.P.arc) rig.P.arc.scale.y = 0.6 + Math.random() * 0.5 + k;
+  renderer.setRenderTarget(null); renderer.render(sc, cam);
+}
+let viewMode = "chamber";
+document.getElementById("tabs").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  for (const x of document.querySelectorAll("#tabs button")) x.classList.toggle("on", x === b);
+  viewMode = b.dataset.v;
+  if (viewMode === "chamber") { document.getElementById("scene").textContent = "LIVE CHAMBER"; if (FX || RAPIER) startChamber(); else document.getElementById("idle").hidden = false; }
+  else showGun(viewMode);
+});
 
 function startChamber() {
   document.getElementById("idle").hidden = true;
