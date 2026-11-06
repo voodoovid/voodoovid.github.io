@@ -558,6 +558,8 @@ dialog::backdrop { background: var(--scrim); }
     <p>The music plays a random track, and a different random one with each new word; pick a track in Settings. Solve the word for a cheer (bigger the fewer guesses you needed), miss it for a raspberry.</p>
     <h3>Must keep greens</h3>
     <p>Every green letter stays in its spot in every later guess, filled in for you. A letter you know is in the word but that has only one spot left it could go (every other spot is green, or you already tried it there) is filled into that spot too, outlined in green. Amber letters can be left out.</p>
+    <h3>Must use yellows</h3>
+    <p>Off unless you switch it on in Settings. Every amber letter you have found must appear somewhere in each later guess. It isn't filled in for you, and any spot will do. Leave one out and you get a raspberry and a reminder that yellow letters must be used.</p>
     <h3>Words</h3>
     <p class="fine" id="wordCount"></p>
     <p class="fine">On a keyboard: type letters, <b>Enter</b> to guess, <b>Backspace</b> to erase. After a game, Enter starts the next word.</p>
@@ -614,6 +616,11 @@ dialog::backdrop { background: var(--scrim); }
         <b id="lblStrict">Must keep greens</b>
         <span class="fine">Green letters you find are filled in for you and stay in their spots in every later guess. A found letter with only one spot left it can go is filled in there too. Amber letters can be left out.</span>
         <button class="switch" id="optStrict" type="button" role="switch" aria-checked="true" aria-labelledby="lblStrict"><span class="track"></span></button>
+      </div>
+      <div class="opt">
+        <b id="lblYellow">Must use yellows</b>
+        <span class="fine">Amber letters you find must appear somewhere in every later guess. They aren't filled in for you; a guess that leaves one out gets a raspberry and is sent back.</span>
+        <button class="switch" id="optYellow" type="button" role="switch" aria-checked="false" aria-labelledby="lblYellow"><span class="track"></span></button>
       </div>
       <div class="opt">
         <b id="lblMusic">Music</b>
@@ -776,7 +783,14 @@ dialog::backdrop { background: var(--scrim); }
           <div class="mr"><i class="gn">3</i><div class="row" role="img" aria-label="Row 3 as it appears: A, empty, O, empty, T, with A, O and T filled in"><span class="tile fixed">A</span><span class="tile sel"></span><span class="tile fixed">O</span><span class="tile"></span><span class="tile fixed">T</span></div></div>
           <figcaption>The hidden word is ABOUT. Row 3 appears already holding O and T (green in row 1) and A. A has been tried in the 4th spot and the 2nd spot, and the 3rd and 5th are green, so the 1st is the only place left for it. The amber outline waits on the first open spot. Type B, then U, and press Enter.</figcaption>
         </figure>
-        <div class="mnote"><span class="lb">Where is the switch?</span>Under the board on a phone, in <button type="button" class="xref" data-go="m-settings">Settings</button>, and in the settings panel beside the board on a wide screen. Turning it on or off in the middle of a row lays out your typed letters again around the green ones.</div>
+        <h4>Must use yellows</h4>
+        <p>A second switch, right below <b>Must keep greens</b> in <button type="button" class="xref" data-go="m-settings">Settings</button>. It starts <b>off</b>. With it on, every amber letter you have found must be used somewhere in each later guess. Unlike greens, it is not filled in for you and its spot isn't fixed: you type it yourself, in any spot.</p>
+        <ul class="mlist">
+          <li><b>Leave one out</b> and the guess is sent back: a raspberry plays (with Sound effects on), the row shakes, and the status line says <b>Yellows must be used</b>, naming the missing letters. Nothing is used up.</li>
+          <li><b>Repeated letters count.</b> If a guess showed one E green and another E amber, the word has at least two Es, so later guesses need two.</li>
+          <li>It works with <b>Must keep greens</b> on or off, and in Today's Wordle too.</li>
+        </ul>
+        <div class="mnote"><span class="lb">Where are the switches?</span>Both are in <button type="button" class="xref" data-go="m-settings">Settings</button> and in the settings panel beside the board on a wide screen; <b>Must keep greens</b> also sits under the board on a phone. Turning <b>Must keep greens</b> on or off in the middle of a row lays out your typed letters again around the green ones.</div>
       </section>
 
       <section class="msec" id="m-wordle">
@@ -823,6 +837,7 @@ dialog::backdrop { background: var(--scrim); }
         <h4>In the Settings window</h4>
         <dl class="spec">
           <div><dt>Must keep greens <em>ON</em></dt><dd>Fills in green letters and forced letters, and keeps them in their spots. See <button type="button" class="xref" data-go="m-greens">Must keep greens</button>.</dd></div>
+          <div><dt>Must use yellows <em>OFF</em></dt><dd>Every amber letter found must be used somewhere in each later guess, or the guess is sent back with a raspberry. See <button type="button" class="xref" data-go="m-greens">Must keep greens</button>.</dd></div>
           <div><dt>Music <em>ON</em></dt><dd>Trip-hop beats with a random track for each word. Music starts with your first tap or key press.</dd></div>
           <div><dt>Track <em>RANDOM</em></dt><dd>Shows the selected track. Use the arrows to move to the previous or next one.</dd></div>
           <div><dt>Sound effects <em>ON</em></dt><dd>Flaps clicking like a station board, a cheer when you solve the word and a raspberry when you miss. Independent of the music.</dd></div>
@@ -831,7 +846,7 @@ dialog::backdrop { background: var(--scrim); }
           <div><dt>High contrast <em>OFF</em></dt><dd>Orange and blue flaps instead of green and amber.</dd></div>
           <div><dt>Give up and show the word</dt><dd>Ends the current game and reveals the word. It counts as a loss and asks you to confirm first. It is unavailable once a game has ended, and while a row is turning over.</dd></div>
         </dl>
-        <div class="mnote"><span class="lb">Wide screens</span>On a large landscape screen such as an iPad or a Mac window, <b>Must keep greens</b>, <b>Music</b> and <b>Track</b> sit in a panel beside the board all the time. The rest stay in this window.</div>
+        <div class="mnote"><span class="lb">Wide screens</span>On a large landscape screen such as an iPad or a Mac window, <b>Must keep greens</b>, <b>Must use yellows</b>, <b>Music</b> and <b>Track</b> sit in a panel beside the board all the time. The rest stay in this window.</div>
       </section>
 
       <section class="msec" id="m-sound">
@@ -847,7 +862,7 @@ dialog::backdrop { background: var(--scrim); }
         <ul class="mlist">
           <li>A random track plays each time the page opens, and a different random one starts with every new word. Pick one yourself with the arrows under <b>Track</b>.</li>
           <li>Browsers only allow sound after a tap or key press, so the music begins at your first touch.</li>
-          <li><b>Sound effects</b> are separate from the music: flap clicks, a cheer that grows the fewer guesses you needed, and a raspberry for a miss or when you give up.</li>
+          <li><b>Sound effects</b> are separate from the music: flap clicks, a cheer that grows the fewer guesses you needed, and a raspberry for a miss, when you give up, or when <b>Must use yellows</b> sends a guess back.</li>
         </ul>
       </section>
 
@@ -894,7 +909,7 @@ dialog::backdrop { background: var(--scrim); }
 <script>
 (() => {
 "use strict";
-const VERSION = "v2.48";
+const VERSION = "v2.49";
 
 // ---------- Words ----------
 // ANSWERS: the words New word picks from: Wordle's original 2,309 answers plus every later answer the NYT has used (a GitHub job adds new ones: .github/scripts/add_wordle_answers.py). EXTRA: every other word Wordle accepts as a guess.
@@ -926,8 +941,9 @@ const load = (k, d) => { try { const v = JSON.parse(localStorage.getItem("flipfi
 const save = (k, v) => { try { localStorage.setItem("flipfive." + k, JSON.stringify(v)); } catch (e) {} };
 const freshStats = () => ({ played: 0, wins: 0, streak: 0, best: 0, dist: [0, 0, 0, 0, 0, 0] });
 // "Must keep greens" starts on for a brand-new device; after that the player's own choice is remembered
-let opts = Object.assign({ strict: true, contrast: false, music: true, sfx: true, track: 0, view3d: true, theme: "system" }, load("opts", {}));
+let opts = Object.assign({ strict: true, yellow: false, contrast: false, music: true, sfx: true, track: 0, view3d: true, theme: "system" }, load("opts", {}));
 if (typeof opts.strict !== "boolean") opts.strict = true;
+if (typeof opts.yellow !== "boolean") opts.yellow = false;
 if (!["light", "dark", "system"].includes(opts.theme)) opts.theme = "system";
 let stats = Object.assign(freshStats(), load("stats", {}));
 let recent = load("recent", []);
@@ -956,6 +972,19 @@ function clueProblem(guess, earlier, answer) {
     for (let i = 0; i < 5; i++) if (marks[i] === "hit" && guess[i] !== g[i]) return ORD[i] + " letter must be " + g[i].toUpperCase();
   }
   return null;
+}
+// With "Must use yellows" on: the reason a guess is not allowed, or null. Every amber letter found must be in the guess
+// somewhere (not filled in, any spot). Repeat letters count: if one guess showed an E green and another E amber, two Es are needed.
+function yellowProblem(guess, earlier, answer) {
+  const need = {};
+  for (const g of earlier) {
+    const marks = score(g, answer), n = {};
+    let amber = new Set();
+    for (let i = 0; i < 5; i++) if (marks[i] !== "miss") { n[g[i]] = (n[g[i]] || 0) + 1; if (marks[i] === "near") amber.add(g[i]); }
+    for (const l of amber) need[l] = Math.max(need[l] || 0, n[l]);
+  }
+  const missing = Object.keys(need).filter(l => guess.split(l).length - 1 < need[l]).sort();
+  return missing.length ? "Yellows must be used: " + missing.map(l => l.toUpperCase()).join(", ") : null;
 }
 function pickAnswer() {
   let w;
@@ -1136,6 +1165,7 @@ function paintOpts() {
   applyTheme();
   root.classList.toggle("contrast", opts.contrast);
   for (const id of ["strict", "optStrict"]) $(id).setAttribute("aria-checked", String(opts.strict));
+  $("optYellow").setAttribute("aria-checked", String(opts.yellow));
   $("optContrast").setAttribute("aria-checked", String(opts.contrast));
   $("optView").setAttribute("aria-checked", String(opts.view3d));
   $("optMusic").setAttribute("aria-checked", String(opts.music));
@@ -1239,6 +1269,10 @@ function submit() {
   if (guess.length < 5) return reject("Not enough letters");
   if (!valid.has(guess)) return reject("Not in the word list");
   if (opts.strict) { const why = clueProblem(guess, G.guesses, G.answer); if (why) return reject(why); }
+  if (opts.yellow) {
+    const why = yellowProblem(guess, G.guesses, G.answer);
+    if (why) { if (opts.sfx) { try { Music.ensure(); Music.raspberry(); } catch (e) {} } return reject(why); }
+  }
   const r = G.guesses.length, marks = score(guess, G.answer);
   G.guesses.push(guess); G.cur = EMPTY; note = null; sel = null;
   G.won = guess === G.answer; G.over = G.won || G.guesses.length === 6;
@@ -1773,6 +1807,7 @@ function toggleStrict() {
 }
 $("strict").addEventListener("click", e => { e.currentTarget.blur(); toggleStrict(); });
 $("optStrict").addEventListener("click", toggleStrict);
+$("optYellow").addEventListener("click", () => setOpt("yellow", !opts.yellow));
 $("optContrast").addEventListener("click", () => setOpt("contrast", !opts.contrast));
 $("themeSeg").addEventListener("click", e => { const b = e.target.closest("button[data-theme]"); if (b) { b.blur(); setOpt("theme", b.dataset.theme); } });
 $("optView").addEventListener("click", () => { setOpt("view3d", !opts.view3d); window.__flaps && window.__flaps.setView(opts.view3d); });
