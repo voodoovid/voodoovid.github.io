@@ -51,6 +51,10 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; oversc
 #sub { position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 26px); transform: translateX(-50%); width: min(760px, 78%); text-align: center;
   font-size: 19px; line-height: 1.35; font-weight: 600; color: #fff; text-shadow: 0 1px 8px #000, 0 0 3px #000; opacity: 0; transition: opacity .35s; pointer-events: none; }
 #sub.on { opacity: 1; }
+#sentrySub { position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 112px); transform: translateX(-50%); max-width: min(520px, 70%); text-align: center;
+  font-size: 16px; line-height: 1.3; font-weight: 600; color: #ffd9d4; text-shadow: 0 1px 8px #000, 0 0 3px #000; opacity: 0; transition: opacity .25s; pointer-events: none; }
+#sentrySub.on { opacity: 1; }
+#sentrySub i { font-style: normal; color: #ff5a4a; font-weight: 800; letter-spacing: .14em; font-size: 11px; display: block; margin-bottom: 2px; }
 #sub i { font-style: normal; color: var(--orange); font-weight: 800; letter-spacing: .14em; font-size: 12px; display: block; margin-bottom: 2px; }
 #hurt { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at 50% 50%, rgba(160,0,0,0) 38%, rgba(190,10,10,.78) 100%); transition: opacity .18s; }
 #hpBar { position: absolute; left: 50%; top: 58px; width: 120px; height: 3px; margin-left: -60px; background: rgba(255,255,255,.14); border-radius: 2px; overflow: hidden; opacity: 0; transition: opacity .3s; }
@@ -239,6 +243,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
       <circle class="dot" cx="27" cy="27" r="1.9"/>
     </svg>
     <div id="sub"></div>
+    <div id="sentrySub"></div>
     <div id="toast"></div>
     <div id="flash"></div>
     <div id="prompt"></div>
@@ -381,7 +386,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 await RAPIER.init();
 
-const VERSION = "v3.4";
+const VERSION = "v3.5";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -1760,7 +1765,7 @@ function teleportPlayer(P) {
   camOffset.copy(eyeCam).sub(eyePos(tmpA));
   if (holding) {                 // the cube you're holding comes out with you, in front of you, keeping your speed
     const t = holdTarget().target; _rq.setFromRotationMatrix(_rm.extractRotation(P.T));
-    setCubeState(holding, t, holding.q.clone().premultiply(_rq), pl.v); holding.pv.copy(t); holding.snag = 0;
+    setCubeState(holding, t, holding.q.clone().premultiply(_rq), pl.v); holding.pv.copy(t); holding.snag = 0; holding.far = false;
   }
   const eyeNew = eyePos(prevEye);
   sfx.enter(P.idx);
@@ -1967,12 +1972,12 @@ function useAction() {
   }
   if (!best) { for (const sn of world.sentries) { if (sn.state === "off") continue; tmpA.set(sn.base.x, sn.base.y + 0.8, sn.base.z).sub(eye); const dist = tmpA.length(); if (dist > 2.8 || tmpA.dot(f) / dist < 0.8) continue; tipSentry(sn, "grab"); toast("Sentry down"); return; } }
   if (best) {
-    holding = best; best.held = true; best.body.setGravityScale(0, true); best.col.setCollisionGroups(CUBE_HELD); best.body.setAngularDamping(6);
+    holding = best; best.held = true; best.far = false; best.body.setGravityScale(0, true); best.col.setCollisionGroups(CUBE_HELD); best.body.setAngularDamping(6);
     sfx.grab(); toast("Holding the cube. Press grab again to put it down."); if (!run.said.grab) { run.said.grab = 1; say("sadosGrab"); }
   }
 }
 function dropCube(quiet) {
-  const c = holding; if (!c) return; holding = null; c.held = false;
+  const c = holding; if (!c) return; holding = null; c.held = false; c.far = false;
   c.body.setGravityScale(1, true); c.col.setCollisionGroups(CUBE_FREE); c.body.setAngularDamping(0.4);
   const v = c.body.linvel(); c.v.set(v.x, v.y, v.z).clampLength(0, 30); c.body.setLinvel(c.v, true);
   if (!quiet) sfx.drop();
@@ -1990,7 +1995,11 @@ function holdUpdate(dt) {
   const { target, ray, dist } = holdTarget();
   const gap = tmpA.copy(target).sub(c.p);
   const viaPortal = ray.segs.length > 1 && dist > ray.segs[0].len;
-  if (gap.length() > 1.4 && viaPortal) { setCubeState(c, target, c.q); c.pv.copy(target); c.snag = 0; return; }   // held out through a portal: it goes through
+  if (gap.length() > 1.4 && viaPortal) { setCubeState(c, target, c.q); c.pv.copy(target); c.snag = 0; c.far = true; return; }   // held out through a portal: it goes through
+  if (c.far && !viaPortal) {                                   // it went through and you didn't: it stays over there, set down where it is
+    dropCube(true); c.body.setLinvel({ x: 0, y: Math.min(0, c.v.y), z: 0 }, true); c.body.setAngvel({ x: 0, y: 0, z: 0 }, true); c.v.set(0, 0, 0);
+    sfx.drop(); toast("The cube stayed on the other side."); return;
+  }
   c.snag = gap.length() > 1.2 && player.ground ? (c.snag || 0) + dt : 0;      // never let go in mid-air
   if (c.snag > 0.5) { dropCube(); return; }                    // snagged on something for a while: let go rather than pull it through a wall
   gap.multiplyScalar(16).clampLength(0, 24).add(player.v); c.body.setLinvel(gap, true);   // moves with you, plus a spring towards the spot
@@ -2683,7 +2692,84 @@ function tipSentry(s, why) {
   if (s.state === "off") return; s.state = "off"; s.fall = 0; s.eye.material = SENT.eyeOff; s.laser.visible = false;
   sfx.sentryOff(); run.sentriesOff = (run.sentriesOff || 0) + 1;
   for (let i = 0; i < 4; i++) fxSpark(tmpA.set(s.base.x, s.base.y + 0.9, s.base.z));
-  say("sentryOff");
+  s.spray = 5 + Math.floor(Math.random() * 6); s.sprayT = 0.05 + Math.random() * 0.1;   // a few wild shots on the way down
+  sentryQuip(s, why);
+  if (!run.said.sentryOff || Math.random() < 0.35) { run.said.sentryOff = 1; say("sentryOff"); }
+}
+// walking into a sentry from behind (outside its view) shoves it over
+function pushedFromBehind(s, fwd) {
+  const pl = player, dx = s.base.x - pl.p.x, dz = s.base.z - pl.p.z, d = Math.hypot(dx, dz);
+  if (d > 0.95 || d < 0.01 || Math.abs(pl.p.y - s.base.y) > 0.8) return false;
+  if ((-dx * fwd.x - dz * fwd.z) / d > -0.25) return false;          // the player has to be behind it
+  const sy = Math.sin(pl.yaw), cy = Math.cos(pl.yaw), wx = -sy * inp.fwd + cy * inp.right, wz = -cy * inp.fwd - sy * inp.right, wl = Math.hypot(wx, wz);
+  const mx = wl > 0.2 ? wx / wl : pl.v.x, mz = wl > 0.2 ? wz / wl : pl.v.z, ml = Math.hypot(mx, mz);
+  return ml > 0.2 && (mx * dx + mz * dz) / (ml * d) > 0.55;           // walking towards it
+}
+// a toppling sentry lets off wild shots: from a gun flap, roughly where it is pointing as it tips, anywhere it happens to go
+const _ws = new V3(), _wd = new V3(), _wq = new QT();
+function sentryWildShot(s) {
+  const mz = s.flaps[Math.random() < 0.5 ? 0 : 1].mz; mz.getWorldPosition(_ws); mz.material.opacity = 1;
+  s.group.getWorldQuaternion(_wq); _wd.set(rand(-.5, .5), rand(-.35, .5), -1).applyQuaternion(_wq).normalize();
+  const ray = castRay(_ws, _wd, 30, true, true), len = ray.hit ? ray.hit.dist : 30, end = pathPoint(ray, len) || _ws.clone().addScaledVector(_wd, len);
+  fxTracer(_ws, end); if (ray.hit) fxSpark(end);
+  const dist = _ws.distanceTo(tmpA.set(player.p.x, player.p.y + 0.4, player.p.z)); sfx.shot(dist);
+  if (state === "play" && ray.segs.length === 1 && distSegPoint(_ws, _wd, len, tmpB.set(player.p.x, player.p.y + 0.3, player.p.z)) < 0.45) hurt(9, "shot");
+}
+// its last words: original lines, pre-recorded like SaDos (voice/<hash>.mp3), shown in their own small subtitle
+const SENTRY_QUIPS = {
+  any: ["Rude.", "I regret nothing!", "Tell the others I fought bravely. Mostly.", "Not the face!", "Worth it.", "This is fine. This is fine.", "I was two days from retirement.", "Remember me as a hero.", "You'll miss me.", "Low battery. Story of my life.", "Oh, come on!", "I was almost a coffee machine.", "Everything is sideways now."],
+  portal: ["Wheee! Wait. Where am I?", "That floor was not there before!", "Who moved the room?", "Falling is my least favourite direction."],
+  cube: ["Hit by a box. How embarrassing.", "The cube! It's always the cube!", "I didn't even see it coming."],
+  push: ["Hey! No pushing!", "Who's there? Oh no.", "That's cheating!", "Eyes in the back of my head. I should have ordered those."],
+  grab: ["Hey! Hands off!", "Personal space, please!", "Put me down! Oh. You did."]
+};
+const sentrySubEl = $("sentrySub"); let sentrySubT = 0, lastQuip = "";
+function sentryQuip(s, why) {
+  const pool = (SENTRY_QUIPS[why] || []).concat(Math.random() < 0.5 ? SENTRY_QUIPS.any : []), list = pool.length ? pool : SENTRY_QUIPS.any;
+  let text = pick(list); if (text === lastQuip && list.length > 1) text = pick(list); lastQuip = text;
+  sentrySubEl.innerHTML = "<i>SENTRY</i>" + text; sentrySubEl.classList.add("on"); clearTimeout(sentrySubT);
+  sentrySubT = setTimeout(() => sentrySubEl.classList.remove("on"), Math.max(1800, text.length * 75));
+  if (!opts.voice || !actx) return;
+  loadVoice(text).then(buf => {
+    if (!buf || bg) return;
+    try {
+      const src = actx.createBufferSource(), g = actx.createGain(), pan = actx.createStereoPanner(); src.buffer = buf;
+      tmpA.set(s.base.x - player.p.x, 0, s.base.z - player.p.z); const d = tmpA.length() || 1;
+      pan.pan.value = clamp((tmpA.x * Math.cos(player.yaw) - tmpA.z * Math.sin(player.yaw)) / d, -1, 1) * 0.7; g.gain.value = clamp(1.4 - d / 30, 0.35, 1.1);
+      src.connect(g); g.connect(pan); pan.connect(voiceBus); src.start(actx.currentTime + 0.02);
+      clearTimeout(sentrySubT); sentrySubT = setTimeout(() => sentrySubEl.classList.remove("on"), buf.duration * 1000 + 900);
+    } catch (e) {}
+  });
+}
+// a tipped-over sentry lying in a wall portal's mouth would block it: it slides aside out of the way
+function clearMouth(s, dt) {
+  if (!bothPortals()) return;
+  for (const P of portals) {
+    if (Math.abs(P.n.y) > 0.7) continue;
+    tmpA.set(s.base.x - P.o.x, s.base.y - P.o.y, s.base.z - P.o.z);
+    const along = tmpA.dot(P.n), lat = tmpA.dot(P.r), up = tmpA.dot(P.u);
+    if (along < -0.3 || along > 1.6 || Math.abs(lat) > PW + 0.45 || Math.abs(up) > PH + 0.4) continue;
+    if (!s.aside || s.aside.P !== P) {                   // pick a free spot beside the opening (or further out from it)
+      const sol = collectSolids(false, null, true), opts2 = [];
+      const side = lat >= 0 ? 1 : -1;
+      for (const k of [side, -side]) opts2.push(P.o.clone().addScaledVector(P.r, k * (PW + 0.7)).addScaledVector(P.n, Math.max(0.5, along)));
+      opts2.push(P.o.clone().addScaledVector(P.n, 2.0)); opts2.push(P.o.clone().addScaledVector(P.r, side * (PW + 0.7)).addScaledVector(P.n, 1.8));
+      let to = null;
+      for (const q of opts2) {
+        q.y = s.base.y;
+        if (inAny(sol, q.x, q.y + 0.25, q.z) || inAny(sol, q.x, q.y + 0.25, (q.z + s.base.z) / 2) || inAny(sol, (q.x + s.base.x) / 2, q.y + 0.25, q.z)) continue;
+        const dn = castRay(new V3(q.x, q.y + 0.3, q.z), new V3(0, -1, 0), 1.2, false, true); if (!dn.hit || dn.hit.dist > 0.6) continue;
+        to = new V3(q.x, q.y + 0.3 - dn.hit.dist, q.z); break;
+      }
+      s.aside = { P, to };
+    }
+    const to = s.aside.to; if (!to) return;
+    tmpB.copy(to).sub(s.base); const L = tmpB.length(); if (L < 0.02) return;
+    s.base.addScaledVector(tmpB, Math.min(1, dt * 3.5 / L)); s.group.position.x = s.base.x; s.group.position.z = s.base.z; s.base.y = to.y;
+    s.box.min[0] = s.base.x - .3; s.box.max[0] = s.base.x + .3; s.box.min[2] = s.base.z - .3; s.box.max[2] = s.base.z + .3; s.box.min[1] = s.base.y;
+    return;
+  }
+  s.aside = null;
 }
 function fxSpark(p) {
   const m = new THREE.Mesh(orbGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(2, 1.5, .6), transparent: true })); m.position.copy(p); m.scale.setScalar(.5); scene.add(m);
@@ -2736,12 +2822,17 @@ function updateSentries(dt, time) {
       if (s.sink >= 1) { warpSentry(s, hole); s.sink = 0; g.rotation.z = 0; }
       continue;
     } else if (s.sink > 0) { s.sink = 0; g.rotation.z = 0; g.position.y = s.base.y; }
-    if (s.state === "off") {                             // topple over and go dark
-      s.fall = Math.min(1, s.fall + dt * 2.4); const e = s.fall * s.fall; g.rotation.x = -e * 1.35; g.position.y = s.base.y + e * 0.1;
-      for (const f of s.flaps) { f.piv.rotation.y = -f.sx * 0.15; f.mz.material.opacity = 0; }
+    if (s.state === "off") {                             // topple over and go dark, spraying a few shots as it goes
+      s.fall = Math.min(1, s.fall + dt * 1.7); const e = s.fall * s.fall; g.rotation.x = -e * 1.35; g.position.y = s.base.y + e * 0.1;
+      if (s.spray > 0) {
+        for (const f of s.flaps) { f.piv.rotation.y = f.sx * 0.9; f.mz.material.opacity = Math.max(0, f.mz.material.opacity - dt * 14); }
+        s.sprayT -= dt; if (s.sprayT <= 0) { s.spray--; s.sprayT = 0.06 + Math.random() * 0.13; sentryWildShot(s); }
+      } else for (const f of s.flaps) { f.piv.rotation.y += (-f.sx * 0.15 - f.piv.rotation.y) * Math.min(1, dt * 6); f.mz.material.opacity = 0; }
+      if (s.fall >= 1) clearMouth(s, dt);
       s.box.max[1] = s.base.y + 0.45; continue;
     }
     sentryEye(s, _se); sentryFwd(s, _sf);
+    if (alive && pushedFromBehind(s, _sf)) { tipSentry(s, "push"); toast("Sentry down"); continue; }
     tmpA.set(pl.p.x, pl.p.y + 0.15, pl.p.z); const toP = _sp.copy(tmpA).sub(_se), dist = toP.length();
     let vis = false;
     if (alive && dist < s.range && dist > 0.3) {
