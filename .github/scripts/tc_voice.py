@@ -8,6 +8,8 @@ little speaker (no SaDos effect), written straight to voice/.
 """
 import json, os, re, subprocess, sys, tempfile
 import numpy as np
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from level_clips import level_mp3
 import soundfile as sf
 from kokoro_onnx import Kokoro
 
@@ -33,6 +35,7 @@ SENTRY_FILTER = "asetrate={hi},aresample={sr},atempo={tempo:.4f},highpass=f=380,
 def sentry_mp3(wav, sr, out):          # the sentries' small, bright speaker voice
     flt = SENTRY_FILTER.format(hi=int(sr * SENTRY_PITCH), sr=sr, tempo=1 / SENTRY_PITCH)
     subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", wav, "-af", flt, "-codec:a", "libmp3lame", "-b:a", "96k", out], check=True)
+    level_mp3(out)                     # the filter chain leaves it ~18 dB under SaDos: bring it to her level
     probe = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", out], capture_output=True, text=True, check=True).stdout
     return round(float(probe.strip()), 2)
 

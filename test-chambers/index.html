@@ -386,7 +386,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 await RAPIER.init();
 
-const VERSION = "v3.5";
+const VERSION = "v3.6";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -914,12 +914,20 @@ function level14() {
     done: ["You went upstairs without stairs. Your ancestors would be confused, and a little proud."] } });
 }
 function level15() {
-  const L = 34, h = hall({ L, W: 12, H: 18, zc: 6, pits: [[6, 17]] });
+  const L = 34, W = 12, H = 18, h = hall({ L, W, H, zc: 6, pits: [[6, 17]] });
   h.boxes.push(bx(0, 13, 0, 5, 14, 4));
+  // Nothing past the pit takes a portal (the far floor, the end wall, the ceiling and both side walls from the pit onward, and the faces of the
+  // pit itself): a portal over there would skip the jump. Only the near floor and the back wall (x = 0) stay white, so the long jump is the way across.
+  darken(h.boxes.find(b => b.min[0] === 17 && b.max[1] === 0));
+  h.boxes.push(skin(6, -4, 0, L, H, 0.1), skin(6, -4, W - 0.1, L, H, W), skin(6, H - 0.1, 0, L, H, W),
+    skin(6, -4, 0, 6.1, 0, W), skin(16.9, -4, 0, 17, 0, W),
+    skin(L - 0.1, 0, 0, L, H, 4.5), skin(L - 0.1, 0, 7.5, L, H, W), skin(L - 0.1, 3.2, 4.5, L, H, 7.5));
   h.start = { pos: [2.5, 14, 2], yaw: Math.PI, pitch: -0.3 };
+  h.signs.push(chSign(15, "LONG JUMP", 9, 5));
+  for (const sg of h.signs) if ((sg.kind === "exit" || sg.kind === "chamber") && sg.pos[0] >= 6) sg.pos = [sg.pos[0] + sg.n[0] * 0.11, sg.pos[1], sg.pos[2] + sg.n[2] * 0.11];   // stand off the dark skins
   h.cubes = [[21, 0.35, 10]]; h.plates = [{ pos: [27, 0, 6], door: "d1" }]; h.doors = [exitDoor(L, 6)];
   h.lamps.push(lamp(3, 9, 6, .45, 9));
-  h.signs.push(chSign(15, "LONG JUMP", 9, 5), hint("HIGHER OUT, FURTHER ACROSS", [0, 9, 8], [1, 0, 0], 4.4, 1));
+  h.signs.push(hint("HIGHER OUT, FURTHER ACROSS", [0, 9, 8], [1, 0, 0], 4.4, 1));
   return Object.assign(h, { num: 15, name: "Long Jump", track: 2, say: {
     intro: ["This pit is longer than the last one. I measured it myself, with a subject.", "What goes in fast comes out fast. Where it comes out is up to you."],
     hint: ["Fall into a floor portal and leave by one high on the back wall. The higher it is, the further you fly before you land."],
@@ -1771,6 +1779,23 @@ function teleportPlayer(P) {
   sfx.enter(P.idx);
   run.ports = (run.ports || 0) + 1;
 }
+// the body can end up partly inside the floor: an eye near the bottom of a wall portal (you fell into a floor portal by its edge), or
+// a floor portal closing while you are in the slab. Lift it onto the surface so you never end up under the floor with it invisible.
+function liftOutOfFloor() {
+  const pl = player; if (!world) return;
+  computeSkip(pl.p, .12, 0, _skip);
+  const sol = collectSolids(false, null, false);
+  for (let it = 0; it < 4; it++) {
+    let lift = 0;
+    for (const b of sol) {
+      if (_skip.includes(b) || !overlap(pl.p, H_PL, b)) continue;
+      const need = b.max[1] + 0.005 - (pl.p.y - HY);               // how far up puts the feet on its top
+      if (need > 0 && need <= 1.7 && need > lift) lift = need;     // a surface within reach to stand on, not a ceiling or a tall wall
+    }
+    if (lift <= 0) break;
+    pl.p.y += lift; if (pl.v.y < 0) pl.v.y = 0; camOffset.y -= lift;   // the view eases up instead of jumping
+  }
+}
 function tryPortalPlayer() {
   if (!bothPortals()) { eyePos(prevEye); return; }
   const eye = eyePos(tmpB);
@@ -1780,7 +1805,7 @@ function tryPortalPlayer() {
       const t = (d0 - TPM) / (d0 - d1);
       tmpC.lerpVectors(prevEye, eye, t).sub(P.o);
       if (Math.abs(tmpC.dot(P.r)) < PW - 0.04 && Math.abs(tmpC.dot(P.u)) < PH - 0.04) {
-        teleportPlayer(P);
+        teleportPlayer(P); liftOutOfFloor();
         if (phys) phys.pc.setTranslation(player.p);
         eyePos(prevEye); return true;
       }
@@ -2015,6 +2040,7 @@ const tmpQ = new QT();
 function physicsStep(dt) {
   const W = world, pl = player;
   const sy = Math.sin(pl.yaw), cy = Math.cos(pl.yaw), alive = state === "play";
+  if (alive) liftOutOfFloor();
   let wx = alive ? -sy * inp.fwd + cy * inp.right : 0, wz = alive ? -cy * inp.fwd - sy * inp.right : 0;
   const wl = Math.hypot(wx, wz); if (wl > 1) { wx /= wl; wz /= wl; }
   const wish = Math.min(1, Math.hypot(wx, wz));
@@ -2693,8 +2719,8 @@ function tipSentry(s, why) {
   sfx.sentryOff(); run.sentriesOff = (run.sentriesOff || 0) + 1;
   for (let i = 0; i < 4; i++) fxSpark(tmpA.set(s.base.x, s.base.y + 0.9, s.base.z));
   s.spray = 5 + Math.floor(Math.random() * 6); s.sprayT = 0.05 + Math.random() * 0.1;   // a few wild shots on the way down
-  sentryQuip(s, why);
-  if (!run.said.sentryOff || Math.random() < 0.35) { run.said.sentryOff = 1; say("sentryOff"); }
+  const quipSecs = sentryQuip(s, why);
+  if (!run.said.sentryOff || Math.random() < 0.35) { run.said.sentryOff = 1; const tw = world; setTimeout(() => { if (world === tw && state === "play") say("sentryOff"); }, (quipSecs + 1.1) * 1000); }   // SaDos waits for the sentry to finish
 }
 // walking into a sentry from behind (outside its view) shoves it over
 function pushedFromBehind(s, fwd) {
@@ -2728,18 +2754,23 @@ function sentryQuip(s, why) {
   const pool = (SENTRY_QUIPS[why] || []).concat(Math.random() < 0.5 ? SENTRY_QUIPS.any : []), list = pool.length ? pool : SENTRY_QUIPS.any;
   let text = pick(list); if (text === lastQuip && list.length > 1) text = pick(list); lastQuip = text;
   sentrySubEl.innerHTML = "<i>SENTRY</i>" + text; sentrySubEl.classList.add("on"); clearTimeout(sentrySubT);
-  sentrySubT = setTimeout(() => sentrySubEl.classList.remove("on"), Math.max(1800, text.length * 75));
-  if (!opts.voice || !actx) return;
+  const est = Math.max(1.8, text.length * 0.075), have = window.TC_VOICE && window.TC_VOICE[lineHash(text)], secs = have ? have + 0.3 : est;
+  sentrySubT = setTimeout(() => sentrySubEl.classList.remove("on"), secs * 1000);
+  if (!opts.voice || !actx || !have) return secs;
   loadVoice(text).then(buf => {
     if (!buf || bg) return;
     try {
       const src = actx.createBufferSource(), g = actx.createGain(), pan = actx.createStereoPanner(); src.buffer = buf;
       tmpA.set(s.base.x - player.p.x, 0, s.base.z - player.p.z); const d = tmpA.length() || 1;
-      pan.pan.value = clamp((tmpA.x * Math.cos(player.yaw) - tmpA.z * Math.sin(player.yaw)) / d, -1, 1) * 0.7; g.gain.value = clamp(1.4 - d / 30, 0.35, 1.1);
-      src.connect(g); g.connect(pan); pan.connect(voiceBus); src.start(actx.currentTime + 0.02);
-      clearTimeout(sentrySubT); sentrySubT = setTimeout(() => sentrySubEl.classList.remove("on"), buf.duration * 1000 + 900);
+      pan.pan.value = clamp((tmpA.x * Math.cos(player.yaw) - tmpA.z * Math.sin(player.yaw)) / d, -1, 1) * 0.7; g.gain.value = clamp(1.5 - d / 30, 0.5, 1.2);
+      src.connect(g); g.connect(pan); pan.connect(master);                 // straight to the output, not through SaDos's voice bus or room
+      if (voiceSrc) voiceBus.gain.setTargetAtTime(0.15, actx.currentTime, 0.04);   // if SaDos is mid-line, she ducks under the sentry
+      src.onended = () => voiceBus.gain.setTargetAtTime(1, actx.currentTime, 0.15);
+      src.start(actx.currentTime + 0.02);
+      clearTimeout(sentrySubT); sentrySubT = setTimeout(() => sentrySubEl.classList.remove("on"), buf.duration * 1000 + 700);
     } catch (e) {}
   });
+  return secs;
 }
 // a tipped-over sentry lying in a wall portal's mouth would block it: it slides aside out of the way
 function clearMouth(s, dt) {
