@@ -386,7 +386,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 await RAPIER.init();
 
-const VERSION = "v3.7";
+const VERSION = "v3.8";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -1997,9 +1997,14 @@ function cubeGhost(c, dt) {
   if (!bothPortals()) return;
   for (const P of portals) {
     tmpA.copy(c.p).sub(P.o); const d = P.n.dot(tmpA);
-    if (Math.abs(d) < 0.62 && Math.abs(tmpA.dot(P.r)) < PW + 0.35 && Math.abs(tmpA.dot(P.u)) < PH + 0.35) {
+    // only while the cube is really going through: over the opening and crossing its plane (a cube resting beside a floor portal is not)
+    if (d < 0.32 && d > -0.62 && Math.abs(tmpA.dot(P.r)) < PW && Math.abs(tmpA.dot(P.u)) < PH) {
       const O = portals[1 - P.idx];
-      const pa = [new THREE.Plane(P.n.clone(), -P.n.dot(P.o))], pb = [new THREE.Plane(O.n.clone(), -O.n.dot(O.o))];
+      const pa = [new THREE.Plane(P.n.clone(), -P.n.dot(P.o))];
+      // the copy coming out of the other portal shows only inside its opening, never on the wall beside it
+      const pb = [new THREE.Plane(O.n.clone(), -O.n.dot(O.o)),
+        new THREE.Plane(O.r.clone().negate(), O.r.dot(O.o) + PW), new THREE.Plane(O.r.clone(), -O.r.dot(O.o) + PW),
+        new THREE.Plane(O.u.clone().negate(), O.u.dot(O.o) + PH), new THREE.Plane(O.u.clone(), -O.u.dot(O.o) + PH)];
       for (const m of c.mats) m.clippingPlanes = pa; for (const m of c.gmats) m.clippingPlanes = pb;
       c.ghost.visible = true; c.ghost.position.copy(c.p).applyMatrix4(P.T);
       _gm.extractRotation(P.T); _gq.setFromRotationMatrix(_gm); c.ghost.quaternion.copy(_gq).multiply(c.mesh.quaternion);
@@ -2151,6 +2156,7 @@ function respawn() {
   const s = world.lv.start, pl = player;
   pl.p.set(s.pos[0], s.pos[1] + HY, s.pos[2]); pl.v.set(0, 0, 0); pl.yaw = s.yaw; pl.pitch = s.pitch; pl.ground = false;
   pl.safe = pl.p.clone(); pl.outT = 0; _pPrev.copy(pl.p);
+  if (portals[0].on || portals[1].on) { clearPortals(); updateCross(); }   // dying closes your portals, so a pair by the spawn can't drop you straight back into the acid
   cam.roll = 0; camOffset.set(0, 0, 0); eyePos(prevEye); state = "play"; pl.hp = 100; run.sinceHit = 9; hurtFlash = 0;
   for (const c of world.cubes) if (c.p.y < world.lv.start.pos[1] - 40 || c.returnOnRespawn) { c.returnOnRespawn = false; respawnCube(c); }
 }
