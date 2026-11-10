@@ -1,1 +1,92 @@
-[]
+[
+ {
+  "hash": "9dd0cc9f",
+  "chamber": 6,
+  "text": "Hide behind a pillar and your health comes back. Reach a sentry from behind and you can pick it up. It sleeps while you carry it. It does not sleep for long afterwards."
+ },
+ {
+  "hash": "bf07ea02",
+  "chamber": 7,
+  "text": "Now that you have met the sentries, I would like you to pick one up. Do not worry. It will do enough worrying for both of you."
+ },
+ {
+  "hash": "7c38566b",
+  "chamber": 31,
+  "text": "About leaving. The way out is being serviced. It has been being serviced for some time."
+ },
+ {
+  "hash": "a5a73e12",
+  "chamber": 31,
+  "text": "While we wait, here is a chamber I had been saving. The white panel moves. A portal on it moves too. Do try to keep up."
+ },
+ {
+  "hash": "5d8e8bcc",
+  "chamber": 31,
+  "text": "Put a portal on the panel while it is near you. Then wait for the panel to reach the ledge before you step into the other one. The plate up there still wants the cube."
+ },
+ {
+  "hash": "3da855df",
+  "chamber": 31,
+  "text": "You caught a moving wall. Most subjects only manage it the other way round."
+ },
+ {
+  "hash": "f6f84349",
+  "chamber": 32,
+  "text": "The exit to this chamber is out of order. Please remain in the chamber until maintenance arrives."
+ },
+ {
+  "hash": "15adb9ba",
+  "chamber": 32,
+  "text": "Maintenance was last seen some years ago. I am sure it is nothing. The sentry will keep you company. It is an older model. Its aim has drifted."
+ },
+ {
+  "hash": "5f9ef3dd",
+  "chamber": 32,
+  "text": "There is nothing to solve in here. Stand still. Admire the gallery under the observation window, if you must. Do not stand on it. Do not stand near the glass."
+ },
+ {
+  "hash": "4eb12ba4",
+  "chamber": 32,
+  "text": "You are not on my cameras. I do not like it when you are not on my cameras."
+ },
+ {
+  "hash": "6dc711a4",
+  "chamber": 33,
+  "text": "I know you are in the service corridors. I have cameras in the service corridors. They are older than the sentries, but they are mine."
+ },
+ {
+  "hash": "f636bfe7",
+  "chamber": 33,
+  "text": "When one of them finds you, I will bring you back. For your safety. Everything here is for your safety."
+ },
+ {
+  "hash": "2dabbde0",
+  "chamber": 33,
+  "text": "The first camera sweeps. The second one never looks away, so do not walk under it. There are two clean panels down here. I would rather you had not noticed them."
+ },
+ {
+  "hash": "9102d689",
+  "chamber": 33,
+  "text": "I have lost you again. Please stop doing that. It is a very long time since I lost anybody."
+ },
+ {
+  "hash": "305b9b42",
+  "chamber": 25,
+  "text": "There you are. Back on the track, please."
+ },
+ {
+  "hash": "83e27e88",
+  "chamber": 25,
+  "text": "Found you. That area is for staff only. There are no staff. Back you go."
+ },
+ {
+  "hash": "075aa70b",
+  "chamber": 25,
+  "text": "I can see you again. That is better. For one of us."
+ },
+ {
+  "hash": "e7c5ffa8",
+  "chamber": 25,
+  "text": "That was a window. It had been a window for eleven years. Do not go in there. There is nothing in there. Stay on the test track."
+ }
+]
