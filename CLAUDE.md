@@ -23,6 +23,7 @@ Personal games site, published with GitHub Pages from `main` (root). Every push 
 - The site installs as one offline app ("Games" on the home screen): `manifest.webmanifest`, `icon-*.png` and `sw.js` at the root. Bump `CACHE` in `sw.js` whenever that file changes. Each game registers `../sw.js` and shows the shared gold **‹ Games** button: copy the `gamesPill` block (an `<a id="gamesPill">`, its `<style>` and `<script>`) from any game right after `<body>`, add the new folder name to its path check, and mark the game's top row with `data-pill-gap` so it shifts clear of the button. Keep the block identical in every game so the button looks and sits the same everywhere.
 
 ## Conventions
+- **Times the user gives are UTC-7 all year** (their region stays on daylight time permanently and no longer changes clocks). When scheduling, convert to an explicit UTC time (local + 7 h); do not use an IANA zone name, whose database may still apply the old winter offset.
 - **Every program must show a version number** on screen, e.g. a `const VERSION = "v1.0"` shown as a small label. Bump it on every change pushed (patch/minor as appropriate) and mention the new version in the commit message.
 - Games must fit on an iPhone 17 Pro Max screen (about 440×800 visible in Safari) without scrolling, and also work on iPad and desktop.
 - Sound must start from a user tap (iOS rule) and should work with the iPhone/iPad Silent switch on.
