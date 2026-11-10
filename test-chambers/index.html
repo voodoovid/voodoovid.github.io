@@ -27,7 +27,6 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; oversc
 #hud { position: absolute; inset: 0; pointer-events: none; }
 #hudTop { position: absolute; left: 0; right: 0; top: 0; padding: 10px calc(env(safe-area-inset-right, 0px) + 12px) 0 calc(env(safe-area-inset-left, 0px) + 12px);
   display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-#hudTop { background: linear-gradient(rgba(6,9,12,.55), rgba(6,9,12,0)); padding-bottom: 18px !important; }
 #hudName { min-width: 0; margin-left: 4px; text-shadow: 0 1px 6px rgba(0,0,0,.65); white-space: nowrap; }
 #hudName b { display: block; font-size: 11px; letter-spacing: .24em; color: var(--dim); font-weight: 700; }
 #hudName span { display: block; font-size: 19px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
@@ -67,6 +66,9 @@ body.mouselook #stage, body.mouselook #gl { cursor: none; }
 #toast { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); padding: 8px 16px; border-radius: 6px; background: rgba(8,12,16,.72); font-size: 15px; letter-spacing: .04em;
   opacity: 0; transition: opacity .3s; pointer-events: none; text-align: center; max-width: 80%; }
 #toast.on { opacity: 1; }
+#tip { position: absolute; z-index: 60; left: 0; top: 0; max-width: 260px; padding: 6px 10px; border-radius: 4px; background: rgba(8,12,16,.94); border: 1px solid rgba(255,255,255,.3);
+  font-size: 12.5px; line-height: 1.35; letter-spacing: .02em; color: var(--ink); pointer-events: none; opacity: 0; transition: opacity .12s; box-shadow: 0 6px 18px rgba(0,0,0,.5); }
+#tip.on { opacity: 1; }
 #flash { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: #d33; mix-blend-mode: normal; transition: opacity .6s; }
 #flash.on { opacity: .55; transition: opacity .05s; }
 #flash.g { background: #7fe38a; }
@@ -300,6 +302,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
       <div class="opt">Trackpad: swipe up walks <button id="oScroll" type="button">Forward</button></div>
       <div class="opt">Picture <button id="oQuality" type="button">Auto</button></div>
       <div class="opt">Full screen <button id="oFull" type="button">Enter</button></div>
+      <div class="opt">Saved progress <button id="oReset" type="button">Reset</button></div>
       <button class="btn" id="bOptBack" type="button" style="margin-top:16px">&lsaquo; Back</button>
       <p class="vtag" id="vOpt"></p>
     </div>
@@ -317,7 +320,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
             <li><b>Left thumb</b>: drag anywhere on the left half to walk.</li>
             <li><b>Right thumb</b>: drag anywhere on the right half to look around.</li>
             <li><b>BLUE</b> / <b>ORANGE</b>: fire that portal at the crosshair.</li>
-            <li><b>JUMP</b>. <b>GRAB</b>: pick up or put down a cube, or tip over a sentry.</li></ul></div>
+            <li><b>JUMP</b>. <b>GRAB</b>: pick up or put down a cube or a sentry.</li></ul></div>
           <div class="gsec"><h3>Trackpad &amp; keyboard</h3><ul>
             <li><b>Click once</b> and the pointer locks to the centre, under the gun's sights. Then <b>slide</b> on the trackpad to look around.</li>
             <li><b>Two-finger swipe up / down</b> to walk forward / back; sideways to sidestep.</li>
@@ -327,14 +330,18 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
           <div class="gsec"><h3>Controller</h3><ul>
             <li><b>Left stick</b> walk &middot; <b>right stick</b> look</li>
             <li><b>LT / LB</b> blue &middot; <b>RT / RB</b> orange</li>
-            <li><b>A</b> jump &middot; <b>X</b> grab &middot; <b>Y</b> restart</li>
+            <li><b>A</b> jump &middot; <b>X</b> grab (cube or sentry) &middot; <b>Y</b> restart</li>
             <li><b>Start</b> pause &middot; <b>Select</b> full button list</li></ul></div>
         </div>
         <div class="gtwo">
           <div class="gsec"><h3>What you will meet</h3><ul>
             <li><b>Acid</b>: do not touch. SaDos finds this funny.</li>
             <li><b>Cubes</b> sit on the round <b>buttons</b> to open <b>doors</b>. Cubes cannot pass a reset field.</li>
-            <li><b>Sentries</b> see in front of them and shoot after a moment's warning. Break their line of sight, come at them from behind, then <b>GRAB</b> to tip one over. A falling cube also does it.</li>
+            <li><b>Sentries</b> see in front of them and shoot after a moment's warning. A live one <b>jams portals</b> inside its red ring. Come at one from behind or the side and <b>GRAB</b> picks it up: it sleeps while carried, shields you from other sentries, weighs down a button, and wakes a moment after you put it down, facing the way you were. Walking into one, or a falling cube, knocks it over for good.</li>
+            <li>Sentries were never told about portals: if one sees <b>another sentry</b> through a pair, they shoot each other.</li>
+            <li><b>Purple gravity panels</b>: step on one and everything loose in its zone falls up (not you). Step on it again to put things back.</li>
+            <li><b>Amber-ringed buttons</b> are on a timer: they hold their door for a few seconds after you step off.</li>
+            <li><b>Coolant</b> is as deadly as acid, but things float in it.</li>
             <li><b>Light beams</b> burn. A cube on the floor blocks one. Portals carry one from place to place, and a glowing <b>receiver</b> that is lit opens its door.</li>
             <li><b>Reset fields</b> close every portal as you pass. Place new ones on the other side.</li>
             </ul></div>
@@ -376,6 +383,17 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
     </div>
   </div>
 
+  <!-- reset progress (asks first) -->
+  <div class="ov" id="ovReset" hidden>
+    <div class="card">
+      <h2 class="ttl">Reset progress?</h2>
+      <p class="tag">Every chamber except the first is locked again, and SaDos forgets she has met you. Options are kept.</p>
+      <button class="btn" id="bResetYes" type="button">Reset everything</button>
+      <button class="btn primary" id="bResetNo" type="button">Keep my progress</button>
+    </div>
+  </div>
+
+  <div id="tip" role="tooltip"></div>
   <div id="loading">LOADING<u></u></div>
 </div>
 <script src="../lib/gamepad.js"></script>
@@ -390,7 +408,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 await RAPIER.init();
 
-const VERSION = "v3.9";
+const VERSION = "v4.0";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -505,6 +523,12 @@ function cubeTex() {
 function signTex(kind, line1, line2, w, h) {
   const px = 220, cw = Math.round(w * px / 2) * 2, ch = Math.round(h * px / 2) * 2;
   const t = canvasTex(cw, ch, (g) => {
+    if (kind === "scrawl") {                  // marker pen on the wall, in a hurry
+      g.clearRect(0, 0, cw, ch); g.fillStyle = "rgba(150,24,20,.92)"; g.textAlign = "center"; g.textBaseline = "middle";
+      g.translate(cw / 2, ch / 2); g.rotate(-0.035); g.font = `700 ${ch * (line2 ? .3 : .36)}px "Marker Felt", "Chalkboard SE", "Comic Sans MS", cursive`;
+      if (line2) { g.fillText(line1, 0, -ch * .2); g.fillText(line2, cw * .03, ch * .22); } else wrapText(g, line1, 0, 0, cw * .92, ch * .4);
+      return;
+    }
     const dark = kind === "chamber", exit = kind === "exit";
     g.fillStyle = exit ? "#12361f" : dark ? "#14181c" : "#f4f6f7"; g.fillRect(0, 0, cw, ch);
     g.strokeStyle = exit ? "#7dffa4" : dark ? "#e8edf0" : "#14181c"; g.lineWidth = Math.max(3, ch * .05); g.strokeRect(g.lineWidth, g.lineWidth, cw - g.lineWidth * 2, ch - g.lineWidth * 2);
@@ -744,11 +768,13 @@ function level5() {
 // a rectangular hall along +x: floor at y = 0, optional acid pits, an exit alcove (door optional) at x = L
 function hall(o) {
   // o.ey: the exit stands on a ledge this high (o.ledge deep, dark face unless o.ledgeMat), reached some other way than walking
-  const L = o.L, Wd = o.W || 12, H = o.H || 7, zc = o.zc || Wd / 2, ey = o.ey || 0, B = [], air = [[0, 0, 0, L, H, Wd]], acid = [], lamps = [], fixtures = [];
+  const L = o.L, Wd = o.W || 12, H = o.H || 7, zc = o.zc || Wd / 2, ey = o.ey || 0, B = [], air = [[0, 0, 0, L, H, Wd]], acid = [], pools = [], lamps = [], fixtures = [];
   let x = -2;
   for (const [a, b] of (o.pits || [])) {
     B.push(bx(x, -4, -2, a, 0, Wd + 2)); B.push(bx(a, -6, -2, b, -4, Wd + 2, "dark")); x = b;
-    air.push([a, -4, 0, b, 0, Wd]); acid.push({ x0: a, x1: b, z0: 0, z1: Wd, y: -3 }); lamps.push(lamp((a + b) / 2, -2.4, Wd / 2, .55, 6, .25, 1, .45));
+    air.push([a, -4, 0, b, 0, Wd]);
+    if (o.cool) { pools.push({ x0: a, x1: b, z0: 0, z1: Wd, y: -0.7 }); lamps.push(lamp((a + b) / 2, -2.4, Wd / 2, .5, 6, .3, .7, 1)); }
+    else { acid.push({ x0: a, x1: b, z0: 0, z1: Wd, y: -3 }); lamps.push(lamp((a + b) / 2, -2.4, Wd / 2, .55, 6, .25, 1, .45)); }
   }
   B.push(bx(x, -4, -2, L, 0, Wd + 2));
   B.push(bx(-2, -6, -2, L + 6, H + 2, 0)); B.push(bx(-2, -6, Wd, L + 6, H + 2, Wd + 2)); B.push(bx(-2, -6, 0, 0, H + 2, Wd)); B.push(bx(-2, H, 0, L, H + 2, Wd));
@@ -760,7 +786,8 @@ function hall(o) {
   return {
     boxes: B, air, acid, lamps, fixtures, H, zc, ey,
     exit: { min: [L + 2, ey, zc - 1.2], max: [L + 4, ey + 2.4, zc + 1.2] }, exitLight: { x: L + 3.97, y0: ey + .4, y1: ey + 2.8, z0: zc - 1.1, z1: zc + 1.1 },
-    doors: [], plates: [], cubes: [], sentries: [], beams: [], receivers: [], fields: [], pads: [],
+    doors: [], plates: [], cubes: [], sentries: [], beams: [], receivers: [], fields: [], pads: [], gravs: [], pools, offices: [],
+    cams: [{ pos: [0, H - 0.9, Wd - 1.6], n: [1, 0, 0] }],
     signs: [{ kind: "exit", a: "EXIT", pos: [L, ey + 4.4, zc], n: [-1, 0, 0], w: 2.2, h: .75 }],
     start: { pos: [2, 0, Wd / 2], yaw: -Math.PI / 2, pitch: -0.05 }
   };
@@ -782,7 +809,7 @@ function level6() {
     num: 6, name: "Sentry Duty", track: 0,
     say: {
       intro: ["Meet the sentries. They are friendly, in the sense that they are not yet shooting.", "They only see what is in front of them. Walk behind them. Or stand behind a wall. Or, as a last resort, do not be shot."],
-      hint: ["Hide behind a pillar and your health comes back. Reach a sentry from behind and press grab, and it will fall over. Gently. Mostly."],
+      hint: ["Hide behind a pillar and your health comes back. Reach a sentry from behind and you can pick it up, or simply walk into it. It falls over. Gently. Mostly."],
       done: ["You survived the sentries. I was not worried. That is a lie, I had a bet running."]
     }
   });
@@ -979,7 +1006,7 @@ function level19() {
   h.beams = [10, 13, 16].map(x => ({ pos: [x, 1.1, 0.02], dir: [0, 0, 1] }));
   h.pads = [{ pos: [5, 0, 5], from: [5, 0.92, 5], to: [22, 0.92, 5], T: 1.2 }];
   h.cubes = [[3, 0.35, 8]]; h.plates = [{ pos: [26, 0, 5], door: "d1" }]; h.doors = [exitDoor(L, 5)];
-  h.sentries = [{ pos: [36.5, 0, 1.5], yaw: Math.PI / 2, range: 9 }, { pos: [36.5, 0, 8.5], yaw: Math.PI / 2, range: 9 }];
+  h.sentries = [{ pos: [36.5, 0, 1.5], yaw: Math.PI / 2, range: 9, jam: 2.5 }, { pos: [36.5, 0, 8.5], yaw: Math.PI / 2, range: 9, jam: 2.5 }];   // a short jam, so a portal on the side wall behind them still opens
   h.signs.push(chSign(19, "GAUNTLET", 4.6), hint("OVER THE LIGHT, NOT THROUGH IT", [13, 3.4, 10], [0, 0, -1], 4.6, 1));
   return Object.assign(h, { num: 19, name: "Gauntlet", track: 0, say: {
     intro: ["Three lasers, three sentries, one cube. I call it a gauntlet. The sentries call it lunch.", "There is a pad. There is always a pad now. I have grown fond of them."],
@@ -1021,16 +1048,22 @@ function level21() {
     done: ["You brought the cube down and the light round. Multitasking. I did not know you had it in you."] } });
 }
 function level22() {
-  const L = 34, h = hall({ L, W: 12, H: 9, zc: 6, pits: [[10, 26]] });
-  h.boxes.push(bx(10, -4, 4.5, 26, 0, 7.5));                           // a white bridge over the acid
+  const L = 34, W = 12, H = 9, h = hall({ L, W, H, zc: 6, pits: [[10, 26]] });
+  h.boxes.push(bx(10, -4, 4.5, 26, 0, 7.5, "dark"));                     // a bridge over the acid
   h.boxes.push(bx(6, 0, 1.5, 7, 2.4, 4.5, "dark"), bx(6, 0, 7.5, 7, 2.4, 10.5, "dark"));   // cover at the start
-  h.sentries = [{ pos: [15, 0, 6], yaw: Math.PI / 2, range: 13 }, { pos: [19, 0, 6], yaw: Math.PI / 2, range: 13 }, { pos: [23, 0, 6], yaw: Math.PI / 2, range: 13 }];
+  // only the near floor and one strip of ceiling, over the first sentry, take portals
+  darken(h.boxes.find(b => b.min[0] === 26 && b.max[1] === 0));
+  h.boxes.push(skin(9, 0, 0, L, H, 0.1), skin(9, 0, W - 0.1, L, H, W), skin(0, H - 0.1, 0, 12.5, H, W), skin(17.5, H - 0.1, 0, L, H, W),
+    skin(12.5, H - 0.1, 0, 17.5, H, 4), skin(12.5, H - 0.1, 8, 17.5, H, W), skin(10, -4, 0, 10.1, 0, W), skin(25.9, -4, 0, 26, 0, W));
+  h.sentries = [{ pos: [15, 0, 6], yaw: Math.PI / 2, range: 9 }, { pos: [19.5, 0, 6], yaw: Math.PI / 2, range: 4 }, { pos: [24, 0, 6], yaw: Math.PI / 2, range: 4 }];
+  h.cubes = [[3, 0.35, 2.5]];
   h.doors = [];
-  h.signs.push(chSign(22, "DISPOSAL", 4.6), hint("THE BRIDGE TAKES PORTALS", [5, 3.4, 12], [0, 0, -1], 4.2, 1));
+  h.signs.push(chSign(22, "DISPOSAL", 4.6), hint("WHAT GOES UP, COMES DOWN ON SOMEBODY", [5, 3.4, 12], [0, 0, -1], 5.6, 1));
+  for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.11, sg.pos[1], sg.pos[2]];
   return Object.assign(h, { num: 22, name: "Disposal", track: 0, say: {
     intro: ["Three sentries are standing on the only bridge. They are not moving, and neither, for now, are you.", "I am told they are very expensive. I am also told they are very heavy."],
-    hint: ["Open a portal under a sentry and it falls through. Put the other portal somewhere it will not enjoy coming out of. Above the acid, for example."],
-    done: ["You threw away three sentries. I will be invoicing you. I will be invoicing you in my head."] } });
+    hint: ["The ceiling over the first sentry takes portals, and so does the floor beside your crate. After that, a broken sentry makes a very good umbrella."],
+    done: ["You dropped a box on one sentry and hid behind its body from the others. I am not sure which of us should be more ashamed."] } });
 }
 function level23() {
   const L = 50, W = 12, H = 16, h = hall({ L, W, H, zc: 6, pits: [[10, 44]] });
@@ -1059,7 +1092,104 @@ function level24() {
     done: ["Testing is complete. All of it. You may go. I will be here, grading."] } });
 }
 
-const LEVEL_FUNCS = [level1, level2, level3, level4, level5, level6, level7, level8, level9, level10, level11, level12, level13, level14, level15, level16, level17, level18, level19, level20, level21, level22, level23, level24];
+/* ---------- chambers 25 on: after "testing is complete". Carried sentries, shields, sentries against sentries, gravity panels,
+   timed doors. The observation offices appear on the walls, and somebody has been writing on them. Original layouts. ---------- */
+// a frosted office window on the z = 0 or z = W wall, between x0 and x1, y0 and y1, in a dark frame that takes no portals
+function office(h, x0, x1, y0, y1, z) {
+  const near = z === 0;
+  h.boxes.push(bx(x0 - 0.2, y0 - 0.2, near ? 0 : z - 0.12, x1 + 0.2, y1 + 0.2, near ? 0.12 : z, "dark"));
+  h.offices.push({ pos: [(x0 + x1) / 2, (y0 + y1) / 2, near ? 0.12 : z - 0.12], n: [0, 0, near ? 1 : -1], w: x1 - x0, h: y1 - y0 });
+}
+const scrawl = (a, b, pos, n, w = 3.2, hh = 0.9) => ({ kind: "scrawl", a, b, pos, n, w, h: hh });
+function level25() {
+  const L = 30, h = hall({ L, W: 12, H: 7, zc: 6 });
+  h.boxes.push(bx(12, 0, 5, 20, 7, 6, "dark"));                         // a wall between the watched lane and the quiet one
+  h.sentries = [{ pos: [18, 0, 2.5], yaw: Math.PI / 2, range: 10 }];
+  h.cubes = [[3, 0.35, 9.5]]; h.plates = [{ pos: [23, 0, 3], door: "d1" }, { pos: [23, 0, 9], door: "d1" }]; h.doors = [exitDoor(L, 6, "d1", 2)];
+  office(h, 21.5, 27.5, 4.3, 6.2, 12);
+  h.signs.push(chSign(25, "HEAVY LIFTING", 4.6, 5), hint("TWO PLATES. ONE CRATE. ONE VOLUNTEER.", [8, 3.2, 12], [0, 0, -1], 5.4, 1));
+  return Object.assign(h, { num: 25, name: "Heavy Lifting", track: 0, say: {
+    intro: ["Testing was complete. Then I found some more tests. You are welcome.", "This door wants two weights. I have provided one crate and one sentry. The sentry does not know it is a weight yet."],
+    hint: ["A sentry sleeps while you carry it, and wakes a moment after you put it down. Think about which way it will be facing when it does. It certainly will."],
+    done: ["You used a guard as a paperweight. Its supervisor would be furious, if it still had one."] } });
+}
+function level26() {
+  const L = 34, W = 12, H = 7, h = hall({ L, W, H, zc: 2.5 });
+  h.boxes.push(bx(12, 0, 5, L, H, W, "dark"));                           // past the first room the hall narrows to one corridor
+  h.boxes.push(skin(11, 0, 0, L, 0.02, 5), skin(11, 0, 0, L, H, 0.1), skin(11, H - 0.1, 0, L, H, 5));
+  h.sentries = [{ pos: [29, 0, 2.5], yaw: Math.PI / 2, range: 18, dmg: 20 }, { pos: [9, 0, 10.5], yaw: -Math.PI / 2, range: 6 }];
+  h.lamps.push(lamp(16, H - .3, 2.5, .5, 9), lamp(23, H - .3, 2.5, .5, 9), lamp(30, H - .3, 2.5, .5, 9)); h.fixtures.push([16, H, 2.5], [23, H, 2.5], [30, H, 2.5]);
+  office(h, 2, 8, 4.3, 6.2, 0);
+  h.signs = h.signs.filter(sg => sg.kind !== "exit"); h.signs.push({ kind: "exit", a: "EXIT", pos: [L, 4.4, 2.5], n: [-1, 0, 0], w: 2.2, h: .75 });
+  h.signs.push({ kind: "chamber", a: "TEST CHAMBER 26", b: "BORROWED COVER", pos: [4.6, 3.1, 0], n: [0, 0, 1], w: 4.4, h: 1.0 }, hint("THEY CANNOT SHOOT WHAT THEY CANNOT SEE", [6, 3.2, 12], [0, 0, -1], 5.4, 1),
+    scrawl("SHE COUNTS THE CORRIDOR.", "SHE NEVER COUNTS THE CHAMBERS.  - O.", [10.2, 1.3, 12], [0, 0, -1], 3.4, 1));
+  return Object.assign(h, { num: 26, name: "Borrowed Cover", track: 1, say: {
+    intro: ["The corridor ahead is watched. Eighteen metres of it. I counted, and so will the sentry at the far end.", "There is a second sentry in this room, facing the wall. It is in disgrace. You may borrow it."],
+    hint: ["Sentries do not shoot at what they cannot see. Hold something large between you and the one at the end. Something roughly sentry shaped."],
+    done: ["It never saw you. It will file a report saying a colleague walked up to it and left. Nobody will read it. Nobody reads any of them."] } });
+}
+function level27() {
+  const L = 30, W = 14, H = 7, h = hall({ L, W, H, zc: 7 });
+  h.boxes.push(bx(15, 0, 1.8, 16, 3.2, 4.2), bx(15, 0, 9.8, 16, 3.2, 12.2));        // a white pillar in front of each sentry
+  h.boxes.push(bx(18.2, 0, 4, 19.2, H, 10, "dark"));                                  // the wall you hide behind
+  h.boxes.push(skin(17, 0, 0, L, 0.02, W), skin(17, 0, 0, L, H, 0.1), skin(17, 0, W - 0.1, L, H, W), skin(17, H - 0.1, 0, L, H, W));
+  h.sentries = [{ pos: [22, 0, 3], yaw: Math.PI / 2, range: 9 }, { pos: [22, 0, 11], yaw: Math.PI / 2, range: 9 }];
+  h.plates = [{ pos: [26, 0, 7], door: "d1" }]; h.doors = [exitDoor(L, 7)];
+  office(h, 4, 10, 4.3, 6.2, 14);
+  h.signs.push(chSign(27, "FRIENDLY FIRE", 4.6, 5), hint("NOBODY TOLD THEM ABOUT PORTALS", [9, 3.2, 14], [0, 0, -1], 4.8, 1));
+  for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.02, sg.pos[1], sg.pos[2]];
+  return Object.assign(h, { num: 27, name: "Friendly Fire", track: 2, say: {
+    intro: ["Two sentries, one lane each, and a wall in the middle for you to cower behind. I had the wall put in specially.", "They were never told about portals. It was a budget decision."],
+    hint: ["Each sentry is staring at a white pillar. If its pillar showed it the other sentry, the two of them would have a short and productive disagreement. The door wants a weight afterwards."],
+    done: ["They shot each other. I would report it, but that department was closed. Most of them were."] } });
+}
+function level28() {
+  const L = 28, W = 12, H = 8, h = hall({ L, W, H, zc: 6 });
+  h.boxes.push(bx(14, 0, 4, 18, 1.6, 4.3, "dark"), bx(14, 0, 7.7, 18, 1.6, 8, "dark"), bx(14, 0, 4.3, 14.3, 1.6, 7.7, "dark"), bx(17.7, 0, 4.3, 18, 1.6, 7.7, "dark"), skin(14.3, 0, 4.3, 17.7, 0.02, 7.7));   // the pen
+  h.gravs = [{ pad: [9, 0, 6], min: [14.3, 0, 4.3], max: [17.7, H, 7.7] }];
+  h.cubes = [[16, 0.4, 6]]; h.plates = [{ pos: [23, 0, 6], door: "d1" }]; h.doors = [exitDoor(L, 6)];
+  office(h, 19, 25, 4.6, 6.6, 0);
+  h.signs.push(chSign(28, "UPSIDE", 4.6), hint("IN THE PURPLE, DOWN IS UP", [9, 3.2, 12], [0, 0, -1], 4.4, 1), scrawl("ASK HER WHO READS", "THE REPORTS.  - O.", [20.5, 1.2, 12], [0, 0, -1], 2.8, 0.95));
+  return Object.assign(h, { num: 28, name: "Upside", track: 0, say: {
+    intro: ["The crate is in a pen. The pen has no door. I designed it that way, and then I lost the drawings.", "The purple panel reverses gravity inside the pen. For crates. Not for you. You stay where I can see you."],
+    hint: ["Things that fall up will fall into a portal on the ceiling as happily as into one on the floor. Decide where the crate comes out before you step on the panel."],
+    done: ["The crate fell up, then sideways, then down. It has now seen more of this facility than you have. Let us keep it that way."] } });
+}
+function level29() {
+  const L = 30, W = 12, H = 7, h = hall({ L, W, H, zc: 6, pits: [[12, 18]] });
+  h.cubes = [[3, 0.35, 9.5]];
+  h.plates = [{ pos: [6, 0, 2], door: "d1", hold: 3 }, { pos: [24, 0, 9.5], door: "d1" }]; h.doors = [exitDoor(L, 6, "d1", 2)];
+  office(h, 19.5, 25.5, 4.3, 6.2, 0);
+  h.signs.push(chSign(29, "SHORT NOTICE", 4.6, 5), hint("AMBER RING: THE DOOR WAITS THREE SECONDS", [7, 3.2, 12], [0, 0, -1], 5.6, 1), scrawl("DAY 412. STILL", "'ONE MORE TEST'.  - O.", [27.6, 1.2, 12], [0, 0, -1], 2.8, 0.95));
+  return Object.assign(h, { num: 29, name: "Short Notice", track: 1, say: {
+    intro: ["The plate with the amber ring is on a relay. It holds the door for three seconds after you step off it. Three. I was feeling generous.", "The door is across the acid. You will need to be quick, which is not a word that appears in your file."],
+    hint: ["Leave one portal beside the timed plate and the other beside the door before you start. And the door wants the crate as well, on the plate over there."],
+    done: ["Three seconds, and you had nearly half of one to spare. Do not look so pleased. The offices are empty. Nobody saw."] } });
+}
+function level30() {
+  const L = 32, W = 12, H = 7, h = hall({ L, W, H, zc: 6, pits: [[12, 20]], cool: true });
+  h.boxes.push(bx(12, -4, 3.2, 20, 0, W));                               // the pool is only a channel along one wall
+  h.boxes.push(bx(12, 0, 3, 20, H, 3.2, "dark"));                        // and a wall keeps you from reaching over it
+  h.pools[0].z1 = 3; h.pools[0].cur = [1.3, 0]; h.pools[0].pump = "p1";
+  h.fields = [{ min: [15.85, 0, 3.2], max: [16.15, H, W] }];             // the way round on foot, which no object survives
+  // nothing past the field takes a portal
+  darken(h.boxes.find(b => b.min[0] === 20 && b.max[1] === 0));
+  h.boxes.push(skin(16.2, 0, 3.2, 20, 0.02, W), skin(16.2, 0, W - 0.1, L, H, W), skin(16.2, H - 0.1, 0, L, H, W), skin(11, 0, 0, L, H, 0.1), skin(11, -4, 0, 20, 0, 0.1),
+    skin(L - 0.1, 0, 0, L, H, 4.5), skin(L - 0.1, 0, 7.5, L, H, W), skin(L - 0.1, 3.2, 4.5, L, H, 7.5));
+  h.cubes = [{ pos: [13.05, -0.6, 1.55] }];
+  h.sentries = [{ pos: [5, 0, 10.6], yaw: Math.PI, range: 8 }];
+  h.plates = [{ pos: [8.5, 0, 9.5], door: "x", hold: 9, pump: "p1" }, { pos: [26, 0, 7], door: "d1" }]; h.doors = [exitDoor(L, 6)];
+  office(h, 2.5, 8.5, 4.3, 6.2, 0);
+  h.signs.push({ kind: "chamber", a: "TEST CHAMBER 30", b: "COLD STORAGE", pos: [5.5, 3.1, 0.001], n: [0, 0, 1], w: 4.4, h: 1.0 }, hint("AMBER PLATE RUNS THE PUMP. AGAIN, AND IT RUNS BACK.", [7, 3.2, 12], [0, 0, -1], 6, 1),
+    scrawl("THE EXIT SIGN IS HONEST.", "THE EXIT IS NOT.  - O.", [24, 1.2, 12 - 0.105], [0, 0, -1], 3.2, 0.95));
+  for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.11, sg.pos[1], sg.pos[2]];
+  return Object.assign(h, { num: 30, name: "Cold Storage", track: 2, say: {
+    intro: ["That channel is coolant. It keeps me at a comfortable temperature, and you at a fatal one. Things float in it. You are not one of the things.", "The door over there wants a weight. The field across the floor recycles anything you carry. I do enjoy it when the rules agree with each other."],
+    hint: ["The float in the channel will carry whatever stands on it, once the pump is running. The amber plate runs the pump. Mind which way your passenger is looking when it arrives."],
+    done: ["You sent a sentry on a cruise. It is the only holiday anyone here has had in a very long time. Including me. Especially me."] } });
+}
+
+const LEVEL_FUNCS = [level1, level2, level3, level4, level5, level6, level7, level8, level9, level10, level11, level12, level13, level14, level15, level16, level17, level18, level19, level20, level21, level22, level23, level24, level25, level26, level27, level28, level29, level30];
 
 /* =====================================================================================
    Renderer, scene, portals
@@ -1203,6 +1333,16 @@ const CUBE = (() => {
   const maps = cubeFaceMaps();
   return { maps, body: roundedBoxGeo(0.7, 0.055, 18), dome: new THREE.SphereGeometry(0.092, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), ring: new THREE.TorusGeometry(0.148, 0.014, 12, 44) };
 })();
+const RAFT_H = [0.85, 0.18, 0.85];
+function makeRaft() {                  // a float: a wide slab of foam in a steel frame. Too big to carry; it goes where the coolant takes it
+  const g = new THREE.Group(), mats = [], mk = p => { const m = new THREE.MeshStandardMaterial(p); mats.push(m); return m; };
+  const foam = mk({ color: 0xe6a23a, roughness: .8, metalness: 0, envMap: ENV, envMapIntensity: .5 }), steel = mk({ color: 0x4a535c, roughness: .4, metalness: .8, envMap: ENV, envMapIntensity: 1.1 });
+  g.add(new THREE.Mesh(new THREE.BoxGeometry(1.62, 0.3, 1.62), foam));
+  for (const [x, z, w, d] of [[0, 0.82, 1.7, 0.07], [0, -0.82, 1.7, 0.07], [0.82, 0, 0.07, 1.7], [-0.82, 0, 0.07, 1.7]]) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.36, d), steel); m.position.set(x, 0, z); g.add(m); }
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.03, 1.5), steel); deck.position.y = 0.165; g.add(deck);
+  g.traverse(o => { o.frustumCulled = false; });
+  return { group: g, mats };
+}
 function makeCube() {
   const mats = [], mk = p => { const m = new THREE.MeshStandardMaterial(p); mats.push(m); return m; };
   const body = mk({ map: CUBE.maps.map, normalMap: CUBE.maps.normalMap, normalScale: new THREE.Vector2(1.1, 1.1), emissiveMap: CUBE.maps.emissiveMap, emissive: 0xffffff, emissiveIntensity: 1.5, metalness: .78, roughness: .36, envMap: ENV, envMapIntensity: 1.25 });
@@ -1381,7 +1521,7 @@ function disposeLevel() {
 function buildLevel(idx) {
   disposeLevel();
   const lv = LEVEL_FUNCS[idx]();
-  const W = world = { idx, lv, solids: lv.boxes, air: lv.air.map(a => bx(...a)), doors: [], plates: [], cubes: [], acid: [], fx: [], t: 0, dyn: [], sentries: [], beams: [], receivers: [], fields: [] };
+  const W = world = { idx, lv, solids: lv.boxes, air: lv.air.map(a => bx(...a)), doors: [], plates: [], cubes: [], acid: [], fx: [], t: 0, dyn: [], sentries: [], beams: [], receivers: [], fields: [], gravs: [], pools: [], offices: [], cams: [] };
   // static surfaces
   const out = {};
   bakeFaces(lv.boxes, lv.boxes, lv.lamps, W.air, out);
@@ -1396,7 +1536,7 @@ function buildLevel(idx) {
   // signs
   for (const s of lv.signs) {
     const tx = signTex(s.kind, s.a, s.b, s.w, s.h);
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(s.w, s.h), new THREE.MeshBasicMaterial({ map: tx, color: new THREE.Color(.92, .92, .92) }));
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(s.w, s.h), new THREE.MeshBasicMaterial({ map: tx, color: new THREE.Color(.92, .92, .92), transparent: s.kind === "scrawl" }));
     m.userData.ownMat = 1; m.userData.ownMap = 1;
     m.position.set(s.pos[0] + s.n[0] * 0.02, s.pos[1] + s.n[1] * 0.02, s.pos[2] + s.n[2] * 0.02);
     m.lookAt(m.position.x + s.n[0], m.position.y + s.n[1], m.position.z + s.n[2]); levelGroup.add(m);
@@ -1425,19 +1565,20 @@ function buildLevel(idx) {
     const ringMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(.5, .32, .12) });
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.93, 0.035, 10, 64), ringMat); ring.rotation.x = Math.PI / 2; ring.position.y = 0.1; ring.userData.ownMat = 1;
     g.add(base, top, ring); g.position.set(p.pos[0], p.pos[1], p.pos[2]); levelGroup.add(g);
-    W.plates.push({ pos: p.pos.slice(), door: p.door, top, group: g, pressed: false, press: 0, ringMat, aim: 0 });
+    W.plates.push({ pos: p.pos.slice(), door: p.door, top, group: g, pressed: false, press: 0, ringMat, aim: 0, hold: p.hold || 0, left: 0, active: false, pump: p.pump || null });
   }
   // cubes
-  for (const c of lv.cubes) {
-    const A = makeCube(), Bg = makeCube(); Bg.group.visible = false;
+  for (const c0 of lv.cubes) {
+    const raft = !Array.isArray(c0), c = raft ? c0.pos : c0;
+    const A = raft ? makeRaft() : makeCube(), Bg = raft ? { group: new THREE.Group(), mats: [] } : makeCube(); Bg.group.visible = false;
     const sh = new THREE.Mesh(SHADOW_GEO, new THREE.MeshBasicMaterial({ map: SHADOW_TEX, transparent: true, depthWrite: false, opacity: .6, polygonOffset: true, polygonOffsetFactor: -2 })); sh.visible = false; sh.frustumCulled = false; sh.renderOrder = 2;
     scene.add(A.group, Bg.group, sh);
-    W.cubes.push({ p: new V3(...c), v: new V3(), spawn: c.slice(), mesh: A.group, ghost: Bg.group, mats: A.mats, gmats: Bg.mats, shadow: sh, held: false, hv: new V3(), yaw: 0, q: new QT(), pv: new V3(...c) });
+    W.cubes.push({ p: new V3(...c), v: new V3(), spawn: c.slice(), mesh: A.group, ghost: Bg.group, mats: A.mats, gmats: Bg.mats, shadow: sh, held: false, hv: new V3(), yaw: 0, q: new QT(), pv: new V3(...c), raft });
   }
   // sentries (turret robots)
   W.sentries = []; W.beams = []; W.receivers = []; W.fields = []; W.dyn = [];
   for (const d of (lv.sentries || [])) {
-    const s = makeSentry(d); levelGroup.add(s.group); W.sentries.push(s); W.dyn.push(s.box);
+    const s = makeSentry(d); levelGroup.add(s.group); W.sentries.push(s);
   }
   // light beams and their receivers
   for (const d of (lv.beams || [])) {
@@ -1478,9 +1619,138 @@ function buildLevel(idx) {
     g.add(base, ring, arrow); levelGroup.add(g);
     W.pads.push({ pos: d.pos.slice(), to: d.to, from: d.from, T: d.T, ringMat, cool: 0, flash: 0 });
   }
+  // gravity panels: step on the pad and "down" flips for every loose object in its zone (not for you)
+  for (const d of (lv.gravs || [])) {
+    const g = new THREE.Group(); g.position.set(...d.pad);
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.93, 0.08, 40), MAT.plateBase); base.position.y = 0.04;
+    const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.3, .5, 2.4) });
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.66, 0.04, 10, 56), mat); ring.rotation.x = Math.PI / 2; ring.position.y = 0.09; ring.userData.ownMat = 1;
+    const sh = new THREE.Shape(); sh.moveTo(0, 0.34); sh.lineTo(0.26, 0.02); sh.lineTo(-0.26, 0.02); sh.moveTo(0, -0.34); sh.lineTo(0.26, -0.02); sh.lineTo(-0.26, -0.02);
+    const tri = (y0, y1) => { const t = new THREE.Shape(); t.moveTo(0, y1); t.lineTo(0.24, y0); t.lineTo(-0.24, y0); return t; };
+    const arrows = new THREE.Mesh(new THREE.ShapeGeometry([tri(0.04, 0.36), tri(-0.04, -0.36)]), mat); arrows.rotation.x = -Math.PI / 2; arrows.position.y = 0.085;
+    g.add(base, ring, arrows); levelGroup.add(g);
+    const ext = [d.max[0] - d.min[0], d.max[1] - d.min[1], d.max[2] - d.min[2]], tex = fieldTex(); tex.repeat.set(Math.max(1, Math.round(Math.max(ext[0], ext[2]) / 2.5)), Math.max(1, Math.round(ext[1] / 2.5)));
+    const zmat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: .3, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, color: new THREE.Color(1.1, .45, 1.9) });
+    const zone = new THREE.Mesh(new THREE.BoxGeometry(ext[0] - 0.04, ext[1] - 0.04, ext[2] - 0.04), zmat); zone.userData.ownMat = 1; zone.renderOrder = 4; zone.frustumCulled = false;
+    zone.position.set((d.min[0] + d.max[0]) / 2, (d.min[1] + d.max[1]) / 2, (d.min[2] + d.max[2]) / 2); levelGroup.add(zone);
+    W.gravs.push({ pad: d.pad.slice(), min: d.min, max: d.max, flip: false, wasOn: false, pulse: 0, mat, zmat, tex });
+  }
+  // coolant pools: cold enough to stop you, but loose things float; a pump (worked by a plate) sets up a current
+  for (const a of (lv.pools || [])) {
+    const t = coolTex(); t.repeat.set((a.x1 - a.x0) / 3, (a.z1 - a.z0) / 3);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(a.x1 - a.x0, a.z1 - a.z0), new THREE.MeshBasicMaterial({ map: t, color: new THREE.Color(.75, 1.05, 1.35), transparent: true, opacity: .86 }));
+    m.userData.ownMat = 1; m.userData.ownMap = 1; m.rotation.x = -Math.PI / 2; m.position.set((a.x0 + a.x1) / 2, a.y, (a.z0 + a.z1) / 2); levelGroup.add(m);
+    W.pools.push({ ...a, tex: t, on: false, was: false, dir: -1 });
+  }
+  // the observation offices: frosted windows high on the wall, lit from inside
+  for (const d of (lv.offices || [])) {
+    const cv = document.createElement("canvas"); cv.width = 512; cv.height = Math.max(64, Math.round(512 * d.h / d.w));
+    const o = { ...d, pos: new V3(...d.pos), n: new V3(...d.n), cv, cracks: [], tex: null, seed: (d.pos[0] * 7 + d.pos[2] * 13 + d.pos[1]) | 0 };
+    paintOffice(o); o.tex = new THREE.CanvasTexture(cv); o.tex.colorSpace = THREE.SRGBColorSpace; o.tex.anisotropy = MAXANISO;
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(d.w, d.h), new THREE.MeshBasicMaterial({ map: o.tex, color: new THREE.Color(1.12, 1.12, 1.12) })); m.userData.ownMat = 1; m.userData.ownMap = 1;
+    m.position.copy(o.pos).addScaledVector(o.n, 0.012); m.lookAt(o.pos.clone().add(o.n)); levelGroup.add(m); W.offices.push(o);
+  }
+  // security cameras: they turn to follow you
+  for (const d of (lv.cams || [])) {
+    const n = new V3(...d.n), root = new THREE.Group(); root.position.set(...d.pos); root.lookAt(root.position.clone().add(n));
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.3), SENT.dark); arm.position.z = 0.15; root.add(arm);
+    const wallPlate = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.2, 0.03), SENT.dark); wallPlate.position.z = 0.015; root.add(wallPlate);
+    const head = new THREE.Group(); head.position.z = 0.32;
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.17, 0.15, 0.36), SENT.white); body.position.z = 0.06; head.add(body);
+    const hood = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.02, 0.42), SENT.dark); hood.position.set(0, 0.085, 0.09); head.add(hood);
+    const lens = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.055, 0.05, 20).rotateX(Math.PI / 2), SENT.dark); lens.position.z = 0.26; head.add(lens);
+    const glass = new THREE.Mesh(new THREE.CircleGeometry(0.036, 20), new THREE.MeshBasicMaterial({ color: new THREE.Color(.12, .3, .5) })); glass.position.z = 0.287; head.add(glass);
+    const led = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, .2, .15) })); led.position.set(0.06, 0.05, 0.245); head.add(led);
+    levelGroup.add(root); head.position.applyQuaternion(root.quaternion).add(root.position); levelGroup.add(head);
+    head.traverse(o => { o.frustumCulled = false; });
+    W.cams.push({ head, led, q: new QT().copy(root.quaternion), n });
+  }
   makePhysics(W);
   return W;
 }
+function coolTex() {
+  return canvasTex(256, 256, (g, w, h) => {
+    const R = rng(9);
+    g.fillStyle = "#1d5a86"; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 60; i++) {
+      const x = R() * w, y = R() * h, r = 16 + R() * 44, c = R() < .55 ? "170,230,255" : "10,40,80", a = .08 + R() * .16;
+      for (let dx = -1; dx <= 1; dx++) for (let dy = -1; dy <= 1; dy++) { const gr = g.createRadialGradient(x + dx * w, y + dy * h, 0, x + dx * w, y + dy * h, r); gr.addColorStop(0, `rgba(${c},${a})`); gr.addColorStop(1, `rgba(${c},0)`); g.fillStyle = gr; g.fillRect(0, 0, w, h); }
+    }
+  });
+}
+// a frosted office window: pale glass, a warm desk lamp and vague furniture behind it, and any bullet stars it has collected
+function paintOffice(o) {
+  const g = o.cv.getContext("2d"), w = o.cv.width, h = o.cv.height, R = rng(o.seed + 3);
+  const bg = g.createLinearGradient(0, 0, 0, h); bg.addColorStop(0, "#aebccb"); bg.addColorStop(1, "#8b9aab"); g.fillStyle = bg; g.fillRect(0, 0, w, h);
+  const blob = (x, y, r, c, a) => { const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(${c},${a})`); gr.addColorStop(1, `rgba(${c},0)`); g.fillStyle = gr; g.fillRect(0, 0, w, h); };
+  const lampX = w * (0.2 + R() * 0.6);
+  blob(lampX, h * .45, h * .9, "255,214,150", .85); blob(lampX, h * .5, h * .3, "255,240,210", .8);
+  for (let i = 0; i < 4; i++) blob(w * R(), h * (.75 + R() * .3), h * (.3 + R() * .3), "40,48,58", .5);         // desks, chairs, cabinets: shapes only
+  blob(w * (0.15 + R() * 0.7), h * .5, h * .22, "50,58,66", .4);
+  for (let i = 0; i < 900; i++) { g.fillStyle = `rgba(255,255,255,${.03 + R() * .05})`; g.fillRect(R() * w, R() * h, 2, 2); }
+  g.fillStyle = "#1c2227"; const fw = Math.max(6, h * .05); g.fillRect(0, 0, w, fw); g.fillRect(0, h - fw, w, fw); g.fillRect(0, 0, fw, h); g.fillRect(w - fw, 0, fw, h);
+  const panes = Math.max(2, Math.round(o.w / 1.6)); for (let i = 1; i < panes; i++) g.fillRect(w * i / panes - fw / 3, 0, fw / 1.5, h);
+  for (const c of o.cracks) {
+    g.strokeStyle = "rgba(245,250,255,.9)"; g.lineWidth = 1.6; const Rc = rng(c.s);
+    for (let i = 0; i < 9; i++) { const a = i / 9 * 6.283 + Rc() * .5, len = h * (.08 + Rc() * .2); g.beginPath(); g.moveTo(c.x, c.y); g.lineTo(c.x + Math.cos(a) * len * .5 + (Rc() - .5) * 6, c.y + Math.sin(a) * len * .5 + (Rc() - .5) * 6); g.lineTo(c.x + Math.cos(a) * len, c.y + Math.sin(a) * len); g.stroke(); }
+    g.fillStyle = "rgba(10,14,18,.85)"; g.beginPath(); g.arc(c.x, c.y, 3.2, 0, 6.3); g.fill();
+  }
+}
+// a stray bullet that lands on an office window stars the glass (it does not break: not yet)
+function officeHit(pt) {
+  for (const o of world.offices) {
+    tmpA.copy(pt).sub(o.pos); if (Math.abs(tmpA.dot(o.n)) > 0.35) continue;
+    const up = Math.abs(o.n.y) > 0.9 ? _zAxis : tmpB.set(0, 1, 0), rt = tmpC.crossVectors(up, o.n), u = tmpA.dot(rt), v = tmpA.dot(up);
+    if (Math.abs(u) > o.w / 2 || Math.abs(v) > o.h / 2 || o.cracks.length >= 14) continue;
+    o.cracks.push({ x: (0.5 + u / o.w) * o.cv.width, y: (0.5 - v / o.h) * o.cv.height, s: o.cracks.length * 17 + 5 }); paintOffice(o); o.tex.needsUpdate = true; sfx.glass();
+    if (!run.said.glass) { run.said.glass = 1; const tw = world; setTimeout(() => { if (world === tw && state === "play") say("glass"); }, 2600); }
+    return true;
+  }
+  return false;
+}
+// gravity zones and coolant act on every loose object, each physics step
+function zonesStep(dt) {
+  const W = world, pl = player;
+  for (const g of W.gravs) {
+    const on = state === "play" && Math.abs(pl.p.x - g.pad[0]) < 0.85 && Math.abs(pl.p.z - g.pad[2]) < 0.85 && Math.abs(pl.p.y - HY - g.pad[1]) < 0.3;
+    g.off = on ? 0 : (g.off || 0) + dt;                      // it re-arms once you have been off it for a moment
+    if (on && !g.wasOn && g.armed !== false) { g.flip = !g.flip; g.pulse = 1; sfx.grav(g.flip); if (!run.said.grav) { run.said.grav = 1; say("grav"); } }
+    if (on) g.armed = false; else if (g.off > 0.4) g.armed = true;
+    g.wasOn = on;
+  }
+  for (const a of W.pools) { a.was = a.on; a.on = false; }
+  for (const p of W.plates) if (p.active && p.pump) for (const a of W.pools) if (a.pump === p.pump) a.on = true;
+  for (const p of W.plates) { if (p.pump && p.pressed && !p.wasP) for (const a of W.pools) if (a.pump === p.pump) { a.dir = a.dir === 1 ? -1 : 1; sfx.pump(); } p.wasP = p.pressed; }   // each press runs the pump the other way: there, then back
+  if (!W.gravs.length && !W.pools.length) return;
+  for (const c of props()) {
+    if (c.held) continue;
+    let gs = 1; for (const g of W.gravs) if (g.flip && c.p.x > g.min[0] && c.p.x < g.max[0] && c.p.y > g.min[1] && c.p.y < g.max[1] && c.p.z > g.min[2] && c.p.z < g.max[2]) gs = -1;
+    if (gs !== c.gs) { c.body.setGravityScale(gs, true); c.body.wakeUp(); c.gs = gs; }
+    for (const a of W.pools) {
+      const bot = c.p.y - c.h[1]; if (bot >= a.y || c.p.x < a.x0 || c.p.x > a.x1 || c.p.z < a.z0 || c.p.z > a.z1) continue;
+      const sub = clamp((a.y - bot) / (2 * c.h[1]), 0, 1), lift = c.kind === "sentry" ? 0.45 : c.raft ? 3.2 : 2, v = c.body.linvel(), w = c.body.angvel();
+      let vx = v.x, vy = v.y + GRAV * lift * sub * dt, vz = v.z; vy -= vy * Math.min(1, 4 * sub * dt);
+      const k = Math.min(1, 1.4 * sub * dt), cx = a.on && a.cur ? a.cur[0] * a.dir : 0, cz = a.on && a.cur ? a.cur[1] * a.dir : 0; vx += (cx - vx) * k; vz += (cz - vz) * k;
+      c.body.setLinvel({ x: vx, y: vy, z: vz }, true); const ak = 1 - Math.min(1, 3 * sub * dt); c.body.setAngvel({ x: w.x * ak, y: w.y * ak, z: w.z * ak }, true);
+      if (!c.wet && Math.abs(v.y) > 1.5) sfx.splash(); c.wet = 0.3;
+    }
+    if (c.wet > 0) c.wet -= dt;
+  }
+}
+function updateZones(dt, time) {
+  if (!world) return;
+  for (const g of world.gravs) {
+    g.pulse = Math.max(0, g.pulse - dt * 2); g.tex.offset.y += dt * (g.flip ? -0.5 : 0.12);
+    const k = g.flip ? 1 : 0.45; g.mat.color.setRGB((1.3 + g.pulse * 2) * k, (.5 + g.pulse) * k, (2.4 + g.pulse) * k); g.zmat.opacity = (g.flip ? 0.34 : 0.1) + g.pulse * 0.3;
+  }
+  for (const a of world.pools) { a.tex.offset.x -= dt * (a.on && a.cur ? a.cur[0] * a.dir * 0.12 : 0.004); a.tex.offset.y += dt * (a.on && a.cur ? a.cur[1] * a.dir * 0.12 : 0.006); }
+  if (state === "title") return;
+  for (const c of world.cams) {              // each camera's head eases round to keep you in frame
+    _gm.lookAt(c.head.position, tmpA.set(player.p.x, player.p.y + 0.5, player.p.z), tmpB.set(0, 1, 0)); _gq.setFromRotationMatrix(_gm); _gq.multiply(CAM_FLIP);
+    c.head.quaternion.slerp(_gq, Math.min(1, dt * 2.2)); c.led.material.color.setRGB(Math.sin(time * 3 + c.head.position.x) > 0.6 ? 2.6 : 0.5, .1, .08);
+  }
+}
+const CAM_FLIP = new QT().setFromAxisAngle(new V3(0, 1, 0), Math.PI);
 function padsStep(dt) {
   const pl = player;
   for (const pd of world.pads) {
@@ -1490,7 +1760,7 @@ function padsStep(dt) {
     const throwFrom = p => new V3(...launchTo([p.x, p.y, p.z], [pd.to[0], pd.to[1] - pd.from[1] + p.y, pd.to[2]], pd.T));   // same landing spot from anywhere on the pad
     if (state === "play" && on(pl.p, HY) && pl.v.y <= 0.5) { pl.v.copy(throwFrom(pl.p)); pl.ground = false; pl.air = 1; pl.flyT = pd.T;   // a fixed arc: no steering until you land or pass a portal
       pd.cool = 0.5; pd.flash = 1; sfx.launch(); }
-    for (const c of world.cubes) if (!c.held && on(c.p, 0.35) && c.v.y <= 0.5) {
+    for (const c of props()) if (!c.held && on(c.p, c.h[1]) && c.v.y <= 0.5) {
       setCubeState(c, c.p, c.q, throwFrom(c.p), { x: 2, y: 0.5, z: -1.5 }); pd.cool = 0.5; pd.flash = 1; sfx.launch();
     }
   }
@@ -1591,16 +1861,19 @@ const prevEye = new V3(), tmpA = new V3(), tmpB = new V3(), tmpC = new V3();
 
 function overlap(p, h, b) { return p.x + h[0] > b.min[0] && p.x - h[0] < b.max[0] && p.y + h[1] > b.min[1] && p.y - h[1] < b.max[1] && p.z + h[2] > b.min[2] && p.z - h[2] < b.max[2]; }
 const _sol = [], _skip = [];
-function cubeBox(c) {
-  const b = c.box || (c.box = { min: [0, 0, 0], max: [0, 0, 0], mat: "cube", portal: false });
-  b.min[0] = c.p.x - .35; b.min[1] = c.p.y - .35; b.min[2] = c.p.z - .35; b.max[0] = c.p.x + .35; b.max[1] = c.p.y + .35; b.max[2] = c.p.z + .35; return b;
+function cubeBox(c) {             // the box rays, beams and sight lines see for a crate or a sentry
+  const b = c.box || (c.box = { min: [0, 0, 0], max: [0, 0, 0], mat: c.kind === "sentry" ? "sentry" : "cube", portal: false });
+  let hx = c.h[0], hy = c.h[1], hz = c.h[2];
+  if (c.kind === "sentry" && Math.abs(1 - 2 * (c.q.x * c.q.x + c.q.z * c.q.z)) < 0.6) { hx = hz = c.h[1]; hy = c.h[0]; }   // lying on its side
+  b.min[0] = c.p.x - hx; b.min[1] = c.p.y - hy; b.min[2] = c.p.z - hz; b.max[0] = c.p.x + hx; b.max[1] = c.p.y + hy; b.max[2] = c.p.z + hz; return b;
 }
+const props = () => world.sentries.length ? world.cubes.concat(world.sentries) : world.cubes;
 function collectSolids(withCubes, except, noDyn) {
   _sol.length = 0;
   const s = world.solids; for (let i = 0; i < s.length; i++) _sol.push(s[i]);
   if (!noDyn && world.dyn) for (const d of world.dyn) _sol.push(d);
   for (const d of world.doors) _sol.push(d.box);
-  if (withCubes) for (const c of world.cubes) if (!c.held && c !== except) _sol.push(cubeBox(c));
+  if (withCubes) { for (const c of world.cubes) if (!c.held && c !== except) _sol.push(cubeBox(c)); for (const c of world.sentries) if (!c.held && c !== except) _sol.push(cubeBox(c)); }
   return _sol;
 }
 // boxes the body may pass through: the walls a portal is cut into, while the body is in front of the opening
@@ -1650,10 +1923,10 @@ function groundProbe(pos, h, solids, skip) {
 }
 
 /* ---------- rays (they pass through portals) ---------- */
-function castRay(o, d, maxDist, withCubes, noDyn) {
+function castRay(o, d, maxDist, withCubes, noDyn, except) {
   let origin = o.clone(), dir = d.clone().normalize(), remaining = maxDist, total = 0; const segs = [];
   for (let hop = 0; hop < 4; hop++) {
-    const sol = collectSolids(withCubes, null, noDyn);
+    const sol = collectSolids(withCubes, except, noDyn);
     const oa = [origin.x, origin.y, origin.z], da = [dir.x, dir.y, dir.z];
     let bestT = remaining, best = null;
     for (let i = 0; i < sol.length; i++) { const h = rayBox(oa, da, sol[i], bestT); if (h && h.t < bestT) { bestT = h.t; best = { t: h.t, axis: h.axis, sign: h.sign, box: sol[i] }; } }
@@ -1684,6 +1957,7 @@ function pathPoint(res, s) {          // the point s metres along a ray's path (
 /* ---------- portal placement ---------- */
 const OFFS = []; for (let a = -1.4; a <= 1.401; a += 0.1) for (let b = -1.6; b <= 1.601; b += 0.1) OFFS.push([a, b]); OFFS.sort((p, q) => (p[0] * p[0] + p[1] * p[1]) - (q[0] * q[0] + q[1] * q[1]));
 function fitPortal(c, n, u, r, idx) {
+  for (const sn of world.sentries) if (sentryJams(sn) && sn.p.distanceTo(c) < sn.jam) { fitWhy = sn; return null; }
   const sol = collectSolids(false, null, true), boxes = [];   // sentries never block a portal: it opens on the wall or floor behind or under them
   for (let i = -3; i <= 3; i++) for (let j = -4; j <= 4; j++) {
     const a = i / 3 * (PW - 0.04), b = j / 4 * (PH - 0.04);
@@ -1699,7 +1973,9 @@ function fitPortal(c, n, u, r, idx) {
   if (O.on && O.n.dot(n) > 0.99 && Math.abs(O.n.dot(tmpA.copy(c).sub(O.o))) < 0.05 && tmpA.copy(c).sub(O.o).length() < PW + PH + 0.05) return null;
   return boxes;
 }
+let fitWhy = null;
 function tryPlacePortal(idx, hit) {
+  fitWhy = null;
   const n = new V3(); n.setComponent(hit.axis, hit.sign);
   const u = new V3();
   if (hit.axis === 1) { const d = hit.dir; if (Math.abs(d.x) > Math.abs(d.z)) u.set(Math.sign(d.x) || 1, 0, 0); else u.set(0, 0, Math.sign(d.z) || 1); } else u.set(0, 1, 0);
@@ -1733,7 +2009,7 @@ function firePortal(idx) {
   const ok = h.box.portal && tryPlacePortal(idx, h);
   fxOrb(idx, o.clone().add(tmpA.copy(d).multiplyScalar(0.5)), h.point, ok ? idx : -1, h);
   if (ok) { run.portals++; sfx.open(idx); updateCross(); onPortalPlaced(); }
-  else { sfx.fizzle(); if (!h.box.portal) onBadSurface(); else toast("No room for a portal there"); }
+  else { sfx.fizzle(); if (!h.box.portal) onBadSurface(); else if (fitWhy) { fitWhy.jamFlash = 1; toast("Jammed: a live sentry blocks portals near it"); if (!run.said.jam) { run.said.jam = 1; say("jam"); } } else toast("No room for a portal there"); }
 }
 function updateCross() { $("xBlue").classList.toggle("on", portals[0].on); $("xOrange").classList.toggle("on", portals[1].on); }
 
@@ -1876,10 +2152,19 @@ function syncCollider(b) {            // a door or sentry box moved or changed s
 function addCubeBody(c) {
   const w = phys.world;
   const body = w.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(c.p.x, c.p.y, c.p.z).setCcdEnabled(true).setLinearDamping(0.04).setAngularDamping(0.4));
-  const col = w.createCollider(RAPIER.ColliderDesc.roundCuboid(0.31, 0.31, 0.31, 0.04).setDensity(60).setFriction(0.75).setRestitution(0.08)
-    .setCollisionGroups(CUBE_FREE).setActiveHooks(RAPIER.ActiveHooks.FILTER_CONTACT_PAIRS), body);
-  c.body = body; c.col = col; c.isCube = true; c.skipB = []; c.q = new QT(); c.ccd = true;
+  const shape = c.raft ? RAPIER.ColliderDesc.cuboid(RAFT_H[0], RAFT_H[1], RAFT_H[2]).setDensity(55).setFriction(1.1) : RAPIER.ColliderDesc.roundCuboid(0.31, 0.31, 0.31, 0.04).setDensity(60).setFriction(0.75);
+  const col = w.createCollider(shape.setRestitution(c.raft ? 0 : 0.08).setCollisionGroups(CUBE_FREE).setActiveHooks(RAPIER.ActiveHooks.FILTER_CONTACT_PAIRS), body);
+  if (c.raft) { body.setAngularDamping(4); body.setEnabledRotations(false, true, false, true); }      // a float stays level whatever lands on it
+  c.body = body; c.col = col; c.isCube = true; c.skipB = []; c.q = new QT(); c.ccd = true; c.h = c.raft ? RAFT_H : H_CUBE; c.kind = "cube";
   phys.byHandle.set(col.handle, c);
+}
+function addSentryBody(s) {
+  const w = phys.world;
+  const body = w.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(s.p.x, s.p.y, s.p.z).setRotation(s.q).setCcdEnabled(true).setLinearDamping(0.15).setAngularDamping(1.4));
+  const col = w.createCollider(RAPIER.ColliderDesc.roundCuboid(S_H[0] - 0.04, S_H[1] - 0.04, S_H[2] - 0.04, 0.04).setDensity(170).setFriction(0.9).setRestitution(0.02)
+    .setCollisionGroups(CUBE_FREE).setActiveHooks(RAPIER.ActiveHooks.FILTER_CONTACT_PAIRS), body);
+  s.body = body; s.col = col; s.isCube = true; s.skipB = []; s.ccd = true;
+  phys.byHandle.set(col.handle, s);
 }
 function makePhysics(W) {
   if (phys) { try { phys.world.free(); phys.events.free(); } catch (e) {} }
@@ -1887,7 +2172,6 @@ function makePhysics(W) {
   phys = { world: w, events: new RAPIER.EventQueue(true), byHandle: new Map() };
   for (const b of W.solids) fixedCollider(w, b);
   for (const d of W.doors) fixedCollider(w, d.box);
-  for (const s of W.sentries) fixedCollider(w, s.box);
   phys.pc = w.createCollider(RAPIER.ColliderDesc.capsule(HY - HX, HX).setTranslation(player.p.x, player.p.y, player.p.z).setCollisionGroups(grp(G_PLAYER, 0xffff)));
   const cc = phys.cc = w.createCharacterController(0.012);
   cc.setUp({ x: 0, y: 1, z: 0 }); cc.setSlideEnabled(true);
@@ -1895,6 +2179,7 @@ function makePhysics(W) {
   cc.setMaxSlopeClimbAngle(50 * Math.PI / 180); cc.setMinSlopeSlideAngle(55 * Math.PI / 180);
   cc.setApplyImpulsesToDynamicBodies(true); cc.setCharacterMass(70);
   for (const c of W.cubes) addCubeBody(c);
+  for (const s of W.sentries) addSentryBody(s);
 }
 // move the player by its velocity with the character controller; returns -1 when it landed or stands on something, 1 when it hit a ceiling
 const _pskip = new Set();
@@ -1925,7 +2210,7 @@ function setCubeState(c, pos, q, lin, ang) {
 // can't climb back to); then it drops just in front of the player, on solid floor away from acid.
 function cubeHome(c) {
   const sp = new V3(...c.spawn), pl = player;
-  if (state !== "play" || Math.abs(pl.p.y - HY - (sp.y - 0.35)) < 2.5) return sp;
+  if (c.kind === "sentry" || state !== "play" || Math.abs(pl.p.y - HY - (sp.y - 0.35)) < 2.5) return sp;
   const f = viewDir(new V3()); f.y = 0; if (f.lengthSq() < 1e-4) f.set(0, 0, -1); f.normalize();
   for (const d of [1.4, 1.0, -1.2]) {
     const q = pl.p.clone().addScaledVector(f, d); q.y = pl.p.y + 0.4;
@@ -1938,7 +2223,7 @@ function cubeHome(c) {
 }
 // before the physics step: which walls each cube may pass into (it is in front of a portal opening)
 function cubesBeforeStep() {
-  for (const c of world.cubes) {
+  for (const c of props()) {
     c.pv = c.pv || new V3(); c.pv.copy(c.p);
     computeSkip(c.p, .35, .3, _skip); c.skipB = _skip.slice();
     const wantCcd = !c.skipB.length; if (wantCcd !== c.ccd) { c.body.enableCcd(wantCcd); c.ccd = wantCcd; }
@@ -1946,9 +2231,14 @@ function cubesBeforeStep() {
 }
 const _rq = new QT(), _rm = new M4(), _av = new V3();
 function cubesAfterStep() {
-  for (const c of world.cubes) {
+  for (const c of props()) {
     const t = c.body.translation(), r = c.body.rotation(), v = c.body.linvel();
+    const sp0 = c.v.length(), vx0 = c.v.x, vz0 = c.v.z;
     c.p.set(t.x, t.y, t.z); c.q.set(r.x, r.y, r.z, r.w); c.v.set(v.x, v.y, v.z);
+    if (c.kind === "cube" && !c.raft && !c.held && sp0 > 4.5) for (const sn of world.sentries) {      // a crate arriving at speed knocks a sentry over
+      if (sn.state === "off" || sn.held) continue; const sb = cubeBox(sn);
+      if (c.p.x + 0.47 > sb.min[0] && c.p.x - 0.47 < sb.max[0] && c.p.y + 0.47 > sb.min[1] && c.p.y - 0.47 < sb.max[1] && c.p.z + 0.47 > sb.min[2] && c.p.z - 0.47 < sb.max[2]) tipSentry(sn, "cube", tmpA.set(vx0, 0, vz0));
+    }
     if (c.v.length() > TERM) { c.v.setLength(TERM); c.body.setLinvel(c.v, true); }
     if (!c.held && bothPortals()) for (const P of portals) {      // through a portal: same speed, same spin, out of the other one
       const d0 = P.n.dot(tmpA.copy(c.pv).sub(P.o)), d1 = P.n.dot(tmpB.copy(c.p).sub(P.o));
@@ -1958,20 +2248,23 @@ function cubesAfterStep() {
           _rq.setFromRotationMatrix(_rm.extractRotation(P.T));
           const a = c.body.angvel(); _av.set(a.x, a.y, a.z).applyMatrix3(P.R);
           setCubeState(c, c.p.clone().applyMatrix4(P.T), c.q.clone().premultiply(_rq), c.v.clone().applyMatrix3(P.R), { x: _av.x, y: _av.y, z: _av.z });
-          sfx.enter(P.idx, 0.5); break;
+          sfx.enter(P.idx, 0.5); if (c.kind === "sentry" && c.state === "on") sentryQuip(c, "portal", true); break;
         }
       }
     }
     if (c.held) { c.lostT = 0; continue; }
-    const inAcid = world.acid.some(a => c.p.x > a.x0 && c.p.x < a.x1 && c.p.z > a.z0 && c.p.z < a.z1 && c.p.y - 0.35 < a.y + 0.1);
+    const inAcid = world.acid.some(a => c.p.x > a.x0 && c.p.x < a.x1 && c.p.z > a.z0 && c.p.z < a.z1 && c.p.y - c.h[1] < a.y + 0.1);
     const inside = world.air.some(a => c.p.x > a.min[0] - 0.6 && c.p.x < a.max[0] + 0.6 && c.p.y > a.min[1] - 0.6 && c.p.y < a.max[1] + 0.6 && c.p.z > a.min[2] - 0.6 && c.p.z < a.max[2] + 0.6);
-    c.lostT = inAcid || c.p.y < -30 ? 1 : inside ? 0 : (c.lostT || 0) + 1 / 120;
+    const sunk = c.kind === "sentry" && world.pools.some(a => c.p.x > a.x0 && c.p.x < a.x1 && c.p.z > a.z0 && c.p.z < a.z1 && c.p.y < a.y - 0.5);
+    c.lostT = inAcid || sunk || c.p.y < -30 ? 1 : inside ? 0 : (c.lostT || 0) + 1 / 120;
     if (c.lostT > 0.5 && (player.ground || state !== "play")) respawnCube(c);
   }
 }
 function respawnCube(c) {
   sfx.fizzle(); if (holding === c) dropCube(true);
-  c.held = false; c.lostT = 0; setCubeState(c, cubeHome(c), new QT());
+  c.held = false; c.lostT = 0;
+  if (c.kind === "sentry") { setCubeState(c, new V3(...c.spawn), c.spawnQ); c.seen = 0; c.burst = 0; c.spray = 0; if (c.state === "on") c.wake = 1.5; return; }   // back where it stood; a broken one stays broken
+  setCubeState(c, cubeHome(c), new QT());
   if (!run.said.cube) { run.said.cube = 1; say("sadosCube"); }
 }
 function floorBelow(x, y, z, maxD) {            // y of the first solid surface straight under a point, or null
@@ -2023,22 +2316,28 @@ function useAction() {
   if (state !== "play" || !world) return;
   if (holding) { dropCube(); return; }
   const eye = eyePos(new V3()), f = viewDir(new V3());
-  let best = null, bs = 0;
-  for (const c of world.cubes) {
-    tmpA.copy(c.p).sub(eye); const dist = tmpA.length(); if (dist > 3.6) continue;
-    const dp = tmpA.dot(f) / dist; if (dp < 0.84 || dist < 0.01) continue;
+  let best = null, bs = 0, watched = false;
+  for (const c of props()) {
+    tmpA.copy(c.p).sub(eye); const dist = tmpA.length(); if (dist > (c.kind === "sentry" ? 3.0 : 3.6)) continue;
+    const dp = tmpA.dot(f) / dist; if (dp < (c.kind === "sentry" ? 0.78 : 0.84) || dist < 0.01) continue;
     const ray = castRay(eye, tmpA.clone().normalize(), dist, false); if (ray.hit && ray.hit.dist < dist - 0.5) continue;
+    if (c.raft) continue;
+    if (c.kind === "sentry" && c.state === "on" && c.seen > 0 && !(c.wake > 0)) { watched = true; continue; }   // not while it is looking at you
     if (dp > bs) { bs = dp; best = c; }
   }
-  if (!best) { for (const sn of world.sentries) { if (sn.state === "off") continue; tmpA.set(sn.base.x, sn.base.y + 0.8, sn.base.z).sub(eye); const dist = tmpA.length(); if (dist > 2.8 || tmpA.dot(f) / dist < 0.8) continue; tipSentry(sn, "grab"); toast("Sentry down"); return; } }
-  if (best) {
-    holding = best; best.held = true; best.far = false; best.body.setGravityScale(0, true); best.col.setCollisionGroups(CUBE_HELD); best.body.setAngularDamping(6);
-    sfx.grab(); toast("Holding the cube. Press grab again to put it down."); if (!run.said.grab) { run.said.grab = 1; say("sadosGrab"); }
-  }
+  if (!best) { if (watched) toast("It is watching you. Come at it from behind or the side."); return; }
+  holding = best; best.held = true; best.far = false; best.gs = 0; best.body.setGravityScale(0, true); best.col.setCollisionGroups(CUBE_HELD); best.body.setAngularDamping(6);
+  sfx.grab();
+  if (best.kind === "sentry") {
+    toast(best.state === "off" ? "Holding the sentry. Press grab again to put it down." : "Holding the sentry: it sleeps while you carry it, and wakes when you put it down.");
+    best.seen = 0; best.burst = 0; if (best.state === "on") sentryQuip(best, "grab", true);
+    if (!run.said.carry) { run.said.carry = 1; say("sadosCarry"); }
+  } else { toast("Holding the cube. Press grab again to put it down."); if (!run.said.grab) { run.said.grab = 1; say("sadosGrab"); } }
 }
 function dropCube(quiet) {
   const c = holding; if (!c) return; holding = null; c.held = false; c.far = false;
-  c.body.setGravityScale(1, true); c.col.setCollisionGroups(CUBE_FREE); c.body.setAngularDamping(0.4);
+  c.body.setGravityScale(1, true); c.gs = 1; c.col.setCollisionGroups(CUBE_FREE); c.body.setAngularDamping(c.kind === "sentry" ? 1.4 : 0.4);
+  if (c.kind === "sentry" && c.state === "on") c.wake = 2.5;
   const v = c.body.linvel(); c.v.set(v.x, v.y, v.z).clampLength(0, 30); c.body.setLinvel(c.v, true);
   if (!quiet) sfx.drop();
 }
@@ -2048,7 +2347,11 @@ function holdTarget() {             // the point in front of the eye where a hel
   const eye = eyePos(new V3()), f = viewDir(new V3());
   const ray = castRay(eye, f, 2.2, false);
   const dist = Math.max(0.9, Math.min(1.75, ray.hit ? ray.hit.dist - 0.5 : 1.75));
-  return { target: pathPoint(ray, dist) || eye.clone().addScaledVector(f, dist), ray, dist };
+  const target = pathPoint(ray, dist) || eye.clone().addScaledVector(f, dist);
+  if (holding && holding.kind === "sentry" && ray.segs.length === 1) {      // carried low, so it covers you, but clear of the floor
+    target.y -= 0.35; const fy = floorBelow(target.x, eye.y, target.z, 4); target.y = Math.max(target.y, (fy === null ? player.p.y - HY : fy) + S_H[1] + 0.14);
+  }
+  return { target, ray, dist };
 }
 function holdUpdate(dt) {
   const c = holding; if (!c) return;
@@ -2058,7 +2361,7 @@ function holdUpdate(dt) {
   if (gap.length() > 1.4 && viaPortal) { setCubeState(c, target, c.q); c.pv.copy(target); c.snag = 0; c.far = true; return; }   // held out through a portal: it goes through
   if (c.far && !viaPortal) {                                   // it went through and you didn't: it stays over there, set down where it is
     dropCube(true); c.body.setLinvel({ x: 0, y: Math.min(0, c.v.y), z: 0 }, true); c.body.setAngvel({ x: 0, y: 0, z: 0 }, true); c.v.set(0, 0, 0);
-    sfx.drop(); toast("The cube stayed on the other side."); return;
+    sfx.drop(); toast(c.kind === "sentry" ? "The sentry stayed on the other side." : "The cube stayed on the other side."); return;
   }
   c.snag = gap.length() > 1.2 && player.ground ? (c.snag || 0) + dt : 0;      // never let go in mid-air
   if (c.snag > 0.5) { dropCube(); return; }                    // snagged on something for a while: let go rather than pull it through a wall
@@ -2104,10 +2407,9 @@ function physicsStep(dt) {
   if (pl.ground) pl.air = 0; else pl.air = (pl.air || 0) + dt;
   if (contact < 0 && !wasGround && -vyBefore > 5) { sfx.land(-vyBefore); onLanded(-vyBefore); }
   tryPortalPlayer();
-  padsStep(dt);
+  padsStep(dt); zonesStep(dt);
   // the rest of the world: doors and sentries carry their colliders, the held cube is pulled along, then the engine steps
   for (const d of W.doors) syncCollider(d.box);
-  for (const s of W.sentries) syncCollider(s.box);
   holdUpdate(dt);
   cubesBeforeStep();
   phys.world.timestep = dt; phys.world.step(phys.events, PHYS_HOOKS);
@@ -2117,6 +2419,7 @@ function physicsStep(dt) {
   // hazards
   if (alive) {
     for (const a of W.acid) if (pl.p.x > a.x0 && pl.p.x < a.x1 && pl.p.z > a.z0 && pl.p.z < a.z1 && pl.p.y - HY < a.y + 0.12) { die("acid"); break; }
+    for (const a of W.pools) if (pl.p.x > a.x0 && pl.p.x < a.x1 && pl.p.z > a.z0 && pl.p.z < a.z1 && pl.p.y - HY < a.y + 0.12) { die("cold"); break; }
     if (pl.p.y < -30) die("void");
     // out of the chamber altogether (inside a wall, or the void behind one) and not in front of a portal: put back where it was last safe
     const inAir = W.air.some(a => pl.p.x > a.min[0] - 0.5 && pl.p.x < a.max[0] + 0.5 && pl.p.y > a.min[1] - 1.2 && pl.p.y < a.max[1] + 0.5 && pl.p.z > a.min[2] - 0.5 && pl.p.z < a.max[2] + 0.5);
@@ -2132,9 +2435,11 @@ function physicsStep(dt) {
   for (const r of W.receivers) if (r.lit) for (const d of W.doors) if (d.id === r.door) d.cnt++;
   for (const p of W.plates) {
     let on = alive && Math.abs(pl.p.x - p.pos[0]) < 0.8 && Math.abs(pl.p.z - p.pos[2]) < 0.8 && pl.p.y - HY < p.pos[1] + 0.22;
-    if (!on) for (const c of W.cubes) if (!c.held && Math.abs(c.p.x - p.pos[0]) < 0.8 && Math.abs(c.p.z - p.pos[2]) < 0.8 && c.p.y - 0.35 < p.pos[1] + 0.3) { on = true; break; }
+    if (!on) for (const c of props()) if (!c.held && Math.abs(c.p.x - p.pos[0]) < 0.8 && Math.abs(c.p.z - p.pos[2]) < 0.8 && c.p.y - c.h[1] < p.pos[1] + 0.3 && c.p.y > p.pos[1]) { on = true; break; }
     if (on !== p.pressed) { p.pressed = on; sfx.button(on); }
-    if (on) for (const d of W.doors) if (d.id === p.door) d.cnt++;
+    if (p.hold) { if (on) p.left = p.hold; else if (p.left > 0) { const b = Math.ceil(p.left * 2); p.left -= dt; if (Math.ceil(p.left * 2) !== b) sfx.tick(p.left); } }   // a relay holds it for a few seconds after you step off
+    p.active = on || p.left > 0;
+    if (p.active) for (const d of W.doors) if (d.id === p.door) d.cnt++;
   }
   for (const d of W.doors) d.want = d.cnt >= (d.need || 1) ? 1 : 0;
   for (const d of W.doors) {
@@ -2162,7 +2467,7 @@ function respawn() {
   pl.safe = pl.p.clone(); pl.outT = 0; _pPrev.copy(pl.p);
   if (portals[0].on || portals[1].on) { clearPortals(); updateCross(); }   // dying closes your portals, so a pair by the spawn can't drop you straight back into the acid
   cam.roll = 0; camOffset.set(0, 0, 0); eyePos(prevEye); state = "play"; pl.hp = 100; run.sinceHit = 9; hurtFlash = 0;
-  for (const c of world.cubes) if (c.p.y < world.lv.start.pos[1] - 40 || c.returnOnRespawn) { c.returnOnRespawn = false; respawnCube(c); }
+  for (const c of props()) if (c.p.y < world.lv.start.pos[1] - 40 || c.returnOnRespawn) { c.returnOnRespawn = false; respawnCube(c); }
 }
 function resetLevelState() {
   run.time = 0; run.portals = 0; run.top = 0; run.idle = 0; run.hinted = 0; run.said = {}; run.deadT = 0; holding = null;
@@ -2355,6 +2660,11 @@ function noise(t, dur, vol, f0, f1, q, type) {
 }
 const SFX = fn => (...a) => { if (!actx || !opts.sfx || actx.state !== "running") return; try { fn(actx.currentTime + 0.005, ...a); } catch (e) {} };
 const sfx = {
+  grav: SFX((t, up) => { osc("sine", up ? 110 : 520, up ? 620 : 90, t, 0.6, 0.2); osc("triangle", up ? 220 : 780, up ? 930 : 160, t, 0.5, 0.08); noise(t, 0.5, 0.1, up ? 400 : 3000, up ? 3000 : 400, 2); }),
+  pump: SFX(t => { osc("sawtooth", 55, 82, t, 1.2, 0.09); noise(t, 1.4, 0.12, 300, 900, 0.8, "lowpass"); }),
+  tick: SFX((t, left) => { osc("square", left < 1.5 ? 1500 : 1100, left < 1.5 ? 1500 : 1100, t, 0.04, 0.06); }),
+  glass: SFX(t => { noise(t, 0.12, 0.22, 5200, 2600, 3); osc("triangle", 2400, 1800, t, 0.1, 0.07); osc("triangle", 3300, 2900, t + 0.03, 0.12, 0.05); }),
+  splash: SFX(t => { noise(t, 0.45, 0.22, 900, 250, 0.9, "lowpass"); noise(t + 0.05, 0.3, 0.1, 2600, 900, 1.5); }),
   launch: SFX(t => { osc("sine", 90, 420, t, 0.35, 0.3); osc("triangle", 180, 900, t, 0.3, 0.12); noise(t, 0.4, 0.16, 300, 3000, 1.5); }),
   shoot: SFX((t, i) => { osc("sawtooth", i ? 520 : 760, i ? 220 : 340, t, 0.22, 0.12); osc("sine", i ? 180 : 260, 70, t, 0.25, 0.2); noise(t, 0.18, 0.12, 3200, 600, 1.2); }),
   open: SFX((t, i) => { osc("sine", i ? 300 : 420, i ? 700 : 900, t, 0.4, 0.16); osc("triangle", i ? 150 : 210, i ? 350 : 450, t, 0.45, 0.12); noise(t, 0.35, 0.1, 500, 4000, 2); }),
@@ -2385,6 +2695,10 @@ const LINES = {
   fast: ["Impressive speed. Terrible landing technique.", "I measured that. You were not as fast as you think."],
   sadosCube: ["The cube has been recycled. It took it better than you would have.", "Do try to keep the cube out of the acid. It has feelings. They are mine."],
   sadosGrab: ["Excellent. You have found the cube. I suggest you do not name it."],
+  grav: ["A gravity panel. It turns down into up for everything in that zone that is not bolted down, or you. You are exempt. Legal insisted."],
+  glass: ["Please do not shoot the observation offices. Nobody is in them. Nobody has been in them for some time."],
+  jam: ["A live sentry jams portals near it. I did not want them wandering off."],
+  sadosCarry: ["You are carrying a sentry. It weighs forty kilograms and has no sense of humour. You have a lot in common."],
   sentryOff: ["You have disabled a sentry. It will lie there sulking for the rest of the test.", "That was a very expensive robot. It was also very rude."],
   burn: ["That was a laser. It is not for looking at, and it is certainly not for standing in."],
   receiverOn: ["The receiver is lit. That is the first thing in here you have made happy."],
@@ -2464,7 +2778,7 @@ function flash(kind) { flashEl.className = kind === "g" ? "g" : ""; void flashEl
    UI, input, main loop, boot
    ===================================================================================== */
 const isTouch = ("ontouchstart" in window) || navigator.maxTouchPoints > 0;
-const OVS = ["ovTitle", "ovChambers", "ovOptions", "ovHow", "ovPause", "ovDone"];
+const OVS = ["ovTitle", "ovChambers", "ovOptions", "ovHow", "ovPause", "ovDone", "ovReset"];
 let lastOv = "ovTitle", optsFrom = "ovTitle", chFrom = "ovTitle";
 function showOv(id) {
   for (const o of OVS) $(o).hidden = o !== id;
@@ -2489,6 +2803,30 @@ function toggleFull() {
 function lockPointer() { if ((isTouch && !mouseMode) || !canvas.requestPointerLock) return; try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
 function unlockPointer() { try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) {} }
 
+/* ---------- hover hints: every button says what it does when the pointer rests on it ---------- */
+const TIPS = {
+  bGuide: "How to play (H)", bRestart: "Restart this chamber (R)", bFull: "Full screen on or off (F)", bPause: "Pause (Esc)",
+  bPlay: "Start, or carry on from the last chamber you reached", bChambers: "Choose any chamber you have reached", bOptions: "Sound, look speed, picture quality, progress", bHow: "Controls, and everything you will meet",
+  bChBack: "Back to where you were", bOptBack: "Back to where you were", bHowBack: "Back to where you were",
+  oMusic: "Music on or off", oSfx: "Sound effects on or off", oVoice: "SaDos and the sentries speak, or only subtitles", oSens: "How fast the view turns", oInvert: "Push up to look down",
+  oScroll: "Which way a two-finger swipe walks", oQuality: "Auto adjusts to keep the game smooth; High is sharper; Low is fastest", oFull: "Full screen on or off", oReset: "Lock the chambers again and start over (asks first)",
+  bResume: "Back to the chamber (Esc)", bRetry: "Start this chamber again", bPauseGuide: "Controls, and everything you will meet", bPauseOpt: "Sound, look speed, picture quality", bPauseCh: "Choose any chamber you have reached", bPauseMenu: "Leave the chamber and go to the title",
+  bNext: "On to the next chamber (Return)", bAgain: "Play this chamber once more", bDoneMenu: "Go to the title", bResetYes: "Erase progress. This cannot be undone", bResetNo: "Change nothing",
+  tBlue: "Fire the blue portal", tOrange: "Fire the orange portal", tJump: "Jump", tUse: "Pick up or put down a cube or sentry"
+};
+for (const id in TIPS) { const el = $(id); if (el) { el.dataset.tip = TIPS[id]; el.removeAttribute("title"); } }
+const tipEl = $("tip");
+function hideTip() { tipEl.classList.remove("on"); }
+function showTip(el) {
+  const t = el.dataset.tip || el.getAttribute("aria-label") || el.getAttribute("title"); if (!t) { hideTip(); return; }
+  tipEl.textContent = t; tipEl.classList.add("on");
+  const r = el.getBoundingClientRect(), sr = stageEl.getBoundingClientRect(), tw = tipEl.offsetWidth, th = tipEl.offsetHeight;
+  let y = r.bottom + 8 - sr.top; if (y + th > sr.height - 6) y = r.top - th - 8 - sr.top;
+  tipEl.style.left = clamp(r.left + r.width / 2 - tw / 2 - sr.left, 6, Math.max(6, sr.width - tw - 6)) + "px"; tipEl.style.top = Math.max(4, y) + "px";
+}
+document.addEventListener("pointerover", e => { if (e.pointerType === "touch") return; const el = e.target.closest && e.target.closest("button, .tbtn, #gamesPill, #gpChip, input[type=range]"); if (el) showTip(el); else hideTip(); });
+document.addEventListener("pointerdown", hideTip, true); addEventListener("blur", hideTip);
+
 /* ---------- state transitions ---------- */
 function goTitle() {
   sadosShutUp(); unlockPointer(); startLevel(Math.min(store.get("progress3", 0), LEVEL_FUNCS.length - 1), true);
@@ -2507,12 +2845,13 @@ function pause() {
   state = "paused"; unlockPointer(); inp.fwd = inp.right = 0; showOv("ovPause");
 }
 function resume() { if (state !== "paused") return; hideOv(); state = "play"; syncTouch(); lockPointer(); }
-const CH_NAMES = ["Doorway", "Delivery", "Freefall", "Lift", "Special Delivery", "Sentry Duty", "Redirect", "Reset", "Two Keys", "Gantry", "Crossfire", "The Last Word", "Air Mail", "Upstairs", "Long Jump", "Bounce", "Skylight", "Field Trip", "Gauntlet", "Second Wind", "Retrieval", "Disposal", "Terminal Velocity", "Final Exam"];
+const CH_NAMES = ["Doorway", "Delivery", "Freefall", "Lift", "Special Delivery", "Sentry Duty", "Redirect", "Reset", "Two Keys", "Gantry", "Crossfire", "The Last Word", "Air Mail", "Upstairs", "Long Jump", "Bounce", "Skylight", "Field Trip", "Gauntlet", "Second Wind", "Retrieval", "Disposal", "Terminal Velocity", "Final Exam", "Heavy Lifting", "Borrowed Cover", "Friendly Fire", "Upside", "Short Notice", "Cold Storage"];
 function buildChambers() {
   const g = $("chGrid"), pr = store.get("progress3", 0); g.innerHTML = "";
   LEVEL_FUNCS.forEach((f, i) => {
     const b = document.createElement("button"); b.type = "button"; b.className = "chbtn" + (i === levelIdx && state !== "title" ? " cur" : "");
     b.innerHTML = "<b>" + String(i + 1).padStart(2, "0") + "</b><span>" + (i <= pr ? CH_NAMES[i] : "Locked") + "</span>";
+    b.dataset.tip = i <= pr ? "Play chamber " + (i + 1) + ": " + CH_NAMES[i] : "Locked: finish chamber " + i + " first";
     if (i > pr) b.disabled = true; else b.addEventListener("click", () => beginLevel(i));
     g.appendChild(b);
   });
@@ -2544,6 +2883,10 @@ click("bDoneMenu", () => goTitle());
 click("bRestart", () => { if (state === "play") beginLevel(levelIdx, true); });
 click("bPause", pause);
 click("bFull", toggleFull); click("oFull", toggleFull);
+click("oReset", () => showOv("ovReset"));
+click("bResetNo", () => { syncOpts(); showOv("ovOptions"); });
+click("bResetYes", () => { for (const k of ["progress3", "finished3", "tipDone", "saidFirst", "taught"]) { try { localStorage.removeItem("testchambers." + k); } catch (e) {} } optsFrom = "ovTitle"; goTitle(); toast("Progress reset"); });
+if (store.get("finished3", 0) && store.get("progress3", 0) === 23) store.set("progress3", 24);     // finished the first twenty-four: the new ones open
 function syncOpts() {
   const on = (id, v) => { const b = $(id); b.textContent = v ? "On" : "Off"; b.classList.toggle("on", !!v); };
   on("oMusic", opts.music); on("oSfx", opts.sfx); on("oVoice", opts.voice); on("oInvert", opts.invert); { const b = $("oScroll"); b.textContent = opts.scrollInv ? "Back" : "Forward"; b.classList.toggle("on", !!opts.scrollInv); }
@@ -2590,7 +2933,7 @@ addEventListener("keydown", e => {
     if (!(ae && ae.tagName === "BUTTON" && ov.contains(ae))) { const b = [...ov.querySelectorAll(".btn.primary")].find(x => !x.hidden && x.offsetParent); if (b) { e.preventDefault(); ensureAudio(); b.click(); } }
     return;
   }
-  if (anyOv()) { if (k === "escape") { if (state === "paused" && anyOv() === "ovPause") resume(); else if (anyOv() === "ovChambers") showOv(chFrom); else if (anyOv() === "ovOptions") showOv(optsFrom); else if (anyOv() === "ovHow") showOv(howFrom); } else if ((k === "h" || k === "?") && anyOv() === "ovHow") showOv(howFrom); return; }
+  if (anyOv()) { if (k === "escape") { if (state === "paused" && anyOv() === "ovPause") resume(); else if (anyOv() === "ovChambers") showOv(chFrom); else if (anyOv() === "ovOptions") showOv(optsFrom); else if (anyOv() === "ovHow") showOv(howFrom); else if (anyOv() === "ovReset") showOv("ovOptions"); } else if ((k === "h" || k === "?") && anyOv() === "ovHow") showOv(howFrom); return; }
   if (state !== "play" && state !== "dead") return;
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(k)) e.preventDefault();
   setKey(e, true);
@@ -2702,12 +3045,12 @@ let padFire = [false, false];
       start: d => { if (!d) return; if (anyOv() === "ovDone" && !$("bNext").hidden) { $("bNext").click(); return; } if (state === "play") pause(); else if (state === "paused") resume(); }
     },
     menu: () => { const o = anyOv(); return o ? $(o) : null; },       // the open card itself, so the d-pad can move between its buttons
-    menuBack: d => { if (!d) return; const o = anyOv(); if (o === "ovPause") resume(); else if (o === "ovChambers") showOv(chFrom); else if (o === "ovOptions") showOv(optsFrom); else if (o === "ovHow") showOv(howFrom); },
+    menuBack: d => { if (!d) return; const o = anyOv(); if (o === "ovPause") resume(); else if (o === "ovChambers") showOv(chFrom); else if (o === "ovOptions") showOv(optsFrom); else if (o === "ovHow") showOv(howFrom); else if (o === "ovReset") showOv("ovOptions"); },
     autoStart: () => { if (!$("ovTitle").hidden) $("bPlay").click(); },
-    help: ["In a chamber", ["Left stick", "Walk"], ["Right stick", "Look"], ["LT / LB", "Blue portal"], ["RT / RB", "Orange portal"], ["A", "Jump"], ["X", "Pick up / put down the cube"], ["Y", "Restart chamber"], ["Start", "Pause · next chamber on the results card"], ["Select", "This screen"],
+    help: ["In a chamber", ["Left stick", "Walk"], ["Right stick", "Look"], ["LT / LB", "Blue portal"], ["RT / RB", "Orange portal"], ["A", "Jump"], ["X", "Pick up / put down a cube or sentry"], ["Y", "Restart chamber"], ["Start", "Pause · next chamber on the results card"], ["Select", "This screen"],
       "In menus", ["↑ ↓ ← →", "Move the highlight"], ["A", "Press"], ["B", "Back"]]
   });
-  $("vOpt").before(GamePad.settingsButton());
+  { const gb = GamePad.settingsButton(); gb.dataset.tip = "See and change what each controller button does"; $("vOpt").before(gb); }
 }
 function readPad() {
   const pads = navigator.getGamepads ? navigator.getGamepads() : []; let gp = null;
@@ -2735,55 +3078,82 @@ const SENT_GEO = {
   torso: new THREE.CapsuleGeometry(0.15, 0.3, 8, 20), leg: new THREE.CylinderGeometry(0.011, 0.02, 0.64, 10), eye: new THREE.SphereGeometry(0.046, 16, 12), ring: new THREE.TorusGeometry(0.066, 0.01, 8, 28),
   flap: new THREE.BoxGeometry(0.018, 0.34, 0.24), barrel: new THREE.CylinderGeometry(0.011, 0.014, 0.2, 10).rotateX(Math.PI / 2), dish: new THREE.CylinderGeometry(0.05, 0.03, 0.03, 16), laser: new THREE.CylinderGeometry(0.006, 0.006, 1, 6).rotateX(Math.PI / 2)
 };
+const JAM = 4, S_H = [0.26, 0.64, 0.26];      // portals fizzle within JAM metres of a live sentry; half size of its body
+const JAM_GEO = new THREE.RingGeometry(0.985, 1, 96);
 function makeSentry(d) {
-  const g = new THREE.Group(), base = new V3(...d.pos);
-  for (let i = 0; i < 3; i++) { const a = i / 3 * Math.PI * 2 + Math.PI / 2, leg = new THREE.Mesh(SENT_GEO.leg, SENT.steel); leg.position.set(Math.cos(a) * 0.09, 0.31, Math.sin(a) * 0.09); leg.rotation.set(Math.sin(a) * 0.22, 0, -Math.cos(a) * 0.22); g.add(leg); }
-  const torso = new THREE.Mesh(SENT_GEO.torso, SENT.white); torso.position.y = 0.9; torso.scale.z = 0.92; g.add(torso);
-  const band = new THREE.Mesh(new THREE.TorusGeometry(0.152, 0.008, 8, 32), SENT.dark); band.rotation.x = Math.PI / 2; band.position.y = 0.78; g.add(band);
-  const plate = new THREE.Mesh(new THREE.CircleGeometry(0.108, 28), SENT.dark); plate.position.set(0, 0.95, -0.141); plate.rotation.y = Math.PI; g.add(plate);
-  const eye = new THREE.Mesh(SENT_GEO.eye, SENT.eye.clone()); eye.position.set(0, 0.95, -0.15); g.add(eye);
-  const ring = new THREE.Mesh(SENT_GEO.ring, SENT.steel); ring.position.set(0, 0.95, -0.146); g.add(ring);
-  const dish = new THREE.Mesh(SENT_GEO.dish, SENT.dark); dish.position.y = 1.2; g.add(dish);
+  const g = new THREE.Group(), inn = new THREE.Group(); inn.position.y = -S_H[1]; g.add(inn);
+  for (let i = 0; i < 3; i++) { const a = i / 3 * Math.PI * 2 + Math.PI / 2, leg = new THREE.Mesh(SENT_GEO.leg, SENT.steel); leg.position.set(Math.cos(a) * 0.09, 0.31, Math.sin(a) * 0.09); leg.rotation.set(Math.sin(a) * 0.22, 0, -Math.cos(a) * 0.22); inn.add(leg); }
+  const torso = new THREE.Mesh(SENT_GEO.torso, SENT.white); torso.position.y = 0.9; torso.scale.z = 0.92; inn.add(torso);
+  const band = new THREE.Mesh(new THREE.TorusGeometry(0.152, 0.008, 8, 32), SENT.dark); band.rotation.x = Math.PI / 2; band.position.y = 0.78; inn.add(band);
+  const plate = new THREE.Mesh(new THREE.CircleGeometry(0.108, 28), SENT.dark); plate.position.set(0, 0.95, -0.141); plate.rotation.y = Math.PI; inn.add(plate);
+  const eyeMat = SENT.eye.clone(), eye = new THREE.Mesh(SENT_GEO.eye, eyeMat); eye.position.set(0, 0.95, -0.15); inn.add(eye);
+  const ring = new THREE.Mesh(SENT_GEO.ring, SENT.steel); ring.position.set(0, 0.95, -0.146); inn.add(ring);
+  const dish = new THREE.Mesh(SENT_GEO.dish, SENT.dark); dish.position.y = 1.2; inn.add(dish);
   const flaps = [];
   for (const sx of [-1, 1]) {
-    const piv = new THREE.Group(); piv.position.set(sx * 0.15, 0.9, 0.05); const f = new THREE.Mesh(SENT_GEO.flap, SENT.white); f.position.set(sx * 0.01, 0, -0.12); piv.add(f); g.add(piv); flaps.push({ piv, sx });
-    const b = new THREE.Mesh(SENT_GEO.barrel, SENT.dark); b.position.set(sx * 0.1, 0.88, -0.14); g.add(b);
-    const mz = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(2, 1.4, .5), transparent: true, opacity: 0 })); mz.position.set(sx * 0.1, 0.88, -0.25); g.add(mz); flaps[flaps.length - 1].mz = mz;
+    const piv = new THREE.Group(); piv.position.set(sx * 0.15, 0.9, 0.05); const f = new THREE.Mesh(SENT_GEO.flap, SENT.white); f.position.set(sx * 0.01, 0, -0.12); piv.add(f); inn.add(piv); flaps.push({ piv, sx });
+    const b = new THREE.Mesh(SENT_GEO.barrel, SENT.dark); b.position.set(sx * 0.1, 0.88, -0.14); inn.add(b);
+    const mz = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(2, 1.4, .5), transparent: true, opacity: 0 })); mz.position.set(sx * 0.1, 0.88, -0.25); inn.add(mz); flaps[flaps.length - 1].mz = mz;
   }
   const laser = new THREE.Mesh(SENT_GEO.laser, SENT.laser); laser.visible = false; laser.frustumCulled = false; laser.renderOrder = 6; levelGroup.add(laser);
-  g.position.copy(base); g.rotation.y = d.yaw; g.traverse(o => { o.frustumCulled = false; });
-  const box = { min: [base.x - .3, base.y, base.z - .3], max: [base.x + .3, base.y + 1.3, base.z + .3], mat: "sentry", portal: false };
-  const s = { group: g, base, yaw0: d.yaw, yaw: d.yaw, eye, flaps, laser, box, state: "on", seen: 0, cd: 0, burst: 0, open: 0, fall: 0, pingT: 0, sweep: Math.random() * 6, range: d.range || 40, cone: Math.cos((d.cone || 52) * Math.PI / 180), turn: d.turn || 1.15 };
-  return s;
+  const p = new V3(d.pos[0], d.pos[1] + S_H[1] + 0.01, d.pos[2]), q = new QT().setFromEuler(new THREE.Euler(0, d.yaw, 0));
+  g.position.copy(p); g.quaternion.copy(q); g.traverse(o => { o.frustumCulled = false; });
+  const jam = d.jam === undefined ? JAM : d.jam;
+  const jamRing = new THREE.Mesh(JAM_GEO, new THREE.MeshBasicMaterial({ color: new THREE.Color(1.7, .2, .12), transparent: true, opacity: .5, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3 }));
+  jamRing.rotation.x = -Math.PI / 2; jamRing.scale.setScalar(jam); jamRing.userData.ownMat = 1; jamRing.renderOrder = 3; jamRing.frustumCulled = false; levelGroup.add(jamRing);
+  const shadow = new THREE.Mesh(SHADOW_GEO, new THREE.MeshBasicMaterial({ map: SHADOW_TEX, transparent: true, depthWrite: false, opacity: .55, polygonOffset: true, polygonOffsetFactor: -2 }));
+  shadow.userData.ownMat = 1; shadow.frustumCulled = false; shadow.renderOrder = 2; levelGroup.add(shadow);
+  return { kind: "sentry", group: g, inner: inn, base: new V3(...d.pos), p, v: new V3(), q, pv: p.clone(), spawn: [p.x, p.y, p.z], spawnQ: q.clone(), h: S_H, held: false, far: false,
+    yaw0: d.yaw, yaw: d.yaw, eye, eyeMat, flaps, laser, jam, jamRing, jamFlash: 0, shadow, state: "on", wake: 0, hp: 2, seen: 0, cd: 0, burst: 0, open: 0, spray: 0, pingT: 0, sweep: Math.random() * 6,
+    dmg: d.dmg || 9, range: d.range || 40, cone: Math.cos((d.cone || 52) * Math.PI / 180), turn: d.turn || 1.15 };
 }
-const _se = new V3(), _sp = new V3(), _sf = new V3(), _sa = [0, 0, 0], _sb = [0, 0, 0];
-function sentryEye(s, out) { return out.set(s.base.x, s.base.y + 0.95, s.base.z); }
+const _se = new V3(), _sp = new V3(), _sf = new V3(), _su = new V3(), _sd = new V3(), _pc = new V3(), _ph = new V3();
+function sentryUp(s, out) { return out.set(0, 1, 0).applyQuaternion(s.q); }
+function sentryEye(s, out) { return sentryUp(s, out).multiplyScalar(0.3).add(s.p); }
 function sentryFwd(s, out) { return out.set(-Math.sin(s.yaw), 0, -Math.cos(s.yaw)); }
-function lineClear(a, b) { return !segBlocked([a.x, a.y, a.z], [b.x, b.y, b.z], collectSolids(true, null, true)); }
-function tipSentry(s, why) {
-  if (s.state === "off") return; s.state = "off"; s.fall = 0; s.eye.material = SENT.eyeOff; s.laser.visible = false;
+function bodyYaw(s) { _sd.set(0, 0, -1).applyQuaternion(s.q); return Math.atan2(-_sd.x, -_sd.z); }
+function sentryJams(s) { return s.state === "on" && !s.held && s.jam > 0; }
+function lineClear(a, b, ex1, ex2) {           // nothing solid between two points (the props ex1 and ex2 don't count)
+  const sol = collectSolids(true, ex1, true), d = [b.x - a.x, b.y - a.y, b.z - a.z], len = Math.hypot(d[0], d[1], d[2]); if (len < 1e-6) return true;
+  d[0] /= len; d[1] /= len; d[2] /= len; const o = [a.x, a.y, a.z], skip = ex2 ? ex2.box : null;
+  for (let i = 0; i < sol.length; i++) if (sol[i] !== skip && rayBox(o, d, sol[i], len - 0.05)) return false;
+  return true;
+}
+// One sentry seeing another through a pair of portals: where the other one appears (V), and where the sight line enters (X) and leaves (X2)
+function sightVia(s, eye, o) {
+  if (!bothPortals()) return null;
+  for (const A of portals) {
+    const B = portals[1 - A.idx];
+    if (A.n.dot(tmpA.copy(eye).sub(A.o)) < 0.05) continue;
+    const V = o.p.clone().applyMatrix4(B.T), d = V.clone().sub(eye), den = A.n.dot(d); if (den > -1e-4) continue;
+    const t = A.n.dot(tmpB.copy(A.o).sub(eye)) / den; if (t <= 0 || t >= 1) continue;
+    const X = eye.clone().addScaledVector(d, t); tmpC.copy(X).sub(A.o);
+    if (Math.abs(tmpC.dot(A.r)) > PW - 0.05 || Math.abs(tmpC.dot(A.u)) > PH - 0.05) continue;
+    const X2 = X.clone().applyMatrix4(A.T).addScaledVector(B.n, 0.06);
+    if (!lineClear(eye, X.clone().addScaledVector(A.n, 0.06), s) || !lineClear(X2, o.p, o, s)) continue;
+    return { V, X, X2, dist: d.length() };
+  }
+  return null;
+}
+function tipSentry(s, why, dir) {
+  if (s.state === "off") return; s.state = "off"; s.eye.material = SENT.eyeOff; s.laser.visible = false; s.jamRing.visible = false; s.wake = 0;
   sfx.sentryOff(); run.sentriesOff = (run.sentriesOff || 0) + 1;
-  for (let i = 0; i < 4; i++) fxSpark(tmpA.set(s.base.x, s.base.y + 0.9, s.base.z));
+  for (let i = 0; i < 4; i++) fxSpark(tmpA.copy(s.p).setY(s.p.y + 0.25));
   s.spray = 5 + Math.floor(Math.random() * 6); s.sprayT = 0.05 + Math.random() * 0.1;   // a few wild shots on the way down
+  if (s.body && !s.held && sentryUp(s, _su).y > 0.72) {       // still standing: over it goes, away from whatever hit it
+    const f = dir ? _sd.copy(dir).setY(0) : _sd.set(Math.sin(s.yaw0), 0, Math.cos(s.yaw0)); if (f.lengthSq() < 1e-6) f.set(1, 0, 0); f.normalize();
+    const v = s.body.linvel(); s.body.setLinvel({ x: v.x + f.x * 1.6, y: v.y, z: v.z + f.z * 1.6 }, true); s.body.setAngvel({ x: f.z * 4.5, y: 0, z: -f.x * 4.5 }, true);
+  }
   const quipSecs = sentryQuip(s, why);
   if (!run.said.sentryOff || Math.random() < 0.35) { run.said.sentryOff = 1; const tw = world; setTimeout(() => { if (world === tw && state === "play") say("sentryOff"); }, (quipSecs + 1.1) * 1000); }   // SaDos waits for the sentry to finish
-}
-// walking into a sentry from behind (outside its view) shoves it over
-function pushedFromBehind(s, fwd) {
-  const pl = player, dx = s.base.x - pl.p.x, dz = s.base.z - pl.p.z, d = Math.hypot(dx, dz);
-  if (d > 0.95 || d < 0.01 || Math.abs(pl.p.y - HY - s.base.y) > 0.6) return false;   // pl.p is the body centre, s.base its feet
-  if ((-dx * fwd.x - dz * fwd.z) / d > -0.25) return false;          // the player has to be behind it
-  const sy = Math.sin(pl.yaw), cy = Math.cos(pl.yaw), wx = -sy * inp.fwd + cy * inp.right, wz = -cy * inp.fwd - sy * inp.right, wl = Math.hypot(wx, wz);
-  const mx = wl > 0.2 ? wx / wl : pl.v.x, mz = wl > 0.2 ? wz / wl : pl.v.z, ml = Math.hypot(mx, mz);
-  return ml > 0.2 && (mx * dx + mz * dz) / (ml * d) > 0.55;           // walking towards it
 }
 // a toppling sentry lets off wild shots: from a gun flap, roughly where it is pointing as it tips, anywhere it happens to go
 const _ws = new V3(), _wd = new V3(), _wq = new QT();
 function sentryWildShot(s) {
   const mz = s.flaps[Math.random() < 0.5 ? 0 : 1].mz; mz.getWorldPosition(_ws); mz.material.opacity = 1;
   s.group.getWorldQuaternion(_wq); _wd.set(rand(-.5, .5), rand(-.35, .5), -1).applyQuaternion(_wq).normalize();
-  const ray = castRay(_ws, _wd, 30, true, true), len = ray.hit ? ray.hit.dist : 30, end = pathPoint(ray, len) || _ws.clone().addScaledVector(_wd, len);
-  fxTracer(_ws, end); if (ray.hit) fxSpark(end);
+  const ray = castRay(_ws, _wd, 30, true, true, s), len = ray.hit ? ray.hit.dist : 30, end = pathPoint(ray, len) || _ws.clone().addScaledVector(_wd, len);
+  fxTracer(_ws, end); if (ray.hit) { fxSpark(end); officeHit(end); }
   const dist = _ws.distanceTo(tmpA.set(player.p.x, player.p.y + 0.4, player.p.z)); sfx.shot(dist);
   if (state === "play" && ray.segs.length === 1 && distSegPoint(_ws, _wd, len, tmpB.set(player.p.x, player.p.y + 0.3, player.p.z)) < 0.45) hurt(9, "shot");
 }
@@ -2793,11 +3163,14 @@ const SENTRY_QUIPS = {
   portal: ["Wheee! Wait. Where am I?", "That floor was not there before!", "Who moved the room?", "Falling is my least favourite direction."],
   cube: ["Hit by a box. How embarrassing.", "The cube! It's always the cube!", "I didn't even see it coming."],
   push: ["Hey! No pushing!", "Who's there? Oh no.", "That's cheating!", "Eyes in the back of my head. I should have ordered those."],
-  grab: ["Hey! Hands off!", "Personal space, please!", "Put me down! Oh. You did."]
+  grab: ["Hey! Hands off!", "Personal space, please!", "Put me down!", "I can walk. I choose not to."],
+  shot: ["Friendly fire! Friendly fire!", "I thought we were colleagues!", "Was it something I said?", "Et tu, unit seven?"],
+  fall: ["Timber.", "I meant to do that.", "The floor is closer than it looks."]
 };
 const sentrySubEl = $("sentrySub"); let sentrySubT = 0, lastQuip = "";
-function sentryQuip(s, why) {
-  const pool = (SENTRY_QUIPS[why] || []).concat(Math.random() < 0.5 ? SENTRY_QUIPS.any : []), list = pool.length ? pool : SENTRY_QUIPS.any;
+function sentryQuip(s, why, alive) {
+  if (alive && performance.now() - (s.quipAt || 0) < 6000) return 0; s.quipAt = performance.now();
+  const pool = (SENTRY_QUIPS[why] || []).concat(!alive && Math.random() < 0.5 ? SENTRY_QUIPS.any : []), list = pool.length ? pool : SENTRY_QUIPS.any;
   let text = pick(list); if (text === lastQuip && list.length > 1) text = pick(list); lastQuip = text;
   sentrySubEl.innerHTML = "<i>SENTRY</i>" + text; sentrySubEl.classList.add("on"); clearTimeout(sentrySubT);
   const est = Math.max(1.8, text.length * 0.075), have = window.TC_VOICE && window.TC_VOICE[lineHash(text)], secs = have ? have + 0.3 : est;
@@ -2818,36 +3191,6 @@ function sentryQuip(s, why) {
   });
   return secs;
 }
-// a tipped-over sentry lying in a wall portal's mouth would block it: it slides aside out of the way
-function clearMouth(s, dt) {
-  if (!bothPortals()) return;
-  for (const P of portals) {
-    if (Math.abs(P.n.y) > 0.7) continue;
-    tmpA.set(s.base.x - P.o.x, s.base.y - P.o.y, s.base.z - P.o.z);
-    const along = tmpA.dot(P.n), lat = tmpA.dot(P.r), up = tmpA.dot(P.u);
-    if (along < -0.3 || along > 1.6 || Math.abs(lat) > PW + 0.45 || Math.abs(up) > PH + 0.4) continue;
-    if (!s.aside || s.aside.P !== P) {                   // pick a free spot beside the opening (or further out from it)
-      const sol = collectSolids(false, null, true), opts2 = [];
-      const side = lat >= 0 ? 1 : -1;
-      for (const k of [side, -side]) opts2.push(P.o.clone().addScaledVector(P.r, k * (PW + 0.7)).addScaledVector(P.n, Math.max(0.5, along)));
-      opts2.push(P.o.clone().addScaledVector(P.n, 2.0)); opts2.push(P.o.clone().addScaledVector(P.r, side * (PW + 0.7)).addScaledVector(P.n, 1.8));
-      let to = null;
-      for (const q of opts2) {
-        q.y = s.base.y;
-        if (inAny(sol, q.x, q.y + 0.25, q.z) || inAny(sol, q.x, q.y + 0.25, (q.z + s.base.z) / 2) || inAny(sol, (q.x + s.base.x) / 2, q.y + 0.25, q.z)) continue;
-        const dn = castRay(new V3(q.x, q.y + 0.3, q.z), new V3(0, -1, 0), 1.2, false, true); if (!dn.hit || dn.hit.dist > 0.6) continue;
-        to = new V3(q.x, q.y + 0.3 - dn.hit.dist, q.z); break;
-      }
-      s.aside = { P, to };
-    }
-    const to = s.aside.to; if (!to) return;
-    tmpB.copy(to).sub(s.base); const L = tmpB.length(); if (L < 0.02) return;
-    s.base.addScaledVector(tmpB, Math.min(1, dt * 3.5 / L)); s.group.position.x = s.base.x; s.group.position.z = s.base.z; s.base.y = to.y;
-    s.box.min[0] = s.base.x - .3; s.box.max[0] = s.base.x + .3; s.box.min[2] = s.base.z - .3; s.box.max[2] = s.base.z + .3; s.box.min[1] = s.base.y;
-    return;
-  }
-  s.aside = null;
-}
 function fxSpark(p) {
   const m = new THREE.Mesh(orbGeo, new THREE.MeshBasicMaterial({ color: new THREE.Color(2, 1.5, .6), transparent: true })); m.position.copy(p); m.scale.setScalar(.5); scene.add(m);
   fxs.push({ kind: "spark", m, t: 0, dur: 0.5, v: new V3(rand(-2, 2), rand(1, 4), rand(-2, 2)) });
@@ -2858,68 +3201,55 @@ function fxTracer(from, to, col) {
   m.position.copy(from).add(to).multiplyScalar(0.5); m.lookAt(to); m.scale.set(1, 1, len); scene.add(m);
   fxs.push({ kind: "tracer", m, t: 0, dur: 0.09 });
 }
-// a floor portal opened under a sentry: it sinks in and drops out of the other portal, lying on its side
-function sentryHole(s) {
-  if (!bothPortals()) return null;
-  for (const P of portals) {
-    if (P.n.y < 0.7) continue;
-    tmpA.set(s.base.x - P.o.x, s.base.y - P.o.y, s.base.z - P.o.z);
-    if (Math.abs(tmpA.dot(P.n)) < 0.3 && Math.abs(tmpA.dot(P.r)) < PW - 0.15 && Math.abs(tmpA.dot(P.u)) < PH - 0.15) return P;
-  }
-  return null;
-}
-function warpSentry(s, P) {
-  const O = portals[1 - P.idx], sol = collectSolids(false, null, true), c = s.base.clone().applyMatrix4(P.T), cands = [];
-  if (Math.abs(O.n.y) > 0.7) {
-    if (O.n.y < 0) cands.push(O.o.clone().addScaledVector(O.n, 0.3));                              // out of a ceiling: drops to the floor
-    else for (const [v, k] of [[O.r, 1], [O.r, -1], [O.u, 1], [O.u, -1]]) cands.push(O.o.clone().addScaledVector(v, k * (PW + 0.55)).addScaledVector(O.n, 0.1));
-  } else cands.push(O.o.clone().addScaledVector(O.n, 0.55));                                         // out of a wall
-  let land = null;
-  for (const q of cands) {
-    if (inAny(sol, q.x, q.y + 0.4, q.z) || inAny(sol, q.x, q.y + 1.2, q.z)) continue;
-    const dn = castRay(new V3(q.x, q.y + 0.4, q.z), new V3(0, -1, 0), 40, false, true);
-    if (dn.hit) { land = new V3(q.x, q.y + 0.4 - dn.hit.t, q.z); break; }
-  }
-  if (!land) land = c.clone().addScaledVector(O.n, 0.5);
-  s.base.copy(land); s.group.position.copy(land);
-  s.box.min[0] = land.x - .3; s.box.max[0] = land.x + .3; s.box.min[2] = land.z - .3; s.box.max[2] = land.z + .3; s.box.min[1] = land.y; s.box.max[1] = land.y + (s.state === "off" ? .45 : 1.3);
-  const fx = Math.abs(O.n.y) > 0.7 ? Math.sin(land.x * 7 + land.z * 3) : O.n.x, fz = Math.abs(O.n.y) > 0.7 ? Math.cos(land.x * 3 + land.z * 7) : O.n.z;
-  s.yaw = Math.atan2(-fx, -fz); s.group.rotation.set(0, s.yaw, 0);
-  sfx.enter(O.idx, 0.6);
-  if (s.state !== "off") tipSentry(s, "portal"); else s.fall = 0.6;
-}
+const shotList = [];
 function updateSentries(dt, time) {
   if (!world) return; const pl = player, alive = state === "play";
+  const carried = holding; if (carried) carried.held = false;           // what you carry blocks their sight, as it blocks light
+  _pc.set(pl.p.x, pl.p.y + 0.15, pl.p.z); _ph.set(pl.p.x, pl.p.y + 0.7, pl.p.z);
   for (const s of world.sentries) {
-    const g = s.group;
-    const hole = sentryHole(s);
-    if (hole) {                                          // portal under its feet: down it goes
-      s.sink = (s.sink || 0) + dt / 0.35; s.laser.visible = false; const e = Math.min(1, s.sink);
-      g.position.set(s.base.x, s.base.y - e * e * 1.5, s.base.z); g.rotation.z = Math.sin(e * 6) * 0.08 * e;
-      if (s.sink >= 1) { warpSentry(s, hole); s.sink = 0; g.rotation.z = 0; }
+    const g = s.group, held = s === carried; g.position.copy(s.p); g.quaternion.copy(s.q);
+    const up = sentryUp(s, _su), upright = up.y > 0.72;
+    s.base.set(s.p.x - up.x * S_H[1], s.p.y - up.y * S_H[1], s.p.z - up.z * S_H[1]);
+    const fy = floorBelow(s.p.x, s.p.y, s.p.z, 7);
+    if (fy === null) s.shadow.visible = false; else { const hgt = Math.max(0, s.base.y - fy); s.shadow.visible = true; s.shadow.position.set(s.p.x, fy + 0.012, s.p.z); s.shadow.scale.setScalar(0.85 + hgt * 0.2); s.shadow.material.opacity = clamp(.55 - hgt * .08, .08, .55); }
+    s.jamFlash = Math.max(0, s.jamFlash - dt * 1.6);
+    const jams = sentryJams(s) && !held; s.jamRing.visible = jams && fy !== null;
+    if (s.jamRing.visible) { s.jamRing.position.set(s.p.x, fy + 0.02, s.p.z); s.jamRing.material.opacity = 0.32 + 0.1 * Math.sin(time * 3 + s.sweep) + s.jamFlash * 0.55; }
+    for (const f of s.flaps) f.mz.material.opacity = Math.max(0, f.mz.material.opacity - dt * 14);
+    if (s.state === "off") {                             // down and dark, spraying a few shots as it goes
+      s.laser.visible = false;
+      if (s.spray > 0) { for (const f of s.flaps) f.piv.rotation.y = f.sx * 0.9; s.sprayT -= dt; if (s.sprayT <= 0) { s.spray--; s.sprayT = 0.06 + Math.random() * 0.13; if (!held) sentryWildShot(s); } }
+      else for (const f of s.flaps) f.piv.rotation.y += (-f.sx * 0.15 - f.piv.rotation.y) * Math.min(1, dt * 6);
       continue;
-    } else if (s.sink > 0) { s.sink = 0; g.rotation.z = 0; g.position.y = s.base.y; }
-    if (s.state === "off") {                             // topple over and go dark, spraying a few shots as it goes
-      s.fall = Math.min(1, s.fall + dt * 1.7); const e = s.fall * s.fall; g.rotation.x = -e * 1.35; g.position.y = s.base.y + e * 0.1;
-      if (s.spray > 0) {
-        for (const f of s.flaps) { f.piv.rotation.y = f.sx * 0.9; f.mz.material.opacity = Math.max(0, f.mz.material.opacity - dt * 14); }
-        s.sprayT -= dt; if (s.sprayT <= 0) { s.spray--; s.sprayT = 0.06 + Math.random() * 0.13; sentryWildShot(s); }
-      } else for (const f of s.flaps) { f.piv.rotation.y += (-f.sx * 0.15 - f.piv.rotation.y) * Math.min(1, dt * 6); f.mz.material.opacity = 0; }
-      if (s.fall >= 1) clearMouth(s, dt);
-      s.box.max[1] = s.base.y + 0.45; continue;
+    }
+    if (!held && !upright) { tipSentry(s, "fall"); continue; }
+    s.yaw0 = bodyYaw(s);
+    if (held || s.wake > 0) {                            // carried, or just put down: asleep, amber eye
+      if (!held) { s.wake -= dt; if (s.wake <= 0) sfx.ping(); }
+      s.seen = 0; s.burst = 0; s.laser.visible = false; s.yaw = s.yaw0; s.inner.rotation.y = 0; s.open = Math.max(0, s.open - dt * 2.5);
+      for (const f of s.flaps) f.piv.rotation.y = f.sx * (0.05 + s.open * 1.05);
+      const k = held ? 1 : 0.55 + 0.45 * Math.sin(time * 14); s.eyeMat.color.setRGB(1.5 * k, .85 * k, .1);
+      continue;
     }
     sentryEye(s, _se); sentryFwd(s, _sf);
-    if (alive && pushedFromBehind(s, _sf)) { tipSentry(s, "push"); toast("Sentry down"); continue; }
-    tmpA.set(pl.p.x, pl.p.y + 0.15, pl.p.z); const toP = _sp.copy(tmpA).sub(_se), dist = toP.length();
-    let vis = false;
+    // who it sees: you, directly; or another sentry, through a pair of portals (nobody told them about portals)
+    let tgt = null, via = null, other = null;
+    const toP = _sp.copy(_pc).sub(_se), dist = toP.length();
     if (alive && dist < s.range && dist > 0.3) {
       tmpB.copy(toP).normalize(); const dh = _sf.x * tmpB.x + _sf.z * tmpB.z, hl = Math.hypot(tmpB.x, tmpB.z) || 1;
-      if (dh / hl > s.cone * 0.92 && Math.abs(tmpB.y) < 0.75) vis = lineClear(_se, tmpA) || lineClear(_se, tmpB.set(pl.p.x, pl.p.y + 0.7, pl.p.z));
+      if (dh / hl > s.cone * 0.92 && Math.abs(tmpB.y) < 0.75 && (lineClear(_se, _pc, s) || lineClear(_se, _ph, s))) tgt = _pc;
     }
-    if (vis) {
-      if (s.seen === 0) { sfx.ping(); }
+    if (!tgt) for (const o of world.sentries) {
+      if (o === s || o.state === "off") continue;
+      const v = sightVia(s, _se, o); if (!v || v.dist > Math.max(s.range, 30)) continue;     // they spot each other from much further than they spot you
+      tmpB.copy(v.V).sub(_se).normalize(); const dh = _sf.x * tmpB.x + _sf.z * tmpB.z, hl = Math.hypot(tmpB.x, tmpB.z) || 1;
+      if (dh / hl < s.cone * 0.92 || Math.abs(tmpB.y) > 0.75) continue;
+      tgt = v.V; via = v; other = o; break;
+    }
+    if (tgt) {
+      if (s.seen === 0) sfx.ping();
       s.seen = Math.min(1.2, s.seen + dt / 0.7);
-      const want = Math.atan2(-toP.x, -toP.z), lim = s.turn; let dy = angDiff(want, s.yaw0); dy = clamp(dy, -lim, lim);
+      const tdist = via ? via.dist : dist, want = Math.atan2(-(tgt.x - _se.x), -(tgt.z - _se.z)), dy = clamp(angDiff(want, s.yaw0), -s.turn, s.turn);
       s.yaw += angDiff(s.yaw0 + dy, s.yaw) * Math.min(1, dt * 7);
       s.open = Math.min(1, s.open + dt * 5);
       if (s.seen >= 1) {
@@ -2928,27 +3258,33 @@ function updateSentries(dt, time) {
           if (s.burst <= 0) { s.burst = 7; s.cd = 0; }
           if (s.cd <= 0) {
             s.burst--; s.cd = s.burst > 0 ? 0.085 : 0.7;
-            const side = s.burst % 2 ? 1 : -1, mz = s.flaps[side > 0 ? 1 : 0].mz; mz.getWorldPosition(tmpC);
-            const hit = Math.random() < clamp(1.05 - dist / 55, .35, .8);
-            tmpB.set(pl.p.x + rand(-.25, .25), pl.p.y + rand(-.3, .5), pl.p.z + rand(-.25, .25));
-            if (!hit) tmpB.add(tmpA.set(rand(-1.6, 1.6), rand(-.8, 1.2), rand(-1.6, 1.6)));
-            fxTracer(tmpC, tmpB.clone().sub(tmpC).setLength(Math.min(dist + 2, 40)).add(tmpC)); mz.material.opacity = 1; sfx.shot(dist);
-            if (hit) hurt(9, "shot");
+            const side = s.burst % 2 ? 1 : -1, mz = s.flaps[side > 0 ? 1 : 0].mz; mz.getWorldPosition(tmpC); mz.material.opacity = 1; sfx.shot(tdist);
+            if (other) {                                 // into the portal, out of the other one, into its colleague
+              fxTracer(tmpC, via.X); tmpB.copy(other.p).add(tmpA.set(rand(-.2, .2), rand(-.3, .4), rand(-.2, .2))); fxTracer(via.X2, tmpB); fxSpark(tmpB);
+              if (s.burst === 0) shotList.push([other, other.p.clone().sub(via.X2)]);
+            } else {
+              const hit = Math.random() < clamp(1.05 - dist / 55, .35, .8);
+              tmpB.set(pl.p.x + rand(-.25, .25), pl.p.y + rand(-.3, .5), pl.p.z + rand(-.25, .25));
+              if (!hit) tmpB.add(tmpA.set(rand(-1.6, 1.6), rand(-.8, 1.2), rand(-1.6, 1.6)));
+              fxTracer(tmpC, tmpB.clone().sub(tmpC).setLength(Math.min(dist + 2, 40)).add(tmpC));
+              if (hit) hurt(s.dmg, "shot");
+            }
           }
         }
       }
     } else {
       s.seen = Math.max(0, s.seen - dt * 1.4); if (s.seen <= 0) { s.burst = 0; s.sweep += dt; s.open = Math.max(0, s.open - dt * 2.5); s.yaw += angDiff(s.yaw0 + Math.sin(s.sweep * 0.7) * 0.5, s.yaw) * Math.min(1, dt * 3); }
     }
-    g.rotation.y = s.yaw;
-    for (const f of s.flaps) { f.piv.rotation.y = f.sx * (0.05 + s.open * 1.05); f.mz.material.opacity = Math.max(0, f.mz.material.opacity - dt * 14); }
-    const warm = vis && s.seen < 1; s.eye.material.color.setRGB(1.6 + (warm ? Math.sin(time * 28) * .7 : s.seen >= 1 ? .6 : 0), .1, .06);
-    if (vis && s.seen > 0.05) {                          // the red sight line
-      s.laser.visible = true; const e = _se, t2 = tmpA; t2.set(pl.p.x, pl.p.y + 0.15, pl.p.z); s.laser.position.copy(e).add(t2).multiplyScalar(0.5); s.laser.lookAt(t2); s.laser.scale.set(1, 1, e.distanceTo(t2)); s.laser.material.opacity = 0.35 + 0.45 * Math.min(1, s.seen);
+    s.inner.rotation.y = angDiff(s.yaw, s.yaw0);
+    for (const f of s.flaps) f.piv.rotation.y = f.sx * (0.05 + s.open * 1.05);
+    const warm = tgt && s.seen < 1; s.eyeMat.color.setRGB(1.6 + (warm ? Math.sin(time * 28) * .7 : s.seen >= 1 ? .6 : 0), .1, .06);
+    if (tgt && s.seen > 0.05) {                          // the red sight line
+      s.laser.visible = true; const end = via ? via.X : tgt; s.laser.position.copy(_se).add(end).multiplyScalar(0.5); s.laser.lookAt(end); s.laser.scale.set(1, 1, _se.distanceTo(end)); s.laser.material.opacity = 0.35 + 0.45 * Math.min(1, s.seen);
     } else s.laser.visible = false;
   }
-  // a falling cube, or a thrown one, knocks a sentry over
-  for (const c of world.cubes) { if (c.held) continue; const sp = c.v.length(); if (sp < 4.5) continue; const cb = cubeBox(c); for (const s of world.sentries) if (s.state !== "off" && boxOverlap(cb, s.box)) tipSentry(s, "cube"); }
+  for (const [o, d] of shotList) if (--o.hp <= 0) tipSentry(o, "shot", d);
+  shotList.length = 0;
+  if (carried) carried.held = true;
 }
 function boxOverlap(a, b) { return a.min[0] < b.max[0] && a.max[0] > b.min[0] && a.min[1] < b.max[1] && a.max[1] > b.min[1] && a.min[2] < b.max[2] && a.max[2] > b.min[2]; }
 function hurt(n, why) {
@@ -3006,7 +3342,7 @@ function updateFields(dt) {
       const pb = { min: [player.p.x - HX, player.p.y - HY, player.p.z - HZ()], max: [player.p.x + HX, player.p.y + HY, player.p.z + HZ()] };
       if (boxOverlap(pb, f) && f.cool <= 0) { f.cool = 1; if (portals[0].on || portals[1].on) { clearPortals(); updateCross(); sfx.field(); toast("Portals reset"); if (!run.said.field) { run.said.field = 1; say("fieldHit"); } } }
     }
-    for (const c of world.cubes) if (boxOverlap(cubeBox(c), f)) { respawnCube(c); }
+    for (const c of props()) if (boxOverlap(cubeBox(c), f)) { respawnCube(c); }
   }
 }
 const HZ = () => HX;
@@ -3070,7 +3406,8 @@ function frame(ts) {
   if (playing) { player.hp = state === "play" ? Math.min(100, player.hp + (run.sinceHit > 3 ? 28 * dt : 0)) : player.hp; run.sinceHit += dt; }
   hurtFlash = Math.max(0, hurtFlash - dt * 1.6); $("hurt").style.opacity = Math.min(1, hurtFlash + (player.hp < 45 ? (45 - player.hp) / 90 : 0));
   $("hpBar").classList.toggle("on", player.hp < 99 && state === "play"); $("hpBar").firstElementChild.style.width = player.hp + "%";
-  updateSentries(dt, ts / 1000); updateBeams(dt, ts / 1000); updateFields(dt);
+  updateSentries(dt, ts / 1000); updateBeams(dt, ts / 1000); updateFields(dt); updateZones(dt, ts / 1000);
+  { let left = 0; for (const p of world.plates) if (p.left > 0 && !p.pressed) left = Math.max(left, p.left); const el = $("prompt"); el.classList.toggle("on", left > 0 && state === "play"); if (left > 0) el.textContent = "Door closes in " + left.toFixed(1); }
   updateFx(dt);
   for (const c of world.cubes) cubeGhost(c, dt);
   // A cube that would land on a plate (held over it, or falling onto it) lights the plate's ring green and pulses; a pressed plate glows steady green
@@ -3083,10 +3420,11 @@ function frame(ts) {
   for (const pd of world.pads) pd.ringMat.color.setRGB(.4 + pd.flash * 2, 1.6 + pd.flash * 2, 2.6 + pd.flash);
   for (const pl of world.plates) {
     pl.press += ((pl.pressed ? 1 : 0) - pl.press) * Math.min(1, dt * 14); pl.top.position.y = pl.pos[1] + 0.07 - pl.press * 0.05;
-    let over = false; for (const c of world.cubes) if ((c.held || c.v.y < -0.5) && plateUnder(c.p) === pl) over = true;
+    let over = false; for (const c of props()) if ((c.held || c.v.y < -0.5) && plateUnder(c.p) === pl) over = true;
     pl.aim += ((over ? 1 : 0) - pl.aim) * Math.min(1, dt * 12);
     const pulse = 0.65 + 0.35 * Math.sin(performance.now() / 120);
     if (pl.pressed) pl.ringMat.color.setRGB(.35, 2.6, .9);
+    else if (pl.left > 0) { const b = 0.5 + 0.5 * Math.sin(performance.now() / (pl.left < 1.5 ? 45 : 90)); pl.ringMat.color.setRGB(2.6 * b + .3, 1.5 * b + .2, .15); }
     else pl.ringMat.color.setRGB(.5 + (.35 * pulse - .5) * pl.aim, .32 + (2.6 * pulse - .32) * pl.aim, .12 + (.9 * pulse - .12) * pl.aim);
   }
   for (const P of portals) { P.open += ((P.on ? 1 : 0) - P.open) * Math.min(1, dt * 9); }
@@ -3103,7 +3441,7 @@ function boot() {
   $("loading").hidden = true;
   requestAnimationFrame(frame);
 }
-window.__tc = { hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, allLines: () => ({ LINES, levels: LEVEL_FUNCS.map(f => f().say) }), lineHash, get state() { return state; }, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
+window.__tc = { hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, allLines: () => ({ LINES, levels: LEVEL_FUNCS.map(f => f().say), quips: SENTRY_QUIPS }), lineHash, get state() { return state; }, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
 try { boot(); } catch (err) { console.error(err); $("loading").hidden = false; $("loading").innerHTML = '<div style="max-width:420px;text-align:center;line-height:1.6;font-size:13px;letter-spacing:.05em">Something went wrong starting the game.<br><small>' + String(err && err.message || err) + "</small></div>"; }
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>
