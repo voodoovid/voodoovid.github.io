@@ -32,7 +32,7 @@ header { display: flex; align-items: center; gap: 14px; padding: 4px 2px 12px; b
 #runBtn:disabled { opacity: .45; cursor: default; }
 main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(330px, 1fr) 1.25fr; gap: 16px; padding-top: 14px; }
 #list { overflow-y: auto; -webkit-overflow-scrolling: touch; padding-right: 4px; }
-.row { display: grid; grid-template-columns: 66px 1fr; gap: 12px; align-items: start; padding: 11px 12px; margin-bottom: 8px;
+.row { display: grid; grid-template-columns: 84px 1fr; gap: 12px; align-items: start; padding: 11px 12px; margin-bottom: 8px;
   background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
 .chip { font: 800 11px/1 var(--font); letter-spacing: .12em; text-align: center; padding: 7px 0; border-radius: 6px; margin-top: 1px;
   background: rgba(255,255,255,.06); color: var(--dim); }
@@ -87,7 +87,7 @@ main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(330p
       <canvas id="gl"></canvas>
       <div id="hud"><span id="scene">LIVE CHAMBER</span><span id="fps"></span></div>
       <div id="tabs"><button data-v="chamber" class="on">Chamber</button><button data-v="A">Gun A · Vector</button><button data-v="B">Gun B · Gyre</button></div>
-      <div id="idle">The test chamber appears here while the checks run:<br>real physics, live portal views, soft shadows and glow.</div>
+      <div id="idle">Tap Run all checks. The test chamber appears here:<br>real physics, live portal views, soft shadows and glow.<br><br>Three checks need you: Test lock, Start hum and (if you use one) the controller.</div>
       <div id="ver"></div>
     </section>
   </main>
@@ -96,23 +96,28 @@ main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(330p
 <script type="module">
 import * as THREE from "three";
 
-const LAB_VERSION = "Lab v0.3";
+const LAB_VERSION = "Lab v0.4";
 document.getElementById("ver").textContent = LAB_VERSION;
 
 // ---------- check rows ----------
 const CHECKS = [
-  ["webgl",   "WebGL 2 graphics",        "The 3D features the new renderer needs."],
+  ["lock",    "Trackpad aim lock",       "Tap Test lock with the trackpad, then move it: the pointer should vanish and the aim stay centred on the sights."],
+  ["portal",  "Live portal view",        "A portal shows a real-time view out of the other portal."],
+  ["thru",    "Physics through portals", "A crate falls 10 m into a floor portal and must fly out of a wall portal at the same speed."],
+  ["carry",   "Carrying a sentry",       "A sentry is a real, heavy object: carried along, it shields you from another sentry and weighs down a plate."],
+  ["gravity", "Gravity flip",            "A gravity panel flips down for one zone only: its crate and sentry fall up to the ceiling, then back."],
+  ["bg",      "Sound stops in background", "Tap Start hum, switch to another app for 3 seconds, then come back."],
+  ["pad",     "Controller (optional)",   "Press any button or move a stick on your controller."],
+  ["webgl",   "WebGL 2 graphics",        "The 3D features the renderer needs."],
   ["rapier",  "Physics engine loads",    "Rapier, a real rigid-body engine, from this site (offline-safe)."],
   ["stack",   "Cube physics",            "Three stacked cubes stay put; a tossed cube tumbles and settles."],
   ["walker",  "Player movement",         "Walks up a small step, stops at a wall and slides along it."],
-  ["momentum","Portal momentum",         "Speed and direction carry from a wall portal out of a floor portal."],
   ["fx",      "Lighting effects load",   "Glow (bloom), tone mapping and reflections."],
-  ["portal",  "Live portal view",        "A portal shows a real-time view out of the other portal."],
   ["perf",    "Frame rate",              "Full chamber: two live portals, shadows, glow, physics for 6 s."],
-  ["voice",   "SaDos voice in a room",   "A recorded line plays through new room acoustics."],
-  ["offline", "Works offline",           "New files are stored by the Games app for offline play."],
-  ["lock",    "Trackpad aim lock",       "Tap Test lock with the trackpad, then move it: the pointer should vanish and the aim stay centred."],
+  ["voice",   "SaDos voice in a room",   "A recorded line plays through room acoustics."],
+  ["offline", "Works offline",           "Files are stored by the Games app for offline play."],
 ];
+const MANUAL = ["lock", "bg", "pad"], OPTIONAL = ["pad"];
 const listEl = document.getElementById("list");
 const rows = {};
 for (const [id, name, what] of CHECKS) {
@@ -122,7 +127,7 @@ for (const [id, name, what] of CHECKS) {
   listEl.appendChild(el);
   rows[id] = el;
 }
-const LABEL = { idle: "READY", run: "TESTING", pass: "PASS", fail: "FAIL", warn: "CHECK", ask: "LISTEN" };
+const LABEL = { idle: "READY", run: "TESTING", pass: "PASS", fail: "FAIL", warn: "CHECK", ask: "YOUR TURN" };
 const results = {};
 function set(id, s, detail) {
   const el = rows[id]; el.dataset.s = s; el.querySelector(".chip").textContent = LABEL[s];
@@ -131,7 +136,7 @@ function set(id, s, detail) {
   updateSummary();
 }
 function updateSummary() {
-  const done = Object.values(results), n = CHECKS.length;
+  const done = Object.values(results), n = CHECKS.length - OPTIONAL.filter(k => !(k in results)).length;
   const p = done.filter(s => s === "pass").length, f = done.filter(s => s === "fail").length, w = done.filter(s => s === "warn").length;
   const sum = document.getElementById("summary");
   if (!done.length) return;
@@ -236,17 +241,104 @@ function makePortalFrame(pos, normal, up) {
   const z = normal.clone().normalize(), x = new THREE.Vector3().crossVectors(up, z).normalize(), y = new THREE.Vector3().crossVectors(z, x);
   o.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z)); o.updateMatrixWorld(true); return o;
 }
-function momentumTest() {
-  const A = makePortalFrame(new THREE.Vector3(-7, 2, 0), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0));   // on a wall
-  const B = makePortalFrame(new THREE.Vector3(3, 0, 4), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, -1));   // on the floor
-  const M = portalMatrix(A, B), R = new THREE.Matrix3().setFromMatrix4(M);
-  const vin = new THREE.Vector3(-14, -3, 2);                                        // flying into the wall portal
-  const vout = vin.clone().applyMatrix3(R);
-  const inN = -vin.dot(new THREE.Vector3(1, 0, 0)), outN = vout.dot(new THREE.Vector3(0, 1, 0));
-  const pin = new THREE.Vector3(-7, 2.4, 0.3), pout = pin.clone().applyMatrix4(M);   // a point on portal A lands on portal B
-  const ok = Math.abs(vin.length() - vout.length()) < 1e-6 && Math.abs(inN - outN) < 1e-6 && outN > 0 && Math.abs(pout.y) < 1e-6
-    && Math.hypot(pout.x - 3, pout.z - 4) < 0.6;
-  return { ok, detail: `In ${fmt(vin.length())} m/s → out ${fmt(vout.length())} m/s, straight up out of the floor at ${fmt(outN)} m/s` };
+const GAME_G = 19.6;                       // the game's gravity
+const grp = (member, filter) => ((member & 0xffff) << 16) | (filter & 0xffff);
+const rayHit = (world, o, d, max) => { const h = world.castRay(new RAPIER.Ray(o, d), max, true); return h ? { col: h.collider, t: h.timeOfImpact ?? h.toi } : null; };
+const crateCol = () => RAPIER.ColliderDesc.roundCuboid(0.31, 0.31, 0.31, 0.04).setDensity(60).setFriction(0.75).setRestitution(0.08);
+const sentryCol = () => RAPIER.ColliderDesc.cuboid(0.22, 0.6, 0.22).setDensity(170).setFriction(0.8);     // about 40 kg
+const upOf = b => { const r = b.rotation(); return new THREE.Vector3(0, 1, 0).applyQuaternion(new THREE.Quaternion(r.x, r.y, r.z, r.w)).y; };
+
+// A crate dropped from 10 m falls into a floor portal and must leave a wall portal sideways at the speed it went in.
+function thruTest() {
+  const FLOOR = 1, WALL = 2, CRATE = 4;
+  const world = new RAPIER.World({ x: 0, y: -GAME_G, z: 0 }); world.timestep = 1 / 120;
+  world.createCollider(RAPIER.ColliderDesc.cuboid(30, 0.5, 10).setTranslation(0, -0.5, 0).setFriction(0.7).setCollisionGroups(grp(FLOOR, 0xffff)));
+  world.createCollider(RAPIER.ColliderDesc.cuboid(0.5, 6, 10).setTranslation(-8.5, 6, 0).setCollisionGroups(grp(WALL, 0xffff)));      // wall face at x = -8
+  const A = makePortalFrame(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, -1));    // on the floor
+  const B = makePortalFrame(new THREE.Vector3(-8, 3, 0), new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0));    // on the wall, 3 m up
+  const M = portalMatrix(A, B), R = new THREE.Matrix3().setFromMatrix4(M), RQ = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().extractRotation(M));
+  const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(0.1, 10, -0.15).setCcdEnabled(true).setAngvel({ x: 1.5, y: 0.6, z: -2 }));
+  const col = world.createCollider(crateCol().setCollisionGroups(grp(CRATE, 0xffff)), body);
+  let through = false, vin = 0, vout = null, landX = null, prevY = 10;
+  for (let i = 0; i < 120 * 5 && landX === null; i++) {
+    const p = body.translation();
+    // the surface a portal is cut into lets the crate pass while it is in front of the opening
+    const overA = !through && Math.abs(p.x) < 0.55 && Math.abs(p.z) < 0.95 && p.y < 1.5;
+    const byB = through && p.x < -6.5;
+    col.setCollisionGroups(grp(CRATE, 0xffff & ~(overA ? FLOOR : 0) & ~(byB ? WALL : 0)));
+    world.step();
+    const q = body.translation();
+    if (!through && prevY >= 0 && q.y < 0 && Math.abs(q.x) < 0.55 && Math.abs(q.z) < 0.95) {
+      const v = body.linvel(), w = body.angvel(), r = body.rotation();
+      vin = Math.hypot(v.x, v.y, v.z);
+      const np = new THREE.Vector3(q.x, q.y, q.z).applyMatrix4(M), nv = new THREE.Vector3(v.x, v.y, v.z).applyMatrix3(R), nw = new THREE.Vector3(w.x, w.y, w.z).applyMatrix3(R);
+      const nq = new THREE.Quaternion(r.x, r.y, r.z, r.w).premultiply(RQ);
+      body.setTranslation(np, true); body.setLinvel(nv, true); body.setAngvel(nw, true); body.setRotation(nq, true);
+      vout = nv.clone(); through = true;
+    } else if (through && q.x > -7 && q.y < 1 && body.linvel().y > 0) landX = q.x;      // first bounce off the floor
+    prevY = q.y;
+  }
+  world.free();
+  if (!through) return { ok: false, detail: "The crate never went into the floor portal" };
+  const sp = vout.length(), flew = landX === null ? 0 : landX + 8;
+  const ok = Math.abs(sp - vin) / vin < 0.01 && vout.x / sp > 0.97 && vin > 17 && flew > 8;
+  return { ok, detail: `In at ${fmt(vin, 1)} m/s straight down → out of the wall at ${fmt(sp, 1)} m/s sideways · flew ${fmt(flew, 1)} m before landing (needs > 8)` };
+}
+
+// A sentry as a rigid body: picked up, carried 6 m at walking pace, used as a shield, then set down on a pressure plate.
+function carryTest() {
+  const world = new RAPIER.World({ x: 0, y: -GAME_G, z: 0 }); world.timestep = 1 / 120;
+  world.createCollider(RAPIER.ColliderDesc.cuboid(30, 0.5, 30).setTranslation(0, -0.5, 0).setFriction(0.8));
+  const plate = { x: 6, z: -1.3, r: 0.8 };
+  const body = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(0, 0.6, -1.5).setCcdEnabled(true).setAngularDamping(0.6));
+  const col = world.createCollider(sentryCol(), body), mass = body.mass();
+  for (let i = 0; i < 60; i++) world.step();
+  const stood = upOf(body) > 0.98;
+  // pick it up: it rides a spring to a point in front of the player, floating and held upright
+  body.setGravityScale(0, true); body.setAngularDamping(6);
+  let px = 0, gapMax = 0, shield = false; const dt = 1 / 120, walk = 4;
+  for (let i = 0; i < 180; i++) {
+    px += walk * dt;
+    const p = body.translation(), gap = new THREE.Vector3(px - p.x, 1.05 - p.y, -1.3 - p.z);
+    if (i > 40) gapMax = Math.max(gapMax, gap.length());
+    gap.multiplyScalar(16).clampLength(0, 24); gap.x += walk;
+    body.setLinvel(gap, true);
+    const r = body.rotation(), s = Math.sqrt(Math.max(1e-9, 1 - r.w * r.w)), ang = 2 * Math.acos(Math.min(1, Math.abs(r.w))), k = -Math.min(ang * 10, 12) * Math.sign(r.w || 1);
+    body.setAngvel({ x: r.x / s * k, y: r.y / s * k, z: r.z / s * k }, true);
+    world.step();
+    if (i === 120) { const h = rayHit(world, { x: px, y: 1.3, z: -9 }, { x: 0, y: 0, z: 1 }, 9); shield = !!h && h.col.handle === col.handle && h.t < 8; }   // another sentry's line of fire, from 9 m ahead to the player
+  }
+  // set it down over the plate
+  body.setGravityScale(1, true); body.setAngularDamping(0.6); body.setLinvel({ x: 0, y: 0, z: 0 }, true); body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+  for (let i = 0; i < 180; i++) world.step();
+  const p = body.translation(), v = body.linvel();
+  const onPlate = Math.hypot(p.x - plate.x, p.z - plate.z) < plate.r && p.y < 0.7 && Math.hypot(v.x, v.y, v.z) < 0.1, upright = upOf(body) > 0.95;
+  world.free();
+  const ok = stood && gapMax < 0.35 && shield && onPlate;
+  return { ok, detail: `${fmt(mass, 0)} kg sentry · stayed within ${fmt(gapMax * 100, 0)} cm of your hands over 6 m · blocks the line of fire: ${shield ? "yes" : "no"} · resting on the plate: ${onPlate ? "yes" : "no"}${upright ? ", upright" : ""}` };
+}
+
+// A gravity panel flips "down" for objects in its zone only.
+function gravityTest() {
+  const world = new RAPIER.World({ x: 0, y: -GAME_G, z: 0 }); world.timestep = 1 / 120;
+  world.createCollider(RAPIER.ColliderDesc.cuboid(30, 0.5, 10).setTranslation(0, -0.5, 0).setFriction(0.8));
+  world.createCollider(RAPIER.ColliderDesc.cuboid(30, 0.5, 10).setTranslation(0, 6.5, 0).setFriction(0.8));    // ceiling at 6 m
+  const zone = { x0: -2, x1: 2 };
+  const mk = (x, y, desc) => { const b = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(x, y, 0).setCcdEnabled(true)); world.createCollider(desc, b); return b; };
+  const crate = mk(-1, 0.36, crateCol()), sentry = mk(1, 0.61, sentryCol()), outside = mk(5, 0.36, crateCol());
+  const all = [crate, sentry, outside];
+  const run = n => { for (let i = 0; i < n; i++) world.step(); };
+  const flip = s => { for (const b of all) { const x = b.translation().x; b.setGravityScale(x > zone.x0 && x < zone.x1 ? s : 1, true); } };
+  run(60);
+  flip(-1); let tUp = 0;
+  for (let i = 0; i < 300; i++) { world.step(); if (!tUp && crate.translation().y > 5.6) tUp = (i + 1) / 120; }
+  const up = [crate.translation().y, sentry.translation().y, outside.translation().y];
+  const upOk = Math.abs(up[0] - 5.65) < 0.08 && up[1] > 5.3 && Math.abs(up[2] - 0.35) < 0.05;
+  flip(1); run(300);
+  const dn = [crate.translation().y, sentry.translation().y];
+  const dnOk = Math.abs(dn[0] - 0.35) < 0.08 && dn[1] < 0.7;
+  world.free();
+  return { ok: upOk && dnOk, detail: `Flipped: crate on the ceiling at ${fmt(up[0])} m after ${fmt(tUp)} s, sentry at ${fmt(up[1])} m, crate outside the zone still on the floor (${fmt(up[2])} m) · flipped back: crate ${fmt(dn[0])} m, sentry ${fmt(dn[1])} m` };
 }
 
 // ---------- the live chamber ----------
@@ -601,8 +693,9 @@ async function voiceTest() {
 // ---------- run everything ----------
 async function runAll() {
   const btn = document.getElementById("runBtn"); btn.disabled = true; btn.textContent = "Running…";
-  for (const k of Object.keys(results)) delete results[k];
-  for (const [id] of CHECKS) { if (id === "lock") continue; set(id, "idle", ""); delete results[id]; rows[id].querySelector(".ask").hidden = true; }
+  const kept = {}; for (const k of MANUAL) if (k in results) kept[k] = results[k];
+  for (const k of Object.keys(results)) delete results[k]; Object.assign(results, kept);
+  for (const [id] of CHECKS) { if (MANUAL.includes(id)) continue; set(id, "idle", ""); delete results[id]; rows[id].querySelector(".ask").hidden = true; }
   // Sound must start inside the tap
   try {
     if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
@@ -623,12 +716,14 @@ async function runAll() {
     RAPIER = mod.default || mod; await RAPIER.init();
     set("rapier", "pass", `Rapier ${RAPIER.version ? RAPIER.version() : ""} ready in ${Math.round(performance.now() - t0)} ms`);
   });
-  if (!RAPIER) { set("stack", "fail", "Skipped: no physics engine"); set("walker", "fail", "Skipped: no physics engine"); }
+  if (!RAPIER) { for (const id of ["stack", "walker", "thru", "carry", "gravity"]) set(id, "fail", "Skipped: no physics engine"); }
   else {
+    await guard("thru", async () => { const r = thruTest(); set("thru", r.ok ? "pass" : "fail", r.detail); });
+    await guard("carry", async () => { const r = carryTest(); set("carry", r.ok ? "pass" : "fail", r.detail); });
+    await guard("gravity", async () => { const r = gravityTest(); set("gravity", r.ok ? "pass" : "fail", r.detail); });
     await guard("stack", async () => { const r = stackTest(); set("stack", r.ok ? "pass" : "fail", r.detail); });
     await guard("walker", async () => { const r = walkerTest(); set("walker", r.ok ? "pass" : "fail", r.detail); });
   }
-  await guard("momentum", async () => { const r = momentumTest(); set("momentum", r.ok ? "pass" : "fail", r.detail); });
   await guard("fx", async () => {
     const [ec, rp, ub, op, re] = await Promise.all([
       import("three/addons/postprocessing/EffectComposer.js"), import("three/addons/postprocessing/RenderPass.js"),
@@ -695,8 +790,71 @@ document.getElementById("runBtn").addEventListener("click", runAll);
   });
 }
 
+// sound in the background: the hum must stop the moment the page is hidden or minimised, and the audio clock must not run on
+{
+  const ask = rows.bg.querySelector(".ask"); ask.hidden = false;
+  ask.innerHTML = `<button class="yes" id="bgBtn">Start hum</button>`;
+  let hum = null, away = null, armed = false, silentEl = null;
+  const stopHum = () => { if (hum) { try { hum.g.gain.setTargetAtTime(0, actx.currentTime, 0.05); hum.os.forEach(o => o.stop(actx.currentTime + 0.3)); } catch (e) {} hum = null; } if (silentEl) { try { silentEl.pause(); } catch (e) {} } };
+  const hide = () => { if (!armed || away || !actx) return; away = { at: Date.now(), ct: actx.currentTime }; try { if (silentEl) silentEl.pause(); } catch (e) {} actx.suspend().catch(() => {}); };
+  const show = () => {
+    if (!armed || !away || document.hidden) return;
+    const a = away; away = null;
+    setTimeout(() => {
+      const secs = (Date.now() - a.at) / 1000, ran = actx.currentTime - a.ct, state = actx.state;
+      actx.resume().catch(() => {}); try { if (silentEl) silentEl.play().catch(() => {}); } catch (e) {}
+      if (secs < 1.5) { set("bg", "ask", `Away for only ${fmt(secs, 1)} s. Stay away for 3 seconds, then come back.`); return; }
+      armed = false;
+      if (ran > 0.4) { stopHum(); set("bg", "fail", `Away ${fmt(secs, 1)} s and the sound clock ran on for ${fmt(ran, 1)} s: audio kept playing in the background`); return; }
+      set("bg", "ask", `Away ${fmt(secs, 1)} s, sound clock stopped (ran ${fmt(ran, 2)} s, state "${state}"). Was it silent while you were away?`);
+      ask.hidden = false; ask.innerHTML = `<button class="yes">Yes, silent</button><button class="no">No, it kept playing</button>`;
+      ask.querySelector(".yes").onclick = () => { ask.hidden = true; stopHum(); set("bg", "pass", `Silent for ${fmt(secs, 1)} s in the background, back on return`); };
+      ask.querySelector(".no").onclick = () => { ask.hidden = true; stopHum(); set("bg", "fail", "The clock stopped but sound was still heard: tell Claude which app you switched to"); };
+    }, 350);
+  };
+  const sync = () => { if (document.hidden || document.visibilityState !== "visible") hide(); else show(); };
+  document.addEventListener("visibilitychange", sync); addEventListener("pagehide", hide); addEventListener("pageshow", sync);
+  document.addEventListener("freeze", hide); document.addEventListener("resume", sync); setInterval(sync, 500);
+  document.getElementById("bgBtn").addEventListener("click", () => {
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      actx.resume();
+      try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch (e) {}
+      if (!silentEl) {               // a silent looping clip keeps sound on with the Silent switch set, as in the game
+        const n = 800, buf = new ArrayBuffer(44 + n * 2), dv = new DataView(buf), w = (o, t) => { for (let i = 0; i < t.length; i++) dv.setUint8(o + i, t.charCodeAt(i)); };
+        w(0, "RIFF"); dv.setUint32(4, 36 + n * 2, true); w(8, "WAVEfmt "); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+        dv.setUint32(24, 8000, true); dv.setUint32(28, 16000, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true); w(36, "data"); dv.setUint32(40, n * 2, true);
+        silentEl = new Audio(URL.createObjectURL(new Blob([buf], { type: "audio/wav" }))); silentEl.loop = true; silentEl.volume = 0.01;
+      }
+      silentEl.play().catch(() => {});
+      stopHum();
+      const g = actx.createGain(); g.gain.value = 0; g.gain.setTargetAtTime(0.09, actx.currentTime, 0.2); g.connect(actx.destination);
+      const os = [146.83, 220, 293.66].map((f, i) => { const o = actx.createOscillator(); o.type = i ? "triangle" : "sine"; o.frequency.value = f; o.connect(g); o.start(); return o; });
+      hum = { g, os }; armed = true; away = null; delete results.bg; ask.hidden = true;
+      set("bg", "ask", "A hum is playing. Now switch to another app or the Home screen for 3 seconds, then come back.");
+    } catch (e) { set("bg", "fail", "Could not start sound: " + ((e && e.message) || e)); }
+  });
+  window.__labBg = { hide, show };
+}
+// controller: the game keeps its full stick and button mapping, so make sure this browser reports the pad
+{
+  const seen = { btn: false, stick: false };
+  setInterval(() => {
+    if (results.pad === "pass" || !navigator.getGamepads) return;
+    for (const gp of navigator.getGamepads()) {
+      if (!gp || !gp.connected) continue;
+      if (gp.buttons.some(b => b.pressed || b.value > 0.3)) seen.btn = true;
+      if (gp.axes.some(a => Math.abs(a) > 0.5)) seen.stick = true;
+      const name = gp.id.replace(/\s*\(.*$/, "").slice(0, 40);
+      if (seen.btn && seen.stick && gp.axes.length >= 4) set("pad", "pass", `${name}: ${gp.axes.length / 2 | 0} sticks, ${gp.buttons.length} buttons, both read`);
+      else set("pad", "ask", `${name} found. ${seen.btn ? "Button read." : "Press a button."} ${seen.stick ? "Stick read." : "Push a stick."}`);
+      return;
+    }
+  }, 120);
+}
+
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js").catch(() => {});
-window.__lab = { get results() { return results; }, runAll, rows };
+window.__lab = { get results() { return results; }, runAll, rows, tests: { thruTest, carryTest, gravityTest }, THREE, get RAPIER() { return RAPIER; }, makePortalFrame, portalMatrix };
 </script>
 <script src="lines.js"></script>
 </body>
