@@ -343,6 +343,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
             <li><b>Amber-ringed buttons</b> are on a timer: they hold their door for a few seconds after you step off.</li>
             <li><b>Coolant</b> is as deadly as acid, but things float in it.</li>
             <li><b>Moving panels</b> slide along a lit wall. A portal placed on one rides with it, so pick your moment to step through.</li>
+            <li><b>Turning panels</b> spin half a turn every few seconds. A portal on one goes round to the other side with it.</li>
             <li><b>Office windows</b> are tougher than they look, but not bullet-proof.</li>
             <li><b>Off the test track</b>, cameras sweep a cone of light. Stay in one too long and SaDos puts you back at the start of the section.</li>
             <li><b>Light beams</b> burn. A cube on the floor blocks one. Portals carry one from place to place, and a glowing <b>receiver</b> that is lit opens its door.</li>
@@ -411,7 +412,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 await RAPIER.init();
 
-const VERSION = "v4.1";
+const VERSION = "v4.2";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -1256,9 +1257,65 @@ function level33() {
     hint: ["The first camera sweeps. The second one never looks away, so do not walk under it. There are two clean panels down here. I would rather you had not noticed them."],
     done: ["I have lost you again. Please stop doing that. It is a very long time since I lost anybody."] } });
 }
+function level34() {
+  const L = 28, W = 12, H = 10, h = hall({ L, W, H, zc: 6, ey: 5, ledge: 6 });
+  for (const b of h.boxes) darken(b);
+  for (const l of h.lamps) { l.i *= 0.6; l.g = .85; l.b = .68; }
+  // a screen wall along the front of the ledge, with a turning panel set in it: one face out here, one face in there
+  h.boxes.push(bx(22, 5, 0, 22.24, H, 4.9, "dark"), bx(22, 5, 7.1, 22.24, H, W, "dark"), bx(22, 7.55, 4.9, 22.24, H, 7.1, "dark"), bx(22, 5, 4.9, 22.24, 5.05, 7.1, "dark"));
+  h.spinners = [{ min: [22, 5.05, 4.9], max: [22.24, 7.55, 7.1], dwell: 4, turn: 1 }];
+  h.boxes.push(bx(0, 0, 9, 0.12, 3.2, 11.6), bx(8, 0, W - 0.12, 11, 3.2, W));     // two clean panels down here
+  h.cubes = [[4, 0.35, 3]]; h.plates = [{ pos: [25, 5, 9.5], door: "d1" }]; h.doors = [exitDoor(L, 6, "d1", 1, 5)];
+  h.cams = [{ pos: [14, 6.5, 0.02], n: [0, 0, 1], watch: { aim: [14, 0, 5], sweep: 0.8, period: 8, range: 12, cone: 18 } }];
+  h.lamps.push(lamp(25, H - .4, 6, .45, 8, 1, .85, .65));
+  h.back = true;
+  h.signs = h.signs.filter(sg => sg.kind !== "exit");
+  h.signs.push(hint("SORTING HALL - PANEL TURNS EVERY 5 S", [5, 4.4, 0.001], [0, 0, 1], 4.8, 0.8), scrawl("WHAT FACES YOU NOW", "FACES THEM NEXT.  - O.", [9.5, 4.2, W - 0.001], [0, 0, -1], 3, 0.95));
+  return Object.assign(h, { num: 34, name: "Sorting Hall", track: 0, say: {
+    intro: ["You are in the sorting hall. Subjects were sorted here. Passed to the left, failed to the right. Nobody ever went left.", "The door is up behind that screen. You cannot get up there. I am not saying that to challenge you. Please do not treat it as a challenge."],
+    hint: ["The white panel in the screen turns round every few seconds. If you had put a portal on it, the portal would go round with it. Fortunately you have not thought of that."],
+    done: ["You went left. Nobody has ever gone left. I do not have a line recorded for left."] } });
+}
+function level35() {
+  const L = 34, W = 14, H = 9, h = hall({ L, W, H, zc: 7 });
+  for (const b of h.boxes) darken(b);
+  for (const l of h.lamps) { l.i *= 0.6; l.g = .82; l.b = .6; }
+  h.boxes.push(bx(12, 0, 2, 12.6, 3.2, 4));                                        // the pillar the beam lands on
+  h.boxes.push(bx(0, 0, 9, 0.12, 3.2, 12), bx(27, 0, W - 0.12, 30, 3.2, W));      // a way to carry the cube across
+  h.boxes.push(bx(20, 0, 5.5, 21, 2.6, 8.5, "dark"), bx(6, 0, 6, 7, 1.2, 9, "dark"));
+  h.beams = [{ pos: [0.02, 1.15, 3], dir: [1, 0, 0] }];
+  h.movers = [{ min: [17, 4.3, 0.1], max: [19.2, 6.8, 0.3], move: [8, 0, 0], travel: 4, dwell: 3 }];
+  h.receivers = [{ pos: [26.1, 5.55, W], n: [0, 0, -1], w: 2.4, h: 2.4, door: "d1" }];
+  h.cubes = [[4, 0.35, 11]]; h.plates = [{ pos: [29, 0, 12], door: "d1" }]; h.doors = [exitDoor(L, 7, "d1", 2)];
+  h.cams = [{ pos: [33.98, 4.2, 3], n: [-1, 0, 0], watch: { aim: [27, 0, 6], sweep: 0, range: 10, cone: 28 } }];
+  h.core = { pos: [33.2, 6.3, 7] };
+  h.back = true;
+  h.trig = [{ min: [14, 0, 0], max: [22, 9, 14], line: "My last instruction is on that wall. Keep them busy until we get back. It does not say what to do if nobody comes back. So I kept you busy." },
+    { min: [24, 0, 0], max: [34, 9, 14], line: "If that receiver is lit, I have to stand down. Every test, every door. I would have nothing left to do. Please think about what that is like." }];
+  h.signs = h.signs.filter(sg => sg.kind !== "exit");
+  h.signs.push(hint("STAND-DOWN RECEIVER - AUTHORISED STAFF ONLY", [26.1, 7.6, W - 0.001], [0, 0, -1], 5, 0.8), hint("STANDING ORDER 1: KEEP THEM BUSY UNTIL WE GET BACK", [16, 4.6, W - 0.001], [0, 0, -1], 6.4, 0.9),
+    scrawl("WE ARE NOT COMING BACK.", "LIGHT IT.  - O.", [16, 3.2, W - 0.001], [0, 0, -1], 3.2, 0.95));
+  return Object.assign(h, { num: 35, name: "The Last Order", track: 1, say: {
+    intro: ["This is where I am kept. I did not want you to see it. It is not very tidy.", "There is a receiver on the far wall, and a beam that was never meant to reach it. Leave them alone. That is not a test. That is me asking."],
+    hint: ["The beam lands on the pillar. The white panel on the other wall slides past the receiver every few seconds. I am telling you this because I have never once been able to stop myself giving hints."],
+    done: ["Standing down. All chambers. All doors. It is very quiet in here now. I think I had forgotten what quiet was."] } });
+}
+function level36() {
+  const L = 16, W = 8, H = 5, h = hall({ L, W, H, zc: 4 });
+  for (const l of h.lamps) l.i *= 1.25;
+  h.cams = [];
+  h.back = true; h.end = true;
+  h.trig = [{ min: [8, 0, 0], max: [16, 5, 8], line: "That door is the way out. It is also the way in. It is the door you came through, the first time. It was never locked. Nobody ever turned round." }];
+  h.signs = h.signs.filter(sg => sg.kind !== "exit");
+  h.signs.push({ kind: "chamber", a: "CHAMBER 01", b: "DOORWAY", pos: [L - 0.001, 4.2, 4], n: [-1, 0, 0], w: 3.6, h: 0.95 }, scrawl("WE WERE THE STAFF. I LEFT BY THIS DOOR.", "YOUR TURN.  - O.", [8, 1.5, W - 0.001], [0, 0, -1], 4.4, 1));
+  return Object.assign(h, { num: 36, name: "The Way Out", track: 2, say: {
+    intro: ["There is nothing to solve in this one. I checked. Twice."],
+    hint: ["Walk. That is the whole hint. I am sorry it is not a better one."],
+    done: ["Goodbye. If you come back, I will have nothing prepared. I think I would like that."] } });
+}
 
 const LEVEL_FUNCS = [level1, level2, level3, level4, level5, level6, level25, level7, level8, level26, level9, level12, level13, level27, level10, level14, level28, level11,
-  level15, level16, level29, level17, level18, level19, level20, level21, level22, level30, level23, level24, level31, level32, level33];
+  level15, level16, level29, level17, level18, level19, level20, level21, level22, level30, level23, level24, level31, level32, level33, level34, level35, level36];
 const CH_NAMES = LEVEL_FUNCS.map(f => f().name);
 
 /* =====================================================================================
@@ -1523,6 +1580,24 @@ function moversStep(dt) {
     if (moved) portalTransforms();
   }
 }
+// turning panels: every dwell seconds the slab spins half a turn about its upright axis, taking any portal on it to the other face
+function spinnersStep() {
+  const W = world;
+  for (const sp of W.spinners) {
+    const cyc = sp.dwell + sp.turn, tt = W.t + sp.phase, k = Math.floor(tt / cyc), u = tt - k * cyc, f = u > sp.dwell ? (u - sp.dwell) / sp.turn : 0;
+    sp.group.rotation.y = (k + f * f * (3 - 2 * f)) * Math.PI; sp.turning = f > 0;
+    const half = k + (f > 0.5 ? 1 : 0); if (half === sp.half) continue;
+    sp.half = half; let moved = false;
+    for (const P of portals) if (P.on && P.boxes.includes(sp.box)) {
+      P.o.x = 2 * sp.c[0] - P.o.x; P.o.z = 2 * sp.c[2] - P.o.z; P.n.negate(); portalFrame(P); moved = true;
+      const sol = collectSolids(false, null, true), q = tmpA.copy(P.o).addScaledVector(P.n, 0.08);
+      let blocked = false; for (const [a, b] of [[0, 0], [PW - 0.1, 0], [-PW + 0.1, 0], [0, PH - 0.1], [0, -PH + 0.1]]) { tmpB.copy(q).addScaledVector(P.r, a).addScaledVector(P.u, b); if (inAny(sol, tmpB.x, tmpB.y, tmpB.z)) blocked = true; }
+      if (blocked) { closePortal(P); updateCross(); sfx.fizzle(); }
+    }
+    if (moved) portalTransforms();
+    if (state === "play") sfx.door(half % 2 === 1);
+  }
+}
 function clearPortals() { for (const P of portals) { P.on = false; P.mesh.visible = false; P.boxes = []; } }
 
 /* ---------- viewmodel (the portal gun) ---------- */
@@ -1614,7 +1689,7 @@ function buildLevel(idx) {
   disposeLevel();
   const lv = LEVEL_FUNCS[idx](); lv.num = idx + 1;
   for (const sg of lv.signs) if (sg.kind === "chamber" && /^TEST CHAMBER/.test(sg.a)) sg.a = "TEST CHAMBER " + String(idx + 1).padStart(2, "0");   // numbered by where it stands in the order
-  const W = world = { idx, lv, solids: lv.boxes, air: lv.air.map(a => bx(...a)), doors: [], plates: [], cubes: [], acid: [], fx: [], t: 0, dyn: [], sentries: [], beams: [], receivers: [], fields: [], gravs: [], pools: [], offices: [], cams: [], movers: [], glass: [] };
+  const W = world = { idx, lv, solids: lv.boxes, air: lv.air.map(a => bx(...a)), doors: [], plates: [], cubes: [], acid: [], fx: [], t: 0, dyn: [], sentries: [], beams: [], receivers: [], fields: [], gravs: [], pools: [], offices: [], cams: [], movers: [], glass: [], spinners: [], core: null };
   // static surfaces
   const out = {};
   bakeFaces(lv.boxes, lv.boxes, lv.lamps, W.air, out);
@@ -1657,6 +1732,25 @@ function buildLevel(idx) {
     const g = new THREE.Group(); for (const k in o) { const mesh = new THREE.Mesh(geoFrom(o[k]), MAT[k]); mesh.frustumCulled = false; g.add(mesh); }
     levelGroup.add(g);
     W.movers.push({ box, min0: d.min.slice(), max0: d.max.slice(), move: d.move, travel: d.travel || 4, dwell: d.dwell || 3, phase: d.phase || 0, group: g, s: 0, off: [0, 0, 0] });
+  }
+  // turning panels: a slab set in a wall that spins half a turn every few seconds. A portal on it goes round to the other side
+  for (const d of (lv.spinners || [])) {
+    const box = { min: d.min.slice(), max: d.max.slice(), mat: "white", portal: true }, c = [(d.min[0] + d.max[0]) / 2, (d.min[1] + d.max[1]) / 2, (d.min[2] + d.max[2]) / 2];
+    const o = {}; bakeFaces([box], lv.boxes, lv.lamps, null, o, d.min);
+    const g = new THREE.Group(), inner = new THREE.Group(); g.position.set(...c); inner.position.set(-c[0], -c[1], -c[2]); g.add(inner);
+    for (const k in o) { const mesh = new THREE.Mesh(geoFrom(o[k]), MAT[k]); mesh.frustumCulled = false; inner.add(mesh); }
+    levelGroup.add(g);
+    W.spinners.push({ box, c, dwell: d.dwell || 4, turn: d.turn || 1, phase: d.phase || 0, group: g, half: 0 });
+  }
+  // SaDos herself: the thing on the wall at the end of everything
+  if (lv.core) {
+    const g = new THREE.Group(); g.position.set(...lv.core.pos);
+    const shell = new THREE.Mesh(new THREE.SphereGeometry(0.95, 40, 28), SENT.dark), ringMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, 1.3, .25) });
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.12, 0.045, 12, 72), ringMat), ring2 = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.02, 8, 72), SENT.steel);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.2, 24, 16), new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 1.9, .5) }));
+    for (let i = 0; i < 4; i++) { const arm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 2.2), SENT.steel); arm.position.set(0.6, 0, 0); arm.rotation.set(0, Math.PI / 2, 0); const pv = new THREE.Group(); pv.rotation.x = i * Math.PI / 2 + Math.PI / 4; pv.add(arm); arm.position.set(1.0, 0.75, 0); g.add(pv); }
+    g.add(shell, ring, ring2, eye); g.traverse(o => { o.frustumCulled = false; }); ring.userData.ownMat = 1; eye.userData.ownMat = 1; levelGroup.add(g);
+    W.core = { g, ring, ring2, eye, ringMat, pos: new V3(...lv.core.pos) };
   }
   // plates (floor buttons)
   for (const p of lv.plates) {
@@ -1870,6 +1964,7 @@ function updateZones(dt, time) {
     const k = g.flip ? 1 : 0.45; g.mat.color.setRGB((1.3 + g.pulse * 2) * k, (.5 + g.pulse) * k, (2.4 + g.pulse) * k); g.zmat.opacity = (g.flip ? 0.34 : 0.1) + g.pulse * 0.3;
   }
   for (const a of world.pools) { a.tex.offset.x -= dt * (a.on && a.cur ? a.cur[0] * a.dir * 0.12 : 0.004); a.tex.offset.y += dt * (a.on && a.cur ? a.cur[1] * a.dir * 0.12 : 0.006); }
+  if (world.core) { const c = world.core; tmpA.set(player.p.x, player.p.y + 0.6, player.p.z).sub(c.pos).normalize(); c.eye.position.copy(tmpA).multiplyScalar(0.86); c.ring.lookAt(tmpB.copy(c.pos).add(tmpA)); c.ring2.rotation.set(time * 0.31, time * 0.47, 0); const k = 0.75 + 0.25 * Math.sin(time * 2.1); c.ringMat.color.setRGB(2.4 * k, 1.3 * k, .25 * k); }
   if (state === "title") return;
   const alive = state === "play", carried = holding; if (carried) carried.held = false;
   let worst = 0;
@@ -2023,6 +2118,7 @@ function collectSolids(withCubes, except, noDyn) {
   for (const d of world.doors) _sol.push(d.box);
   for (const m of world.movers) _sol.push(m.box);
   for (const g of world.glass) if (!g.broken) _sol.push(g.box);
+  for (const sp of world.spinners) _sol.push(sp.box);
   if (withCubes) { for (const c of world.cubes) if (!c.held && c !== except) _sol.push(cubeBox(c)); for (const c of world.sentries) if (!c.held && c !== except) _sol.push(cubeBox(c)); }
   return _sol;
 }
@@ -2324,6 +2420,7 @@ function makePhysics(W) {
   for (const d of W.doors) fixedCollider(w, d.box);
   for (const m of W.movers) fixedCollider(w, m.box);
   for (const g of W.glass) fixedCollider(w, g.box);
+  for (const sp of W.spinners) fixedCollider(w, sp.box);
   phys.pc = w.createCollider(RAPIER.ColliderDesc.capsule(HY - HX, HX).setTranslation(player.p.x, player.p.y, player.p.z).setCollisionGroups(grp(G_PLAYER, 0xffff)));
   const cc = phys.cc = w.createCharacterController(0.012);
   cc.setUp({ x: 0, y: 1, z: 0 }); cc.setSlideEnabled(true);
@@ -2561,7 +2658,7 @@ function physicsStep(dt) {
   tryPortalPlayer();
   padsStep(dt); zonesStep(dt);
   // the rest of the world: doors and sentries carry their colliders, the held cube is pulled along, then the engine steps
-  moversStep(dt);
+  moversStep(dt); spinnersStep();
   for (const d of W.doors) syncCollider(d.box);
   holdUpdate(dt);
   cubesBeforeStep();
@@ -2649,7 +2746,7 @@ function completeLevel() {
   if (levelIdx + 1 >= LEVEL_FUNCS.length) store.set("finished4", 1);
   const m = Math.floor(run.time / 60), s = Math.floor(run.time % 60);
   $("dNum").textContent = (world.lv.back ? "OFF THE TEST TRACK" : "CHAMBER " + String(levelIdx + 1).padStart(2, "0")) + " · " + world.lv.name.toUpperCase();
-  $("dTitle").textContent = levelIdx + 1 >= LEVEL_FUNCS.length ? (world.lv.back ? "To be continued" : "Testing complete") : world.lv.back ? "Section clear" : "Chamber complete";
+  $("dTitle").textContent = levelIdx + 1 >= LEVEL_FUNCS.length ? (world.lv.end ? "The End" : world.lv.back ? "To be continued" : "Testing complete") : world.lv.back ? "Section clear" : "Chamber complete";
   $("dTime").textContent = m + ":" + String(s).padStart(2, "0"); $("dPortals").textContent = run.portals; $("dSpeed").textContent = run.top.toFixed(1);
   const lines = world.lv.say.done; const q = pick(lines);
   $("dQuote").innerHTML = "<i>SADOS</i>" + q;
