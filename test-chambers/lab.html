@@ -96,7 +96,7 @@ main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(330p
 <script type="module">
 import * as THREE from "three";
 
-const LAB_VERSION = "Lab v0.4";
+const LAB_VERSION = "Lab v0.5";
 document.getElementById("ver").textContent = LAB_VERSION;
 
 // ---------- check rows ----------
@@ -152,10 +152,32 @@ async function guard(id, fn) {
 }
 
 // ---------- renderer ----------
-const canvas = document.getElementById("gl");
+let canvas = document.getElementById("gl");
 let renderer = null;
+// Safari sometimes refuses a WebGL context for one set of options and accepts another, so try several, each on a fresh canvas,
+// and keep what each attempt said so a failure can be explained.
+let glLog = [];
+function freshCanvas() { const c = document.createElement("canvas"); c.id = "gl"; canvas.replaceWith(c); canvas = c; return c; }
 function makeRenderer() {
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: "high-performance" });
+  const tries = [
+    ["high-performance, no antialias", { antialias: false, powerPreference: "high-performance" }],
+    ["default power, no antialias", { antialias: false }],
+    ["bare minimum", { antialias: false, alpha: false, depth: true, stencil: false, powerPreference: "default" }],
+  ];
+  glLog = [];
+  for (const [name, attrs] of tries) {
+    const c = freshCanvas();
+    try {
+      renderer = new THREE.WebGLRenderer({ canvas: c, ...attrs });
+      glLog.push(name + ": ok"); break;
+    } catch (e) { renderer = null; glLog.push(name + ": " + ((e && e.message) || e)); }
+  }
+  if (!renderer) {
+    const raw = {};
+    for (const t of ["webgl2", "webgl", "experimental-webgl"]) { try { raw[t] = document.createElement("canvas").getContext(t) ? "context ok" : "null"; } catch (e) { raw[t] = "threw " + e.message; } }
+    const ua = navigator.userAgent.match(/(OS|Version)[ \/]([\d_.]+)/), standalone = navigator.standalone || matchMedia("(display-mode: standalone)").matches;
+    throw new Error(`Safari would not give a graphics context. ${glLog.join(" | ")} · raw: webgl2 ${raw.webgl2}, webgl ${raw.webgl}${raw["experimental-webgl"] !== "null" ? "" : ""} · iPadOS ${ua ? ua[2].replace(/_/g, ".") : "?"} · ${standalone ? "home-screen app" : "Safari tab"} · ${Math.round(innerWidth)}×${Math.round(innerHeight)} at ${devicePixelRatio}×`);
+  }
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 0.85;
@@ -708,7 +730,7 @@ async function runAll() {
     const gl = renderer.getContext(), c = renderer.capabilities;
     if (!c.isWebGL2) throw new Error("This browser only offers WebGL 1");
     const half = !!gl.getExtension("EXT_color_buffer_half_float") || !!gl.getExtension("EXT_color_buffer_float");
-    set("webgl", half ? "pass" : "warn", `Max texture ${c.maxTextureSize} px · MSAA ×${c.maxSamples} · HDR targets: ${half ? "yes" : "no"} · ${gl.getParameter(gl.VERSION)}`);
+    set("webgl", half ? "pass" : "warn", `Max texture ${c.maxTextureSize} px · MSAA ×${c.maxSamples} · HDR targets: ${half ? "yes" : "no"} · ${gl.getParameter(gl.VERSION)}${glLog.length > 1 ? " · needed: " + glLog.filter(l => l.endsWith("ok")).join("") : ""}`);
   });
   await guard("rapier", async () => {
     const t0 = performance.now();
