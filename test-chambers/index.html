@@ -353,7 +353,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
             <li><b>Speed</b>: put one portal on the floor and one on the ceiling straight above it, then step into the floor one. You fall through again and again, and the speed meter climbs. The second portal snaps into line with the first to help.</li>
             <li><b>Fling</b>: when you are fast, swap the ceiling portal for one on a far wall. You leave it at full speed, and cross gaps no jump could.</li>
             <li><b>Portals stay</b> until you fire again or cross a reset field. Fire them while you fall too.</li>
-            <li><b>Stuck?</b> Restart the chamber with the arrow button. Nothing is lost.</li></ul></div>
+            <li><b>Chambers have several rooms.</b> Each door between them is a checkpoint: the arrow button (or <kbd>R</kbd>) restarts the room you are in, and Play carries on from it next time.</li></ul></div>
         </div>
       </div>
       <button class="btn" id="bHowBack" type="button" style="margin-top:14px">&lsaquo; Back</button>
@@ -412,7 +412,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 await RAPIER.init();
 
-const VERSION = "v4.2";
+const VERSION = "v4.3";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -692,6 +692,8 @@ function level3() {
   B.push(bx(-2, -6, -2, 36, 19, 0)); B.push(bx(-2, -6, 12, 36, 19, 14)); B.push(bx(-2, -6, 0, 0, 19, 12)); B.push(bx(-2, 17, 0, 30, 19, 12));
   alcove(B, 30, 0, 12, 6, 3, 0, 3.2, 4, -6, 19);
   B.push(bx(0, 13, 0, 9, 14, 3.5));
+  darken(B.find(b => b.min[0] === 18 && b.max[1] === 0));                       // past the pit nothing takes a portal: the fall is the way across
+  B.push(skin(10, -4, 0, 30, 17, 0.1), skin(10, -4, 11.9, 30, 17, 12), skin(10, 16.9, 0, 30, 17, 12), skin(10, -4, 0, 10.1, 0, 12), skin(17.9, -4, 0, 18, 0, 12));
   return {
     num: 3, name: "Freefall", boxes: B, track: 2,
     air: [[0, 0, 0, 30, 17, 12], [10, -4, 0, 18, 0, 12], [30, 0, 4.5, 34, 3.2, 7.5]],
@@ -702,7 +704,7 @@ function level3() {
     exit: { min: [32, 0, 4.8], max: [34, 2.4, 7.2] }, exitLight: { x: 33.97, y0: .4, y1: 2.8, z0: 4.9, z1: 7.1 },
     doors: [], plates: [], cubes: [],
     signs: [
-      { kind: "chamber", a: "TEST CHAMBER 03", b: "FREEFALL", pos: [15, 9.5, 0], n: [0, 0, 1], w: 5.2, h: 1.3 },
+      { kind: "chamber", a: "TEST CHAMBER 03", b: "FREEFALL", pos: [15, 9.5, 0.11], n: [0, 0, 1], w: 5.2, h: 1.3 },
       { kind: "hint", a: "WHAT GOES IN AT SPEED COMES OUT AT SPEED", pos: [0, 6.4, 8.5], n: [1, 0, 0], w: 4.8, h: 1.2 },
       { kind: "exit", a: "EXIT", pos: [30, 4.4, 6], n: [-1, 0, 0], w: 2.2, h: .75 }
     ],
@@ -718,6 +720,8 @@ function level4() {
   B.push(bx(-2, -4, -2, 16, 0, 10)); B.push(bx(0, 0, 0, 3, 8, 8)); B.push(bx(7, 0, 0, 14, 3, 8)); B.push(bx(10, 9, 0, 14, 10, 8));
   B.push(bx(-2, -6, -2, 20, 18, 0)); B.push(bx(-2, -6, 8, 20, 18, 10)); B.push(bx(-2, -6, 0, 0, 18, 8)); B.push(bx(-2, 16, 0, 14, 18, 8));
   alcove(B, 14, 0, 8, 4, 3, 10, 3.2, 4, -6, 18);
+  darken(B.find(b => b.min[1] === 9 && b.max[1] === 10));                          // nothing by the exit takes a portal: you have to arrive from below
+  B.push(skin(9, 3, 0, 14, 16, 0.1), skin(9, 3, 7.9, 14, 16, 8), skin(9, 15.9, 0, 14, 16, 8));
   return {
     num: 4, name: "Lift", boxes: B, track: 0,
     air: [[0, 0, 0, 14, 16, 8], [3, 0, 0, 14, 16, 8], [14, 10, 2.5, 18, 13.2, 5.5]],
@@ -745,6 +749,8 @@ function level5() {
   B.push(bx(-2, -6, -2, 38, 19, 0)); B.push(bx(-2, -6, 12, 38, 19, 14)); B.push(bx(-2, -6, 0, 0, 19, 12)); B.push(bx(-2, 17, 0, 32, 19, 12));
   alcove(B, 32, 0, 12, 6, 3, 0, 3.2, 4, -6, 19);
   B.push(bx(0, 13, 0, 9, 14, 3.5));
+  darken(B.find(b => b.min[0] === 18 && b.max[1] === 0));                       // past the pit nothing takes a portal: the fall is the way across
+  B.push(skin(10, -4, 0, 32, 17, 0.1), skin(10, -4, 11.9, 32, 17, 12), skin(10, 16.9, 0, 32, 17, 12), skin(10, -4, 0, 10.1, 0, 12), skin(17.9, -4, 0, 18, 0, 12));
   return {
     num: 5, name: "Special Delivery", boxes: B, track: 1,
     air: [[0, 0, 0, 32, 17, 12], [10, -4, 0, 18, 0, 12], [32, 0, 4.5, 36, 3.2, 7.5]],
@@ -757,14 +763,14 @@ function level5() {
     plates: [{ pos: [26, 0, 6], door: "d1" }],
     cubes: [[6.6, 14.35, 1.8]],
     signs: [
-      { kind: "chamber", a: "TEST CHAMBER 05", b: "SPECIAL DELIVERY", pos: [16, 9.5, 0], n: [0, 0, 1], w: 5.8, h: 1.3 },
+      { kind: "chamber", a: "TEST CHAMBER 05", b: "SPECIAL DELIVERY", pos: [16, 9.5, 0.11], n: [0, 0, 1], w: 5.8, h: 1.3 },
       { kind: "hint", a: "THE CUBE IS COMING WITH YOU", pos: [0, 6.4, 8.5], n: [1, 0, 0], w: 4.6, h: 1.0 },
       { kind: "exit", a: "EXIT", pos: [32, 4.4, 6], n: [-1, 0, 0], w: 2.2, h: .75 }
     ],
     say: {
       intro: ["Bring the cube. Do not lose the cube. You will lose the cube.", "The button is over there. You are over here. This is the whole test."],
       hint: ["You can hold the cube while you fall. Put it down on the round button, and the door will open. I would applaud, but I am a ceiling."],
-      done: ["Five chambers done. I would tell you how many are left, but it would only discourage you."]
+      done: ["Two chambers done. I would tell you how many are left, but it would only discourage you."]
     }
   };
 }
@@ -916,7 +922,7 @@ function level12() {
     say: {
       intro: ["This chamber uses everything so far: the cube, the light, the field, and the sentries, who have been waiting.", "I would wish you luck. I would also be lying, and I only do that when I have to."],
       hint: ["The door needs both the plate and the receiver. The light and the cube must cross the wall separately. Think about what the portals can carry, and when."],
-      done: ["Twelve chambers. That was the easy half. I did not mention there was another half. I am mentioning it now."]
+      done: ["That was the easy part. I did not mention there was a hard part. I am mentioning it now."]
     }
   });
 }
@@ -1314,9 +1320,17 @@ function level36() {
     done: ["Goodbye. If you come back, I will have nothing prepared. I think I would like that."] } });
 }
 
-const LEVEL_FUNCS = [level1, level2, level3, level4, level5, level6, level25, level7, level8, level26, level9, level12, level13, level27, level10, level14, level28, level11,
-  level15, level16, level29, level17, level18, level19, level20, level21, level22, level30, level23, level24, level31, level32, level33, level34, level35, level36];
-const CH_NAMES = LEVEL_FUNCS.map(f => f().name);
+// A chamber is a run of rooms with a checkpoint at each door between them: clearing a room takes you straight into the next,
+// and the results card comes after the last. LEVEL_FUNCS stays the flat list of rooms (bots and saves use room indexes).
+const CHAMBERS = [
+  ["Orientation", level1, level2, level3], ["Up And Over", level4, level5], ["Guard Duty", level6, level25], ["Light And Field", level7, level8],
+  ["Cover", level26, level9], ["The Last Word", level27, level10, level12], ["Air Mail", level13, level14], ["Upside Down", level28, level11],
+  ["Leaps", level15, level16], ["Timing", level29, level17], ["Fields", level18, level19], ["Second Wind", level20, level21],
+  ["Disposal", level22, level30], ["Final Exam", level23, level24], ["Out Of Order", level31, level32], ["Behind The Walls", level33, level34], ["The Last Order", level35, level36]
+];
+const LEVEL_FUNCS = [], ROOM = [], FIRST = [];
+CHAMBERS.forEach(([name, ...fns], c) => { FIRST.push(LEVEL_FUNCS.length); fns.forEach((f, k) => { ROOM.push({ c, part: k, parts: fns.length }); LEVEL_FUNCS.push(f); }); });
+const ROOM_NAMES = LEVEL_FUNCS.map(f => f().name), CH_NAMES = CHAMBERS.map(c => c[0]);
 
 /* =====================================================================================
    Renderer, scene, portals
@@ -1687,8 +1701,8 @@ function disposeLevel() {
 }
 function buildLevel(idx) {
   disposeLevel();
-  const lv = LEVEL_FUNCS[idx](); lv.num = idx + 1;
-  for (const sg of lv.signs) if (sg.kind === "chamber" && /^TEST CHAMBER/.test(sg.a)) sg.a = "TEST CHAMBER " + String(idx + 1).padStart(2, "0");   // numbered by where it stands in the order
+  const lv = LEVEL_FUNCS[idx](); lv.num = ROOM[idx].c + 1;
+  for (const sg of lv.signs) if (sg.kind === "chamber" && /^TEST CHAMBER/.test(sg.a)) sg.a = "TEST CHAMBER " + String(lv.num).padStart(2, "0");   // numbered by the chamber it belongs to
   const W = world = { idx, lv, solids: lv.boxes, air: lv.air.map(a => bx(...a)), doors: [], plates: [], cubes: [], acid: [], fx: [], t: 0, dyn: [], sentries: [], beams: [], receivers: [], fields: [], gravs: [], pools: [], offices: [], cams: [], movers: [], glass: [], spinners: [], core: null };
   // static surfaces
   const out = {};
@@ -2728,7 +2742,8 @@ function resetLevelState() {
 function startLevel(idx, quiet) {
   removeCubes(); disposeLevel();
   levelIdx = idx; buildLevel(idx); resetLevelState(); respawn();
-  $("chNum").textContent = world.lv.back ? "OFF THE TEST TRACK" : "CHAMBER " + String(idx + 1).padStart(2, "0"); $("chTitle").textContent = world.lv.name;
+  if (carry) { run.time = carry.time; run.portals = carry.portals; run.top = carry.top; carry = null; }      // a later room of the same chamber: the clock runs on
+  { const R = ROOM[idx]; $("chNum").textContent = (world.lv.back ? "OFF THE TEST TRACK" : "CHAMBER " + String(R.c + 1).padStart(2, "0")) + (R.parts > 1 ? " · PART " + (R.part + 1) + " OF " + R.parts : ""); $("chTitle").textContent = world.lv.name; }
   Music.set(world.lv.track); Music.kick(); setVoiceRoom(roomSize());
   preloadVoice([...(world.lv.say.intro || []), ...(world.lv.say.hint || []), ...(world.lv.say.done || [])]);
   state = "play";
@@ -2739,18 +2754,30 @@ function startLevel(idx, quiet) {
     say(pads.length ? "tipPad" : mouseMode ? "tipTrack" : isTouch ? "tipTouch" : "tipKeys");
   }, 15000);
 }
+let carry = null;
+const resumeRoom = () => { const pr = Math.min(store.get("progress5", 0), CHAMBERS.length - 1), r = store.get("room", -1); return r >= 0 && r < LEVEL_FUNCS.length && ROOM[r].c <= pr ? r : FIRST[pr]; };
+// through the door into the next room of the same chamber: a checkpoint, no results card
+function nextPart() {
+  const R = ROOM[levelIdx], line = pick(world.lv.say.done), i = levelIdx + 1;
+  carry = { time: run.time, portals: run.portals, top: run.top };
+  sfx.complete(); if (holding) dropCube(true); sadosShutUp(); store.set("room", i);
+  startLevel(i, true); flash("g"); toast("Checkpoint · part " + (R.part + 2) + " of " + R.parts);
+  say("done", line); setTimeout(() => { if (state === "play" && levelIdx === i) say("intro"); }, 900);
+}
 function completeLevel() {
   if (state !== "play") return;
+  if (ROOM[levelIdx].part < ROOM[levelIdx].parts - 1 && !window.__tcSolo) { nextPart(); return; }
   state = "done"; sfx.complete(); if (holding) dropCube();
-  const next = Math.max(store.get("progress4", 0), levelIdx + 1); store.set("progress4", Math.min(next, LEVEL_FUNCS.length - 1));
-  if (levelIdx + 1 >= LEVEL_FUNCS.length) store.set("finished4", 1);
+  const CH = ROOM[levelIdx].c, lastCh = CH + 1 >= CHAMBERS.length;
+  store.set("progress5", Math.min(Math.max(store.get("progress5", 0), CH + 1), CHAMBERS.length - 1)); store.set("room", lastCh ? FIRST[CH] : FIRST[CH + 1]);
+  if (lastCh) store.set("finished5", 1);
   const m = Math.floor(run.time / 60), s = Math.floor(run.time % 60);
-  $("dNum").textContent = (world.lv.back ? "OFF THE TEST TRACK" : "CHAMBER " + String(levelIdx + 1).padStart(2, "0")) + " · " + world.lv.name.toUpperCase();
-  $("dTitle").textContent = levelIdx + 1 >= LEVEL_FUNCS.length ? (world.lv.end ? "The End" : world.lv.back ? "To be continued" : "Testing complete") : world.lv.back ? "Section clear" : "Chamber complete";
+  $("dNum").textContent = (world.lv.back ? "OFF THE TEST TRACK" : "CHAMBER " + String(CH + 1).padStart(2, "0")) + " · " + CH_NAMES[CH].toUpperCase();
+  $("dTitle").textContent = lastCh ? (world.lv.end ? "The End" : world.lv.back ? "To be continued" : "Testing complete") : world.lv.back ? "Section clear" : "Chamber complete";
   $("dTime").textContent = m + ":" + String(s).padStart(2, "0"); $("dPortals").textContent = run.portals; $("dSpeed").textContent = run.top.toFixed(1);
   const lines = world.lv.say.done; const q = pick(lines);
   $("dQuote").innerHTML = "<i>SADOS</i>" + q;
-  $("bNext").hidden = levelIdx + 1 >= LEVEL_FUNCS.length;
+  $("bNext").hidden = lastCh;
   setTimeout(() => { if (state === "done") { showOv("ovDone"); say("done", q); } }, 700);
 }
 
@@ -3060,13 +3087,13 @@ function unlockPointer() { try { if (document.pointerLockElement) document.exitP
 
 /* ---------- hover hints: every button says what it does when the pointer rests on it ---------- */
 const TIPS = {
-  bGuide: "How to play (H)", bRestart: "Restart this chamber (R)", bFull: "Full screen on or off (F)", bPause: "Pause (Esc)",
+  bGuide: "How to play (H)", bRestart: "Restart from the last checkpoint (R)", bFull: "Full screen on or off (F)", bPause: "Pause (Esc)",
   bPlay: "Start, or carry on from the last chamber you reached", bChambers: "Choose any chamber you have reached", bOptions: "Sound, look speed, picture quality, progress", bHow: "Controls, and everything you will meet",
   bChBack: "Back to where you were", bOptBack: "Back to where you were", bHowBack: "Back to where you were",
   oMusic: "Music on or off", oSfx: "Sound effects on or off", oVoice: "SaDos and the sentries speak, or only subtitles", oSens: "How fast the view turns", oInvert: "Push up to look down",
   oScroll: "Which way a two-finger swipe walks", oQuality: "Auto adjusts to keep the game smooth; High is sharper; Low is fastest", oFull: "Full screen on or off", oReset: "Lock the chambers again and start over (asks first)",
-  bResume: "Back to the chamber (Esc)", bRetry: "Start this chamber again", bPauseGuide: "Controls, and everything you will meet", bPauseOpt: "Sound, look speed, picture quality", bPauseCh: "Choose any chamber you have reached", bPauseMenu: "Leave the chamber and go to the title",
-  bNext: "On to the next chamber (Return)", bAgain: "Play this chamber once more", bDoneMenu: "Go to the title", bResetYes: "Erase progress. This cannot be undone", bResetNo: "Change nothing",
+  bResume: "Back to the chamber (Esc)", bRetry: "Start again from the last checkpoint", bPauseGuide: "Controls, and everything you will meet", bPauseOpt: "Sound, look speed, picture quality", bPauseCh: "Choose any chamber you have reached", bPauseMenu: "Leave the chamber and go to the title",
+  bNext: "On to the next chamber (Return)", bAgain: "Play this chamber again from its first room", bDoneMenu: "Go to the title", bResetYes: "Erase progress. This cannot be undone", bResetNo: "Change nothing",
   tBlue: "Fire the blue portal", tOrange: "Fire the orange portal", tJump: "Jump", tUse: "Pick up or put down a cube or sentry"
 };
 for (const id in TIPS) { const el = $(id); if (el) { el.dataset.tip = TIPS[id]; el.removeAttribute("title"); } }
@@ -3084,15 +3111,15 @@ document.addEventListener("pointerdown", hideTip, true); addEventListener("blur"
 
 /* ---------- state transitions ---------- */
 function goTitle() {
-  sadosShutUp(); unlockPointer(); startLevel(Math.min(store.get("progress4", 0), LEVEL_FUNCS.length - 1), true);
+  sadosShutUp(); unlockPointer(); startLevel(resumeRoom(), true);
   state = "title"; showOv("ovTitle"); $("hud").hidden = true; refreshTitle();
 }
 function refreshTitle() {
-  const pr = store.get("progress4", 0);
-  $("playSub").textContent = pr > 0 ? "Continue at chamber " + String(pr + 1).padStart(2, "0") : "Start with chamber 01";
+  const r = resumeRoom(), R = ROOM[r];
+  $("playSub").textContent = r > 0 ? "Continue at chamber " + String(R.c + 1).padStart(2, "0") + (R.part ? ", part " + (R.part + 1) : "") : "Start with chamber 01";
 }
 function beginLevel(i, quiet) {
-  ensureAudio(); sadosShutUp(); hideOv(); startLevel(i, quiet); $("hud").hidden = false; if (window.__pillFit) __pillFit(); showOv(null); syncTouch(); lockPointer();
+  ensureAudio(); sadosShutUp(); hideOv(); store.set("room", i); startLevel(i, quiet); $("hud").hidden = false; if (window.__pillFit) __pillFit(); showOv(null); syncTouch(); lockPointer();
   if (i === 0 && !store.get("taught", 0)) { store.set("taught", 1); toast(isTouch ? "Left thumb walks · right thumb looks · BLUE / ORANGE fire portals" : "WASD walk · mouse looks · click = blue · right click = orange"); }
 }
 function pause() {
@@ -3102,17 +3129,17 @@ function pause() {
 function resume() { if (state !== "paused") return; hideOv(); state = "play"; syncTouch(); lockPointer(); }
 
 function buildChambers() {
-  const g = $("chGrid"), pr = store.get("progress4", 0); g.innerHTML = "";
-  LEVEL_FUNCS.forEach((f, i) => {
-    const b = document.createElement("button"); b.type = "button"; b.className = "chbtn" + (i === levelIdx && state !== "title" ? " cur" : "");
-    b.innerHTML = "<b>" + String(i + 1).padStart(2, "0") + "</b><span>" + (i <= pr ? CH_NAMES[i] : "Locked") + "</span>";
-    b.dataset.tip = i <= pr ? "Play chamber " + (i + 1) + ": " + CH_NAMES[i] : "Locked: finish chamber " + i + " first";
-    if (i > pr) b.disabled = true; else b.addEventListener("click", () => beginLevel(i));
+  const g = $("chGrid"), pr = store.get("progress5", 0); g.innerHTML = "";
+  CHAMBERS.forEach((ch, c) => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "chbtn" + (c === ROOM[levelIdx].c && state !== "title" ? " cur" : "");
+    b.innerHTML = "<b>" + String(c + 1).padStart(2, "0") + "</b><span>" + (c <= pr ? CH_NAMES[c] : "Locked") + "</span>";
+    b.dataset.tip = c <= pr ? "Play chamber " + (c + 1) + ": " + ROOM_NAMES.slice(FIRST[c], FIRST[c] + ch.length - 1).join(", then ") : "Locked: finish chamber " + c + " first";
+    if (c > pr) b.disabled = true; else b.addEventListener("click", () => beginLevel(FIRST[c]));
     g.appendChild(b);
   });
 }
 const click = (id, fn) => $(id).addEventListener("click", e => { ensureAudio(); fn(e); });
-click("bPlay", () => beginLevel(Math.min(store.get("progress4", 0), LEVEL_FUNCS.length - 1)));
+click("bPlay", () => beginLevel(resumeRoom()));
 click("bChambers", () => { chFrom = "ovTitle"; buildChambers(); showOv("ovChambers"); });
 click("bChBack", () => showOv(chFrom));
 click("bOptions", () => { optsFrom = "ovTitle"; syncOpts(); showOv("ovOptions"); });
@@ -3132,16 +3159,16 @@ click("bRetry", () => { hideOv(); beginLevel(levelIdx, true); });
 click("bPauseOpt", () => { optsFrom = "ovPause"; syncOpts(); showOv("ovOptions"); });
 click("bPauseCh", () => { chFrom = "ovPause"; buildChambers(); showOv("ovChambers"); });
 click("bPauseMenu", () => { goTitle(); });
-click("bNext", () => beginLevel(levelIdx + 1));
-click("bAgain", () => beginLevel(levelIdx, true));
+click("bNext", () => beginLevel(FIRST[ROOM[levelIdx].c + 1]));
+click("bAgain", () => beginLevel(FIRST[ROOM[levelIdx].c], true));
 click("bDoneMenu", () => goTitle());
 click("bRestart", () => { if (state === "play") beginLevel(levelIdx, true); });
 click("bPause", pause);
 click("bFull", toggleFull); click("oFull", toggleFull);
 click("oReset", () => showOv("ovReset"));
 click("bResetNo", () => { syncOpts(); showOv("ovOptions"); });
-click("bResetYes", () => { for (const k of ["progress4", "finished4", "tipDone", "saidFirst", "taught"]) { try { localStorage.removeItem("testchambers." + k); } catch (e) {} } optsFrom = "ovTitle"; goTitle(); toast("Progress reset"); });
-if (store.get("progress4", null) === null) store.set("progress4", Math.min(store.get("progress3", 0), LEVEL_FUNCS.length - 1));     // the order changed in v4.1: keep how far you had got
+click("bResetYes", () => { for (const k of ["progress5", "finished5", "room", "tipDone", "saidFirst", "taught"]) { try { localStorage.removeItem("testchambers." + k); } catch (e) {} } optsFrom = "ovTitle"; goTitle(); toast("Progress reset"); });
+if (store.get("progress5", null) === null) store.set("progress5", Math.min(Math.floor(store.get("progress4", 0) / 2), CHAMBERS.length - 1));     // v4.3 groups rooms into chambers: keep roughly how far you had got
 function syncOpts() {
   const on = (id, v) => { const b = $(id); b.textContent = v ? "On" : "Off"; b.classList.toggle("on", !!v); };
   on("oMusic", opts.music); on("oSfx", opts.sfx); on("oVoice", opts.voice); on("oInvert", opts.invert); { const b = $("oScroll"); b.textContent = opts.scrollInv ? "Back" : "Forward"; b.classList.toggle("on", !!opts.scrollInv); }
@@ -3695,12 +3722,12 @@ function boot() {
   resize(); applyQuality();
   addEventListener("resize", () => resize()); addEventListener("orientationchange", () => setTimeout(resize, 200));
   if (window.visualViewport) visualViewport.addEventListener("resize", () => setTimeout(resize, 50));
-  startLevel(Math.min(store.get("progress4", 0), LEVEL_FUNCS.length - 1), true); state = "title";
+  startLevel(resumeRoom(), true); state = "title";
   showOv("ovTitle"); $("hud").hidden = true; refreshTitle(); syncOpts();
   $("loading").hidden = true;
   requestAnimationFrame(frame);
 }
-window.__tc = { hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: CH_NAMES, allLines: () => ({ LINES, levels: LEVEL_FUNCS.map(f => f().say), quips: SENTRY_QUIPS }), lineHash, get state() { return state; }, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
+window.__tc = { hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, levels: LEVEL_FUNCS.map(f => f().say), quips: SENTRY_QUIPS }), lineHash, get state() { return state; }, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
 try { boot(); } catch (err) { console.error(err); $("loading").hidden = false; $("loading").innerHTML = '<div style="max-width:420px;text-align:center;line-height:1.6;font-size:13px;letter-spacing:.05em">Something went wrong starting the game.<br><small>' + String(err && err.message || err) + "</small></div>"; }
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>
