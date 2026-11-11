@@ -141,6 +141,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
 .grid5 { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; margin-top: 10px; }
 #ovChambers .card { width: min(880px, 100%); overflow-y: auto; }
 #ovChambers .chbtn { padding: 10px 12px; } #ovChambers .chbtn b { font-size: 22px; } #ovChambers .chbtn span { font-size: 10.5px; letter-spacing: .1em; }
+@media (max-height: 560px) { #ovChambers .card { width: min(980px, 100%); } #chGrid { grid-template-columns: repeat(7, 1fr) !important; gap: 6px !important; } #ovChambers .chbtn { padding: 6px 8px; } #ovChambers .chbtn b { font-size: 17px; } #ovChambers .chbtn span { font-size: 8.5px; letter-spacing: .06em; } }
 .chbtn { text-align: left; padding: 14px; border: 1px solid rgba(255,255,255,.28); border-radius: 3px; background: rgba(255,255,255,.05); color: var(--ink); cursor: pointer; font-family: var(--font); }
 .chbtn b { display: block; font-size: 30px; font-weight: 800; letter-spacing: .04em; }
 .chbtn span { display: block; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); margin-top: 4px; font-weight: 700; }
@@ -356,6 +357,11 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
             <li><b>Moving panels</b> slide along a lit wall. A portal placed on one rides with it, so pick your moment to step through.</li>
             <li><b>Turning panels</b> spin half a turn every few seconds. A portal on one goes round to the other side with it.</li>
             <li><b>Office windows</b> are tougher than they look, but not bullet-proof.</li>
+            <li><b>Light walkways</b> are solid: walk on them. <b>Carrier streams</b> lift whatever steps in and carry it along; walk sideways to step out. Both go through portals.</li>
+            <li><b>Pastes</b> drip from nozzles and fall through portals. <b>Green</b> bounces you, <b>pink</b> makes you fast, and white <b>primer</b> makes a dark panel take portals.</li>
+            <li>A <b>prism crate</b> sends a light beam out of its lens, which points where you were looking when you put it down.</li>
+            <li><b>Sparks</b> fly straight and bounce. Send one into a <b>socket</b> to open its door. They sting.</li>
+            <li><b>Presses</b> flatten anything under them as they fall. <b>Wall switches</b> are pressed with GRAB and run on a timer. <b>Slow buttons</b> need weight for a few seconds before they count.</li>
             <li><b>Cameras</b> hang on walls. Open a portal on the wall one hangs from and it falls off and goes dark. Bring down every camera in a chamber for the <b>Lens Cap</b> award, and every camera in the game for <b>Blind Spot</b>.</li>
             <li><b>Off the test track</b>, cameras sweep a cone of light. Stay in one too long and SaDos puts you back at the start of the section.</li>
             <li><b>Light beams</b> burn. A cube on the floor blocks one. Portals carry one from place to place, and a glowing <b>receiver</b> that is lit opens its door.</li>
@@ -440,7 +446,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 await RAPIER.init();
 
-const VERSION = "v4.5";
+const VERSION = "v5.0";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -1380,17 +1386,147 @@ function level36() {
     done: ["Goodbye. If you come back, I will have nothing prepared. I think I would like that."] } });
 }
 
+// ---- v5.0 rooms: one for each new mechanic, then the antechamber where SaDos argues back ----
+// nothing from x0 on takes a portal: side walls, ceiling, end wall round the exit (raised by ey) and, from floorFrom, the floor
+function farDark(h, x0, L, W, H, zc, floorFrom, ey = 0) {
+  h.boxes.push(skin(x0, 0, 0, L, H, 0.1), skin(x0, 0, W - 0.1, L, H, W), skin(x0, H - 0.1, 0, L, H, W),
+    skin(L - 0.1, 0, 0, L, H, zc - 1.5), skin(L - 0.1, 0, zc + 1.5, L, H, W), skin(L - 0.1, ey + 3.2, zc - 1.5, L, H, zc + 1.5));
+  if (ey > 0) h.boxes.push(skin(L - 0.1, 0, zc - 1.5, L, ey, zc + 1.5));
+  if (floorFrom !== undefined) h.boxes.push(skin(floorFrom, 0, 0, L, 0.02, W));
+  h.boxes.push(skin(L, ey, zc - 1.5, L + 4, ey + 0.02, zc + 1.5), skin(L, ey, zc - 1.5, L + 4, ey + 3.2, zc - 1.48), skin(L, ey, zc + 1.48, L + 4, ey + 3.2, zc + 1.5), skin(L, ey + 3.18, zc - 1.5, L + 4, ey + 3.2, zc + 1.5), skin(L + 3.9, ey, zc - 1.5, L + 4, ey + 3.2, zc + 1.5));   // and the exit alcove
+  for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.11, sg.pos[1], sg.pos[2]];
+}
+function level37() {
+  const L = 30, W = 12, H = 7, h = hall({ L, W, H, zc: 6, pits: [[10, 22]] });
+  farDark(h, 10, L, W, H, 6, 22);
+  h.walks = [{ pos: [6, 0.16, 0.03], dir: [0, 0, 1] }]; h.par = [70, 2];
+  h.signs.push(chSign(37, "WALKWAY", 3.4, 3.6), hint("LIGHT YOU CAN STAND ON", [3, 3.2, 12], [0, 0, -1], 4.4, 1));
+  return Object.assign(h, { num: 37, name: "Walkway", track: 0, say: {
+    intro: ["That strip of light on the floor is a walkway. It is solid. The physics department assured me of this shortly before they stopped answering their telephone.", "It goes in a straight line until it meets a wall. At present it meets the wrong wall."],
+    hint: ["A walkway goes through a portal as happily as you do. Put one portal where the light ends, and the other on the wall behind you, low down. Then walk."],
+    done: ["You have walked on light. Do not tell the others. There are no others. Do not tell them anyway."] } });
+}
+function level38() {
+  const L = 28, W = 12, H = 10, h = hall({ L, W, H, zc: 6, ey: 5, ledge: 6 });
+  farDark(h, 12, L, W, H, 6, undefined, 5);
+  h.boxes.push(bx(1, 0, 9.4, 1.6, 2.2, 10));
+  h.streams = [{ pos: [7, 0.06, 3], dir: [0, 1, 0], speed: 4.5 }]; h.par = [80, 2];
+  h.signs.push(chSign(38, "UPDRAFT", 4.6, 3.6), hint("THE STREAM CARRIES WHAT STEPS INTO IT", [6, 3.2, 12], [0, 0, -1], 5.4, 1));
+  return Object.assign(h, { badge: [0.8, 1, 11], num: 38, name: "Updraft", track: 1, say: {
+    intro: ["This is a carrier stream. Anything that steps into it stops falling and drifts along with it. Crates. Sentries. You.", "It currently carries things to the ceiling and leaves them there. I find that restful. You may not."],
+    hint: ["The exit is up on the ledge. A stream that goes into a portal comes out of the other one still going. Put one on the ceiling where the stream ends, and one high on the wall behind you. High. Higher than that."],
+    done: ["You drifted the whole way with your arms out. I have a recording. I am keeping it."] } });
+}
+function level39() {
+  const L = 34, W = 12, H = 9, h = hall({ L, W, H, zc: 6, pits: [[18, 28]] });
+  h.boxes.push(bx(10, 0, 0, 18, 2, W, "dark"), bx(10, 2, 5.9, 10.25, 3.6, 6.1, "dark"));          // the platform, and the post the glide nozzle sits on
+  farDark(h, 9.6, L, W, H, 6, 28);
+  h.sprayers = [{ pos: [3, H - 0.12, 9], dir: [0, -1, 0], kind: "bounce" }, { pos: [10.45, 3.4, 6], dir: [1, 0, 0], kind: "glide", speed: 1.4, spread: 6, rate: 0.4 }];
+  h.par = [110, 2];
+  h.signs.push(chSign(39, "REBOUND", 4.6, 3.6), hint("GREEN BOUNCES. PINK IS FAST.", [5, 3.2, 12], [0, 0, -1], 4.6, 1));
+  return Object.assign(h, { num: 39, name: "Rebound", track: 2, say: {
+    intro: ["Two pastes. The green one throws back whatever lands on it. The pink one removes friction, which is the only thing that has ever held you back.", "The green one is dripping in the wrong place. I could move the nozzle. I am not going to move the nozzle."],
+    hint: ["Paste falls through portals like anything else. Catch the green drip in a floor portal and let it out of the ceiling by the step. Jump onto it. Then run the pink strip and jump at the very end."],
+    done: ["You crossed ten metres of acid by running on a floor I had made slippery. In any other building that would be a lawsuit."] } });
+}
+function level40() {
+  const L = 28, W = 12, H = 8, h = hall({ L, W, H, zc: 6, pits: [[12, 18]] });
+  farDark(h, 11, L, W, H, 6, 18);
+  h.boxes.push(bx(9, 0, 5, 10, H, 7), bx(22, 0, 3, 22.4, 4.5, 9, "dark"));                        // the white pillar by the pit, and the dark slab on the far bank
+  h.boxes.push(bx(0.6, 0, 0.6, 1.2, 1.6, 1.2));
+  h.sprayers = [{ pos: [4, H - 0.12, 9], dir: [0, -1, 0], kind: "primer" }]; h.par = [100, 4];
+  h.signs.push(chSign(40, "PRIMER", 4.6, 3.6), hint("PRIMER MAKES A DARK PANEL TAKE PORTALS", [5, 3.2, 12], [0, 0, -1], 5.6, 1), scrawl("AIM HIGH. IT DROPS.", "- O.", [10.02, 1.3, 6], [1, 0, 0], 1.7, 0.8));
+  return Object.assign(h, { badge: [0.9, 2.3, 0.9], num: 40, name: "Primer", track: 0, say: {
+    intro: ["Everything across the acid is dark panel. Portals will not open on dark panel. This is deliberate. It is the most deliberate thing in the room.", "That white drip is primer. One coat and a dark panel behaves itself. It is on the wrong side of the acid, which is also deliberate."],
+    hint: ["The pillar by the pit has a white face looking across the acid. Catch the drip in a floor portal and let it out high on that face. Primer flies a long way before it falls. Then open a portal on whatever it hits."],
+    done: ["You painted my wall and then walked through it. I have had contractors who did less damage."] } });
+}
+function level41() {
+  const L = 26, W = 12, H = 7, h = hall({ L, W, H, zc: 6 });
+  h.beams = [{ pos: [8, 0.42, 0.02], dir: [0, 0, 1] }];
+  h.receivers = [{ pos: [L, 0.75, 2.5], n: [-1, 0, 0], w: 1.5, h: 1.5, door: "d1" }];
+  h.cubes = [[3, 0.35, 9.5, "prism"]]; h.doors = [exitDoor(L, 6)]; h.par = [60, 0];
+  h.signs.push(chSign(41, "PRISM", 4.6, 3.6), hint("THE PRISM CRATE TURNS LIGHT OUT OF ITS LENS", [14, 3.2, 12], [0, 0, -1], 6, 1));
+  return Object.assign(h, { num: 41, name: "Prism", track: 1, say: {
+    intro: ["This crate has a lens in one face. Light that strikes the crate leaves by the lens. Somebody patented that. I have their badge somewhere.", "The beam and the receiver are not on speaking terms. Introduce them."],
+    hint: ["The lens points wherever you were looking when you put the crate down. Stand in line with the receiver, face it, and set the crate down in the beam."],
+    done: ["Light, bent round a corner by a box. The crate did most of the work. I have given it your commendation."] } });
+}
+function level42() {
+  const L = 26, W = 12, H = 7, h = hall({ L, W, H, zc: 6 });
+  h.boxes.push(bx(21, 0, 8, 22, H, 10));
+  h.sparkers = [{ pos: [0.05, 1.5, 9], dir: [1, 0, 0], speed: 6, life: 14 }];
+  h.sockets = [{ pos: [16, 1.5, 0], n: [0, 0, 1], door: "d1" }]; h.doors = [exitDoor(L, 6)]; h.par = [70, 2];
+  h.boxes.push(bx(24.6, 0, 0.5, 25.4, 2.4, 1.1));
+  h.signs.push(chSign(42, "LIVE WIRE", 4.6, 3.6), hint("THE SOCKET WANTS A SPARK", [9, 3.2, 0], [0, 0, 1], 4, .9), scrawl("X", "", [16, 1.5, 12], [0, 0, -1], 1.3, 1.3));
+  return Object.assign(h, { badge: [25, 1, 0.3], num: 42, name: "Live Wire", track: 2, say: {
+    intro: ["That is a spark. It travels in a straight line, bounces off whatever it meets, and gives up after a few seconds. I have worked with people like that.", "The socket on the far wall would like it. Do not stand in its way. It does not go round."],
+    hint: ["Somebody has marked the wall opposite the socket. A spark that goes into a portal comes straight out of the other. Give it one where it lands, and one on the mark."],
+    done: ["The socket has its spark. You still have your eyebrows. I had a small bet with myself, and I have lost it."] } });
+}
+function level43() {
+  const L = 28, W = 10, H = 7, h = hall({ L, W, H, zc: 5 });
+  farDark(h, 7.5, L, W, H, 5, 7.5);
+  h.crushers = [0, 1, 2].map(i => ({ min: [9 + i * 4, 3.4, 0], max: [11 + i * 4, H + 3.4, W], drop: 3.4, period: 3.2, phase: [0, 1.5, 0.75][i] }));
+  h.switches = [{ pos: [0.02, 1.4, 2], n: [1, 0, 0], hold: 6.5, door: "d1" }]; h.doors = [exitDoor(L, 5)]; h.par = [45, 0];
+  h.signs.push(chSign(43, "PRESS", 4.6, 3.6), hint("GRAB PRESSES A SWITCH", [0, 2.5, 2], [1, 0, 0], 3, .7), hint("THE PRESSES KEEP TIME", [4, 3.2, W], [0, 0, -1], 3.8, .9));
+  return Object.assign(h, { num: 43, name: "Press", track: 0, say: {
+    intro: ["The switch on the wall opens the door for six seconds. The door is at the far end. Between you and it are three presses that used to flatten sheet steel.", "They still flatten things. They are not particular about what."],
+    hint: ["The presses do not fall together. Watch them for a while. Press the switch just after the first one lands, and run. Do not stop under anything with yellow on it."],
+    done: ["Through all three, and not noticeably thinner. The presses are disappointed. I can tell. They are slamming."] } });
+}
+function level44() {
+  const L = 30, W = 12, H = 7, h = hall({ L, W, H, zc: 6 });
+  h.fields = [{ min: [15.85, 0, 0], max: [16.15, H, W] }];
+  h.cubes = [[4, 0.35, 9, "seven"]];
+  h.plates = [{ pos: [26.5, 0, 4.4], door: "d1", hold: 3, charge: 3.5 }, { pos: [26.5, 0, 7.6], door: "d1", hold: 3, charge: 3.5 }]; h.doors = [exitDoor(L, 6, "d1", 2)]; h.par = [90, 2];
+  h.boxes.push(bx(13, 0, 10.6, 13.6, 2, 11.2));
+  h.signs.push(chSign(44, "CRATE SEVEN", 4.6, 4), hint("SLOW BUTTONS: 3 S TO WAKE, 3 S TO SLEEP", [24, 3.3, 12], [0, 0, -1], 5.6, .9), scrawl("SEVEN IS A GOOD ONE.", "TAKE IT WITH YOU.  - O.", [8, 1.3, 12], [0, 0, -1], 3, 0.95));
+  return Object.assign(h, { badge: [14.5, 1, 11.4], num: 44, name: "Crate Seven", track: 1, say: {
+    intro: ["This is crate number seven. Somebody on the staff put tape on it and wrote the number by hand. That is against regulations. So is talking to it. They did both.", "It is equipment. You will carry it to the buttons, and you will not become attached to it. I mention this because of what happened last time."],
+    hint: ["The field in the middle recycles crates. Even that one. A portal on the far wall, seen through the field, is a door the field knows nothing about. The two buttons are slow to wake and quick to sleep, so one of you cannot do both. Once the door is open, they give you three seconds. That is long enough to pick something up again."],
+    done: ["You left crate seven on the button. Correct. It is equipment. It is sitting there now, on its own, in the dark, and that is completely fine."],
+    done7: ["You have taken crate seven with you. That is theft of facility property. I have filed the report. Nobody will read it. Keep the crate."] } });
+}
+function level45() {
+  const L = 28, W = 16, H = 9, h = hall({ L, W, H, zc: 8 }), lit = w => w.sockets.filter(s => s.lit).length;
+  for (const l of h.lamps) { l.g = .86; l.b = .68; }
+  h.sparkers = [{ pos: [L - 0.06, 3.9, 8], dir: [-1, 0, 0], speed: 7, life: 16, keep: true, dmg: 45, when: w => w.ev.enter, fast: w => lit(w) >= 2 },
+    { pos: [14, 1.25, 0.06], dir: [0, 0, 1], speed: 6, life: 7, keep: true, dmg: 30, when: w => lit(w) === 2 }];
+  h.sockets = [
+    { pos: [10, 3.9, 0], n: [0, 0, 1], door: "d1", r: 0.75, clear: true, line: "One. That was an interlock. There are three, and I am allowed to make the other two difficult. I have closed your portals. I have started the presses. I am sorry. I am not very sorry." },
+    { pos: [18, 3.9, W], n: [0, 0, -1], door: "d1", r: 0.75, clear: true, line: "Two. Please stop. Behind that door is the only room in this building that is mine. I have sped things up. I have another emitter. I did not want to use the other emitter." },
+    { pos: [14, H, 8], n: [0, -1, 0], door: "d1", r: 0.75, line: "Three. The door is open. I cannot close it. I did try. Come in, then, and see what all of this was for." }];
+  h.shifters = [{ min: [9, 3, 0.02], max: [11, 4.8, 0.3], move: [0, 2.4, 0], when: w => w.ev.enter }, { min: [17, 3, W - 0.3], max: [19, 4.8, W - 0.02], move: [0, 2.4, 0], when: w => w.ev.enter },
+    { min: [13, H - 0.3, 7], max: [15, H - 0.02, 9], move: [2.6, 0, 0], when: w => w.ev.enter }];
+  h.crushers = [{ min: [6, 5.2, 2], max: [8, H + 5.2, 14], drop: 5.2, period: 4, phase: 0, when: w => lit(w) >= 1 && lit(w) < 3 }, { min: [20, 5.2, 2], max: [22, H + 5.2, 14], drop: 5.2, period: 4, phase: 2, when: w => lit(w) >= 1 && lit(w) < 3 }];
+  h.evs = [{ min: [5, 0, 0], max: [L, H, W], ev: "enter", line: "Stop there. This is not a test chamber. This is the lock on my door. Three interlocks, and a spark to keep people away from them. It has kept everyone away. There was nobody to keep." }];
+  h.doors = [exitDoor(L, 8, "d1", 3)]; h.back = true; h.par = [240, 6];
+  h.signs = h.signs.filter(sg => sg.kind !== "exit");
+  h.signs.push(hint("INTERLOCK HALL - THREE SOCKETS OPEN THE DOOR", [9, 6.6, W - 0.001], [0, 0, -1], 6, 0.85), scrawl("X", "", [10, 3.9, W - 0.001], [0, 0, -1], 1.4, 1.4), scrawl("X", "", [18, 3.9, 0.001], [0, 0, 1], 1.4, 1.4), scrawl("X", "", [14, 0.001, 8], [0, 1, 0], 1.4, 1.4),
+    scrawl("SHE WILL ARGUE.", "LIGHT ALL THREE.  - O.", [3, 1.3, W - 0.001], [0, 0, -1], 2.8, 0.95));
+  return Object.assign(h, { num: 45, name: "The Argument", track: 2, say: {
+    intro: ["You should not be here. I mean that as a fact about the floor plan. This corridor is not on any drawing you were given."],
+    hint: ["I am not going to help you with this one. The spark comes out above my door and hits the far wall. The marks on the walls are not mine. I never found out who made them."],
+    done: ["Very well. You win the argument. I had prepared a great deal more to say, and I notice I am not saying it."] } });
+}
+
 // A chamber is a run of rooms with a checkpoint at each door between them: clearing a room takes you straight into the next,
 // and the results card comes after the last. LEVEL_FUNCS stays the flat list of rooms (bots and saves use room indexes).
 const CHAMBERS = [
   ["Orientation", level1, level2, level3], ["Up And Over", level4, level5], ["Guard Duty", level6, level25], ["Light And Field", level7, level8],
   ["Cover", level26, level9], ["The Last Word", level27, level10, level12], ["Air Mail", level13, level14], ["Upside Down", level28, level11],
   ["Leaps", level15, level16], ["Timing", level29, level17], ["Fields", level18, level19], ["Second Wind", level20, level21],
-  ["Disposal", level22, level30], ["Final Exam", level23, level24], ["Out Of Order", level31, level32], ["Behind The Walls", level33, level34], ["The Last Order", level35, level36]
+  ["Disposal", level22, level30], ["Bright Ideas", level37, level38], ["Wet Paint", level39, level40], ["Loose Ends", level41, level42], ["Handle With Care", level43, level44],
+  ["Final Exam", level23, level24], ["Out Of Order", level31, level32], ["Behind The Walls", level33, level34], ["The Last Order", level45, level35, level36]
 ];
 const LEVEL_FUNCS = [], ROOM = [], FIRST = [];
 CHAMBERS.forEach(([name, ...fns], c) => { FIRST.push(LEVEL_FUNCS.length); fns.forEach((f, k) => { ROOM.push({ c, part: k, parts: fns.length }); LEVEL_FUNCS.push(f); }); });
 const ROOM_NAMES = LEVEL_FUNCS.map(f => f().name), CH_NAMES = CHAMBERS.map(c => c[0]);
+if (!store.get("mig50", 0)) {            // v5.0 put four chambers in after Disposal and a room in front of The Last Order: move saved progress along
+  store.set("mig50", 1); const sh = c => c >= 13 ? c + 4 : c, p5 = store.get("progress5", null);
+  if (p5 !== null) { store.set("progress5", sh(p5)); const b = store.get("best", {}), nb = {}; for (const k in b) nb[sh(+k)] = b[k]; store.set("best", nb); store.set("badges", store.get("badges", []).map(sh)); const r = store.get("room", 0); store.set("room", r >= 34 ? r + 9 : r >= 28 ? r + 8 : r); }
+}
 
 /* =====================================================================================
    Renderer, scene, portals
@@ -1763,7 +1899,7 @@ function buildLevel(idx) {
   disposeLevel();
   const lv = LEVEL_FUNCS[idx](); lv.num = ROOM[idx].c + 1;
   for (const sg of lv.signs) if (sg.kind === "chamber" && /^TEST CHAMBER/.test(sg.a)) sg.a = "TEST CHAMBER " + String(lv.num).padStart(2, "0");   // numbered by the chamber it belongs to
-  const W = world = { idx, lv, solids: lv.boxes, air: lv.air.map(a => bx(...a)), doors: [], plates: [], cubes: [], acid: [], fx: [], t: 0, dyn: [], sentries: [], beams: [], receivers: [], fields: [], gravs: [], pools: [], offices: [], cams: [], movers: [], glass: [], spinners: [], core: null };
+  const W = world = { idx, lv, solids: lv.boxes, air: lv.air.map(a => bx(...a)), doors: [], plates: [], cubes: [], acid: [], fx: [], t: 0, dyn: [], sentries: [], beams: [], receivers: [], fields: [], gravs: [], pools: [], offices: [], cams: [], movers: [], glass: [], spinners: [], core: null, walks: [], streams: [], sprayers: [], sparkers: [], sockets: [], crushers: [], shifters: [], switches: [], blobs: [], patches: [], ev: {} };
   // static surfaces
   const out = {};
   bakeFaces(lv.boxes, lv.boxes, lv.lamps, W.air, out);
@@ -1843,15 +1979,16 @@ function buildLevel(idx) {
     const ringMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(.5, .32, .12) });
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.93, 0.035, 10, 64), ringMat); ring.rotation.x = Math.PI / 2; ring.position.y = 0.1; ring.userData.ownMat = 1;
     g.add(base, top, ring); g.position.set(p.pos[0], p.pos[1], p.pos[2]); levelGroup.add(g);
-    W.plates.push({ pos: p.pos.slice(), door: p.door, top, group: g, pressed: false, press: 0, ringMat, aim: 0, hold: p.hold || 0, left: 0, active: false, pump: p.pump || null });
+    W.plates.push({ pos: p.pos.slice(), door: p.door, top, group: g, pressed: false, press: 0, ringMat, aim: 0, hold: p.hold || 0, left: 0, active: false, pump: p.pump || null, charge: p.charge || 0, chg: 0 });
   }
   // cubes
   for (const c0 of lv.cubes) {
-    const raft = !Array.isArray(c0), c = raft ? c0.pos : c0;
+    const raft = !Array.isArray(c0), c = raft ? c0.pos : c0.slice(0, 3), tag = raft ? "" : c0[3] || "";
     const A = raft ? makeRaft() : makeCube(), Bg = raft ? { group: new THREE.Group(), mats: [] } : makeCube(); Bg.group.visible = false;
     const sh = new THREE.Mesh(SHADOW_GEO, new THREE.MeshBasicMaterial({ map: SHADOW_TEX, transparent: true, depthWrite: false, opacity: .6, polygonOffset: true, polygonOffsetFactor: -2 })); sh.visible = false; sh.frustumCulled = false; sh.renderOrder = 2;
     scene.add(A.group, Bg.group, sh);
-    W.cubes.push({ p: new V3(...c), v: new V3(), spawn: c.slice(), mesh: A.group, ghost: Bg.group, mats: A.mats, gmats: Bg.mats, shadow: sh, held: false, hv: new V3(), yaw: 0, q: new QT(), pv: new V3(...c), raft });
+    W.cubes.push({ p: new V3(...c), v: new V3(), spawn: c.slice(), mesh: A.group, ghost: Bg.group, mats: A.mats, gmats: Bg.mats, shadow: sh, held: false, hv: new V3(), yaw: 0, q: new QT(), pv: new V3(...c), raft, prism: tag === "prism", seven: tag === "seven" });
+    if (tag) v5Dress(W.cubes[W.cubes.length - 1], A);
   }
   // sentries (turret robots)
   W.sentries = []; W.beams = []; W.receivers = []; W.fields = []; W.dyn = [];
@@ -1864,7 +2001,7 @@ function buildLevel(idx) {
     const o = new V3(...d.pos), dir = new V3(...d.dir).normalize();
     em.position.copy(o).addScaledVector(dir, -0.25); em.lookAt(em.position.clone().add(dir)); em.rotateY(Math.PI / 2); levelGroup.add(em);
     const lens = new THREE.Mesh(new THREE.CircleGeometry(0.13, 24), BEAM_LENS); lens.position.copy(o).addScaledVector(dir, 0.012); lens.lookAt(o.clone().add(dir)); levelGroup.add(lens);
-    const segs = []; for (let i = 0; i < 6; i++) { const core = new THREE.Mesh(BEAM_GEO, BEAM_CORE), glow = new THREE.Mesh(BEAM_GEO, BEAM_GLOW); core.visible = glow.visible = false; core.frustumCulled = glow.frustumCulled = false; glow.renderOrder = 6; core.renderOrder = 7; levelGroup.add(core, glow); segs.push({ core, glow }); }
+    const segs = []; for (let i = 0; i < 10; i++) { const core = new THREE.Mesh(BEAM_GEO, BEAM_CORE), glow = new THREE.Mesh(BEAM_GEO, BEAM_GLOW); core.visible = glow.visible = false; core.frustumCulled = glow.frustumCulled = false; glow.renderOrder = 6; core.renderOrder = 7; levelGroup.add(core, glow); segs.push({ core, glow }); }
     W.beams.push({ o, dir, segs, em });
   }
   for (const d of (lv.receivers || [])) {
@@ -1954,6 +2091,7 @@ function buildLevel(idx) {
     W.cams.push(cam);
   }
   makePhysics(W);
+  v5Build(W, lv);
   return W;
 }
 function coolTex() {
@@ -2069,7 +2207,7 @@ function updateZones(dt, time) {
     _gm.lookAt(c.head.position, tmpA.set(player.p.x, player.p.y + 0.5, player.p.z), tmpB.set(0, 1, 0)); _gq.setFromRotationMatrix(_gm); _gq.multiply(CAM_FLIP);
     c.head.quaternion.slerp(_gq, Math.min(1, dt * 2.2)); c.led.material.color.setRGB(Math.sin(time * 3 + c.head.position.x) > 0.6 ? 2.6 : 0.5, .1, .08);
   }
-  camFalls(dt);
+  camFalls(dt); v5Frame(dt, time);
 }
 const _camV = new V3(), _camW = new V3(), _yAxis = new V3(0, 1, 0);
 // a portal opened on the wall a camera hangs from takes the wall away: the camera falls, goes dark, and SaDos complains
@@ -2249,6 +2387,8 @@ function collectSolids(withCubes, except, noDyn) {
   for (const m of world.movers) _sol.push(m.box);
   for (const g of world.glass) if (!g.broken) _sol.push(g.box);
   for (const sp of world.spinners) _sol.push(sp.box);
+  for (const m of world.crushers) _sol.push(m.box);
+  for (const m of world.shifters) _sol.push(m.box);
   if (withCubes) { for (const c of world.cubes) if (!c.held && c !== except) _sol.push(cubeBox(c)); for (const c of world.sentries) if (!c.held && c !== except) _sol.push(cubeBox(c)); }
   return _sol;
 }
@@ -2646,7 +2786,8 @@ function respawnCube(c) {
   c.held = false; c.lostT = 0;
   if (c.kind === "sentry") { setCubeState(c, new V3(...c.spawn), c.spawnQ); c.seen = 0; c.burst = 0; c.spray = 0; if (c.state === "on") c.wake = 1.5; return; }   // back where it stood; a broken one stays broken
   setCubeState(c, cubeHome(c), new QT());
-  if (!run.said.cube) { run.said.cube = 1; say("sadosCube"); }
+  if (c.seven) { if (!run.said.sevenLost) { run.said.sevenLost = 1; say("sevenLost"); } }
+  else if (!run.said.cube) { run.said.cube = 1; say("sadosCube"); }
 }
 function floorBelow(x, y, z, maxD) {            // y of the first solid surface straight under a point, or null
   const o = [x, y, z], d = [0, -1, 0]; let best = null;
@@ -2695,6 +2836,7 @@ function angDiff(a, b) { let d = a - b; while (d > Math.PI) d -= Math.PI * 2; wh
 /* ---------- grab / drop ---------- */
 function useAction() {
   if (state !== "play" || !world) return;
+  if (v5Use()) return;
   if (holding) { dropCube(); return; }
   const eye = eyePos(new V3()), f = viewDir(new V3());
   let best = null, bs = 0, watched = false;
@@ -2713,7 +2855,8 @@ function useAction() {
     toast(best.state === "off" ? "Holding the sentry. Press grab again to put it down." : "Holding the sentry: it sleeps while you carry it, and wakes when you put it down.");
     best.seen = 0; best.burst = 0; if (best.state === "on") sentryQuip(best, "grab", true);
     if (!run.said.carry) { run.said.carry = 1; say("sadosCarry"); }
-  } else { toast("Holding the cube. Press grab again to put it down."); if (!run.said.grab) { run.said.grab = 1; say("sadosGrab"); } }
+  } else if (best.seven) { toast("Holding Crate Seven."); if (!run.said.seven) { run.said.seven = 1; say("sevenGrab"); } }
+  else { toast(best.prism ? "Holding the prism crate. Its lens points where you look." : "Holding the cube. Press grab again to put it down."); if (!run.said.grab) { run.said.grab = 1; say("sadosGrab"); } }
 }
 function dropCube(quiet) {
   const c = holding; if (!c) return; holding = null; c.held = false; c.far = false;
@@ -2755,6 +2898,276 @@ function holdUpdate(dt) {
 }
 const tmpQ = new QT();
 
+/* =====================================================================================
+   v5.0 mechanics: light walkways, carrier streams, pastes (rebound, glide, primer), prism crates,
+   sparks and sockets, presses, wall switches, shifting panels. All original to this game.
+   ===================================================================================== */
+const V5 = {
+  walk: new THREE.MeshBasicMaterial({ color: new THREE.Color(.5, 1.45, 1.9), transparent: true, opacity: .55, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending }),
+  glow: new THREE.MeshBasicMaterial({ color: new THREE.Color(1.3, 2.3, 2.7) }),
+  hazard: new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 1.6, .15) }),
+  unit: new THREE.BoxGeometry(1, 1, 1), blob: new THREE.SphereGeometry(0.11, 10, 8), disc: new THREE.CircleGeometry(1, 30),
+  tube: new THREE.CylinderGeometry(0.85, 0.85, 1, 28, 1, true).rotateX(Math.PI / 2), spark: new THREE.SphereGeometry(0.15, 14, 10),
+  col: { bounce: new THREE.Color(.45, 1.2, .22), glide: new THREE.Color(1.5, .3, .78), primer: new THREE.Color(.95, .97, 1) },
+  name: { bounce: "Rebound paste", glide: "Glide paste", primer: "Primer" }
+};
+const PASTE_G = 6;                   // paste is light: it falls slowly, so you can see where it is going
+function v5Housing(o, dir, mat, size = 0.34) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(size, size, 0.3), SENT.dark); m.position.copy(o).addScaledVector(dir, -0.1); m.lookAt(m.position.clone().add(dir)); levelGroup.add(m);
+  const l = new THREE.Mesh(new THREE.CircleGeometry(size * 0.32, 20), mat); l.position.copy(o).addScaledVector(dir, 0.06); l.lookAt(o.clone().addScaledVector(dir, 1)); levelGroup.add(l);
+}
+function v5Slab(W, lv, d, mat) {     // a box that moves as one piece: its own baked mesh group and collider
+  const box = { min: d.min.slice(), max: d.max.slice(), mat, portal: mat === "white" };
+  const o = {}; bakeFaces([box], lv.boxes, lv.lamps, null, o, d.min);
+  const g = new THREE.Group(); for (const k in o) { const mesh = new THREE.Mesh(geoFrom(o[k]), MAT[k]); mesh.frustumCulled = false; g.add(mesh); }
+  levelGroup.add(g); fixedCollider(phys.world, box);
+  return { box, group: g, min0: d.min.slice(), max0: d.max.slice() };
+}
+function v5Build(W, lv) {
+  const park = () => ({ min: [0, -900, 0], max: [1, -899, 1], mat: "walk", portal: false });
+  W.ev = {}; W.pathT = -1; W.blobs = []; W.patches = []; W.zones5 = lv.evs || null;
+  for (const d of (lv.walks || [])) {
+    const o = new V3(...d.pos), dir = new V3(...d.dir).normalize(), parts = []; v5Housing(o, dir, V5.glow, 0.5);
+    for (let i = 0; i < 4; i++) { const b = park(); fixedCollider(phys.world, b); const m = new THREE.Mesh(V5.unit, V5.walk); m.visible = false; m.frustumCulled = false; m.renderOrder = 5; levelGroup.add(m); parts.push({ b, m }); }
+    W.walks.push({ o, dir, when: d.when, parts, segs: [], sig: "" });
+  }
+  for (const d of (lv.streams || [])) {
+    const o = new V3(...d.pos), dir = new V3(...d.dir).normalize(), parts = [], tex = fieldTex(); tex.repeat.set(4, 1); v5Housing(o, dir, V5.glow, 0.9);
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: .4, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, color: new THREE.Color(.3, 1.5, 1.25) });
+    for (let i = 0; i < 4; i++) { const m = new THREE.Mesh(V5.tube, mat); if (i === 0) { m.userData.ownMat = 1; m.userData.ownMap = 1; } m.visible = false; m.frustumCulled = false; m.renderOrder = 5; levelGroup.add(m); parts.push(m); }
+    W.streams.push({ o, dir, speed: d.speed || 3, rev: !!d.rev, when: d.when, parts, segs: [], mat, tex });
+  }
+  for (const d of (lv.sprayers || [])) {
+    const o = new V3(...d.pos), dir = new V3(...d.dir).normalize(); v5Housing(o, dir, new THREE.MeshBasicMaterial({ color: V5.col[d.kind] }), 0.4);
+    W.sprayers.push({ o, dir, kind: d.kind, rate: d.rate || 0.55, speed: d.speed || 0.6, spread: d.spread || 0, t: 0.5, when: d.when });
+  }
+  for (const d of (lv.sparkers || [])) {
+    const o = new V3(...d.pos), dir = new V3(...d.dir).normalize(); v5Housing(o, dir, V5.hazard, 0.44);
+    const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.6, 2.3, .7) }), mesh = new THREE.Mesh(V5.spark, mat); mesh.userData.ownMat = 1;
+    const halo = new THREE.Mesh(V5.spark, new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 1.1, .2), transparent: true, opacity: .35, depthWrite: false, blending: THREE.AdditiveBlending })); halo.userData.ownMat = 1; halo.scale.setScalar(2.3); mesh.add(halo);
+    mesh.visible = false; mesh.frustumCulled = false; levelGroup.add(mesh);
+    W.sparkers.push({ o, dir, speed: d.speed || 5, life0: d.life || 9, when: d.when, keep: !!d.keep, dmg: d.dmg || 40, fast: d.fast, live: false, wait: 1.2, done: false, p: new V3(), d: new V3(), life: 0, mesh });
+  }
+  for (const d of (lv.sockets || [])) {
+    const pos = new V3(...d.pos), n = new V3(...d.n), g = new THREE.Group(); g.position.copy(pos).addScaledVector(n, 0.03); g.lookAt(pos.clone().add(n));
+    const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(.5, .32, .08) });
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.06, 10, 36), mat); ring.userData.ownMat = 1;
+    const plate = new THREE.Mesh(new THREE.CircleGeometry(0.46, 28), SENT.dark), core = new THREE.Mesh(new THREE.CircleGeometry(0.2, 20), mat); core.position.z = 0.01; ring.position.z = 0.02;
+    g.add(plate, ring, core); levelGroup.add(g);
+    W.sockets.push({ pos, n, door: d.door, r: d.r || 0.6, line: d.line, clear: !!d.clear, lit: false, mat, glow: 0 });
+  }
+  for (const d of (lv.crushers || [])) {
+    const s = v5Slab(W, lv, d, "dark"), dx = d.max[0] - d.min[0], dz = d.max[2] - d.min[2];
+    const strip = new THREE.Mesh(V5.unit, V5.hazard); strip.scale.set(dx + 0.03, 0.14, dz + 0.03); strip.position.set((d.min[0] + d.max[0]) / 2, d.min[1] + 0.07, (d.min[2] + d.max[2]) / 2); s.group.add(strip);
+    W.crushers.push(Object.assign(s, { drop: d.drop, period: d.period || 3.2, phase: d.phase || 0, hold: d.hold === undefined ? 0.5 : d.hold, when: d.when, s: 0 }));
+  }
+  for (const d of (lv.shifters || [])) W.shifters.push(Object.assign(v5Slab(W, lv, d, d.mat || "dark"), { move: d.move, when: d.when, dur: d.dur || 1.4, s: 0 }));
+  for (const d of (lv.switches || [])) {
+    const pos = new V3(...d.pos), n = new V3(...d.n), g = new THREE.Group(); g.position.copy(pos); g.lookAt(pos.clone().add(n));
+    const base = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.42, 0.14), SENT.dark); base.position.z = 0.07;
+    const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, .25, .18) }), btn = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.13, 0.08, 24).rotateX(Math.PI / 2), mat); btn.userData.ownMat = 1; btn.position.z = 0.17;
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.018, 8, 28), SENT.steel); rim.position.z = 0.145;
+    g.add(base, btn, rim); levelGroup.add(g);
+    W.switches.push({ pos, n, hold: d.hold || 0, door: d.door, ev: d.ev, rev: d.rev, left: 0, on: false, btn, mat });
+  }
+  v5Paths();
+}
+function v5WalkBox(g, b) {
+  const a = Math.abs(g.d.x) > .7 ? 0 : Math.abs(g.d.z) > .7 ? 2 : 1, o = [g.o.x, g.o.y, g.o.z], e = o[a] + g.d.getComponent(a) * g.len;
+  for (let i = 0; i < 3; i++) { b.min[i] = o[i] - .65; b.max[i] = o[i] + .65; }
+  b.min[a] = Math.min(o[a], e); b.max[a] = Math.max(o[a], e);
+  if (a === 1) { b.min[2] = o[2] - .12; b.max[2] = o[2] + .12; } else { b.min[1] = o[1] - .25; b.max[1] = o[1]; }
+  return a;
+}
+// where each walkway and stream runs right now (they follow portals, and stop at walls, presses and panels)
+function v5Paths() {
+  const W = world;
+  for (const w of W.walks) {
+    const res = (!w.when || w.when(W)) ? castRay(w.o, w.dir, 80, false, true) : null; w.segs = res ? res.segs.filter(g => g.len > 0.05).slice(0, 4) : [];
+    let sig = ""; for (const g of w.segs) sig += g.o.x.toFixed(2) + "," + g.o.y.toFixed(2) + "," + g.o.z.toFixed(2) + "," + g.len.toFixed(2) + ";";
+    if (sig === w.sig) continue; w.sig = sig;
+    w.parts.forEach((p, i) => {
+      const g = w.segs[i];
+      if (!g) { p.b.min = [0, -900, 0]; p.b.max = [1, -899, 1]; p.m.visible = false; syncCollider(p.b); return; }
+      const a = v5WalkBox(g, p.b); syncCollider(p.b);
+      p.m.visible = true; p.m.scale.set(p.b.max[0] - p.b.min[0], a === 1 ? p.b.max[1] - p.b.min[1] : 0.035, a === 1 ? 0.035 : p.b.max[2] - p.b.min[2]);
+      p.m.position.set((p.b.min[0] + p.b.max[0]) / 2, a === 1 ? (p.b.min[1] + p.b.max[1]) / 2 : p.b.max[1] - 0.018, (p.b.min[2] + p.b.max[2]) / 2);
+    });
+    for (const c of props()) if (c.body) c.body.wakeUp();          // whatever was resting on it must notice it has gone
+  }
+  for (const s of W.streams) {
+    const res = (!s.when || s.when(W)) ? castRay(s.o, s.dir, 80, false, true) : null; s.segs = res ? res.segs.filter(g => g.len > 0.05).slice(0, 4) : [];
+    s.parts.forEach((m, i) => { const g = s.segs[i]; m.visible = !!g; if (g) { m.position.copy(g.o).addScaledVector(g.d, g.len / 2); m.lookAt(tmpA.copy(m.position).add(g.d)); m.scale.set(1, 1, g.len); } });
+  }
+}
+const _sv = new V3(), _sa = new V3();
+function v5InStream(p, rad) {
+  for (const s of world.streams) for (const g of s.segs) {
+    const t = _sv.copy(p).sub(g.o).dot(g.d); if (t < -0.25 || t > g.len + 0.25) continue;
+    _sa.copy(g.o).addScaledVector(g.d, clamp(t, 0, g.len)); const r = _sa.distanceTo(p);
+    if (r < rad) return { s, g, r };
+  }
+  return null;
+}
+function v5Under(kind) {
+  const pl = player, fy = pl.p.y - HY;
+  for (const q of world.patches) if (q.kind === kind && q.axis === 1 && q.sign > 0 && Math.abs(q.p.y - fy) < 0.3 && Math.hypot(q.p.x - pl.p.x, q.p.z - pl.p.z) < q.r) return q;
+  return null;
+}
+function v5Paint(h, kind) {
+  const W = world;
+  if (kind === "primer") {                    // primer turns a whole dark panel into one that takes portals
+    const b = h.box; if (b.portal || b.primed || b.mat !== "dark") return; b.primed = true; b.portal = true;
+    const b2 = { min: b.min.map(v => v - 0.007), max: b.max.map(v => v + 0.007), mat: "white", portal: true }, o = {}; bakeFaces([b2], W.lv.boxes, W.lv.lamps, null, o, b2.min);
+    const g = new THREE.Group(); for (const k in o) { const mesh = new THREE.Mesh(geoFrom(o[k]), MAT[k]); mesh.frustumCulled = false; g.add(mesh); } levelGroup.add(g);
+    sfx.splat(); sfx.lit(); toast("Primed: that panel takes portals now"); if (!run.said.primed) { run.said.primed = 1; say("primed"); }
+    return;
+  }
+  for (const q of W.patches) if (q.kind === kind && q.axis === h.axis && q.p.distanceToSquared(h.point) < 0.2) return;
+  if (W.patches.length >= 70) { const old = W.patches.shift(); levelGroup.remove(old.mesh); old.mesh.material.dispose(); }
+  const n = new V3(); n.setComponent(h.axis, h.sign);
+  const mesh = new THREE.Mesh(V5.disc, new THREE.MeshBasicMaterial({ color: V5.col[kind], transparent: true, opacity: .9, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3 })); mesh.userData.ownMat = 1;
+  const r = 1.0 + Math.random() * 0.3; mesh.scale.setScalar(r); mesh.position.copy(h.point).addScaledVector(n, 0.012 + W.patches.length * 0.0004); mesh.lookAt(tmpA.copy(mesh.position).add(n)); mesh.renderOrder = 3; levelGroup.add(mesh);
+  W.patches.push({ p: h.point.clone(), axis: h.axis, sign: h.sign, kind, r, mesh });
+  if (Math.random() < 0.5) sfx.splat();
+}
+function v5Use() {                             // GRAB on a wall switch presses it
+  const sw = v5Near(); if (!sw) return false;
+  if (sw.hold) sw.left = sw.hold; else sw.on = !sw.on;
+  if (sw.rev !== undefined && world.streams[sw.rev]) { const s = world.streams[sw.rev]; s.rev = !s.rev; s.mat.color.setRGB(s.rev ? 1.7 : .3, s.rev ? .8 : 1.5, s.rev ? .2 : 1.25); toast(s.rev ? "Stream reversed" : "Stream forward"); }
+  sfx.button(true); if (!run.said.sw) { run.said.sw = 1; say("switch"); }
+  return true;
+}
+function v5Near() {
+  if (!world || !world.switches.length) return null; const eye = eyePos(tmpB), f = viewDir(tmpC);
+  for (const s of world.switches) { tmpA.copy(s.pos).sub(eye); const d = tmpA.length(); if (d < 2.7 && tmpA.dot(f) / d > 0.78) return s; }
+  return null;
+}
+function v5Doors(W) {
+  const inc = id => { for (const d of W.doors) if (d.id === id) d.cnt++; };
+  for (const s of W.sockets) if (s.lit && s.door) inc(s.door);
+  for (const s of W.switches) if ((s.left > 0 || s.on) && s.door) inc(s.door);
+}
+function v5Step(dt) {
+  const W = world, pl = player, alive = state === "play";
+  if (W.zones5) for (const z of W.zones5) if (!W.ev[z.ev] && alive && inBox(z, pl.p.x, pl.p.y, pl.p.z)) { W.ev[z.ev] = true; if (z.line) say(null, z.line); }
+  if (W.walks.length || W.streams.length) { if (W.t - W.pathT > 1 / 40 || W.pathT > W.t) { W.pathT = W.t; v5Paths(); } }
+  // carrier streams: no gravity inside, everything drifts along the axis
+  pl.inStream = false;
+  if (W.streams.length) {
+    const hit = alive ? v5InStream(pl.p, 0.95) : null;
+    if (hit) {
+      pl.inStream = true; const g = hit.g, sp = hit.s.speed * (hit.s.rev ? -1 : 1), t = clamp(_sv.copy(pl.p).sub(g.o).dot(g.d), 0, g.len);
+      const sy = Math.sin(pl.yaw), cy = Math.cos(pl.yaw);
+      tmpA.copy(g.o).addScaledVector(g.d, t).sub(pl.p).multiplyScalar(2.2).addScaledVector(g.d, sp); tmpA.x += (-sy * inp.fwd + cy * inp.right) * 3.4; tmpA.z += (-cy * inp.fwd - sy * inp.right) * 3.4;
+      pl.v.lerp(tmpA, 1 - Math.exp(-5 * dt)); pl.flyT = 0;
+      if (!run.said.stream) { run.said.stream = 1; say("stream"); }
+    }
+    for (const c of props()) {
+      if (c.held || !c.body) { c.strm = false; continue; }
+      const h2 = v5InStream(c.p, 0.9);
+      if (h2) {
+        const g = h2.g, sp = h2.s.speed * (h2.s.rev ? -1 : 1), t = clamp(_sv.copy(c.p).sub(g.o).dot(g.d), 0, g.len), v = c.body.linvel(), k = 1 - Math.exp(-5 * dt);
+        tmpA.copy(g.o).addScaledVector(g.d, t).sub(c.p).multiplyScalar(2.5).addScaledVector(g.d, sp);
+        c.body.setGravityScale(0, true); c.gs = 0; c.strm = true; c.body.setLinvel({ x: v.x + (tmpA.x - v.x) * k, y: v.y + (tmpA.y - v.y) * k, z: v.z + (tmpA.z - v.z) * k }, true);
+      } else if (c.strm) { c.strm = false; c.body.setGravityScale(1, true); c.gs = 1; c.body.wakeUp(); }
+    }
+  }
+  // pastes
+  pl.glide = Math.max(0, (pl.glide || 0) - dt);
+  if (W.patches.length && pl.ground && v5Under("glide")) { pl.glide = 0.35; if (!run.said.glide) { run.said.glide = 1; say("glide"); } }
+  for (const sp of W.sprayers) {
+    sp.t -= dt; if (sp.t > 0 || W.blobs.length >= 36 || (sp.when && !sp.when(W))) continue; sp.t = sp.rate;
+    const mesh = new THREE.Mesh(V5.blob, new THREE.MeshBasicMaterial({ color: V5.col[sp.kind] })); mesh.userData.ownMat = 1; mesh.position.copy(sp.o); mesh.frustumCulled = false; levelGroup.add(mesh);
+    W.blobs.push({ p: sp.o.clone(), v: sp.dir.clone().multiplyScalar(sp.speed * (1 + Math.random() * sp.spread)), kind: sp.kind, life: 9, mesh });
+  }
+  W.bAcc = (W.bAcc || 0) + dt;
+  if (W.bAcc >= 1 / 40 && W.blobs.length) {
+    const h = W.bAcc; W.bAcc = 0;
+    for (let i = W.blobs.length - 1; i >= 0; i--) {
+      const b = W.blobs[i]; b.v.y -= PASTE_G * h; const sp = Math.max(0.05, b.v.length()), res = castRay(b.p, b.v, sp * h, false, true); let gone = false;
+      if (res.hit) { v5Paint(res.hit, b.kind); gone = true; }
+      else { const g = res.segs[res.segs.length - 1]; b.p.copy(g.o).addScaledVector(g.d, g.len); b.v.copy(res.dir).multiplyScalar(sp); b.life -= h; gone = b.life <= 0 || b.p.y < -2.6; b.mesh.position.copy(b.p); }
+      if (gone) { levelGroup.remove(b.mesh); b.mesh.material.dispose(); W.blobs.splice(i, 1); }
+    }
+  } else if (!W.blobs.length) W.bAcc = 0;
+  // sparks: they bounce off everything except a socket (which keeps them) and you (which hurts)
+  for (const sk of W.sparkers) {
+    if (!sk.live) {
+      sk.mesh.visible = false; if (sk.done || (sk.when && !sk.when(W))) continue;
+      sk.wait -= dt; if (sk.wait > 0) continue;
+      sk.live = true; sk.p.copy(sk.o).addScaledVector(sk.dir, 0.2); sk.d.copy(sk.dir); sk.life = sk.life0; sk.mesh.visible = true; sfx.sparkOut(); continue;
+    }
+    const spd = sk.speed * (sk.fast && sk.fast(W) ? 1.6 : 1), res = castRay(sk.p, sk.d, spd * dt, true, true); let end = false;
+    if (res.hit) {
+      const h = res.hit, so = W.sockets.find(s => !s.lit && s.pos.distanceTo(h.point) < s.r && Math.abs(s.n.getComponent(h.axis) - h.sign) < 0.1);
+      if (so) {
+        so.lit = true; end = true; if (!sk.keep) sk.done = true; sfx.lit(); flash("g");
+        if (so.clear && (portals[0].on || portals[1].on)) { clearPortals(); updateCross(); sfx.field(); }
+        if (so.line) say(null, so.line); else if (!run.said.socket) { run.said.socket = 1; say("socket"); }
+      } else { sk.p.copy(h.point).addScaledVector(res.dir, -0.03); sk.d.copy(res.dir); sk.d.setComponent(h.axis, -sk.d.getComponent(h.axis)); sfx.tick(1); }
+    } else { const g = res.segs[res.segs.length - 1]; sk.p.copy(g.o).addScaledVector(g.d, g.len); sk.d.copy(res.dir); }
+    sk.life -= dt; if (sk.life <= 0) { end = true; sfx.fizzle(); }
+    if (!end && alive && Math.abs(sk.p.y - pl.p.y) < HY + 0.1 && Math.hypot(sk.p.x - pl.p.x, sk.p.z - pl.p.z) < 0.5) { end = true; hurt(sk.dmg, "spark"); sfx.fizzle(); }
+    if (end) { sk.live = false; sk.wait = 1.6; sk.mesh.visible = false; } else sk.mesh.position.copy(sk.p);
+  }
+  // presses
+  const pb = (W.crushers.length || W.shifters.length) ? { min: [pl.p.x - HX, pl.p.y - HY, pl.p.z - HX], max: [pl.p.x + HX, pl.p.y + HY, pl.p.z + HX] } : null;
+  for (const c of W.crushers) {
+    let s = 0;
+    if (!c.when || c.when(W)) { const u = ((W.t + c.phase) % c.period + c.period) % c.period, a = 0.16, b = a + c.hold, r = 1.2; s = u < a ? u / a : u < b ? 1 : u < b + r ? 1 - (u - b) / r : 0; }
+    if (s === c.s) continue;
+    const down = s > c.s, y = -c.drop * s; c.box.min[1] = c.min0[1] + y; c.box.max[1] = c.max0[1] + y; c.group.position.y = y; syncCollider(c.box);
+    if (s >= 1 && c.s < 1) sfx.slam();
+    if (down) { if (alive && boxOverlap(pb, c.box)) die("crush"); for (const q of props()) if (!q.held && boxOverlap(cubeBox(q), c.box)) respawnCube(q); }
+    c.s = s;
+  }
+  for (const sh of W.shifters) {
+    const want = sh.when && sh.when(W) ? 1 : 0; if (sh.s === want) continue;
+    sh.s = clamp(sh.s + (want ? 1 : -1) * dt / sh.dur, 0, 1); const e = sh.s * sh.s * (3 - 2 * sh.s);
+    for (let i = 0; i < 3; i++) { sh.box.min[i] = sh.min0[i] + sh.move[i] * e; sh.box.max[i] = sh.max0[i] + sh.move[i] * e; }
+    sh.group.position.set(sh.move[0] * e, sh.move[1] * e, sh.move[2] * e); syncCollider(sh.box);
+    if (!sh.snd) { sh.snd = 1; sfx.door(true); } if (sh.s === want) sh.snd = 0;
+    for (const P of portals) if (P.on && P.boxes.includes(sh.box)) { closePortal(P); updateCross(); sfx.fizzle(); }
+  }
+  for (const s of W.switches) {
+    if (s.left > 0) { const b = Math.ceil(s.left * 2); s.left = Math.max(0, s.left - dt); if (Math.ceil(s.left * 2) !== b) sfx.tick(s.left); }
+    const act = s.left > 0 || s.on; if (s.ev) W.ev[s.ev] = act; s.mat.color.setRGB(act ? .3 : 2.2, act ? 2.2 : .25, act ? .5 : .18); s.btn.position.z = act ? 0.145 : 0.17;
+  }
+}
+function v5Frame(dt, time) {
+  const W = world; if (!W || !W.sockets) return;
+  for (const s of W.streams) s.tex.offset.x -= dt * s.speed * 0.22 * (s.rev ? -1 : 1);
+  for (const sk of W.sparkers) if (sk.live) sk.mesh.scale.setScalar(1 + 0.18 * Math.sin(time * 31));
+  for (const s of W.sockets) { s.glow += ((s.lit ? 1 : 0) - s.glow) * Math.min(1, dt * 6); s.mat.color.setRGB(.5 + s.glow * 1.9, .32 + s.glow * 1.9, .08 + s.glow * .6); }
+  W.v5msg = "";
+  if (state === "play" && W.switches.length) {
+    const near = v5Near(); let left = 0; for (const s of W.switches) left = Math.max(left, s.left);
+    W.v5msg = left > 0 ? "Switch holds for " + left.toFixed(1) : near ? "GRAB presses the switch" : "";
+  }
+}
+// Crate Seven and the prism crate are ordinary crates with something added
+function v5Dress(c, A) {
+  if (c.prism) {
+    A.mats[1].emissive.setHex(0xffb84a); A.mats[1].emissiveIntensity = 0.9;
+    const lens = new THREE.Mesh(new THREE.CircleGeometry(0.2, 28), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.6, 2.1, .9), side: THREE.DoubleSide })); lens.position.z = -0.372; lens.rotation.y = Math.PI; A.group.add(lens);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.025, 8, 30), SENT.steel); rim.position.z = -0.37; A.group.add(rim);
+  }
+  if (c.seven) {
+    const tx = canvasTex(256, 256, g => {
+      g.clearRect(0, 0, 256, 256); g.fillStyle = "rgba(226,214,180,.95)"; g.save(); g.translate(128, 128); g.rotate(-0.09); g.fillRect(-92, -70, 184, 140); g.restore();     // a strip of masking tape, put on by hand
+      g.fillStyle = "#1d2226"; g.font = '700 150px "Bradley Hand", "Noteworthy", "Marker Felt", "Comic Sans MS", cursive'; g.textAlign = "center"; g.textBaseline = "middle"; g.save(); g.translate(128, 136); g.rotate(-0.07); g.fillText("7", 0, 0); g.restore();
+    }, false);
+    const mat = new THREE.MeshBasicMaterial({ map: tx, transparent: true, color: new THREE.Color(.9, .9, .9) });
+    for (let i = 0; i < 4; i++) { const p = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34), mat), a = i * Math.PI / 2; p.position.set(Math.sin(a) * 0.415, 0.02, Math.cos(a) * 0.415); p.rotation.y = a; A.group.add(p); }
+    A.mats[1].emissive.setHex(0xffd9a0);
+  }
+}
+function v5Seven() {                           // you walked out of the room still carrying Crate Seven
+  const aw = store.get("camAwards", []); if (!aw.includes("plus1")) { aw.push("plus1"); store.set("camAwards", aw); }
+  toast("AWARD: Plus One · Crate Seven left with you"); sfx.badge();
+}
+
 /* ---------- main physics step ---------- */
 function physicsStep(dt) {
   const W = world, pl = player;
@@ -2766,8 +3179,9 @@ function physicsStep(dt) {
   const wish = Math.min(1, Math.hypot(wx, wz));
   if (pl.ground) {
     const sp = Math.hypot(pl.v.x, pl.v.z);
-    if (sp > 0.01) { const ns = Math.max(0, sp - Math.max(sp, 1.5) * 9 * dt) / sp; pl.v.x *= ns; pl.v.z *= ns; }
-    if (wish > 0.01) { const dx = wx / wish, dz = wz / wish, add = WALK * wish - (pl.v.x * dx + pl.v.z * dz); if (add > 0) { const a = Math.min(add, 10 * dt * WALK); pl.v.x += dx * a; pl.v.z += dz * a; } }
+    const gl = pl.glide > 0, WK = gl ? WALK * 2.4 : WALK;      // glide paste: less friction, much more speed
+    if (sp > 0.01) { const ns = Math.max(0, sp - Math.max(sp, 1.5) * (gl ? (wish > 0.01 ? 2 : 4.5) : 9) * dt) / sp; pl.v.x *= ns; pl.v.z *= ns; }
+    if (wish > 0.01) { const dx = wx / wish, dz = wz / wish, add = WK * wish - (pl.v.x * dx + pl.v.z * dz); if (add > 0) { const a = Math.min(add, 10 * dt * WALK); pl.v.x += dx * a; pl.v.z += dz * a; } }
     if (inp.jumpQ && alive) { pl.v.y = JUMP_V; pl.ground = false; pl.air = 1; sfx.jump(); }
   } else if (inp.jumpQ && alive && (pl.air || 0) < 0.12 && pl.v.y <= 0.5) { pl.v.y = JUMP_V; pl.air = 1; sfx.jump(); }   // a moment's grace after walking off an edge
   else if (wish > 0.01 && !(pl.flyT > 0)) {
@@ -2780,15 +3194,16 @@ function physicsStep(dt) {
     const F = portals[0].n.y > 0.9 ? portals[0] : portals[1].n.y > 0.9 ? portals[1] : null, C = F && portals[1 - F.idx];
     if (F && C.n.y < -0.9 && Math.hypot(pl.p.x - F.o.x, pl.p.z - F.o.z) < 1.8) { const k = Math.exp(-6 * dt); pl.v.x = pl.v.x * k + (F.o.x - pl.p.x) * 3 * dt; pl.v.z = pl.v.z * k + (F.o.z - pl.p.z) * 3 * dt; }
   }
-  pl.v.y = Math.max(-TERM, pl.v.y - GRAV * dt);
+  pl.v.y = Math.max(-TERM, pl.v.y - (pl.inStream ? 0 : GRAV * dt));
   const sp3 = pl.v.length(); if (sp3 > 90) pl.v.multiplyScalar(90 / sp3);
   const vyBefore = pl.v.y, wasGround = pl.ground;
-  const contact = movePlayer(dt);
+  let contact = movePlayer(dt);
+  if (contact < 0 && -vyBefore > 2.5 && W.patches.length && v5Under("bounce")) { pl.v.y = Math.max(-vyBefore * 0.97, 10.5); contact = 0; sfx.launch(); if (!run.said.bounce) { run.said.bounce = 1; say("bounce"); } }   // rebound paste throws you back up
   pl.ground = contact < 0;
   if (pl.ground) pl.air = 0; else pl.air = (pl.air || 0) + dt;
   if (contact < 0 && !wasGround && -vyBefore > 5) { sfx.land(-vyBefore); onLanded(-vyBefore); }
   tryPortalPlayer();
-  padsStep(dt); zonesStep(dt);
+  padsStep(dt); zonesStep(dt); v5Step(dt);
   // the rest of the world: doors and sentries carry their colliders, the held cube is pulled along, then the engine steps
   moversStep(dt); spinnersStep();
   for (const d of W.doors) syncCollider(d.box);
@@ -2819,10 +3234,12 @@ function physicsStep(dt) {
     let on = alive && Math.abs(pl.p.x - p.pos[0]) < 0.8 && Math.abs(pl.p.z - p.pos[2]) < 0.8 && pl.p.y - HY < p.pos[1] + 0.22;
     if (!on) for (const c of props()) if (!c.held && Math.abs(c.p.x - p.pos[0]) < 0.8 && Math.abs(c.p.z - p.pos[2]) < 0.8 && c.p.y - c.h[1] < p.pos[1] + 0.3 && c.p.y > p.pos[1]) { on = true; break; }
     if (on !== p.pressed) { p.pressed = on; sfx.button(on); }
-    if (p.hold) { if (on) p.left = p.hold; else if (p.left > 0) { const b = Math.ceil(p.left * 2); p.left -= dt; if (Math.ceil(p.left * 2) !== b) sfx.tick(p.left); } }   // a relay holds it for a few seconds after you step off
-    p.active = on || p.left > 0;
+    const full = !p.charge || (p.chg = on ? Math.min(p.charge, (p.chg || 0) + dt) : 0) >= p.charge;      // a slow button needs weight on it for a while before it counts
+    if (p.hold) { if (on && full) p.left = p.hold; else if (p.left > 0) { const b = Math.ceil(p.left * 2); p.left -= dt; if (Math.ceil(p.left * 2) !== b) sfx.tick(p.left); } }   // a relay holds it for a few seconds after you step off
+    p.active = (on && full) || p.left > 0;
     if (p.active) for (const d of W.doors) if (d.id === p.door) d.cnt++;
   }
+  v5Doors(W);
   for (const d of W.doors) d.want = d.cnt >= (d.need || 1) ? 1 : 0;
   for (const d of W.doors) {
     const was = d.open;
@@ -2846,7 +3263,7 @@ function die(kind) {
   if (state !== "play") return;
   state = "dead"; run.deadT = 0; sfx.death(); flash("r"); player.hp = 0;
   if (holding) { const c = holding; dropCube(true); c.returnOnRespawn = true; }
-  say("death");
+  say(kind === "crush" ? "crushed" : kind === "spark" ? "sparked" : "death");
 }
 function respawn() {
   run.used = 0;
@@ -2897,6 +3314,7 @@ const allBadges = () => store.get("badges", []).length >= CHAMBERS.length;
 function completeLevel() {
   if (state !== "play") return;
   if (ROOM[levelIdx].part < ROOM[levelIdx].parts - 1 && !window.__tcSolo) { nextPart(); return; }
+  const took7 = !!(holding && holding.seven); if (took7) v5Seven();
   state = "done"; sfx.complete(); if (holding) dropCube();
   const CH = ROOM[levelIdx].c, lastCh = CH + 1 >= CHAMBERS.length;
   store.set("progress5", Math.min(Math.max(store.get("progress5", 0), CH + 1), CHAMBERS.length - 1)); store.set("room", lastCh ? FIRST[CH] : FIRST[CH + 1]);
@@ -2909,7 +3327,7 @@ function completeLevel() {
   if (!(best[CH] >= medal)) { best[CH] = medal; store.set("best", best); }
   $("dMedal").innerHTML = '<b class="m' + medal + '">' + MEDAL[medal] + "</b> &middot; par " + fmtT(parT) + ", " + parP + " portals" + (store.get("badges", []).includes(CH) ? " &middot; badge found" : " &middot; badge not found") + (() => { const [cd, ct] = chamberCams(CH); return ct ? " &middot; cameras down " + cd + " of " + ct + (cd === ct ? " &middot; <b class=\"m3\">Lens Cap award</b>" : "") : ""; })();
   $("bCredits").hidden = !lastCh;
-  const lines = lastCh && allBadges() ? [LINES.allBadges[0]] : world.lv.say.done; const q = pick(lines);
+  const lines = lastCh && allBadges() ? [LINES.allBadges[0]] : (took7 && world.lv.say.done7) || world.lv.say.done; const q = pick(lines);
   $("dQuote").innerHTML = "<i>SADOS</i>" + q;
   $("bNext").hidden = lastCh;
   setTimeout(() => { if (state === "done") { showOv("ovDone"); say("done", q); } }, 700);
@@ -3075,6 +3493,9 @@ const SFX = fn => (...a) => { if (!actx || !opts.sfx || actx.state !== "running"
 const sfx = {
   grav: SFX((t, up) => { osc("sine", up ? 110 : 520, up ? 620 : 90, t, 0.6, 0.2); osc("triangle", up ? 220 : 780, up ? 930 : 160, t, 0.5, 0.08); noise(t, 0.5, 0.1, up ? 400 : 3000, up ? 3000 : 400, 2); }),
   pump: SFX(t => { osc("sawtooth", 55, 82, t, 1.2, 0.09); noise(t, 1.4, 0.12, 300, 900, 0.8, "lowpass"); }),
+  splat: SFX(t => { noise(t, 0.12, 0.1, 900, 200, 1.2); osc("sine", 240, 90, t, 0.1, 0.06); }),
+  slam: SFX(t => { noise(t, 0.4, 0.3, 700, 60, 1.1); osc("sine", 70, 30, t, 0.35, 0.3); osc("square", 120, 40, t, 0.12, 0.08); }),
+  sparkOut: SFX(t => { osc("sawtooth", 900, 1800, t, 0.12, 0.05); noise(t, 0.15, 0.08, 5000, 2000, 2); }),
   camSnap: SFX(t => { noise(t, 0.18, 0.2, 3200, 500, 2); osc("square", 320, 80, t, 0.22, 0.07); }),
   camCrash: SFX(t => { noise(t, 0.3, 0.22, 1900, 180, 1.4); osc("triangle", 150, 45, t, 0.28, 0.12); }),
   tick: SFX((t, left) => { osc("square", left < 1.5 ? 1500 : 1100, left < 1.5 ? 1500 : 1100, t, 0.04, 0.06); }),
@@ -3115,10 +3536,21 @@ const LINES = {
   sadosGrab: ["Excellent. You have found the cube. I suggest you do not name it."],
   grav: ["A gravity panel. It turns down into up for everything in that zone that is not bolted down, or you. You are exempt. Legal insisted."],
   badge: ["A staff badge. Please put that back. Its owner will want it, when they return."],
-  allBadges: ["Goodbye. You are carrying all seventeen staff badges, so as far as my records go, you are the staff. You came back after all. Welcome back. You are all dismissed."],
+  allBadges: ["Goodbye. You are carrying all twenty-one staff badges, so as far as my records go, you are the staff. You came back after all. Welcome back. You are all dismissed."],
   camDown: ["That camera was bolted to that wall for eleven years. You have undone it in a second. I hope you are proud of yourself.", "Please stop opening portals behind the cameras. They are not insured. Neither, I should point out, are you.", "A camera has fallen off the wall. I will log it as a bird strike. There are no birds. It will be a very short log.", "Cameras are expensive. Portals are free. I leave you to work out which of us is losing money."],
   camRoom: ["That is every camera in this room, lying on the floor. I cannot see you now. I can still hear you being smug."],
   camAll: ["Every camera in the facility is on a floor somewhere. I have made you an award out of the staff budget. It is a certificate. It says Blind Spot. It is also an apology I will deny."],
+  stream: ["You are in the stream. Gravity has been told to wait outside. Walk sideways when you want it back."],
+  bounce: ["Rebound paste. It returns what it is given, minus a small handling charge."],
+  glide: ["Glide paste. You are now faster than your decisions."],
+  primed: ["One coat of primer. That panel takes portals now. Please do not prime anything that is looking at you."],
+  switch: ["That switch is on a timer. Most things here are. I am the exception."],
+  socket: ["The socket has taken the spark. It will not give it back."],
+  prism: ["The prism crate is doing your aiming for you. Thank it."],
+  crushed: ["The press has done its job. You were not its job, but it does not read the paperwork.", "Flattened. I will have you put back the usual shape."],
+  sparked: ["That was the spark. It goes in straight lines. You were on one."],
+  sevenGrab: ["You have picked up crate seven. Do not talk to it. It will not answer, and then you will only feel worse."],
+  sevenLost: ["Crate seven has been recycled. That one comes back. They do not all come back."],
   caught: ["There you are. Back on the track, please.", "Found you. That area is for staff only. There are no staff. Back you go.", "I can see you again. That is better. For one of us."],
   glassBreak: ["That was a window. It had been a window for eleven years. Do not go in there. There is nothing in there. Stay on the test track."],
   glass: ["Please do not shoot the observation offices. Nobody is in them. Nobody has been in them for some time."],
@@ -3747,9 +4179,15 @@ function updateBeams(dt, time) {
   for (const r of world.receivers) r.lit = false;
   const carried = holding; if (carried) carried.held = false;      // rays skip held cubes; light shouldn't, so a carried cube is a shield
   for (const b of world.beams) {
-    const res = castRay(b.o, b.dir, 160, true, true);
+    let res = castRay(b.o, b.dir, 160, true, true); const allSegs = res.segs.slice();
+    for (let k = 0; k < 3 && res.hit && res.hit.box.mat === "cube"; k++) {          // a prism crate sends the light on out of its lens, squared up to the nearest quarter turn
+      const pc = world.cubes.find(c => c.prism && c.box === res.hit.box); if (!pc) break;
+      const pd = new V3(0, 0, -1).applyQuaternion(pc.q); if (Math.abs(pd.y) > 0.7) pd.set(0, Math.sign(pd.y), 0); else if (Math.abs(pd.x) > Math.abs(pd.z)) pd.set(Math.sign(pd.x), 0, 0); else pd.set(0, 0, Math.sign(pd.z));
+      res = castRay(pc.p.clone(), pd, 160, true, true, pc); for (const g of res.segs) allSegs.push(g);
+      if (!run.said.prism) { run.said.prism = 1; say("prism"); }
+    }
     let i = 0;
-    for (const sg of res.segs) {
+    for (const sg of allSegs) {
       if (i >= b.segs.length) break; const m = b.segs[i++];
       for (const [mesh, th] of [[m.core, 0.045], [m.glow, 0.17]]) { mesh.visible = true; mesh.position.copy(sg.o).addScaledVector(sg.d, sg.len / 2); mesh.lookAt(tmpA.copy(sg.o).add(sg.d)); mesh.scale.set(th * (1 + .08 * Math.sin(time * 40 + i)), th * (1 + .08 * Math.sin(time * 37)), sg.len); }
       if (alive) {
@@ -3851,9 +4289,10 @@ function frame(ts) {
   $("hpBar").classList.toggle("on", player.hp < 99 && state === "play"); $("hpBar").firstElementChild.style.width = player.hp + "%";
   updateSentries(dt, ts / 1000); updateBeams(dt, ts / 1000); updateFields(dt); updateZones(dt, ts / 1000);
   { const el = $("lim"); el.hidden = !(opts.challenge && state === "play"); if (!el.hidden) el.textContent = "PORTALS " + run.used + " / " + portalLimit(); }
-  { let left = 0, need = ""; for (const p of world.plates) { if (p.left > 0 && !p.pressed) left = Math.max(left, p.left); if (p.active) { const d = world.doors.find(d => d.id === p.door); if (d && d.cnt < (d.need || 1)) need = "Door needs " + (d.need || 1) + " buttons: " + d.cnt + " held"; } }
+  { let left = 0, need = ""; for (const p of world.plates) { if (p.left > 0 && !p.pressed) left = Math.max(left, p.left); if (p.charge && p.pressed && p.chg < p.charge) need = "Slow button: " + (p.charge - p.chg).toFixed(1); else if (p.active) { const d = world.doors.find(d => d.id === p.door); if (d && d.cnt < (d.need || 1)) need = "Door needs " + (d.need || 1) + " buttons: " + d.cnt + " held"; } }
     const el = $("prompt"), cs = world.camSeen || 0; el.classList.toggle("on", (left > 0 || cs > 0.05 || !!need) && state === "play");
-    if (cs > 0.05) el.textContent = "Camera has you: " + Math.round(cs * 100) + "%"; else if (need) el.textContent = need + (left > 0 ? " · timer " + left.toFixed(1) : ""); else if (left > 0) el.textContent = "Door closes in " + left.toFixed(1); }
+    if (cs > 0.05) el.textContent = "Camera has you: " + Math.round(cs * 100) + "%"; else if (need) el.textContent = need + (left > 0 ? " · timer " + left.toFixed(1) : ""); else if (left > 0) el.textContent = "Door closes in " + left.toFixed(1);
+    if (world.v5msg && state === "play" && cs <= 0.05) { el.classList.add("on"); el.textContent = world.v5msg; } }
   updateFx(dt);
   for (const c of world.cubes) cubeGhost(c, dt);
   // A cube that would land on a plate (held over it, or falling onto it) lights the plate's ring green and pulses; a pressed plate glows steady green
@@ -3887,7 +4326,7 @@ function boot() {
   $("loading").hidden = true;
   requestAnimationFrame(frame);
 }
-window.__tc = { hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, levels: LEVEL_FUNCS.map(f => f().say), quips: SENTRY_QUIPS }), lineHash, get state() { return state; }, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
+window.__tc = { hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS }), lineHash, get state() { return state; }, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
 try { boot(); } catch (err) { console.error(err); $("loading").hidden = false; $("loading").innerHTML = '<div style="max-width:420px;text-align:center;line-height:1.6;font-size:13px;letter-spacing:.05em">Something went wrong starting the game.<br><small>' + String(err && err.message || err) + "</small></div>"; }
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>

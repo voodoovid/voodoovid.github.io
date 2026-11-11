@@ -96,7 +96,7 @@ main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(330p
 <script type="module">
 import * as THREE from "three";
 
-const LAB_VERSION = "Lab v0.5";
+const LAB_VERSION = "Lab v0.6";
 document.getElementById("ver").textContent = LAB_VERSION;
 
 // ---------- check rows ----------
@@ -106,6 +106,7 @@ const CHECKS = [
   ["thru",    "Physics through portals", "A crate falls 10 m into a floor portal and must fly out of a wall portal at the same speed."],
   ["carry",   "Carrying a sentry",       "A sentry is a real, heavy object: carried along, it shields you from another sentry and weighs down a plate."],
   ["gravity", "Gravity flip",            "A gravity panel flips down for one zone only: its crate and sentry fall up to the ceiling, then back."],
+  ["v5",      "Walkway and stream",      "For v5.0: a crate rests on a light walkway that is moved in under it, falls when the walkway goes, and drifts weightless along a carrier stream."],
   ["bg",      "Sound stops in background", "Tap Start hum, switch to another app for 3 seconds, then come back."],
   ["pad",     "Controller (optional)",   "Press any button or move a stick on your controller."],
   ["webgl",   "WebGL 2 graphics",        "The 3D features the renderer needs."],
@@ -341,6 +342,23 @@ function carryTest() {
 }
 
 // A gravity panel flips "down" for objects in its zone only.
+// v5.0: a fixed collider that is moved about at run time (light walkway) carries a crate and drops it when it leaves;
+// a crate with gravity off and a steered velocity (carrier stream) holds its height and travels
+function v5Test() {
+  const world = new RAPIER.World({ x: 0, y: -GAME_G, z: 0 }); world.timestep = 1 / 120;
+  world.createCollider(RAPIER.ColliderDesc.cuboid(30, 0.5, 10).setTranslation(0, -0.5, 0).setFriction(0.8));
+  const walk = world.createCollider(RAPIER.ColliderDesc.cuboid(4, 0.125, 0.65).setTranslation(0, -900, 0));
+  const crate = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(0, 3.6, 0).setCcdEnabled(true)); world.createCollider(crateCol(), crate);
+  const run = n => { for (let i = 0; i < n; i++) world.step(); };
+  walk.setTranslation({ x: 0, y: 2.875, z: 0 }); run(180); const onWalk = crate.translation().y;
+  walk.setTranslation({ x: 0, y: -900, z: 0 }); crate.wakeUp(); run(180); const fell = crate.translation().y;
+  const drift = world.createRigidBody(RAPIER.RigidBodyDesc.dynamic().setTranslation(-6, 2, 4).setCcdEnabled(true)); world.createCollider(crateCol(), drift);
+  drift.setGravityScale(0, true);
+  for (let i = 0; i < 240; i++) { const v = drift.linvel(), k = 1 - Math.exp(-5 / 120); drift.setLinvel({ x: v.x + (3 - v.x) * k, y: v.y * (1 - k), z: v.z * (1 - k) }, true); world.step(); }
+  const d = drift.translation(); world.free();
+  const ok = Math.abs(onWalk - 3.35) < 0.08 && Math.abs(fell - 0.35) < 0.08 && Math.abs(d.y - 2) < 0.1 && d.x > -1.5;
+  return { ok, detail: `On the walkway at ${onWalk.toFixed(2)} m, on the floor at ${fell.toFixed(2)} m after it went · stream carried a crate ${(d.x + 6).toFixed(1)} m in 2 s at ${d.y.toFixed(2)} m` };
+}
 function gravityTest() {
   const world = new RAPIER.World({ x: 0, y: -GAME_G, z: 0 }); world.timestep = 1 / 120;
   world.createCollider(RAPIER.ColliderDesc.cuboid(30, 0.5, 10).setTranslation(0, -0.5, 0).setFriction(0.8));
@@ -743,6 +761,7 @@ async function runAll() {
     await guard("thru", async () => { const r = thruTest(); set("thru", r.ok ? "pass" : "fail", r.detail); });
     await guard("carry", async () => { const r = carryTest(); set("carry", r.ok ? "pass" : "fail", r.detail); });
     await guard("gravity", async () => { const r = gravityTest(); set("gravity", r.ok ? "pass" : "fail", r.detail); });
+    await guard("v5", async () => { const r = v5Test(); set("v5", r.ok ? "pass" : "fail", r.detail); });
     await guard("stack", async () => { const r = stackTest(); set("stack", r.ok ? "pass" : "fail", r.detail); });
     await guard("walker", async () => { const r = walkerTest(); set("walker", r.ok ? "pass" : "fail", r.detail); });
   }
@@ -876,7 +895,7 @@ document.getElementById("runBtn").addEventListener("click", runAll);
 }
 
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js").catch(() => {});
-window.__lab = { get results() { return results; }, runAll, rows, tests: { thruTest, carryTest, gravityTest }, THREE, get RAPIER() { return RAPIER; }, makePortalFrame, portalMatrix };
+window.__lab = { get results() { return results; }, runAll, rows, tests: { thruTest, carryTest, gravityTest, v5Test }, THREE, get RAPIER() { return RAPIER; }, makePortalFrame, portalMatrix };
 </script>
 <script src="lines.js"></script>
 </body>
