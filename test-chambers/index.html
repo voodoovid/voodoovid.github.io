@@ -356,6 +356,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
             <li><b>Moving panels</b> slide along a lit wall. A portal placed on one rides with it, so pick your moment to step through.</li>
             <li><b>Turning panels</b> spin half a turn every few seconds. A portal on one goes round to the other side with it.</li>
             <li><b>Office windows</b> are tougher than they look, but not bullet-proof.</li>
+            <li><b>Cameras</b> hang on walls. Open a portal on the wall one hangs from and it falls off and goes dark. Bring down every camera in a chamber for the <b>Lens Cap</b> award, and every camera in the game for <b>Blind Spot</b>.</li>
             <li><b>Off the test track</b>, cameras sweep a cone of light. Stay in one too long and SaDos puts you back at the start of the section.</li>
             <li><b>Light beams</b> burn. A cube on the floor blocks one. Portals carry one from place to place, and a glowing <b>receiver</b> that is lit opens its door.</li>
             <li><b>Reset fields</b> close every portal as you pass. Place new ones on the other side.</li>
@@ -439,7 +440,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 await RAPIER.init();
 
-const VERSION = "v4.4";
+const VERSION = "v4.5";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -555,9 +556,34 @@ function signTex(kind, line1, line2, w, h) {
   const px = 220, cw = Math.round(w * px / 2) * 2, ch = Math.round(h * px / 2) * 2;
   const t = canvasTex(cw, ch, (g) => {
     if (kind === "scrawl") {                  // marker pen on the wall, in a hurry
-      g.clearRect(0, 0, cw, ch); g.fillStyle = "rgba(150,24,20,.92)"; g.textAlign = "center"; g.textBaseline = "middle";
-      g.translate(cw / 2, ch / 2); g.rotate(-0.035); g.font = `700 ${ch * (line2 ? .3 : .36)}px "Marker Felt", "Chalkboard SE", "Comic Sans MS", cursive`;
-      if (line2) { g.fillText(line1, 0, -ch * .2); g.fillText(line2, cw * .03, ch * .22); } else wrapText(g, line1, 0, 0, cw * .92, ch * .4);
+      g.clearRect(0, 0, cw, ch);
+      let seed = 2166136261; for (const c of (line1 + "|" + (line2 || ""))) seed = Math.imul(seed ^ c.charCodeAt(0), 16777619) >>> 0;     // the same wall always gets the same hand
+      const rnd = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; }, rr = a => (rnd() * 2 - 1) * a;
+      const FONT = '"Bradley Hand", "Noteworthy", "Segoe Print", "Marker Felt", "Chalkboard SE", "Comic Sans MS", cursive';
+      g.textAlign = "left"; g.textBaseline = "alphabetic"; g.lineJoin = "round"; g.lineCap = "round";
+      const lines = line2 ? [line1, line2] : [line1], fs = ch * (line2 ? .31 : .38), drips = [];
+      lines.forEach((txt, li) => {                                          // every letter its own size, tilt and wobble, the line running uphill
+        g.font = `700 ${fs}px ${FONT}`;
+        const adv = [...txt].map(c => g.measureText(c).width * (0.92 + rnd() * .2)), tot = adv.reduce((a, b) => a + b, 0), k = Math.min(1, cw * .9 / tot);
+        let x = cw * .5 - tot * k / 2 + rr(cw * .02) + (li ? cw * .03 : 0), sigX = -1, sigY = 0, endX = 0; const sigAt = /- O\.$/.test(txt) ? txt.length - 4 : -1; const base = ch * (line2 ? (li ? .8 : .42) : .58), slope = -0.05 + rr(.03);
+        [...txt].forEach((c, i) => {
+          if (i === sigAt) sigX = x;
+          const sz = fs * k * (0.88 + rnd() * .26), y = base + (x - cw / 2) * slope + rr(fs * .07);
+          g.save(); g.translate(x, y); g.rotate(rr(.16)); g.font = `700 ${sz}px ${FONT}`;
+          g.fillStyle = "rgba(120,16,14,.55)"; g.strokeStyle = "rgba(120,16,14,.55)"; g.lineWidth = sz * .07; g.strokeText(c, rr(1.5), rr(1.5)); g.fillText(c, rr(1.2), rr(1.2));      // marker laid on twice, a little out of register
+          g.fillStyle = "rgba(168,28,22,.94)"; g.strokeStyle = "rgba(168,28,22,.94)"; g.lineWidth = sz * .05; g.strokeText(c, 0, 0); g.fillText(c, 0, 0);
+          g.restore();
+          if (c !== " " && c !== "." && c !== "," && rnd() < .13) drips.push([x + adv[i] * k * .4, y + sz * .06, sz * (.25 + rnd() * .75), sz * .045]);
+          x += adv[i] * k * (0.96 + rnd() * .08); endX = x; sigY = y;
+        });
+        if (li === lines.length - 1 && /- O\.$/.test(txt)) {                // the signature gets a quick underline
+          g.strokeStyle = "rgba(168,28,22,.9)"; g.lineWidth = fs * .06; g.beginPath(); const ux = sigX, uy = sigY + fs * .2; g.moveTo(ux, uy); g.quadraticCurveTo((ux + endX) / 2, uy + rr(fs * .15), endX + fs * .2, uy - fs * .12); g.stroke();
+        }
+      });
+      for (const [dx, dy, len, w] of drips) {                              // paint runs down the wall
+        g.strokeStyle = "rgba(168,28,22,.88)"; g.lineWidth = Math.max(2, w); g.beginPath(); g.moveTo(dx, dy); g.lineTo(dx + rr(1.5), dy + len); g.stroke();
+        g.fillStyle = "rgba(168,28,22,.9)"; g.beginPath(); g.arc(dx, dy + len, Math.max(2, w * .9), 0, 6.3); g.fill();
+      }
       return;
     }
     const dark = kind === "chamber", exit = kind === "exit";
@@ -1189,7 +1215,7 @@ function level27() {
 }
 function level28() {
   const L = 28, W = 12, H = 8, h = hall({ L, W, H, zc: 6 });
-  h.boxes.push(bx(14, 0, 4, 18, 1.6, 4.3, "dark"), bx(14, 0, 7.7, 18, 1.6, 8, "dark"), bx(14, 0, 4.3, 14.3, 1.6, 7.7, "dark"), bx(17.7, 0, 4.3, 18, 1.6, 7.7, "dark"), skin(14.3, 0, 4.3, 17.7, 0.02, 7.7));   // the pen
+  h.boxes.push(bx(14, 0, 4, 18, 1.6, 4.3, "dark"), bx(14, 0, 7.7, 18, 1.6, 8, "dark"), bx(14, 0, 4.3, 14.3, 1.6, 7.7, "dark"), bx(17.7, 0, 4.3, 18, 1.6, 7.7, "dark"), skin(14.3, 0, 4.3, 17.7, 0.02, 7.7), bx(14.3, 0, 6.8, 15.2, 0.9, 7.7, "dark"));   // the pen
   h.gravs = [{ pad: [9, 0, 6], min: [14.3, 0, 4.3], max: [17.7, H, 7.7] }];
   h.cubes = [[16, 0.4, 6]]; h.plates = [{ pos: [23, 0, 6], door: "d1" }]; h.doors = [exitDoor(L, 6)];
   office(h, 19, 25, 4.6, 6.6, 0);
@@ -1604,7 +1630,7 @@ function portalTransforms() {
 function placePortal(idx, o, n, u, boxes) {
   const P = portals[idx];
   P.o.copy(o); P.n.copy(n); P.u.copy(u); P.boxes = boxes; P.on = true; P.open = 0; P.mesh.visible = true;
-  portalFrame(P); portalTransforms();
+  portalFrame(P); portalTransforms(); camKnock(P);
 }
 function closePortal(P) { P.on = false; P.mesh.visible = false; P.boxes = []; }
 // sliding panels: out, wait, back, wait. A portal on one moves with it, and closes if the panel carries it behind something
@@ -1917,7 +1943,7 @@ function buildLevel(idx) {
     const led = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, .2, .15) })); led.position.set(0.06, 0.05, 0.245); head.add(led);
     levelGroup.add(root); head.position.applyQuaternion(root.quaternion).add(root.position); levelGroup.add(head);
     head.traverse(o => { o.frustumCulled = false; });
-    const cam = { head, led, q: new QT().copy(root.quaternion), n, watch: d.watch || null, seen: 0, sees: false, dir: new V3(), cone: null };
+    const cam = { head, led, root, q: new QT().copy(root.quaternion), n, watch: d.watch || null, seen: 0, sees: false, dir: new V3(), cone: null, mount: new V3(...d.pos), key: ROOM_NAMES[idx] + ":" + W.cams.length, dead: false, fall: null };
     if (d.watch) {                               // a watching camera: it sweeps a cone of light, and SaDos gets you back if you stay in it
       const w = d.watch, half = (w.cone || 20) * Math.PI / 180, len = w.range || 11;
       cam.aim0 = new V3(...w.aim).sub(head.position).normalize(); cam.cos = Math.cos(half); cam.range = len;
@@ -2026,7 +2052,7 @@ function updateZones(dt, time) {
   if (state === "title") return;
   const alive = state === "play", carried = holding; if (carried) carried.held = false;
   let worst = 0;
-  for (const c of world.cams) if (c.watch) {
+  for (const c of world.cams) if (c.watch && !c.dead) {
     const w = c.watch, chest = tmpA.set(player.p.x, player.p.y + 0.15, player.p.z), toP = _camV.copy(chest).sub(c.head.position), dist = toP.length(); toP.multiplyScalar(1 / (dist || 1));
     const a = (w.sweep || 0) * Math.sin((world.t / (w.period || 7) + (w.phase || 0)) * Math.PI * 2);
     if (!c.sees) c.dir.copy(c.aim0).applyAxisAngle(_yAxis, a);                     // sweeping; once it has you it follows you instead
@@ -2039,12 +2065,58 @@ function updateZones(dt, time) {
   if (carried) carried.held = true;
   world.camSeen = worst; if (worst >= 1 && alive) caught();
   for (const c of world.cams) {              // each camera's head eases round to keep you in frame
-    if (c.watch) continue;
+    if (c.watch || c.dead) continue;
     _gm.lookAt(c.head.position, tmpA.set(player.p.x, player.p.y + 0.5, player.p.z), tmpB.set(0, 1, 0)); _gq.setFromRotationMatrix(_gm); _gq.multiply(CAM_FLIP);
     c.head.quaternion.slerp(_gq, Math.min(1, dt * 2.2)); c.led.material.color.setRGB(Math.sin(time * 3 + c.head.position.x) > 0.6 ? 2.6 : 0.5, .1, .08);
   }
+  camFalls(dt);
 }
 const _camV = new V3(), _camW = new V3(), _yAxis = new V3(0, 1, 0);
+// a portal opened on the wall a camera hangs from takes the wall away: the camera falls, goes dark, and SaDos complains
+function camKnock(P) {
+  if (!world || !world.cams) return;
+  for (const c of world.cams) {
+    if (c.dead || c.n.dot(P.n) < 0.9) continue;
+    tmpA.copy(c.mount).sub(P.o); if (Math.abs(tmpA.dot(P.n)) > 0.35) continue;
+    tmpA.addScaledVector(P.n, -tmpA.dot(P.n)); tmpB.crossVectors(P.u, P.n);
+    if (Math.abs(tmpA.dot(P.u)) < PH + 0.25 && Math.abs(tmpA.dot(tmpB)) < PW + 0.25) dropCam(c);
+  }
+}
+function dropCam(c) {
+  c.dead = true; c.sees = false; c.seen = 0; if (c.cone) c.cone.visible = false;
+  c.led.material.color.setRGB(.03, .01, .01);
+  c.fall = { v: new V3().copy(c.n).multiplyScalar(1.2 + Math.random() * .8).add(new V3((Math.random() - .5) * 1.2, 1.4, (Math.random() - .5) * 1.2)), w: new V3((Math.random() - .5) * 9, (Math.random() - .5) * 9, (Math.random() - .5) * 9), hits: 0 };
+  sfx.camSnap(); onCamDown(c);
+}
+const _down = new V3(0, -1, 0);
+function camFalls(dt) {
+  for (const c of world.cams) {
+    const f = c.fall; if (!f) continue;
+    f.v.y -= GRAV * dt; c.head.position.addScaledVector(f.v, dt); c.head.rotateX(f.w.x * dt); c.head.rotateY(f.w.y * dt); c.head.rotateZ(f.w.z * dt);
+    if (c.head.position.y < -30) { c.head.visible = false; c.fall = null; continue; }
+    const up = Math.max(0.05, -f.v.y * dt), dn = castRay(tmpC.copy(c.head.position).add(tmpA.set(0, up, 0)), _down, 0.3 + 2 * up, false, true);     // looks back over the distance it fell this frame, so a fast drop can't skip the floor
+    if (dn.hit && dn.hit.t - up < 0.2 && f.v.y < 0) {
+      sfx.camCrash(); f.hits++; c.head.position.y += 0.2 - (dn.hit.t - up);
+      if (f.hits >= 3 || -f.v.y < 1.6) { c.fall = null; continue; }
+      f.v.y *= -0.3; f.v.x *= 0.5; f.v.z *= 0.5; f.w.multiplyScalar(0.5);
+    }
+  }
+}
+let CAMTOT = null;
+const camCounts = () => CAMTOT || (CAMTOT = LEVEL_FUNCS.map(f => (f().cams || []).length));
+function chamberCams(CH) {                  // [down, total] for a chamber, across its rooms
+  const got = store.get("camsDown", []), cc = camCounts(); let down = 0, tot = 0;
+  ROOM.forEach((R, i) => { if (R.c !== CH) return; tot += cc[i]; for (let k = 0; k < cc[i]; k++) if (got.includes(ROOM_NAMES[i] + ":" + k)) down++; });
+  return [down, tot];
+}
+function onCamDown(c) {
+  const got = store.get("camsDown", []); if (!got.includes(c.key)) { got.push(c.key); store.set("camsDown", got); }
+  const total = camCounts().reduce((a, b) => a + b, 0), downHere = world.cams.filter(x => x.dead).length, awards = store.get("camAwards", []);
+  let msg = "Camera down: " + downHere + " of " + world.cams.length + " in this room", line = "camDown";
+  if (got.length >= total && !awards.includes("all")) { awards.push("all"); store.set("camAwards", awards); msg = "AWARD: Blind Spot · every camera in the facility is down"; line = "camAll"; sfx.badge(); }
+  else if (downHere === world.cams.length && !awards.includes("room:" + c.key.split(":")[0])) { awards.push("room:" + c.key.split(":")[0]); store.set("camAwards", awards); msg = "AWARD: Lens Cap · every camera in this room is down"; line = "camRoom"; sfx.badge(); }
+  toast(msg); say(line);
+}
 // a camera kept you in view too long: SaDos has you put back at the start of the section
 function caught() {
   if (state !== "play") return; state = "dead"; run.deadT = 0.35; run.caught = (run.caught || 0) + 1; sfx.field(); flash("r");
@@ -2835,7 +2907,7 @@ function completeLevel() {
   $("dTime").textContent = m + ":" + String(s).padStart(2, "0"); $("dPortals").textContent = run.portals; $("dSpeed").textContent = run.top.toFixed(1);
   const [parT, parP] = chamberPar(CH), medal = (run.time <= parT ? 1 : 0) + (run.portals <= parP ? 1 : 0) + 1, best = store.get("best", {});
   if (!(best[CH] >= medal)) { best[CH] = medal; store.set("best", best); }
-  $("dMedal").innerHTML = '<b class="m' + medal + '">' + MEDAL[medal] + "</b> &middot; par " + fmtT(parT) + ", " + parP + " portals" + (store.get("badges", []).includes(CH) ? " &middot; badge found" : " &middot; badge not found");
+  $("dMedal").innerHTML = '<b class="m' + medal + '">' + MEDAL[medal] + "</b> &middot; par " + fmtT(parT) + ", " + parP + " portals" + (store.get("badges", []).includes(CH) ? " &middot; badge found" : " &middot; badge not found") + (() => { const [cd, ct] = chamberCams(CH); return ct ? " &middot; cameras down " + cd + " of " + ct + (cd === ct ? " &middot; <b class=\"m3\">Lens Cap award</b>" : "") : ""; })();
   $("bCredits").hidden = !lastCh;
   const lines = lastCh && allBadges() ? [LINES.allBadges[0]] : world.lv.say.done; const q = pick(lines);
   $("dQuote").innerHTML = "<i>SADOS</i>" + q;
@@ -3003,6 +3075,8 @@ const SFX = fn => (...a) => { if (!actx || !opts.sfx || actx.state !== "running"
 const sfx = {
   grav: SFX((t, up) => { osc("sine", up ? 110 : 520, up ? 620 : 90, t, 0.6, 0.2); osc("triangle", up ? 220 : 780, up ? 930 : 160, t, 0.5, 0.08); noise(t, 0.5, 0.1, up ? 400 : 3000, up ? 3000 : 400, 2); }),
   pump: SFX(t => { osc("sawtooth", 55, 82, t, 1.2, 0.09); noise(t, 1.4, 0.12, 300, 900, 0.8, "lowpass"); }),
+  camSnap: SFX(t => { noise(t, 0.18, 0.2, 3200, 500, 2); osc("square", 320, 80, t, 0.22, 0.07); }),
+  camCrash: SFX(t => { noise(t, 0.3, 0.22, 1900, 180, 1.4); osc("triangle", 150, 45, t, 0.28, 0.12); }),
   tick: SFX((t, left) => { osc("square", left < 1.5 ? 1500 : 1100, left < 1.5 ? 1500 : 1100, t, 0.04, 0.06); }),
   glassBreak: SFX(t => { noise(t, 0.5, 0.4, 6000, 1500, 1.5); noise(t + 0.08, 0.9, 0.22, 4200, 700, 2.5); for (let i = 0; i < 7; i++) osc("triangle", 2200 + Math.random() * 2600, 1500 + Math.random() * 900, t + 0.05 + i * 0.07, 0.12, 0.05); }),
   glass: SFX(t => { noise(t, 0.12, 0.22, 5200, 2600, 3); osc("triangle", 2400, 1800, t, 0.1, 0.07); osc("triangle", 3300, 2900, t + 0.03, 0.12, 0.05); }),
@@ -3042,6 +3116,9 @@ const LINES = {
   grav: ["A gravity panel. It turns down into up for everything in that zone that is not bolted down, or you. You are exempt. Legal insisted."],
   badge: ["A staff badge. Please put that back. Its owner will want it, when they return."],
   allBadges: ["Goodbye. You are carrying all seventeen staff badges, so as far as my records go, you are the staff. You came back after all. Welcome back. You are all dismissed."],
+  camDown: ["That camera was bolted to that wall for eleven years. You have undone it in a second. I hope you are proud of yourself.", "Please stop opening portals behind the cameras. They are not insured. Neither, I should point out, are you.", "A camera has fallen off the wall. I will log it as a bird strike. There are no birds. It will be a very short log.", "Cameras are expensive. Portals are free. I leave you to work out which of us is losing money."],
+  camRoom: ["That is every camera in this room, lying on the floor. I cannot see you now. I can still hear you being smug."],
+  camAll: ["Every camera in the facility is on a floor somewhere. I have made you an award out of the staff budget. It is a certificate. It says Blind Spot. It is also an apology I will deny."],
   caught: ["There you are. Back on the track, please.", "Found you. That area is for staff only. There are no staff. Back you go.", "I can see you again. That is better. For one of us."],
   glassBreak: ["That was a window. It had been a window for eleven years. Do not go in there. There is nothing in there. Stay on the test track."],
   glass: ["Please do not shoot the observation offices. Nobody is in them. Nobody has been in them for some time."],
@@ -3407,13 +3484,20 @@ let padFire = [false, false];
   });
   { const gb = GamePad.settingsButton(); gb.dataset.tip = "See and change what each controller button does"; $("vOpt").before(gb); }
 }
+const padRest = [0, 0, 0, 0], padStill = [0, 0, 0, 0], padLast = [0, 0, 0, 0];
 function readPad() {
   const pads = navigator.getGamepads ? navigator.getGamepads() : []; let gp = null;
   for (const p of pads) if (p && p.connected && p.axes.length >= 4) { gp = p; break; }
   const out = { mx: 0, my: 0, lx: 0, ly: 0 };
-  if (!gp || state !== "play" || anyOv()) return out;
-  const dz = v => Math.abs(v) < 0.14 ? 0 : (v - Math.sign(v) * 0.14) / 0.86;
-  out.mx = dz(gp.axes[0]); out.my = dz(gp.axes[1]); out.lx = dz(gp.axes[2]); out.ly = dz(gp.axes[3]);
+  if (!gp) return out;
+  // a worn stick rests off-centre and spins the view on its own: learn where each axis sits when it hasn't moved for 1.5 seconds and treat that as centre
+  const raw = [0, 1, 2, 3].map(i => gp.axes[i] || 0);
+  const now = performance.now();
+  raw.forEach((v, i) => { if (Math.abs(v - padLast[i]) < 0.015 && Math.abs(v) < 0.3) { if (!padStill[i]) padStill[i] = now; if (now - padStill[i] > 1500) padRest[i] = v; } else padStill[i] = 0; padLast[i] = v; });
+  if (state !== "play" || anyOv()) return out;
+  const c = raw.map((v, i) => v - padRest[i]);
+  const rad = (x, y) => { const m = Math.hypot(x, y), DZ = 0.24; if (m < DZ) return [0, 0]; const k = Math.min(1, (m - DZ) / (1 - DZ)) / m; return [x * k, y * k]; };      // round dead zone, so a stick leaning on one axis can't creep on the other
+  [out.mx, out.my] = rad(c[0], c[1]); [out.lx, out.ly] = rad(c[2], c[3]);
   return out;
 }
 
@@ -3767,7 +3851,9 @@ function frame(ts) {
   $("hpBar").classList.toggle("on", player.hp < 99 && state === "play"); $("hpBar").firstElementChild.style.width = player.hp + "%";
   updateSentries(dt, ts / 1000); updateBeams(dt, ts / 1000); updateFields(dt); updateZones(dt, ts / 1000);
   { const el = $("lim"); el.hidden = !(opts.challenge && state === "play"); if (!el.hidden) el.textContent = "PORTALS " + run.used + " / " + portalLimit(); }
-  { let left = 0; for (const p of world.plates) if (p.left > 0 && !p.pressed) left = Math.max(left, p.left); const el = $("prompt"), cs = world.camSeen || 0; el.classList.toggle("on", (left > 0 || cs > 0.05) && state === "play"); if (cs > 0.05) el.textContent = "Camera has you: " + Math.round(cs * 100) + "%"; else if (left > 0) el.textContent = "Door closes in " + left.toFixed(1); }
+  { let left = 0, need = ""; for (const p of world.plates) { if (p.left > 0 && !p.pressed) left = Math.max(left, p.left); if (p.active) { const d = world.doors.find(d => d.id === p.door); if (d && d.cnt < (d.need || 1)) need = "Door needs " + (d.need || 1) + " buttons: " + d.cnt + " held"; } }
+    const el = $("prompt"), cs = world.camSeen || 0; el.classList.toggle("on", (left > 0 || cs > 0.05 || !!need) && state === "play");
+    if (cs > 0.05) el.textContent = "Camera has you: " + Math.round(cs * 100) + "%"; else if (need) el.textContent = need + (left > 0 ? " · timer " + left.toFixed(1) : ""); else if (left > 0) el.textContent = "Door closes in " + left.toFixed(1); }
   updateFx(dt);
   for (const c of world.cubes) cubeGhost(c, dt);
   // A cube that would land on a plate (held over it, or falling onto it) lights the plate's ring green and pulses; a pressed plate glows steady green
