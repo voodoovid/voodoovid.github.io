@@ -1066,21 +1066,32 @@ function level11() {
   });
 }
 function level12() {
-  const L = 38, h = hall({ L, W: 12, H: 7, zc: 6 });
-  partition(h.boxes, 13, 1, 12, 7, 5, 9);
-  h.fields = [{ min: [13.35, 0, 5], max: [13.65, 3.2, 9] }];
-  h.beams = [{ pos: [0.02, 1.15, 2.2], dir: [1, 0, 0] }];
-  h.boxes.push(bx(12.4, 0, 0, 13, 7, 4));          // white backstop where the beam lands (z 0 to 4 of the partition's near face)
-  h.cubes = [[4, 0.35, 9.5]]; h.plates = [{ pos: [24, 0, 3.5], door: "d1" }];
-  h.receivers = [{ pos: [30, 1.15, 0], n: [0, 0, 1], w: 2.2, h: 2.2, door: "d1" }];
-  h.doors = [exitDoor(L, 6, "d1", 2)];
-  h.sentries = [{ pos: [35.5, 0, 2], yaw: Math.PI / 2, range: 14 }, { pos: [35.5, 0, 10], yaw: Math.PI / 2, range: 14 }, { pos: [18, 0, 11.3], yaw: Math.PI / 2, cone: 70, range: 14 }];   // 40 m saw the start through the doorway
-  h.signs.push(chSign(12, "THE LAST WORD", 4.6, 5), hint("EVERYTHING YOU HAVE LEARNED. ALL OF IT.", [8, 3.2, 12], [0, 0, -1], 5.6, 1));
+  // v6.4 The Last Word: the plate is shut in a cell on the far side, and the cell's only way in is the white panel on its back wall, which can be
+  // seen through its window. The crate can't pass the field, so it goes in by portal from this side. Then the same panel has to carry the light
+  // to the receiver inside the cell, and that has to be set from the far side, because walking through the field closes your portals.
+  // A sentry stands by the cell and jams the panel until it is carried off
+  const L = 36, W = 12, H = 7, h = hall({ L, W, H, zc: 6 }); darkAll(h);
+  const B = h.boxes, n0 = B.length;
+  partition(B, 13, 1, W, H, 4.5, 7.5);
+  B.push(bx(10, 0, 7.7, 10.6, 1.7, 8.3), bx(22.6, 0, 8.6, 23, H, 9), bx(22.6, 0, 9, 23, 0.9, 10), bx(22.6, 2.2, 9, 23, H, 10), bx(22.6, 0, 10, 23, H, W),      // the emitter's post; the cell and its window
+    bx(23, 0, 8.6, 26.4, H, 9), bx(26, 0, 9, 26.4, H, W));
+  for (const b of B.slice(n0)) darken(b);
+  whiteOn(h, bx(0, 0.05, 7.25, 0.1, 2.35, 8.75));                                                  // where the beam lands: it can be seen from the far side through the doorway
+  whiteOn(h, bx(5, 0.05, 0, 6.5, 2.35, 0.1));                                                      // a way in, this side
+  whiteOn(h, bx(25.9, 0.05, 10, 26, 2.35, 11.5));                                                  // the back wall of the cell, facing its window and the receiver
+  h.fields = [{ min: [13.35, 0, 4.5], max: [13.65, 3.2, 7.5] }];
+  h.beams = [{ pos: [9.98, 1.15, 8], dir: [-1, 0, 0] }];
+  h.receivers = [{ pos: [23, 1.15, 10.75], n: [1, 0, 0], w: 1.0, h: 1.0, door: "d1" }];
+  h.cubes = [[4, 0.35, 4]]; h.plates = [{ pos: [24.3, 0, 9.9], door: "d1" }]; h.doors = [exitDoor(L, 6, "d1", 2)];
+  h.sentries = [{ pos: [25, 0, 8.1], yaw: Math.PI / 2, range: 7.5 }];                         // short-sighted: the far wall is out of its reach, the middle of the room is not
+  h.start = { pos: [2, 0, 4], yaw: -Math.PI / 2, pitch: -0.05 };
+  h.lamps.push(lamp(24.5, H - .4, 10.5, .45, 5)); h.par = [220, 6];
+  h.signs.push(chSign(35, "THE LAST WORD", 8, 5));
   return Object.assign(h, {
-    num: 12, name: "The Last Word", track: 1,
+    num: 35, name: "The Last Word", track: 1,
     say: {
-      intro: ["This chamber uses everything so far: the cube, the light, the field, and the sentries, who have been waiting.", "I would wish you luck. I would also be lying, and I only do that when I have to."],
-      hint: ["The door needs both the plate and the receiver. The light and the cube must cross the wall separately. Think about what the portals can carry, and when."],
+      intro: ["This chamber uses everything so far: the cube, the light, the field, and a sentry, who has been waiting.", "I would wish you luck. I would also be lying, and I only do that when I have to."],
+      hint: ["The field forgets your portals for you. It is the only thing in this building with a shorter memory than yours."],
       done: ["That was the easy part. I did not mention there was a hard part. I am mentioning it now."]
     }
   });
@@ -1383,25 +1394,32 @@ function level29() {
     done: ["Three seconds, and you had most of them to spare. Do not look so pleased. The offices are empty. Nobody saw."] } });
 }
 function level30() {
-  const L = 32, W = 12, H = 7, h = hall({ L, W, H, zc: 6, pits: [[12, 20]], cool: true });
-  h.boxes.push(bx(12, -4, 3.2, 20, 0, W));                               // the pool is only a channel along one wall
-  h.boxes.push(bx(12, 0, 3, 20, H, 3.2, "dark"));                        // and a wall keeps you from reaching over it
-  h.pools[0].z1 = 3; h.pools[0].cur = [1.3, 0]; h.pools[0].pump = "p1";
-  h.fields = [{ min: [15.85, 0, 3.2], max: [16.15, H, W] }];             // the way round on foot, which no object survives
-  // nothing past the field takes a portal
-  darken(h.boxes.find(b => b.min[0] === 20 && b.max[1] === 0));
-  h.boxes.push(skin(16.2, 0, 3.2, 20, 0.02, W), skin(16.2, 0, W - 0.1, L, H, W), skin(16.2, H - 0.1, 0, L, H, W), skin(11, 0, 0, L, H, 0.1), skin(11, -4, 0, 20, 0, 0.1),
-    skin(L - 0.1, 0, 0, L, H, 4.5), skin(L - 0.1, 0, 7.5, L, H, W), skin(L - 0.1, 3.2, 4.5, L, H, 7.5));
-  h.cubes = [{ pos: [13.05, -0.6, 1.55] }];
-  h.sentries = [{ pos: [5, 0, 10.6], yaw: Math.PI, range: 8 }];
-  h.plates = [{ pos: [8.5, 0, 9.5], door: "x", hold: 9, pump: "p1" }, { pos: [26, 0, 7], door: "d1" }]; h.doors = [exitDoor(L, 6)];
+  // v6.4 Cold Storage: the door wants a weight, the only weight is a sentry, and the field recycles whatever is carried through it. The float in the
+  // coolant channel is the way round, and it waits at the far end until the pump is run. A sentry wakes facing the way you faced, and at the far
+  // dock the only way to it is up a walled slip, straight into its eyes: set on the float from the bank, it arrives looking down the slip. The booth
+  // over the channel (a portal gets you in) looks across it instead, so from there the sentry rides facing the wall, and can be lifted off
+  const L = 34, W = 12, H = 7, h = hall({ L, W, H, zc: 6, pits: [[12, 22]], cool: true }); darkAll(h);
+  const B = h.boxes, n0 = B.length;
+  B.push(bx(12, -4, 2.6, 22, 0, W));                                                               // the pool is only a channel along one wall
+  h.pools[0].z1 = 2.4; h.pools[0].cur = [-1.3, 0]; h.pools[0].pump = "p1";                         // the first run of the pump brings the float back to this end
+  B.push(bx(12, 0, 2.4, 12.4, H, 2.6), bx(12.4, 3.4, 2.4, 13.8, H, 2.6), bx(13.8, 0, 2.4, 27, H, 2.6));     // the channel wall, open at the booth; it runs on past the far dock to make the slip
+  B.push(bx(12.4, -4, 2.4, 13.8, 1, 2.6), bx(12.4, 0, 2.6, 13.8, 1, 5), bx(12, 0, 2.6, 12.4, H, 5.4), bx(13.8, 0, 2.6, 14.2, H, 5.4),      // the booth: a raised floor, side walls,
+    bx(12.4, 1, 5, 13.8, 1.7, 5.4), bx(12.4, 3.3, 5, 13.8, H, 5.4), bx(12.4, 0, 5, 13.8, 1, 5.4));                                        // and a window too high to climb through
+  B.push(bx(14.6, 1.15, 0, 19.8, H, 2.4));                                                         // the channel runs under a low roof: a sentry clears it, you would not
+  for (const b of B.slice(n0)) darken(b);
+  whiteOn(h, bx(13.7, 1.05, 3, 13.8, 3.35, 4.6));                                                  // inside the booth, seen through its window
+  whiteOn(h, bx(0, 0.05, 5, 0.1, 2.35, 6.5));                                                      // the back wall
+  h.fields = [{ min: [15.85, 0, 2.6], max: [16.15, H, W] }];                                       // the way round on foot, which no object survives
+  h.cubes = [{ pos: [21.1, -0.6, 1.2] }];
+  h.sentries = [{ pos: [5, 0, 10.6], yaw: Math.PI, range: 9, cone: 40, dmg: 14, acc: 0.85 }];
+  h.plates = [{ pos: [8.5, 0, 9.5], door: "x", hold: 12, pump: "p1" }, { pos: [29, 0, 9.5], door: "d1" }]; h.doors = [exitDoor(L, 6)]; h.par = [240, 2];
   office(h, 2.5, 8.5, 4.3, 6.2, 0);
-  h.signs.push({ kind: "chamber", a: "TEST CHAMBER 30", b: "COLD STORAGE", pos: [5.5, 3.1, 0.001], n: [0, 0, 1], w: 4.4, h: 1.0 }, hint("AMBER PLATE RUNS THE PUMP. AGAIN, AND IT RUNS BACK.", [7, 3.2, 12], [0, 0, -1], 6, 1),
-    scrawl("THE EXIT SIGN IS HONEST.", "THE EXIT IS NOT.  - O.", [24, 1.2, 12 - 0.105], [0, 0, -1], 3.2, 0.95));
-  for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.11, sg.pos[1], sg.pos[2]];
-  return Object.assign(h, { badge: [21, 1, 0.8], num: 30, name: "Cold Storage", track: 2, say: {
-    intro: ["That channel is coolant. It keeps me at a comfortable temperature, and you at a fatal one. Things float in it. You are not one of the things.", "The door over there wants a weight. The field across the floor recycles anything you carry. I do enjoy it when the rules agree with each other."],
-    hint: ["The float in the channel will carry whatever stands on it, once the pump is running. The amber plate runs the pump. Mind which way your passenger is looking when it arrives."],
+  h.lamps.push(lamp(13.1, 3.1, 3.8, .4, 4), lamp(24.5, H - .3, 1.2, .45, 6));
+  h.signs.push({ kind: "chamber", a: "TEST CHAMBER 36", b: "COLD STORAGE", pos: [5.5, 3.1, 0.001], n: [0, 0, 1], w: 4.4, h: 1.0 },
+    scrawl("THE EXIT SIGN IS HONEST.", "THE EXIT IS NOT.  - O.", [24, 1.2, 12 - 0.001], [0, 0, -1], 3.2, 0.95));
+  return Object.assign(h, { badge: [26.3, 1, 0.6], num: 36, name: "Cold Storage", track: 2, say: {
+    intro: ["That channel is coolant. It keeps me at a comfortable temperature, and you at a fatal one. Things float in it. You are not one of the things.", "The amber plate runs the pump. Step on it again and the pump runs the other way. The door over there wants a weight, and the field recycles anything you carry. I do enjoy it when the rules agree with each other."],
+    hint: ["Your passenger will spend the whole voyage looking at whatever you were looking at when you said goodbye. Choose it a view."],
     done: ["You sent a sentry on a cruise. It is the only holiday anyone here has had in a very long time. Including me. Especially me."] } });
 }
 /* ---------- after the final exam: the way out is "being serviced". A moving panel, an office window that breaks, and what is behind it ---------- */
@@ -1548,24 +1566,53 @@ function farDark(h, x0, L, W, H, zc, floorFrom, ey = 0) {
   for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.11, sg.pos[1], sg.pos[2]];
 }
 function level37() {
-  const L = 30, W = 12, H = 7, h = hall({ L, W, H, zc: 6, pits: [[10, 22]] });
-  farDark(h, 10, L, W, H, 6, 22);
-  h.walks = [{ pos: [6, 0.16, 0.03], dir: [0, 0, 1] }]; h.par = [70, 2];
-  h.signs.push(chSign(37, "WALKWAY", 3.4, 3.6), hint("LIGHT YOU CAN STAND ON", [3, 3.2, 12], [0, 0, -1], 4.4, 1));
-  return Object.assign(h, { num: 37, name: "Walkway", track: 0, say: {
-    intro: ["That strip of light on the floor is a walkway. It is solid. The physics department assured me of this shortly before they stopped answering their telephone.", "It goes in a straight line until it meets a wall. At present it meets the wrong wall."],
-    hint: ["A walkway goes through a portal as happily as you do. Put one portal where the light ends, and the other on the wall behind you, low down. Then walk."],
+  // v6.4 Walkway: the light is a bridge, and it ends short every time. From the back wall it runs out to a dark wall in the acid; from there you can
+  // see a panel that sends it across the room under your feet, then one behind you that sends it on, then one by the far bank. Each new panel can
+  // only be seen from the end of the bridge before it, so the bridge has to be re-aimed while you are standing on it
+  const L = 40, W = 12, H = 7, h = hall({ L, W, H, zc: 2, pits: [[10, 32]] }); darkAll(h);
+  const B = h.boxes, far = B.findIndex(b => b.min[0] === 32 && b.max[1] === 0 && b.min[1] === -4);
+  B[far] = bx(32, -4, -2, L, 0, 3.5, "dark"); B.push(bx(32, -6, 3.5, L, -4, W + 2, "dark"));            // the far bank is only a shelf along one wall; the rest is more acid
+  h.acid.push({ x0: 32, x1: L, z0: 3.5, z1: W, y: -3 }); h.air.push([32, -4, 3.5, L, 0, W]);
+  B.push(bx(20, -4, 0, 21, H, 6, "dark"));                                                         // where the first bridge stops
+  B.push(bx(17.3, -4, 0, 17.7, H, 2.2, "dark"));                                                   // hides the side panel from the bank
+  B.push(bx(12, -4, 8.25, 13, H, 9.75, "dark"));                                                   // a pillar whose far face can only be seen from out over the acid
+  B.push(bx(33.6, -4, 9.6, 34, H, W, "dark"));                                                     // hides the last panel until you are almost past it
+  whiteOn(h, bx(5.25, 0.05, W - 0.1, 6.75, 2.27, W));                                              // A: where the light lands
+  whiteOn(h, bx(0, 0.05, 2.25, 0.1, 2.27, 3.75));                                                  // B: the back wall
+  whiteOn(h, bx(18.45, 0.05, 0, 19.95, 2.27, 0.1));                                                // C: the side wall, just before the dark wall
+  whiteOn(h, bx(13, 0.05, 8.25, 13.1, 2.27, 9.75));                                                // D: the pillar's far face
+  whiteOn(h, bx(35.25, 0.05, W - 0.1, 36.75, 2.27, W));                                            // F: by the far bank
+  h.walks = [{ pos: [6, 0.16, 0.03], dir: [0, 0, 1] }];
+  h.cubes = [[3, 0.35, 9]]; h.plates = [{ pos: [34, 0, 1.6], door: "d1" }]; h.doors = [exitDoor(L, 2)]; h.par = [150, 5];
+  h.lamps.push(lamp(36, H - .3, 3, .5, 8));
+  h.signs.push(chSign(31, "WALKWAY", 3.4, 3.6));
+  return Object.assign(h, { num: 31, name: "Walkway", track: 0, say: {
+    intro: ["That strip of light on the floor is a walkway. It is solid. The physics department assured me of this shortly before they stopped answering their telephone.", "It goes in a straight line until something stops it. Over the acid, a number of things stop it. I had them put there."],
+    hint: ["The light does not mind where you are standing when it moves. Find out whether you do."],
     done: ["You have walked on light. Do not tell the others. There are no others. Do not tell them anyway."] } });
 }
 function level38() {
-  const L = 28, W = 12, H = 10, h = hall({ L, W, H, zc: 6, ey: 5, ledge: 6 });
-  farDark(h, 12, L, W, H, 6, undefined, 5);
-  h.boxes.push(bx(1, 0, 9.4, 1.6, 2.2, 10));
-  h.streams = [{ pos: [7, 0.06, 3], dir: [0, 1, 0], speed: 4.5 }]; h.par = [80, 2];
-  h.signs.push(chSign(38, "UPDRAFT", 4.6, 3.6), hint("THE STREAM CARRIES WHAT STEPS INTO IT", [6, 3.2, 12], [0, 0, -1], 5.4, 1));
-  return Object.assign(h, { badge: [0.8, 1, 11], num: 38, name: "Updraft", track: 1, say: {
+  // v6.4 Updraft: the stream goes where the portals send it, and it carries crates as readily as people. The plate is shut in a cell with one small
+  // high window: the crate fits through it, you do not. The exit is on a ledge behind a wall, and the only panel up there can be seen from one
+  // place: pressed against the cell window, at the end of the crate's own route. So the crate goes first, you follow it to look, and then you leave another way
+  const L = 30, W = 12, H = 12, h = hall({ L, W, H, zc: 6, ey: 4, ledge: 9 }); darkAll(h);
+  const B = h.boxes;
+  B.push(bx(12.4, 0, 0, 12.8, H, 2.4, "dark"), bx(15.2, 0, 0, 15.6, H, 2.4, "dark"));              // the cell's side walls
+  B.push(bx(12.8, 0, 2, 15.2, 0.15, 2.4, "dark"), bx(12.8, 0.15, 2, 13.1, 0.7, 2.4, "dark"), bx(14.9, 0.15, 2, 15.2, 0.7, 2.4, "dark"),      // its front: a slit to see the plate through,
+    bx(12.8, 0.7, 2, 15.2, 8.35, 2.4, "dark"), bx(12.8, 8.35, 2, 13.35, 9.65, 2.4, "dark"), bx(14.65, 8.35, 2, 15.2, 9.65, 2.4, "dark"),    // and a high window a crate fits through
+    bx(12.8, 9.65, 2, 15.2, H, 2.4, "dark"));
+  B.push(bx(20.6, 0, 2.6, 21, H, W, "dark"));                                                      // the wall in front of the ledge
+  whiteOn(h, bx(1.85, H - 0.1, 9.35, 4.15, H, 11.65));                                             // the ceiling over the stream
+  whiteOn(h, bx(13.25, 7.85, W - 0.1, 14.75, 10.15, W));                                            // high on the side wall, square to the cell window
+  whiteOn(h, bx(25.2, 4, 1.15, 27.6, 4.1, 2.65));                                                    // on the ledge, seen only from the window
+  h.streams = [{ pos: [3, 0.06, 10.5], dir: [0, 1, 0], speed: 4.5 }];
+  h.cubes = [[6, 0.35, 6]]; h.plates = [{ pos: [14, 0, 0.75], door: "d1" }]; h.doors = [exitDoor(L, 6, "d1", 1, 4)]; h.par = [150, 3];
+  h.lamps.push(lamp(14, 5, 1, .45, 6), lamp(25, H - .3, 6, .5, 10));
+  h.signs.push(chSign(32, "UPDRAFT", 7, 3.6));
+  for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.02, sg.pos[1], sg.pos[2]];
+  return Object.assign(h, { badge: [22, 5, 11.2], num: 32, name: "Updraft", track: 1, say: {
     intro: ["This is a carrier stream. Anything that steps into it stops falling and drifts along with it. Crates. Sentries. You.", "It currently carries things to the ceiling and leaves them there. I find that restful. You may not."],
-    hint: ["The exit is up on the ledge. A stream that goes into a portal comes out of the other one still going. Put one on the ceiling where the stream ends, and one high on the wall behind you. High. Higher than that."],
+    hint: ["The crate is smaller than you are. I mention it because the building was designed by someone who had noticed."],
     done: ["You drifted the whole way with your arms out. I have a recording. I am keeping it."] } });
 }
 function level39() {
@@ -1586,15 +1633,26 @@ function level39() {
     done: ["You crossed ten metres of acid on a floor I had made slippery. In any other building that would be a lawsuit."] } });
 }
 function level40() {
-  const L = 28, W = 12, H = 8, h = hall({ L, W, H, zc: 6, pits: [[12, 18]] });
-  farDark(h, 11, L, W, H, 6, 18);
-  h.boxes.push(bx(9, 0, 5, 10, H, 7), bx(22, 0, 3, 22.4, 4.5, 9, "dark"));                        // the white pillar by the pit, and the dark slab on the far bank
-  h.boxes.push(bx(0.6, 0, 0.6, 1.2, 1.6, 1.2));
-  h.sprayers = [{ pos: [4, H - 0.12, 9], dir: [0, -1, 0], kind: "primer" }]; h.par = [100, 4];
-  h.signs.push(chSign(40, "PRIMER", 4.6, 3.6), hint("PRIMER MAKES A DARK PANEL TAKE PORTALS", [5, 3.2, 12], [0, 0, -1], 5.6, 1), scrawl("AIM HIGH. IT DROPS.", "- O.", [10.02, 1.3, 6], [1, 0, 0], 1.7, 0.8));
-  return Object.assign(h, { badge: [0.9, 2.3, 0.9], num: 40, name: "Primer", track: 0, say: {
-    intro: ["Everything across the acid is dark panel. Portals will not open on dark panel. This is deliberate. It is the most deliberate thing in the room.", "That white drip is primer. One coat and a dark panel behaves itself. It is on the wrong side of the acid, which is also deliberate."],
-    hint: ["The pillar by the pit has a white face looking across the acid. Catch the drip in a floor portal and let it out high on that face. Primer flies a long way before it falls. Then open a portal on whatever it hits."],
+  // v6.4 Primer: only bare board (tan) can be primed, and a primed panel is the next place the primer can be thrown from. The nozzle primes the
+  // floor under itself as you watch. From the white pillar a low throw primes the low slab across the acid (a way over, into a pocket under the
+  // ledge, and nothing more); a high throw clears it and primes the tall slab behind, whose side face looks along the pocket at the block by the
+  // ledge. Prime that from the tall slab and it is a door onto the ledge. The crate is down in the pocket
+  const L = 30, W = 12, H = 10, h = hall({ L, W, H, zc: 6, pits: [[12, 18]], ey: 3, ledge: 7 }); darkAll(h);
+  const B = h.boxes;
+  B.push(bx(9, 0, 0, 10, H, 1.8, "dark")); whiteOn(h, bx(10, 0.05, 0.05, 10.1, H - 0.3, 1.55));    // the pillar by the pit: one tall white face looking across
+  B.push(bx(2.85, 0, 7.75, 5.15, 0.1, 10.25, "bare"));                                             // under the nozzle
+  B.push(bx(18.3, 0, 0, 18.7, 2.6, 1.6, "bare"));                                                  // the low slab: the obvious one
+  B.push(bx(20.5, 0, 0, 22, 8.5, 1.5, "bare"));                                                    // the tall slab behind it
+  B.push(bx(20.5, 3, 10.5, 24.5, 8, W, "bare"));                                                   // the block on the far wall: one end of it stands on the ledge
+  B.push(bx(23, 3, 0, 23.3, H, 9, "dark"));                                                        // the ledge is walled along its edge, but for the end by the block
+  h.sprayers = [{ pos: [4, H - 0.12, 9], dir: [0, -1, 0], kind: "primer" }];
+  h.cubes = [[19.5, 0.35, 8]]; h.plates = [{ pos: [27, 3, 3], door: "d1" }]; h.doors = [exitDoor(L, 6, "d1", 1, 3)]; h.par = [170, 6];
+  h.lamps.push(lamp(20.5, 5, 6, .5, 8), lamp(26.5, H - .3, 6, .5, 9));
+  h.signs.push(chSign(33, "PRIMER", 4.6, 3.6), scrawl("WRONG WALL.", "I DID IT TOO.  - O.", [22.999, 1.3, 5], [-1, 0, 0], 2.6, 0.95));
+  for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.02, sg.pos[1], sg.pos[2]];
+  return Object.assign(h, { num: 33, name: "Primer", track: 0, say: {
+    intro: ["That white drip is primer. One coat, and bare board takes a portal. You have just watched it do the floor.", "The rest of the bare board is across the acid. The primer is not. I would call that an oversight, but I signed the drawing."],
+    hint: ["Paint goes where it is thrown, and it stays there. Choose your first wall the way you would choose a tattoo."],
     done: ["You painted my wall and then walked through it. I have had contractors who did less damage."] } });
 }
 function level41() {
@@ -1636,15 +1694,21 @@ function level43() {
     done: ["Three seconds was plenty. I said it would be. I did not say it to you, but I said it."] } });
 }
 function level44() {
-  const L = 30, W = 12, H = 7, h = hall({ L, W, H, zc: 6 });
+  // v6.4 Crate Seven: the layout is the v5.0 one, with the exit moved up onto a ledge. The crate cannot pass the field, so it crosses by portal. The two
+  // slow buttons want the crate and you; once they sleep you have three seconds, and the door is up a wall. The way up has to be open before you step off
+  const L = 30, W = 12, H = 7, h = hall({ L, W, H, zc: 6, ey: 2.8, ledge: 4 }); darkAll(h);
   h.fields = [{ min: [15.85, 0, 0], max: [16.15, H, W] }];
+  whiteOn(h, bx(6, 0.05, W - 0.1, 7.5, 2.35, W));                                                   // this side of the field
+  whiteOn(h, bx(25.9, 0.05, 5.25, 26, 2.35, 6.75));                                                 // the foot of the ledge, seen through the field
+  whiteOn(h, bx(L - 0.1, 2.8, 8, L, 5.1, 9.5));                                                    // up on the ledge, beside the door
   h.cubes = [[4, 0.35, 9, "seven"]];
-  h.plates = [{ pos: [26.5, 0, 4.4], door: "d1", hold: 3, charge: 3.5 }, { pos: [26.5, 0, 7.6], door: "d1", hold: 3, charge: 3.5 }]; h.doors = [exitDoor(L, 6, "d1", 2)]; h.par = [90, 2];
-  h.boxes.push(bx(13, 0, 10.6, 13.6, 2, 11.2));
-  h.signs.push(chSign(44, "CRATE SEVEN", 4.6, 4), hint("SLOW BUTTONS: 3 S TO WAKE, 3 S TO SLEEP", [24, 3.3, 12], [0, 0, -1], 5.6, .9), scrawl("SEVEN IS A GOOD ONE.", "TAKE IT WITH YOU.  - O.", [8, 1.3, 12], [0, 0, -1], 3, 0.95));
-  return Object.assign(h, { badge: [14.5, 1, 11.4], num: 44, name: "Crate Seven", track: 1, say: {
+  h.plates = [{ pos: [20, 0, 4.4], door: "d1", hold: 3, charge: 3.5 }, { pos: [20, 0, 7.6], door: "d1", hold: 3, charge: 3.5 }]; h.doors = [exitDoor(L, 6, "d1", 2, 2.8)]; h.par = [100, 3];
+  h.boxes.push(bx(13, 0, 10.6, 13.6, 2, 11.2, "dark"));
+  h.signs.push(chSign(34, "CRATE SEVEN", 4.6, 4), scrawl("SEVEN IS A GOOD ONE.", "TAKE IT WITH YOU.  - O.", [10.5, 1.3, 12], [0, 0, -1], 3, 0.95));
+  for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.02, sg.pos[1], sg.pos[2]];
+  return Object.assign(h, { badge: [14.5, 1, 11.4], num: 34, name: "Crate Seven", track: 1, say: {
     intro: ["This is crate number seven. Somebody on the staff put tape on it and wrote the number by hand. That is against regulations. So is talking to it. They did both.", "It is equipment. You will carry it to the buttons, and you will not become attached to it. I mention this because of what happened last time."],
-    hint: ["The field in the middle recycles crates. Even that one. A portal on the far wall, seen through the field, is a door the field knows nothing about. The two buttons are slow to wake and quick to sleep, so one of you cannot do both. Once the door is open, they give you three seconds. That is long enough to pick something up again."],
+    hint: ["The buttons are slow to wake and quick to sleep. You are the other way round. Plan accordingly."],
     done: ["You left crate seven on the button. Correct. It is equipment. It is sitting there now, on its own, in the dark, and that is completely fine."],
     done7: ["You have taken crate seven with you. That is theft of facility property. I have filed the report. Nobody will read it. Keep the crate."] } });
 }
@@ -1980,6 +2044,7 @@ function bakedMat(map, normalMap, rough, metal, envI, color = 0xffffff) {
 }
 const NRM_WHITE = panelNormal(false);
 MAT.white = bakedMat(TEX.white, NRM_WHITE, 0.5, 0.0, 0.55);
+MAT.bare = bakedMat(TEX.white, NRM_WHITE, 0.88, 0.0, 0.12, 0x9a8362);      // bare board (v6.4): takes no portal until primer lands on it
 MAT.floor = bakedMat(TEX.white, NRM_WHITE, 0.26, 0.0, 0.95, 0xc4cad0);
 MAT.dark = bakedMat(TEX.dark, panelNormal(true), 0.32, 0.45, 0.9);
 // the blast doors: brushed steel with recessed panels, a hazard band along the foot and a stencilled number
@@ -3517,7 +3582,7 @@ function v5Under(kind) {
 function v5Paint(h, kind) {
   const W = world;
   if (kind === "primer") {                    // primer turns a whole dark panel into one that takes portals
-    const b = h.box; if (b.portal || b.primed || b.mat !== "dark") return; b.primed = true; b.portal = true;
+    const b = h.box; if (b.portal || b.primed || b.mat !== "bare") return; b.primed = true; b.portal = true;
     const b2 = { min: b.min.map(v => v - 0.007), max: b.max.map(v => v + 0.007), mat: "white", portal: true }, o = {}; bakeFaces([b2], W.lv.boxes, W.lv.lamps, null, o, b2.min);
     const g = new THREE.Group(); for (const k in o) { const mesh = new THREE.Mesh(geoFrom(o[k]), MAT[k]); mesh.frustumCulled = false; g.add(mesh); } levelGroup.add(g);
     sfx.splat(); sfx.lit(); toast("Primed: that panel takes portals now"); if (!run.said.primed) { run.said.primed = 1; say("primed"); }
