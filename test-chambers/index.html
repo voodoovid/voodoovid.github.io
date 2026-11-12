@@ -473,7 +473,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 await RAPIER.init();
 
-const VERSION = "v5.3";
+const VERSION = "v6.0";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -778,35 +778,22 @@ const lamp = (x, y, z, i = 1, rad = 7, r = 1, g = 1, b = 1) => ({ x, y, z, i, ra
 const WARM = [1, .97, .9];
 
 function level1() {
-  const B = [];
-  B.push(bx(-2, -4, -2, 8, 0, 12)); B.push(bx(8, -6, -2, 14, -4, 12, "dark")); B.push(bx(14, -4, -2, 22, 0, 12));
-  B.push(bx(-2, -6, -2, 28, 9, 0)); B.push(bx(-2, -6, 10, 28, 9, 12)); B.push(bx(-2, -6, 0, 0, 9, 10)); B.push(bx(-2, 7, 0, 22, 9, 10));
-  alcove(B, 22, 0, 10, 5, 3, 0, 3.2, 4, -6, 9);
-  // a second obstacle: a wall with a window (too high to climb) and one white pillar beyond it, seen only through the window
-  B.push(bx(18, 0, 0, 18.5, 1.25, 10, "dark"), bx(18, 2.65, 0, 18.5, 7, 10, "dark"), bx(18, 1.25, 0, 18.5, 2.65, 3.6, "dark"), bx(18, 1.25, 6.4, 18.5, 2.65, 10, "dark"));
-  B.push(bx(21.4, 0, 0.6, 22, 3.2, 3.2));
-  darken(B.find(b => b.min[0] === 14 && b.max[1] === 0)); B.push(skin(18.5, 0, 0, 22, 7, 0.1), skin(18.5, 0, 9.9, 22, 7, 10), skin(18.5, 6.9, 0, 22, 7, 10), bx(14, -0.02, 0, 18, 0.02, 10));
-  return {
-    num: 1, name: "Doorway", boxes: B, track: 0, par: [70, 4],
-    air: [[0, 0, 0, 22, 7, 10], [8, -4, 0, 14, 0, 10], [22, 0, 3.5, 26, 3.2, 6.5]],
-    lamps: [lamp(4, 6.7, 5, .55, 8), lamp(11, 6.7, 5, .5, 9), lamp(18, 6.7, 5, .55, 8), lamp(24.2, 2.9, 5, .75, 5, ...WARM), lamp(11, -2.4, 5, .55, 5, .25, 1, .45)],
-    fixtures: [[4, 7, 5], [11, 7, 3], [11, 7, 7], [18, 7, 5]],
-    acid: [{ x0: 8, x1: 14, z0: 0, z1: 10, y: -3 }],
-    start: { pos: [2, 0, 5], yaw: -Math.PI / 2, pitch: -0.05 },
-    exit: { min: [24, 0, 3.6], max: [26, 2.4, 6.4] }, exitLight: { x: 25.97, y0: .4, y1: 2.8, z0: 3.9, z1: 6.1 },
-    doors: [], plates: [], cubes: [],
-    signs: [
-      { kind: "chamber", a: "TEST CHAMBER 01", b: "DOORWAY", pos: [4.6, 4.3, 0], n: [0, 0, 1], w: 4.4, h: 1.15 },
-      { kind: "hint", a: "PORTALS STICK TO WHITE PANELS", pos: [5, 3.0, 10], n: [0, 0, -1], w: 3.9, h: 1.0 },
-      { kind: "hint", a: "LOOK THROUGH THE WINDOW", pos: [15.9, 3.2, 0], n: [0, 0, 1], w: 3.4, h: .8 },
-      { kind: "exit", a: "EXIT", pos: [22, 4.4, 5], n: [-1, 0, 0], w: 2.2, h: .75 }
-    ],
+  // v6.0 Doorway: the whole room is dark but two white panels, and the facility holds a portal open on each. Walk into one, step out of the other.
+  const h = hall({ L: 22, W: 10, H: 7, zc: 5, pits: [[8, 14]] });
+  darkAll(h);
+  whiteOn(h, bx(3.5, 0, 0, 7.5, 3.2, 0.1)); whiteOn(h, bx(15, 0, 0, 19, 3.2, 0.1));          // the two white panels, a portal each
+  h.boxes.push(bx(2.4, 0, 0, 3, 0.6, 10, "dark"));                                           // a low wall: the first thing to jump
+  h.held = [{ idx: 0, pos: [5.5, 1.15, 0.1], n: [0, 0, 1] }, { idx: 1, pos: [17, 1.15, 0.1], n: [0, 0, 1] }];
+  h.start = { pos: [1, 0, 5], yaw: -Math.PI / 2, pitch: -0.05 };
+  h.signs.push(chSign(1, "DOORWAY", 5.5), hint("WHITE PANELS HOLD PORTALS", [5, 3.4, 10], [0, 0, -1], 4.6, 1), hint("STEP INTO THE BLUE ONE", [14, 3.4, 10], [0, 0, -1], 4.2, .9));
+  return Object.assign(h, {
+    num: 1, name: "Doorway", track: 0, par: [40, 1],
     say: {
-      intro: ["Welcome to the testing facility. I am SaDos. I will be supervising your performance and, more importantly, grading it.", "Please cross the pit. It is the one with the acid in it. I would avoid that part."],
-      hint: ["The white panels accept portals. The dark ones do not. I would explain why, but I doubt it would help."],
+      intro: ["Welcome to the testing facility. I am SaDos. I will be supervising your performance and, more importantly, grading it.", "There is a pit ahead. It has acid in it. Fortunately, I have opened a doorway across it. Walk through the blue one."],
+      hint: ["The white panels hold portals. Everything else in this room is dark, and does not. Step into the blue one. It is the one that is not in the acid."],
       done: ["Chamber complete. I would call that adequate, but I try to avoid exaggeration."]
     }
-  };
+  });
 }
 function level2() {
   const B = [];
@@ -876,7 +863,7 @@ function level4() {
   darken(B.find(b => b.min[1] === 9 && b.max[1] === 10));                          // nothing by the exit takes a portal: you have to arrive from below
   B.push(skin(9, 3, 0, 14, 16, 0.1), skin(9, 3, 7.9, 14, 16, 8), skin(9, 15.9, 0, 14, 16, 8));
   return {
-    badge: [12.5, 4, 1.2], num: 4, name: "Lift", boxes: B, track: 0,
+    num: 4, name: "Lift", boxes: B, track: 0,
     air: [[0, 0, 0, 14, 16, 8], [3, 0, 0, 14, 16, 8], [14, 10, 2.5, 18, 13.2, 5.5]],
     lamps: [lamp(5, 15.7, 4, .5, 12), lamp(11, 15.7, 4, .5, 12), lamp(9, 7, 4, .45, 9), lamp(5, 3, 4, .4, 8), lamp(16.2, 12.9, 4, .75, 5, ...WARM)],
     fixtures: [[5, 16, 4], [11, 16, 4]],
@@ -923,7 +910,7 @@ function level5() {
     say: {
       intro: ["Bring the cube. Do not lose the cube. You will lose the cube.", "The button is over there. You are over here. This is the whole test."],
       hint: ["You can hold the cube while you fall. Put it down on the round button, and the door will open. I would applaud, but I am a ceiling."],
-      done: ["Two chambers done. I would tell you how many are left, but it would only discourage you."]
+      done: ["Three chambers done. I would tell you how many are left, but it would only discourage you."]
     }
   };
 }
@@ -1726,17 +1713,78 @@ function level53() {                       // Hall Of Mirrors: every trick at on
     done: ["You took apart my best room with my own equipment. I would be furious, if I were not so tired. Go on. There is more."] } });
 }
 
+/* ---------- v6.0: three new Act 1 rooms (One Way, Line Of Sight, Drop Box) ---------- */
+// 2. One Way: the facility holds the far end open across the pit; you place the other end on the only white panel on this side
+function level54() {
+  const h = hall({ L: 24, W: 10, H: 7, zc: 5, pits: [[9, 15]] });
+  darkAll(h);
+  whiteOn(h, bx(3, 0, 0, 8, 3.2, 0.1)); whiteOn(h, bx(17.5, 0, 0, 19.5, 2.4, 0.1));         // the far panel is only as wide as the held portal
+  h.held = [{ idx: 1, pos: [18.5, 1.15, 0.1], n: [0, 0, 1] }];
+  h.signs.push(chSign(1, "ONE WAY", 5.5), hint("ONE END IS HELD OPEN. PLACE THE OTHER.", [8, 3.4, 10], [0, 0, -1], 6, 1));
+  return Object.assign(h, {
+    num: 2, name: "One Way", track: 1, par: [50, 1],
+    say: {
+      intro: ["Another pit. I have opened one end of a doorway on the far side. The other end, I am told, is your department.", "The blue button on your gun puts a portal on a white panel. There is only one panel on this side. I would not overthink it."],
+      hint: ["Aim at the white panel on this side and fire blue. Then walk into it. You will come out of the one I am holding open."],
+      done: ["You made a portal and used it. Somewhere, a very patient scientist is weeping with pride."]
+    }
+  });
+}
+// 3. Line Of Sight: both portals are yours. The only white surface past the wall is the pillar you can see through the window
+function level55() {
+  const h = hall({ L: 22, W: 10, H: 7, zc: 5 });
+  darkAll(h);
+  h.boxes.push(bx(12, 0, 0, 12.5, 1.25, 10, "dark"), bx(12, 2.65, 0, 12.5, 7, 10, "dark"), bx(12, 1.25, 0, 12.5, 2.65, 3.6, "dark"), bx(12, 1.25, 6.4, 12.5, 2.65, 10, "dark"));   // a wall with a window too high to climb through
+  whiteOn(h, bx(4, 0, 0, 9, 3.2, 0.1)); whiteOn(h, bx(20.4, 0, 0.6, 22, 3.2, 3.2));         // a panel on this side, one white pillar beyond the wall
+  h.badge = [20.6, 0.9, 9.3];
+  h.signs.push(chSign(1, "LINE OF SIGHT", 5.5, 5), hint("YOU CAN PLACE A PORTAL ANYWHERE YOU CAN SEE", [6, 3.4, 10], [0, 0, -1], 6.6, 1));
+  return Object.assign(h, {
+    num: 3, name: "Line Of Sight", track: 2, par: [70, 2],
+    say: {
+      intro: ["No doorway this time. Both portals are yours. I have taken the liberty of removing every white surface on the other side of that wall, except one.", "You can see it through the window. You can put a portal on anything you can see. This is the entire technique."],
+      hint: ["Portal on the panel beside you. Portal on the white pillar, through the window. Then walk into the first one."],
+      done: ["You shot a portal through a window. I will note that the window survived. Most subjects do not manage that."]
+    }
+  });
+}
+// 5. Drop Box: the button is in a cell behind bars. The facility holds a portal open in the floor here; put the other above the button and drop the cube in
+function level56() {
+  const h = hall({ L: 26, W: 10, H: 7, zc: 5 });
+  darkAll(h);
+  const bars = [[14, 14.8], [15.3, 16.7], [17.2, 18.7], [19.2, 21]];                          // slots 0.5 m wide: a portal shot or a look goes through, a cube or a person does not
+  for (const [a, b] of bars) h.boxes.push(bx(a, 0, 6.4, b, 2.6, 6.7, "dark"));
+  h.boxes.push(bx(14, 2.6, 6.4, 21, 7, 6.7, "dark"), bx(14, 0, 6.7, 14.3, 7, 10, "dark"), bx(20.7, 0, 6.7, 21, 7, 10, "dark"), bx(14.3, 2.6, 6.7, 20.7, 7, 10, "dark"));   // the cell: front bars, two side walls, a low ceiling (low enough to jump back out through the ceiling portal)
+  whiteOn(h, bx(15.7, 2.5, 7, 18.3, 2.6, 9.6));                                                 // the cell's ceiling panel, over the button
+  whiteOn(h, bx(4.8, 0, 4.2, 7.2, 0.1, 5.8));                                                   // the floor panel the facility holds a portal on
+  h.held = [{ idx: 0, pos: [6, 0.1, 5], n: [0, 1, 0] }];
+  h.cubes = [[3, 0.35, 3]]; h.plates = [{ pos: [17, 0, 8.3], door: "d1" }]; h.doors = [exitDoor(26, 5)];
+  h.lamps.push(lamp(17, 2.3, 8.3, .5, 5));
+  h.badge = [24.8, 0.9, 9.3];
+  h.signs.push(chSign(2, "DROP BOX", 5.5), hint("THINGS FALL THROUGH PORTALS TOO", [6, 3.4, 10], [0, 0, -1], 5.2, 1), hint("THE BUTTON IS BEHIND BARS", [17.5, 4.4, 10], [0, 0, -1], 4.4, .9));
+  return Object.assign(h, {
+    num: 5, name: "Drop Box", track: 0, par: [70, 1],
+    say: {
+      intro: ["The button is in a cell. The cell has bars. You will not be going in. The cube, however, has no dignity to lose.", "I have opened a portal in the floor. What you need is the other end, above the button."],
+      hint: ["Look through the bars at the ceiling of the cell. It is white. Fire orange at it. Then pick up the cube and drop it into the floor portal. It will do the rest."],
+      done: ["A cube fell through a hole and a door opened. I have seen less impressive things win awards."]
+    }
+  });
+}
+
 const CHAMBERS = [
-  ["Orientation", level1, level2, level3], ["Up And Over", level4, level5], ["Guard Duty", level6, level25], ["Light And Field", level7, level8],
-  ["Cover", level26, level9], ["The Last Word", level27, level10, level12], ["Air Mail", level13, level14], ["Upside Down", level28, level11],
-  ["Leaps", level15, level16], ["Timing", level29, level17], ["Fields", level18, level19], ["Second Wind", level20, level21],
-  ["Disposal", level22, level30], ["Bright Ideas", level37, level38], ["Wet Paint", level39, level40], ["Loose Ends", level41, level42], ["Handle With Care", level43, level44],
-  ["Self Assessment", level46, level47], ["Dead Weight", level48, level49], ["Burnout", level50, level51], ["Inversion", level52, level53],
-  ["Final Exam", level23, level24], ["Out Of Order", level31, level32], ["Behind The Walls", level33, level34], ["The Last Order", level45, level35, level36]
+  // v6.0 (Batch 1): the Act 1 order from the room map. Rooms past 8 keep their v5.3 form at their new number until their own batch arrives. Room 22 (Dead Drop) is built in Batch 3.
+  ["Orientation", level1, level54, level55], ["Deliveries", level2, level56], ["Up And Over", level3, level4, level5],
+  ["Guard Duty", level7, level6, level25], ["Light And Field", level13, level8], ["Oversight", level48, level28],
+  ["Cover", level26, level27], ["Field Trip", level17, level18], ["Self Assessment", level9, level46], ["Upside Down", level10],
+  ["Leaps", level15, level39, level20], ["Timing", level43, level29], ["Moving Parts", level31, level23],
+  ["Bright Ideas", level37, level38], ["Handle With Care", level40, level44, level12], ["Cold Storage", level30, level21, level19],
+  ["Second Opinion", level47, level41], ["Burnout", level50, level51], ["Loose Ends", level52, level42, level49],
+  ["Final Exam", level53, level24], ["Out Of Order", level32], ["Behind The Walls", level33, level34], ["The Last Order", level45, level35, level36]
 ];
 const LEVEL_FUNCS = [], ROOM = [], FIRST = [];
 CHAMBERS.forEach(([name, ...fns], c) => { FIRST.push(LEVEL_FUNCS.length); fns.forEach((f, k) => { ROOM.push({ c, part: k, parts: fns.length }); LEVEL_FUNCS.push(f); }); });
 const ROOM_NAMES = LEVEL_FUNCS.map(f => f().name), CH_NAMES = CHAMBERS.map(c => c[0]);
+const BADGE_CH = new Set(); LEVEL_FUNCS.forEach((f, i) => { if (f().badge) BADGE_CH.add(ROOM[i].c); });      // chambers that hide a staff badge (every chamber, once the rewrite is done)
 if (!store.get("mig50", 0)) {            // v5.0 put four chambers in after Disposal and a room in front of The Last Order: move saved progress along
   store.set("mig50", 1); const sh = c => c >= 13 ? c + 4 : c, p5 = store.get("progress5", null);
   if (p5 !== null) { store.set("progress5", sh(p5)); const b = store.get("best", {}), nb = {}; for (const k in b) nb[sh(+k)] = b[k]; store.set("best", nb); store.set("badges", store.get("badges", []).map(sh)); const r = store.get("room", 0); store.set("room", r >= 34 ? r + 9 : r >= 28 ? r + 8 : r); }
@@ -1744,6 +1792,11 @@ if (!store.get("mig50", 0)) {            // v5.0 put four chambers in after Disp
 if (!store.get("mig53", 0)) {   // v5.3 put four chambers in after Handle With Care: move saved progress along
   store.set("mig53", 1); const sh = c => c >= 17 ? c + 4 : c, p5 = store.get("progress5", null);
   if (p5 !== null) { store.set("progress5", sh(p5)); const b = store.get("best", {}), nb = {}; for (const k in b) nb[sh(+k)] = b[k]; store.set("best", nb); store.set("badges", store.get("badges", []).map(sh)); const r = store.get("room", 0); store.set("room", r >= 36 ? r + 8 : r); }
+}
+
+if (!store.get("mig60", 0)) {   // v6.0 (the rewrite, Batch 1) reorders every chamber: saved progress, medals and badges start again, as agreed
+  store.set("mig60", 1); store.set("mig50", 1); store.set("mig53", 1);
+  store.set("progress5", 0); for (const k of ["finished5", "room", "best", "badges"]) { try { localStorage.removeItem("testchambers." + k); } catch (e) {} }
 }
 
 /* =====================================================================================
@@ -2045,7 +2098,18 @@ function spinnersStep() {
     if (state === "play") sfx.door(half % 2 === 1);
   }
 }
-function clearPortals() { for (const P of portals) { P.on = false; P.mesh.visible = false; P.boxes = []; } }
+// `all` also takes down the facility-held portals (v5.4: a room can hold a portal open that the player can neither move nor close); only a room change passes it
+function clearPortals(all) { for (const P of portals) { if (P.locked && !all) continue; P.on = false; P.locked = false; P.mesh.visible = false; P.boxes = []; } }
+// facility-held portals: `held: [{ idx: 0|1, pos: [x, y, z] (opening centre on the surface), n: [nx, ny, nz] }]` in a level. Placed by the level, never by the gun.
+function placeHeld() {
+  for (const h of world.lv.held || []) {
+    const c = new V3(...h.pos), n = new V3(...h.n), u = n.y !== 0 ? new V3(1, 0, 0) : new V3(0, 1, 0), r = new V3().crossVectors(u, n);
+    const boxes = fitPortal(c, n, u, r, h.idx);
+    if (!boxes) { console.error("held portal does not fit", h); continue; }
+    placePortal(h.idx, c, n, u, boxes); portals[h.idx].locked = true;
+  }
+  updateCross();
+}
 
 /* ---------- viewmodel (the portal gun) ---------- */
 const gunScene = new THREE.Scene(), gunCam = new THREE.PerspectiveCamera(52, 4 / 3, 0.02, 10);
@@ -2784,6 +2848,7 @@ const portalLimit = () => (world.lv.par ? world.lv.par[1] : 4) + 2;      // chal
 function firePortal(idx) {
   if (state !== "play" || !world) return;
   if (opts.challenge && run.used >= portalLimit()) { sfx.fizzle(); toast("Out of portals. Restart the room to try again."); return; }
+  if (portals[idx].locked) { sfx.fizzle(); toast("The facility is holding that portal open"); return; }     // a held portal is the level's, not yours
   const o = eyePos(new V3()), d = viewDir(new V3());
   const res = castRay(o, d, 220, false, true);
   kick = 1; $("cross").classList.remove("pulse"); void $("cross").offsetWidth; $("cross").classList.add("pulse");
@@ -3590,7 +3655,7 @@ function physicsStep(dt) {
   }
   if (alive && W.badge && tmpA.set(pl.p.x, pl.p.y + 0.3, pl.p.z).distanceTo(W.badge.pos) < W.badge.r) {       // picked up the staff badge
     levelGroup.remove(W.badge.g); W.badge = null; const got = store.get("badges", []); if (!got.includes(ROOM[levelIdx].c)) { got.push(ROOM[levelIdx].c); store.set("badges", got); }
-    sfx.badge(); toast("Staff badge found: " + got.length + " of " + CHAMBERS.length); if (!store.get("saidBadge", 0)) { store.set("saidBadge", 1); say("badge"); }
+    sfx.badge(); toast("Staff badge found: " + got.filter(c => BADGE_CH.has(c)).length + " of " + BADGE_CH.size); if (!store.get("saidBadge", 0)) { store.set("saidBadge", 1); say("badge"); }
   }
   if (alive && W.lv.trig) for (const z of W.lv.trig) if (!z.done && pl.p.x > z.min[0] && pl.p.x < z.max[0] && pl.p.y > z.min[1] && pl.p.y < z.max[1] && pl.p.z > z.min[2] && pl.p.z < z.max[2]) { z.done = true; say(null, z.line); }
   // exit
@@ -3618,11 +3683,11 @@ function respawn() {
 function resetLevelState() {
   run.deaths = 0; run.roomT = 0;
   run.time = 0; run.portals = 0; run.top = 0; run.idle = 0; run.hinted = 0; run.said = {}; run.deadT = 0; holding = null; run.caught = 0; run.used = 0; run.hintAt = -1e9;
-  clearPortals(); updateCross();
+  clearPortals(true); updateCross();
 }
 function startLevel(idx, quiet) {
   removeCubes(); disposeLevel();
-  levelIdx = idx; buildLevel(idx); resetLevelState(); respawn();
+  levelIdx = idx; buildLevel(idx); resetLevelState(); respawn(); placeHeld();
   if (carry) { run.time = carry.time; run.portals = carry.portals; run.top = carry.top; carry = null; }      // a later room of the same chamber: the clock runs on
   { const R = ROOM[idx]; $("chNum").textContent = (world.lv.back ? "OFF THE TEST TRACK" : "CHAMBER " + String(R.c + 1).padStart(2, "0")) + (R.parts > 1 ? " · PART " + (R.part + 1) + " OF " + R.parts : ""); $("chTitle").textContent = world.lv.name; }
   Music.set(world.lv.track); Music.kick(); setVoiceRoom(roomSize());
@@ -3651,7 +3716,7 @@ function nextPart() {
 const roomPar = i => LEVEL_FUNCS[i]().par || [80, 4];
 function chamberPar(c) { let t = 0, p = 0; for (let i = FIRST[c]; i < FIRST[c] + CHAMBERS[c].length - 1; i++) { const q = roomPar(i); t += q[0]; p += q[1]; } return [t, p]; }
 const MEDAL = ["", "BRONZE", "SILVER", "GOLD"], fmtT = t => Math.floor(t / 60) + ":" + String(Math.floor(t % 60)).padStart(2, "0");
-const allBadges = () => store.get("badges", []).length >= CHAMBERS.length;
+const allBadges = () => store.get("badges", []).filter(c => BADGE_CH.has(c)).length >= BADGE_CH.size;
 function completeLevel() {
   if (state !== "play") return;
   if (ROOM[levelIdx].part < ROOM[levelIdx].parts - 1 && !window.__tcSolo) { nextPart(); return; }
@@ -3884,7 +3949,7 @@ const LINES = {
   sadosGrab: ["Excellent. You have found the cube. I suggest you do not name it.", "You have the cube. Try not to drop it in anything.", "The crate goes on the button. I mention it in case you were planning to marry it.", "That cube has outlasted forty three subjects. It is not worried about you.", "Hold it close. Not that close. It is a cube, not a friend.", "Careful with that. Not because it is fragile. Because you are.", "You and the cube. The facility's least convincing double act.", "If the cube starts talking to you, put it down and step away. That is not a feature."],
   grav: ["A gravity panel. It turns down into up for everything in that zone that is not bolted down, or you. You are exempt. Legal insisted."],
   badge: ["A staff badge. Please put that back. Its owner will want it, when they return."],
-  allBadges: ["Goodbye. You are carrying all twenty-five staff badges, so as far as my records go, you are the staff. You came back after all. Welcome back. You are all dismissed."],
+  allBadges: ["Goodbye. You are carrying all twenty-three staff badges, so as far as my records go, you are the staff. You came back after all. Welcome back. You are all dismissed."],
   camDown: ["That camera was bolted to that wall for eleven years. You have undone it in a second. I hope you are proud of yourself.", "Please stop opening portals behind the cameras. They are not insured. Neither, I should point out, are you.", "A camera has fallen off the wall. I will log it as a bird strike. There are no birds. It will be a very short log.", "Cameras are expensive. Portals are free. I leave you to work out which of us is losing money.", "Another camera down. I will add it to the list of things you have broken. The list has its own list now.", "That camera watched eleven years of nothing. You were the most interesting thing it ever saw, and look what you did to it.", "You knocked a camera off the wall. I hope you feel taller.", "I was not watching you through that one anyway. I was watching you through all the others.", "That camera was the only one that liked you.", "Congratulations. You have defeated a box with a lens in it. Shall I put the kettle on? I do not have a kettle.", "Please leave the cameras alone. They have very little else going on.", "Gravity did most of the work there. Do not take all the credit.", "That one had a name. I am not going to tell you what it was. You have not earned it.", "A camera on the floor sees only floor. You have given it a whole new career.", "It recorded its own fall. It is the most dramatic footage I own. Thank you, I suppose.", "You do know I have other eyes. I have a great many other eyes.", "Vandalism noted. Time stamped. Filed under things I will bring up later.", "The sound of an expensive thing hitting the floor. It never gets old. The budget does.", "I would applaud, but I have no hands, and you have just taken one of my eyes.", "That was a perfectly good camera, doing a perfectly good job of disapproving of you.", "Every camera you knock down is one less witness. I am starting to wonder what you are planning.", "There it goes. If you are trying to get my attention, you had it already. That was rather the point of the camera.", "Lens down. I will mark it as retired. It did not get a party either."],
   camRoom: ["That is every camera in this room, lying on the floor. I cannot see you now. I can still hear you being smug.", "This room is now camera free. I am watching you anyway. I am not. But you cannot be sure.", "You have blinded this entire room. I suppose you think that makes you invisible. It makes you suspicious.", "No cameras left in here. I will have to imagine what you are doing. I am imagining something disappointing.", "All of them. Every one. You were very thorough. I wish you were that thorough with the tests."],
   camAll: ["Every camera in the facility is on a floor somewhere. I have made you an award out of the staff budget. It is a certificate. It says Blind Spot. It is also an apology I will deny.", "Every last camera, on a floor somewhere. I am now running this facility by ear. It sounds untidy."],
