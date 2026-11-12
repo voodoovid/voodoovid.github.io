@@ -327,6 +327,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
       <div class="opt">Full screen <button id="oFull" type="button">Enter</button></div>
       <div class="opt">Challenge: portal limit <button id="oChal" type="button">Off</button></div>
       <div class="opt">Opening story <button id="oStory" type="button">Watch</button></div>
+      <div class="opt">Closing story <button id="oEnding" type="button">Watch</button></div>
       <div class="opt">Saved progress <button id="oReset" type="button">Reset</button></div>
       <button class="btn" id="bOptBack" type="button" style="margin-top:16px">&lsaquo; Back</button>
       <p class="vtag" id="vOpt"></p>
@@ -465,7 +466,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 await RAPIER.init();
 
-const VERSION = "v5.1";
+const VERSION = "v5.2";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -3349,7 +3350,14 @@ function completeLevel() {
   const lines = lastCh && allBadges() ? [LINES.allBadges[0]] : (took7 && world.lv.say.done7) || world.lv.say.done; const q = pick(lines);
   $("dQuote").innerHTML = "<i>SADOS</i>" + q;
   $("bNext").hidden = lastCh;
-  setTimeout(() => { if (state === "done") { showOv("ovDone"); say("done", q); } }, 700);
+  setTimeout(() => {
+    if (state !== "done") return;
+    if (lastCh && world.lv.end) {          // the last room: SaDos says goodbye, then the closing film, then the results card
+      say("done", q);
+      const wait = () => { if (state !== "done") return; if (subBusy || subQ.length) { setTimeout(wait, 300); return; } setTimeout(() => { if (state === "done") Cut.playEnding(() => showOv("ovDone")); }, 1200); };
+      setTimeout(wait, 600);
+    } else { showOv("ovDone"); say("done", q); }
+  }, 700);
 }
 
 /* ---------- SaDos reactions ---------- */
@@ -3686,7 +3694,7 @@ const TIPS = {
   bPlay: "Start, or carry on from the last chamber you reached", bChambers: "Choose any chamber you have reached", bOptions: "Sound, look speed, picture quality, progress", bHow: "Controls, and everything you will meet",
   bChBack: "Back to where you were", bOptBack: "Back to where you were", bHowBack: "Back to where you were",
   oMusic: "Music on or off", oSfx: "Sound effects on or off", oVoice: "SaDos and the sentries speak, or only subtitles", oSens: "How fast the view turns", oInvert: "Push up to look down",
-  oScroll: "Which way a two-finger swipe walks", oQuality: "Auto adjusts to keep the game smooth; High is sharper; Low is fastest", oFull: "Full screen on or off", oReset: "Lock the chambers again and start over (asks first)", oStory: "Watch the opening story again", cutSkip: "Skip the opening (Esc)",
+  oScroll: "Which way a two-finger swipe walks", oQuality: "Auto adjusts to keep the game smooth; High is sharper; Low is fastest", oFull: "Full screen on or off", oReset: "Lock the chambers again and start over (asks first)", oStory: "Watch the opening story again", oEnding: "Watch the closing story (the very end of the game)", cutSkip: "Skip the opening (Esc)",
   bResume: "Back to the chamber (Esc)", bRetry: "Start again from the last checkpoint", bPauseGuide: "Controls, and everything you will meet", bPauseOpt: "Sound, look speed, picture quality", bPauseCh: "Choose any chamber you have reached", bPauseMenu: "Leave the chamber and go to the title",
   bNext: "On to the next chamber (Return)", bAgain: "Play this chamber again from its first room", bDoneMenu: "Go to the title", bResetYes: "Erase progress. This cannot be undone", bResetNo: "Change nothing",
   tBlue: "Fire the blue portal", tOrange: "Fire the orange portal", tJump: "Jump", tUse: "Pick up or put down a cube or sentry"
@@ -3737,6 +3745,7 @@ function buildChambers() {
 const click = (id, fn) => $(id).addEventListener("click", e => { ensureAudio(); fn(e); });
 click("bPlay", () => { const r = resumeRoom(); if (r === 0 && !store.get("seenOpening", 0)) Cut.play(() => beginLevel(0)); else beginLevel(r); });       // the first visit starts with the opening film
 click("oStory", () => Cut.play(() => { syncOpts(); showOv("ovOptions"); }));
+click("oEnding", () => Cut.playEnding(() => { syncOpts(); showOv("ovOptions"); }));
 click("bChambers", () => { chFrom = "ovTitle"; buildChambers(); showOv("ovChambers"); });
 click("bChBack", () => showOv(chFrom));
 click("bOptions", () => { optsFrom = "ovTitle"; syncOpts(); showOv("ovOptions"); });
@@ -4347,10 +4356,16 @@ const CUT_LINES = [
   "Excuse the dust. The staff have stepped out. They will be back shortly. They have been back shortly for years.",
   "Never mind. Everything is ready. It has always been ready. Step forward, please."
 ];
+const CUT_END_LINES = [
+  "You are leaving. Please sign out first. It is the only rule on that wall that was ever written down, and nobody has ever kept it.",
+  "Thank you. That is the first signature in the out column. I will keep it somewhere safe.",
+  "The door is just there. It was never locked. I did mention that. Is it still raining? I have never been able to see out.",
+  "Do tell me, if you come back."
+];
 const Cut = (() => {
   const el = $("cut"), subEl = $("cutSub"), fadeEl = $("cutFade"), PI = Math.PI;
   let S = null, t = 0, after = null, gen = 0, queue = [], talking = false, said = 0, vsrc = null, vTimer = 0, endT = -1, skipT = -1, padHeld = true;
-  let cue = 0, stepPh = 0, floorNo = -1, banks = 0, hudWas = true, backState = "title", loops = [], doorSaid = 0, lastStep = 0;
+  let mode = "open", lineSet = CUT_LINES, sigLast = -1, sigOn = false, nextChirp = 0, windS = null, cue = 0, stepPh = 0, floorNo = -1, banks = 0, hudWas = true, backState = "title", loops = [], doorSaid = 0, lastStep = 0;
   const lastP = new V3();
   // camera path: [time, x, y, z, yaw, pitch, hold]; a hold key is one the camera comes to rest at
   const KEYS = [
@@ -4361,11 +4376,26 @@ const Cut = (() => {
   ];
   const T_DOOR = 7.5, T_CLOSE = 22.0, T_SWAP = 23.5, T_DING = 30.4, T_OPEN = 30.7, T_LIGHTS = 32.3, T_MIN_END = 41.5, FLOORS = ["G", "B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9"];
   const ss = x => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
-  function pathAt(time, out) {
-    let i = 0; while (i < KEYS.length - 2 && time >= KEYS[i + 1][0]) i++;
-    const a = KEYS[i], b = KEYS[i + 1], dt = b[0] - a[0], u = clamp((time - a[0]) / dt, 0, 1), u2 = u * u, u3 = u2 * u;
+  const KEYS_E = [
+    [0, 2.0, 1.60, -5.45, -PI / 2, -0.96, 1], [1.2, 2.0, 1.56, -5.42, -PI / 2, -0.98, 1], [7.4, 2.0, 1.50, -5.36, -PI / 2, -1.02, 1],
+    [9.6, 1.5, 1.6, -4.9, -PI * 0.75, -0.3, 0], [11.6, 0.5, 1.62, -3.2, -PI, 0.0, 0], [14.4, 0.0, 1.62, -0.6, -PI, 0.02, 0], [16.2, 0.0, 1.62, 1.8, -PI, 0.03, 0],
+    [18.6, 0.2, 1.62, 5.2, -PI, 0.04, 0], [21.0, 0.35, 1.65, 6.2, -PI * 0.5, 0.02, 0], [24.0, 0.3, 1.8, 7.0, 0.0, 0.06, 0], [29, 0.2, 2.6, 8.2, 0.0, 0.14, 1], [60, 0.2, 2.8, 8.5, 0.0, 0.14, 1]
+  ];
+  const SIGPTS = []; for (let k = 0; k < 60; k++) SIGPTS.push([80 + k * (210 / 59), 885 + Math.sin(k * .8) * 12 + Math.sin(k * .31 + 1.2) * 8]);
+  const E = { s0: 1.6, s1: 4.6, t0: 5.2, t1: 6.6, sign: 24.6 };
+  const tipW = (px, py) => [2.45 + .2335 - py / 1086 * .467, -5.4 - .165 + px / 768 * .33];
+  const clockStr = () => { const d = new Date(); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
+  function drawSig(f1, f2) {
+    const c = S.sheet.image, g = c.getContext("2d"); g.drawImage(S.sheetBase, 0, 0); g.lineCap = g.lineJoin = "round"; g.strokeStyle = g.fillStyle = "#1b2a6b";
+    const m = Math.floor((SIGPTS.length - 1) * f1) + 1; if (m > 1) { g.lineWidth = 3.4; g.beginPath(); g.moveTo(SIGPTS[0][0], SIGPTS[0][1]); for (let i = 1; i < m; i++) g.lineTo(SIGPTS[i][0], SIGPTS[i][1]); g.stroke(); }
+    if (f2 > 0) { g.save(); g.beginPath(); g.rect(590, 860, 130 * f2, 64); g.clip(); g.font = "italic 600 34px Georgia, 'Times New Roman', serif"; g.fillText(clockStr(), 596, 902); g.restore(); }
+    S.sheet.needsUpdate = true;
+  }
+  function pathAt(time, out, keys) {
+    keys = keys || KEYS; let i = 0; while (i < keys.length - 2 && time >= keys[i + 1][0]) i++;
+    const a = keys[i], b = keys[i + 1], dt = b[0] - a[0], u = clamp((time - a[0]) / dt, 0, 1), u2 = u * u, u3 = u2 * u;
     for (let c = 1; c <= 5; c++) {
-      const p = KEYS[i - 1], n = KEYS[i + 2];
+      const p = keys[i - 1], n = keys[i + 2];
       const ma = a[6] || !p ? 0 : (b[c] - p[c]) / (b[0] - p[0]), mb = b[6] || !n ? 0 : (n[c] - a[c]) / (n[0] - a[0]);
       out[c - 1] = (2 * u3 - 3 * u2 + 1) * a[c] + (u3 - 2 * u2 + u) * dt * ma + (-2 * u3 + 3 * u2) * b[c] + (u3 - u2) * dt * mb;
     }
@@ -4393,15 +4423,16 @@ const Cut = (() => {
     const gTop = new THREE.Group(), gLift = new THREE.Group(), gHall = new THREE.Group(); sc.add(gTop, gLift, gHall);
     const hemi = new THREE.HemisphereLight(0x5a6a8c, 0x101216, 0.5); sc.add(hemi);
     const GLOW = glowTex(), add = (r, g, b, op) => lit(r, g, b, { map: GLOW, transparent: true, opacity: op, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
+    const puddles = [], nightOnly = [];       // things that only belong to the rainy night
 
     /* --- the car park --- */
     const asph = canvasTex(512, 512, (g) => { g.fillStyle = "#17191c"; g.fillRect(0, 0, 512, 512); speckle(g, R, 9000, 512, 512, 20, 70, .5); speckle(g, R, 500, 512, 512, 90, 130, .35); });
     asph.repeat.set(16, 16);
-    quad(gTop, std({ map: asph, roughness: 0.42, envMapIntensity: 0.1 }), 64, 48, 0, 0, 24, -PI / 2);
+    const asphM = std({ map: asph, roughness: 0.42, envMapIntensity: 0.1 }); quad(gTop, asphM, 64, 48, 0, 0, 24, -PI / 2);
     const pudA = canvasTex(256, 256, (g) => { g.clearRect(0, 0, 256, 256); g.fillStyle = "#fff"; g.filter = "blur(7px)"; g.beginPath(); for (let i = 0; i <= 40; i++) { const a = i / 40 * 6.2832, r = 78 + 22 * Math.sin(a * 3 + 1) + 14 * Math.sin(a * 5 + 2.2) + 9 * Math.sin(a * 9); g.lineTo(128 + Math.cos(a) * r, 128 + Math.sin(a) * r); } g.fill(); g.filter = "none"; }, false);
     const puddle = std({ color: 0x06080b, roughness: 0.03, envMapIntensity: 0.3, transparent: true, opacity: 0.85, alphaMap: pudA, depthWrite: false }), CIRC = new THREE.PlaneGeometry(2.6, 2.6);
     for (const [x, z, a, b] of [[-0.4, 9.2, 1.7, 0.9], [1.5, 6.6, 1.2, 1.9], [-1.9, 4.9, 2.1, 1.0], [0.8, 3.6, 1.3, 0.7], [-3.8, 8.0, 1.0, 1.6], [3.6, 10.5, 2.0, 1.2], [5.0, 5.0, 1.3, 1.9], [-5.6, 12.5, 1.8, 1.0], [0.4, 13.0, 1.1, 0.7], [-2.6, 16.0, 2.4, 1.3]]) {
-      const m = new THREE.Mesh(CIRC, puddle); m.rotation.x = -PI / 2; m.rotation.z = R() * 3; m.scale.set(a, b, 1); m.position.set(x, 0.006, z); gTop.add(m);
+      const m = new THREE.Mesh(CIRC, puddle); m.rotation.x = -PI / 2; m.rotation.z = R() * 3; m.scale.set(a, b, 1); m.position.set(x, 0.006, z); gTop.add(m); puddles.push(m);
     }
     const paint = std({ color: 0x8d9093, roughness: 0.6, transparent: true, opacity: 0.5 });
     for (let i = -5; i <= 5; i++) { if (i === 0) continue; quad(gTop, paint, 0.12, 5, i * 2.7 + (i > 0 ? 1.3 : -1.3), 0.004, 9.5, -PI / 2); quad(gTop, paint, 0.12, 5, i * 2.7 + (i > 0 ? 1.3 : -1.3), 0.004, 24.5, -PI / 2); }
@@ -4418,7 +4449,7 @@ const Cut = (() => {
     box(gTop, std({ color: 0x2a2d30, roughness: 0.6 }), 3.6, 0.22, 1.7, 0, 2.95, 0.85);                         // the canopy over the door
     const tubeOut = lit(3.2, 3.5, 3.4); box(gTop, tubeOut, 1.3, 0.05, 0.08, 0, 2.81, 0.9);
     const doorL = point(gTop, 0xcfe4ff, 0, 2.6, 1.0, 12);
-    quad(gTop, add(0.7, 0.85, 1.0, 0.26), 4.4, 9, 0.2, 0.012, 4.6, -PI / 2);
+    nightOnly.push(quad(gTop, add(0.7, 0.85, 1.0, 0.26), 4.4, 9, 0.2, 0.012, 4.6, -PI / 2));
     const signM = lit(1, 1, 1, { map: canvasTex(1024, 128, (g) => {
       g.fillStyle = "#07090b"; g.fillRect(0, 0, 1024, 128); g.font = "800 78px Helvetica, Arial, sans-serif"; g.textBaseline = "middle"; g.textAlign = "left";
       const txt = "VOLUNTEER INTAKE", ws = [...txt].map(c => g.measureText(c).width + 9), tot = ws.reduce((a, b) => a + b, 0); let x = 512 - tot / 2;
@@ -4429,16 +4460,16 @@ const Cut = (() => {
     box(gTop, frame, 0.08, 2.3, 0.3, -0.95, 1.15, -0.2); box(gTop, frame, 0.08, 2.3, 0.3, 0.95, 1.15, -0.2); box(gTop, frame, 1.98, 0.1, 0.3, 0, 2.3, -0.2);
     const leaf = (hx) => { const g = new THREE.Group(); g.position.set(hx, 0, -0.2); const s = hx > 0 ? -1 : 1;
       box(g, steel, 0.89, 2.24, 0.05, s * 0.455, 1.12, 0); box(g, glass, 0.55, 1.1, 0.06, s * 0.455, 1.45, 0); box(g, lit(.5, .5, .48), 0.05, 0.42, 0.09, s * 0.78, 1.05, 0); gTop.add(g); return g; };
-    leaf(-0.91); const door = leaf(0.91);
+    const doorA = leaf(-0.91), door = leaf(0.91);
     for (const x of [-3.3, -1.9, 1.9, 3.3]) { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.95, 14), std({ color: 0x6a6f5a, roughness: 0.6 })); b.position.set(x, 0.475, 2.9); gTop.add(b); }
     // the lamp post with the flyer on it
     const postM = std({ color: 0x3a4046, roughness: 0.55, metalness: 0.35, envMapIntensity: 0.2 });
     box(gTop, postM, 0.3, 6.3, 0.16, -2.2, 3.15, 11); box(gTop, postM, 1.7, 0.1, 0.1, -1.45, 6.2, 11); box(gTop, postM, 0.8, 0.14, 0.34, -0.8, 6.12, 11);
     const lampHead = lit(3.6, 2.2, 0.75); box(gTop, lampHead, 0.62, 0.04, 0.24, -0.8, 6.04, 11);
     const lampL = point(gTop, 0xff9c3a, -0.8, 5.7, 11, 15);
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(3.6, 6, 28, 1, true), lit(1, 0.58, 0.2, { transparent: true, opacity: 0.045, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false })); cone.position.set(-0.8, 3.05, 11); gTop.add(cone);
-    quad(gTop, add(1.0, 0.55, 0.16, 0.5), 7.5, 7.5, -0.8, 0.012, 11, -PI / 2);
-    box(gTop, postM, 0.3, 6.3, 0.16, 13, 3.15, 21); box(gTop, lit(2.6, 1.6, 0.55), 0.62, 0.04, 0.24, 12.3, 6.04, 21); box(gTop, postM, 1.7, 0.1, 0.1, 12.4, 6.2, 21); quad(gTop, add(1.0, 0.55, 0.16, 0.38), 8, 8, 12.3, 0.012, 21, -PI / 2);
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(3.6, 6, 28, 1, true), lit(1, 0.58, 0.2, { transparent: true, opacity: 0.045, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false })); cone.position.set(-0.8, 3.05, 11); gTop.add(cone); nightOnly.push(cone);
+    nightOnly.push(quad(gTop, add(1.0, 0.55, 0.16, 0.5), 7.5, 7.5, -0.8, 0.012, 11, -PI / 2));
+    box(gTop, postM, 0.3, 6.3, 0.16, 13, 3.15, 21); box(gTop, lit(2.6, 1.6, 0.55), 0.62, 0.04, 0.24, 12.3, 6.04, 21); box(gTop, postM, 1.7, 0.1, 0.1, 12.4, 6.2, 21); nightOnly.push(quad(gTop, add(1.0, 0.55, 0.16, 0.38), 8, 8, 12.3, 0.012, 21, -PI / 2));
     const flyer = canvasTex(512, 724, (g) => {
       g.fillStyle = "#e9e2cf"; g.fillRect(0, 0, 512, 724); speckle(g, R, 2500, 512, 724, 120, 190, .12);
       for (let i = 0; i < 9; i++) { const x = R() * 512, gr = g.createLinearGradient(0, 0, 0, 724); gr.addColorStop(0, "rgba(90,80,60,.22)"); gr.addColorStop(.5 + R() * .5, "rgba(90,80,60,0)"); g.fillStyle = gr; g.fillRect(x, 0, 6 + R() * 26, 724); }
@@ -4451,7 +4482,7 @@ const Cut = (() => {
       for (let i = 1; i < 8; i++) { g.beginPath(); g.moveTo(i * 64, 604); g.lineTo(i * 64, 724); g.stroke(); } g.setLineDash([]);
       g.save(); g.font = "700 17px Helvetica, Arial, sans-serif"; for (let i = 0; i < 8; i++) { if (i === 5) { g.fillStyle = "#2c3034"; g.fillRect(i * 64 + 1, 606, 62, 118); g.fillStyle = "#17191b"; continue; } g.save(); g.translate(i * 64 + 38, 664); g.rotate(-PI / 2); g.fillText("FRONT DOOR", 0, 0); g.restore(); } g.restore();
     }, false);
-    quad(gTop, lit(0.95, 0.74, 0.5, { map: flyer }), 0.27, 0.382, -2.2, 1.56, 11.083, 0, 0, 0.035);
+    const flyerM = lit(0.95, 0.74, 0.5, { map: flyer }); quad(gTop, flyerM, 0.27, 0.382, -2.2, 1.56, 11.083, 0, 0, 0.035);
     for (const [x, y] of [[-2.315, 1.74], [-2.085, 1.735]]) box(gTop, lit(.5, .5, .5), 0.025, 0.012, 0.004, x, y, 11.086);
     // rain
     const NR = 2400, rp = new Float32Array(NR * 6), rs = new Float32Array(NR * 4);
@@ -4490,7 +4521,7 @@ const Cut = (() => {
     box(gTop, std({ color: 0x3b2a1c, roughness: 0.6 }), 0.5, 0.012, 0.37, 2.45, 1.057, -5.4);                  // clipboard
     quad(gTop, std({ map: sheet, roughness: 0.9, emissive: 0x1c1811, emissiveMap: sheet }), 0.33, 0.467, 2.45, 1.066, -5.4, -PI / 2, -PI / 2);
     box(gTop, steel, 0.06, 0.016, 0.12, 2.69, 1.07, -5.4);
-    { const pen = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.15, 8), std({ color: 0x10184a, roughness: 0.4 })); pen.rotation.set(PI / 2, 0, 0.5); pen.position.set(2.5, 1.062, -5.13); gTop.add(pen); }
+    let pen; { pen = new THREE.Mesh(new THREE.CylinderGeometry(0.0045, 0.0045, 0.14, 8), std({ color: 0x10184a, roughness: 0.4 })); pen.rotation.set(PI / 2, 0, 0.5); pen.position.set(2.5, 1.062, -5.13); gTop.add(pen); }
     const lampM = std({ color: 0x1d5a48, roughness: 0.35, metalness: 0.3, envMapIntensity: 0.25 });
     { const b = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.1, 0.03, 20), lampM); b.position.set(2.85, 1.065, -4.75); gTop.add(b); box(gTop, lampM, 0.02, 0.36, 0.02, 2.85, 1.24, -4.75);
       const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.16, 0.14, 20, 1, false), std({ color: 0x1d5a48, roughness: 0.35, side: THREE.DoubleSide })); sh.position.set(2.78, 1.42, -4.86); sh.rotation.set(0.5, 0, 0.35); gTop.add(sh);
@@ -4564,14 +4595,83 @@ const Cut = (() => {
     quad(gHall, lit(1.25, 1.25, 1.25, { map: signTex("chamber", "TEST CHAMBER 01", "DOORWAY", 4.4, 1.15) }), 2.9, 0.76, 0, 4.05, ez - 0.04, 0, PI);
     speaker(gHall, -2.4, 3.3, ez - 0.03, PI);
 
+    /* --- the same place, years later: daylight, cracks, weeds, ivy and dust (used only by the closing film) --- */
+    const gDay = new THREE.Group(); gDay.visible = false; sc.add(gDay);
+    const RD = rng(9120);
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(110, 32, 16), new THREE.MeshBasicMaterial({ side: THREE.BackSide, fog: false, depthWrite: false, map: canvasTex(2048, 512, (g, w, h) => {
+      const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, "#5a8fd4"); gr.addColorStop(.3, "#8fb6e4"); gr.addColorStop(.46, "#c9d3d6"); gr.addColorStop(.5, "#bfc8c6"); gr.addColorStop(.52, "#8f9a8c"); gr.addColorStop(1, "#8e958c");
+      g.fillStyle = gr; g.fillRect(0, 0, w, h);
+      for (let i = 0; i < 50; i++) { const cx = RD() * w, cy = h * (.1 + RD() * .32), rw = 70 + RD() * 190; for (let k = 0; k < 6; k++) { g.save(); g.translate(cx + (RD() - .5) * rw * .9, cy + (RD() - .5) * 14); g.scale(1, .28); const c = g.createRadialGradient(0, 0, 2, 0, 0, rw * (.35 + RD() * .35)); c.addColorStop(0, "rgba(255,255,255,.5)"); c.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = c; g.fillRect(-rw, -rw, rw * 2, rw * 2); g.restore(); } }
+      const hz = h * .5; g.fillStyle = "#4a5740"; g.beginPath(); g.moveTo(0, hz + 2);
+      for (let x = 0; x <= w; x += 5) { const hh = 7 + 9 * Math.abs(Math.sin(x * .021 + 1)) + 7 * Math.abs(Math.sin(x * .067)) + RD() * 5; g.lineTo(x, hz - hh); }
+      g.lineTo(w, hz + 2); g.closePath(); g.fill(); g.fillStyle = "rgba(210,214,205,.18)"; g.fillRect(0, hz - 30, w, 32);
+    }, false) }));
+    dome.renderOrder = -1; gDay.add(dome);
+    const sunSpr = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: new THREE.Color(2.6, 2.0, 1.2), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })); sunSpr.scale.set(70, 70, 1); gDay.add(sunSpr);
+    const sun = new THREE.DirectionalLight(0xfff0d6, 0); sun.position.set(45, 26, 70); gDay.add(sun);
+    quad(gDay, std({ color: 0x59603f, roughness: 1, envMapIntensity: 0 }), 600, 600, 0, -0.03, 24, -PI / 2);
+    // cracks in the tarmac, and weeds growing up through them
+    const crackLines = [], toPx = (x, z) => [(x + 15) / 30 * 1024, (z + 3) / 30 * 1024];
+    const crackTex = canvasTex(1024, 1024, (g) => {
+      g.clearRect(0, 0, 1024, 1024); g.strokeStyle = "rgba(6,7,8,.9)"; g.lineCap = "round"; g.lineJoin = "round";
+      const crack = (x, z, ang, len, w, depth) => {
+        const pts = [[x, z]]; let cx = x, cz = z;
+        for (let i = 0; i < len; i++) { ang += (RD() - .5) * .7; cx += Math.cos(ang) * .35; cz += Math.sin(ang) * .35; pts.push([cx, cz]); if (depth < 2 && RD() < .07) crack(cx, cz, ang + (RD() < .5 ? 1 : -1) * (.6 + RD() * .6), len * .5 | 0, w * .6, depth + 1); }
+        g.lineWidth = w; g.beginPath(); pts.forEach((q, i) => { const c = toPx(q[0], q[1]); i ? g.lineTo(c[0], c[1]) : g.moveTo(c[0], c[1]); }); g.stroke(); crackLines.push(pts);
+      };
+      for (let i = 0; i < 9; i++) crack(-12 + RD() * 24, 1.4 + RD() * 20, RD() * 6.28, 38 + RD() * 30, 2.4 + RD() * 1.6, 0);
+    }, false);
+    quad(gDay, new THREE.MeshBasicMaterial({ map: crackTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, color: new THREE.Color(.62, .62, .62) }), 30, 30, 0, 0.005, 12, -PI / 2);
+    const tuftTex = canvasTex(128, 128, (g) => {
+      g.clearRect(0, 0, 128, 128); const cols = ["#4d6b25", "#6f8f35", "#35501d", "#8a9a45", "#a29a55"];
+      for (let i = 0; i < 22; i++) { const bx = 14 + RD() * 100, hh = 55 + RD() * 68, lean = (RD() - .5) * 44, wd = 3 + RD() * 4; g.fillStyle = cols[RD() * cols.length | 0]; g.beginPath(); g.moveTo(bx - wd, 128); g.quadraticCurveTo(bx - wd * .2 + lean * .4, 128 - hh * .6, bx + lean, 128 - hh); g.quadraticCurveTo(bx + wd * .2 + lean * .4, 128 - hh * .6, bx + wd, 128); g.fill(); }
+    }, false);
+    const tufts = [];
+    for (const pts of crackLines) for (let i = 2; i < pts.length; i += 3) if (RD() < .6) tufts.push([pts[i][0] + (RD() - .5) * .25, pts[i][1] + (RD() - .5) * .25, .22 + RD() * .5]);
+    for (let i = 0; i < 80; i++) { const x = (RD() - .5) * 38; if (Math.abs(x) < 1.3 && RD() < .7) continue; tufts.push([x, .15 + RD() * 1.5, .3 + RD() * .55]); }
+    for (const bx of [-3.3, -1.9, 1.9, 3.3]) for (let k = 0; k < 2; k++) tufts.push([bx + (RD() - .5) * .5, 2.9 + (RD() - .5) * .5, .3 + RD() * .35]);
+    for (const [px, pz] of [[-2.2, 11], [13, 21]]) for (let k = 0; k < 8; k++) tufts.push([px + (RD() - .5) * 1.1, pz + (RD() - .5) * 1.1, .3 + RD() * .5]);
+    for (let i = 0; i < 100; i++) { const x = (RD() - .5) * 28, z = 3 + RD() * 21; if (Math.abs(x) < 1.3 && z < 9) continue; tufts.push([x, z, .18 + RD() * .35]); }
+    for (let i = 0; i < 16; i++) tufts.push([(RD() < .5 ? -1 : 1) * (5 + RD() * 8), 4 + RD() * 16, .8 + RD() * .5]);
+    const tuftMat = new THREE.MeshStandardMaterial({ map: tuftTex, alphaTest: .5, side: THREE.DoubleSide, roughness: 1, envMapIntensity: 0 });
+    const tA = new THREE.InstancedMesh(QUAD, tuftMat, tufts.length), tB = new THREE.InstancedMesh(QUAD, tuftMat, tufts.length), dm = new THREE.Object3D(), tcol = new THREE.Color();
+    tufts.forEach((q, i) => {
+      const r = RD() * 3.1; dm.position.set(q[0], q[2] * .5 - .02, q[1]); dm.scale.set(q[2] * 1.15, q[2], 1);
+      dm.rotation.set(0, r, 0); dm.updateMatrix(); tA.setMatrixAt(i, dm.matrix); dm.rotation.set(0, r + PI / 2, 0); dm.updateMatrix(); tB.setMatrixAt(i, dm.matrix);
+      tcol.setScalar(.8 + RD() * .4); tA.setColorAt(i, tcol); tB.setColorAt(i, tcol);
+    });
+    tA.frustumCulled = tB.frustumCulled = false; gDay.add(tA, tB);
+    // ivy over the front of the building, and trailing from the canopy
+    const ivyTex = canvasTex(256, 256, (g) => {
+      g.clearRect(0, 0, 256, 256); const gc = ["#3f7a2a", "#55962f", "#336621", "#6fa33a"];
+      for (let i = 0; i < 150; i++) { const sz = 10 + RD() * 14; g.save(); g.translate(26 + RD() * 204, 26 + RD() * 204); g.rotate(RD() * 6.28); g.fillStyle = gc[RD() * 4 | 0];
+        g.beginPath(); g.moveTo(0, -sz); g.bezierCurveTo(sz * .9, -sz * .5, sz * .8, sz * .5, 0, sz * .9); g.bezierCurveTo(-sz * .8, sz * .5, -sz * .9, -sz * .5, 0, -sz); g.fill();
+        g.strokeStyle = "rgba(15,35,10,.5)"; g.lineWidth = 1; g.beginPath(); g.moveTo(0, -sz * .9); g.lineTo(0, sz * .8); g.stroke(); g.restore(); }
+    }, false);
+    const ivy = [];
+    for (const [cx, hgt, spread] of [[-3.5, 7, 1.8], [3.6, 6, 1.8], [-9, 9, 2.4], [8.5, 8, 2.4], [-16, 6, 2.2], [15, 7, 2.2], [-6, 3.5, 1.2], [6.2, 4, 1.3]])
+      for (let i = 0; i < 26; i++) ivy.push([cx + (RD() + RD() + RD() - 1.5) * spread, Math.pow(RD(), 1.5) * hgt + .4, .02 + i * .0006, .9 + RD() * .9]);
+    for (const x of [-1.5, -.7, .6, 1.4, 1.8, -1.8]) for (let k = 0; k < 4; k++) ivy.push([x + (RD() - .5) * .2, 2.72 - k * .36 - RD() * .12, 1.715 + k * .001, .5 + RD() * .3]);
+    const iM = new THREE.InstancedMesh(QUAD, new THREE.MeshStandardMaterial({ map: ivyTex, alphaTest: .45, side: THREE.DoubleSide, roughness: .9, envMapIntensity: 0, emissive: new THREE.Color(.55,.55,.55), emissiveMap: ivyTex }), ivy.length);
+    ivy.forEach((q, i) => { dm.position.set(q[0], q[1], q[2]); dm.scale.set(q[3], q[3], 1); dm.rotation.set(0, 0, RD() * 6.28); dm.updateMatrix(); iM.setMatrixAt(i, dm.matrix); }); iM.frustumCulled = false; gDay.add(iM);
+    // dust turning in the light that falls through the door, and a patch of it on the floor
+    const NDUST = 160, dp = new Float32Array(NDUST * 3);
+    for (let i = 0; i < NDUST; i++) { dp[i * 3] = (RD() - .5) * 8; dp[i * 3 + 1] = .2 + RD() * 2.8; dp[i * 3 + 2] = -9 + RD() * 8.4; }
+    const dustG = new THREE.BufferGeometry(); dustG.setAttribute("position", new THREE.BufferAttribute(dp, 3)); dustG.boundingSphere = new THREE.Sphere(new V3(0, 1.6, -5), 14);
+    const dust = new THREE.Points(dustG, new THREE.PointsMaterial({ size: .05, map: GLOW, alphaMap: GLOW, color: new THREE.Color(1.6, 1.45, 1.1), transparent: true, opacity: .55, depthWrite: false, blending: THREE.AdditiveBlending, fog: false })); gDay.add(dust);
+    quad(gDay, add(1.5, 1.3, .9, .5), 3.6, 7.5, 0, 0.02, -3.5, -PI / 2);
+    const shade = new THREE.Mesh(QUAD, new THREE.MeshBasicMaterial({ color: 0x050607, transparent: true, opacity: 0, depthWrite: false })); shade.scale.set(1.9, 2.4, 1); shade.position.set(0, 1.2, -1.2); gDay.add(shade);
+    const day = { g: gDay, dome, sunSpr, sun, dust, dp, NDUST, shade };
+
     gHall.visible = false;
-    return { sc, gTop, gLift, gHall, hemi, rain, rp, rs, NR, door, tubeOut, tubeIn, doorL, lampL, lampHead, recL, deskL, liftL, liftPanel, ldoor, setFloor, bankM, bankL, edoor, bar, white, signM, spkLed, arrowM };
+    return { sc, gTop, gLift, gHall, hemi, rain, rp, rs, NR, door, doorA, tubeOut, tubeIn, doorL, lampL, lampHead, recL, deskL, liftL, liftPanel, ldoor, setFloor, bankM, bankL, edoor, bar, white, signM, spkLed, arrowM, pen, sheet, asphM, puddles, nightOnly, flyerM, day };
   }
   function prep() {
     if (S) return;
     S = build();
+    { const c = S.sheet.image; S.sheetBase = document.createElement("canvas"); S.sheetBase.width = c.width; S.sheetBase.height = c.height; S.sheetBase.getContext("2d").drawImage(c, 0, 0); }
     try {                                               // compile the shaders and upload the textures now, so nothing hitches when the film starts
-      S.gHall.visible = true; renderer.setRenderTarget(composer.renderTarget1); renderer.compile(S.sc, camera); renderer.setRenderTarget(null); S.gHall.visible = false;
+      S.gHall.visible = true; S.day.g.visible = true; renderer.setRenderTarget(composer.renderTarget1); renderer.compile(S.sc, camera); renderer.setRenderTarget(null); S.gHall.visible = false; S.day.g.visible = false;
       S.sc.traverse(o => { const m = o.material; if (m) for (const k of ["map", "normalMap", "emissiveMap"]) if (m[k]) renderer.initTexture(m[k]); });
     } catch (e) {}
   }
@@ -4588,6 +4688,11 @@ const Cut = (() => {
     return loop(g => { const a = actx.createOscillator(), b = actx.createOscillator(), lp = actx.createBiquadFilter(); a.type = "sine"; a.frequency.value = 52; b.type = "sawtooth"; b.frequency.value = 104; lp.type = "lowpass"; lp.frequency.value = 260;
       const bg = actx.createGain(); bg.gain.value = 0.25; a.connect(g); b.connect(bg); bg.connect(lp); lp.connect(g); a.start(); b.start(); return { stop: () => { a.stop(); b.stop(); }, a, b }; });
   }
+  function windLoop() {
+    return loop(g => { noise(actx.currentTime, 0.01, 0.0001, 800, 800);
+      const src = actx.createBufferSource(); src.buffer = noiseBuf; src.loop = true; const hp = actx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 120;
+      const lp = actx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 900; src.connect(hp); hp.connect(lp); lp.connect(g); src.start(); return { stop: () => src.stop(), lp }; });
+  }
   const vol = (o, v, tc) => { if (o && actx) o.g.gain.setTargetAtTime(Math.max(0.0001, v), actx.currentTime, tc || 0.3); };
   function stopLoops() { for (const o of loops) { try { o.g.gain.setTargetAtTime(0.0001, actx.currentTime, 0.08); const s = o; setTimeout(() => { try { s.stop(); s.g.disconnect(); } catch (e) {} }, 500); } catch (e) {} } loops = []; }
   const fx = {
@@ -4597,11 +4702,14 @@ const Cut = (() => {
     tick: () => { if (!audio()) return; osc("square", 760, 760, actx.currentTime, 0.035, 0.02); },
     ding: () => { if (!audio()) return; const tt = actx.currentTime; osc("sine", 1568, 1568, tt, 1.3, 0.1); osc("sine", 1175, 1175, tt + 0.28, 1.5, 0.1); },
     bank: i => { if (!audio()) return; const tt = actx.currentTime, k = 1 - i * 0.1; noise(tt, 0.2, 0.34 * k, 950, 90, 1, "lowpass"); osc("sine", 118, 46, tt, 0.26, 0.3 * k); osc("triangle", 1900 + i * 60, 2400, tt + 0.03, 0.05, 0.03 * k); osc("sine", 100, 100, tt + 0.05, 1.6, 0.012); },
+    chirp: () => { if (!audio()) return; const tt = actx.currentTime, f = 2300 + Math.random() * 2000, n = 3 + (Math.random() * 4 | 0); for (let i = 0; i < n; i++) osc("sine", f * (1 + Math.random() * .12), f * (1.15 + Math.random() * .4), tt + i * 0.085, 0.07, 0.02); },
+    pen: () => { if (!audio()) return; noise(actx.currentTime, 0.1, 0.012, 3200, 2400, 2, "highpass"); },
+    flick: () => { if (!audio()) return; const tt = actx.currentTime; noise(tt, 0.06, 0.1, 4200, 900, 1.2); osc("sawtooth", 100, 60, tt, 0.08, 0.04); },
     open: () => { if (!audio()) return; const tt = actx.currentTime; noise(tt, 1.2, 0.14, 240, 1300, 1.3); osc("sawtooth", 80, 150, tt, 1.0, 0.05); osc("sine", 330, 660, tt + 0.1, 1.5, 0.06); }
   };
 
   /* ---------- SaDos ---------- */
-  function speak(i) { queue.push(CUT_LINES[i]); nextLine(); }
+  function speak(i) { queue.push(lineSet[i]); nextLine(); }
   function nextLine() {
     if (talking || !queue.length) return;
     const text = queue.shift(), g = gen; talking = true; said++;
@@ -4619,30 +4727,100 @@ const Cut = (() => {
 
   /* ---------- running it ---------- */
   let rainS = null, humS = null;
-  function play(then) {
-    prep(); ensureAudio(); sadosShutUp(); unlockPointer(); hideTip();
-    after = then; backState = state; state = "cut"; hideOv(); hudWas = $("hud").hidden; $("hud").hidden = true; syncTouch();
-    t = 0; endT = skipT = -1; said = 0; cue = 0; doorSaid = 0; floorNo = -1; banks = 0; stepPh = 0; lastStep = 0; padHeld = true; hush();
-    S.gTop.visible = true; S.gHall.visible = false; S.rain.visible = true; S.door.rotation.y = 0; S.ldoor[0].position.x = -1.2; S.ldoor[1].position.x = 1.2; S.setFloor(0, false);
-    S.edoor[0].position.x = -0.65; S.edoor[1].position.x = 0.65; S.bar.color.setRGB(3.2, .45, .25); for (const m of S.bankM) m.color.setRGB(.05, .055, .06); for (const l of S.bankL) l.intensity = 0;
+  function setNight() {                 // the opening's wet night: everything the closing film changes goes back
+    const d = S.day; d.g.visible = false; d.sun.intensity = 0; d.shade.material.opacity = 0;
+    S.rain.visible = true; for (const m of S.puddles) m.visible = true; for (const m of S.nightOnly) m.visible = true;
+    S.asphM.roughness = 0.42; S.asphM.envMapIntensity = 0.1; S.lampHead.color.setRGB(3.6, 2.2, 0.75); S.flyerM.color.setRGB(0.95, 0.74, 0.5);
+    S.hemi.color.set(0x5a6a8c); S.hemi.groundColor.set(0x101216); S.door.rotation.y = 0; S.doorA.rotation.y = 0;
+    S.ldoor[0].position.x = -1.2; S.ldoor[1].position.x = 1.2; S.pen.position.set(2.5, 1.062, -5.13); S.pen.rotation.set(PI / 2, 0, 0.5);
+    S.sheet.image.getContext("2d").drawImage(S.sheetBase, 0, 0); S.sheet.needsUpdate = true;
     S.sc.fog.density = 0.03; S.sc.fog.color.set(0x080c14); S.sc.background.set(0x05080e);
+  }
+  function setDay() {                   // years later: the same car park and front door in daylight
+    const d = S.day; d.g.visible = true; d.sun.intensity = 0;
+    S.rain.visible = false; for (const m of S.puddles) m.visible = false; for (const m of S.nightOnly) m.visible = false;
+    S.asphM.roughness = 0.9; S.asphM.envMapIntensity = 0.03; S.lampHead.color.setRGB(0.2, 0.2, 0.19); S.flyerM.color.setRGB(0.66, 0.62, 0.54);
+    S.hemi.color.set(0xcfe0ff); S.hemi.groundColor.set(0x7a6f55); S.hemi.intensity = 0.55;
+    S.door.rotation.y = -1.32; S.doorA.rotation.y = 0.95; S.ldoor[0].position.x = -0.4; S.ldoor[1].position.x = 0.4; S.setFloor(0, false);
+    S.lampL.intensity = 0; S.doorL.intensity = 0; S.recL.intensity = 0; S.deskL.intensity = 1.0; S.tubeOut.color.setRGB(0.05, 0.05, 0.05); S.tubeIn.color.setRGB(0.04, 0.04, 0.04); S.signM.color.setScalar(0.1);
+    S.pen.position.set(2.5, 1.062, -5.13); S.pen.rotation.set(PI / 2, 0, -0.5); S.sheet.image.getContext("2d").drawImage(S.sheetBase, 0, 0); S.sheet.needsUpdate = true;
+    S.sc.fog.density = 0.02; S.sc.fog.color.set(0x050607); S.sc.background.set(0x050607);
+  }
+  function play(then, which) {
+    prep(); ensureAudio(); sadosShutUp(); unlockPointer(); hideTip();
+    mode = which === "end" ? "end" : "open"; lineSet = mode === "end" ? CUT_END_LINES : CUT_LINES;
+    after = then; backState = state; state = "cut"; hideOv(); hudWas = $("hud").hidden; $("hud").hidden = true; syncTouch();
+    t = 0; endT = skipT = -1; said = 0; cue = 0; doorSaid = 0; floorNo = -1; banks = 0; stepPh = 0; lastStep = 0; padHeld = true; sigLast = -1; nextChirp = 0; hush();
+    S.gTop.visible = true; S.gHall.visible = false; S.setFloor(0, false);
+    S.edoor[0].position.x = -0.65; S.edoor[1].position.x = 0.65; S.bar.color.setRGB(3.2, .45, .25); for (const m of S.bankM) m.color.setRGB(.05, .055, .06); for (const l of S.bankL) l.intensity = 0;
+    if (mode === "end") setDay(); else setNight();
     scenePass.scene = S.sc; camera.fov = 58; camera.updateProjectionMatrix(); cam.roll = 0;
     document.body.classList.add("cutting"); el.hidden = false; el.classList.remove("out"); fadeEl.style.transition = "none"; fadeEl.style.background = "#000"; fadeEl.style.opacity = 1;
-    if (actx) { if (opts.music) musicBus.gain.setTargetAtTime(0.14, actx.currentTime, 0.4); setVoiceRoom(14); preloadVoice(CUT_LINES); rainS = rainLoop(); vol(rainS, 0.2, 0.6); humS = null; }
-    const k = pathAt(0, []); lastP.set(k[0], k[1], k[2]);
+    if (actx) {
+      if (opts.music) musicBus.gain.setTargetAtTime(0.14, actx.currentTime, 0.4); setVoiceRoom(mode === "end" ? 10 : 14); preloadVoice(lineSet);
+      if (mode === "end") { windS = windLoop(); vol(windS, 0.012, 0.6); rainS = humS = null; } else { rainS = rainLoop(); vol(rainS, 0.2, 0.6); humS = null; windS = null; }
+    }
+    const k = pathAt(0, [], mode === "end" ? KEYS_E : KEYS); lastP.set(k[0], k[1], k[2]);
   }
   function finish() {
     if (state !== "cut") return;
     hush(); stopLoops(); scenePass.scene = scene; camera.fov = 72; camera.updateProjectionMatrix(); cam.roll = 0;
     if (actx) { applyAudioOpts(); try { setVoiceRoom(roomSize()); } catch (e) {} }
-    store.set("seenOpening", 1); $("hud").hidden = hudWas; state = backState;
+    if (mode !== "end") store.set("seenOpening", 1); $("hud").hidden = hudWas; state = backState;
     document.body.classList.remove("cutting"); el.classList.add("out"); const cb = after; after = null; if (cb) cb();
     requestAnimationFrame(() => { fadeEl.style.transition = "opacity .7s"; fadeEl.style.opacity = 0; });
     setTimeout(() => { if (state !== "cut") { el.hidden = true; el.classList.remove("out"); } }, 800);
   }
   function skip() { if (state !== "cut" || skipT >= 0 || t < 0.6) return; skipT = t; hush(); stopLoops(); }
   const P = [];
+  function tickEnd(dt, time) {
+    t += dt; const s = S, D = s.day;
+    pathAt(t, P, KEYS_E); const x = P[0], y = P[1], z = P[2];
+    const sp = Math.hypot(x - lastP.x, z - lastP.z) / Math.max(dt, 1e-3); lastP.set(x, y, z);
+    const walk = clamp(sp / 1.6, 0, 1); stepPh += dt * (1.4 + sp) * 2.2 * (walk > 0.1 ? 1 : 0);
+    cam.pos.set(x + Math.cos(stepPh) * 0.012 * walk, y + Math.sin(stepPh * 2) * 0.028 * walk + Math.sin(time * 0.9) * 0.004, z);
+    cam.yaw = P[3] + Math.sin(time * 0.53) * 0.006; cam.pitch = P[4] + Math.sin(time * 0.71) * 0.004; cam.roll = Math.cos(stepPh) * 0.004 * walk;
+    if (walk > 0.35 && Math.floor(stepPh / PI) !== lastStep) { lastStep = Math.floor(stepPh / PI); fx.step(false); }
+    // dim inside, bright outside: the light comes on as the doorway is passed
+    const out = ss((z + 0.15) / 1.3);
+    s.hemi.intensity = 0.55 + 0.45 * out; D.sun.intensity = 2.7 * out; s.sc.fog.density = 0.02 - 0.0155 * out; s.sc.fog.color.setRGB(0.02 + 0.76 * out, 0.024 + 0.77 * out, 0.026 + 0.74 * out);
+    D.shade.material.opacity = 0.9 * ss((z - 0.3) / 1.0);
+    D.dome.position.set(cam.pos.x, 0, cam.pos.z); D.sunSpr.position.set(cam.pos.x + 45, cam.pos.y + 26, cam.pos.z + 70);
+    const dp = D.dp; for (let i = 0; i < D.NDUST; i++) { const o = i * 3; dp[o] += Math.sin(time * .3 + i) * dt * .02; dp[o + 1] += (Math.sin(time * .5 + i * 1.7) * .02 - .006) * dt * 3; dp[o + 2] += dt * .02; if (dp[o + 1] < .1) dp[o + 1] = 2.9; if (dp[o + 2] > -.6) dp[o + 2] = -9; }
+    D.dust.geometry.attributes.position.needsUpdate = true;
+    // the desk lamp, still on; the sign-in sheet and the pen
+    const f1 = clamp((t - E.s0) / (E.s1 - E.s0), 0, 1), f2 = clamp((t - E.t0) / (E.t1 - E.t0), 0, 1), fs = f1 + f2;
+    if (t < E.t1 + 0.3 && (Math.abs(fs - sigLast) > 0.035 || (fs >= 2 && sigLast < 2))) { sigLast = fs; drawSig(f1, f2); if (fs > 0 && fs < 2) fx.pen(); }
+    { const pen = s.pen; let tx = 2.5, ty = 1.062, tz = -5.13, lift = 0;
+      const startP = tipW(SIGPTS[0][0], SIGPTS[0][1]), m = Math.min(SIGPTS.length - 1, Math.floor((SIGPTS.length - 1) * f1)), endName = tipW(SIGPTS[SIGPTS.length - 1][0], SIGPTS[SIGPTS.length - 1][1]), tStart = tipW(596, 902);
+      if (t < E.s0) { const u = ss((t - (E.s0 - 1.1)) / 1.1); const a = tipW(SIGPTS[0][0], SIGPTS[0][1]); tx = 2.5 + (a[0] + .036 - 2.5) * u; tz = -5.13 + (a[1] + .066 + 5.13) * u; lift = Math.sin(u * PI) * .05; ty = 1.082; }
+      else if (t < E.s1) { const q = tipW(SIGPTS[m][0], SIGPTS[m][1]); tx = q[0] + .036; tz = q[1] + .066; ty = 1.082; }
+      else if (t < E.t0) { const u = ss((t - E.s1) / (E.t0 - E.s1)); tx = endName[0] + (tStart[0] - endName[0]) * u + .036; tz = endName[1] + (tStart[1] - endName[1]) * u + .066; lift = Math.sin(u * PI) * .04; ty = 1.082; }
+      else if (t < E.t1) { const q = tipW(596 + f2 * 100, 902); tx = q[0] + .036; tz = q[1] + .066; ty = 1.082; }
+      else { const u = ss((t - E.t1) / 1.0), q = tipW(696, 902); tx = q[0] + .036 + (2.56 - q[0] - .036) * u; tz = q[1] + .066 + (-5.2 - q[1] - .066) * u; lift = Math.sin(u * PI) * .05; ty = 1.082 - .02 * u; }
+      pen.position.set(tx, ty + lift, tz); }
+    // cues
+    if (cue < 1 && t >= 0.8) { cue = 1; speak(0); }
+    if (cue < 2 && t >= 6.8) { cue = 2; speak(1); }
+    if (cue < 3 && t >= 12.0) { cue = 3; speak(2); }
+    if (cue < 4 && t >= 23.0) { cue = 4; speak(3); }
+    // birds and the breeze once the door is behind us
+    if (windS) vol(windS, 0.012 + 0.03 * out + 0.008 * Math.sin(time * .4), 0.4);
+    if (out > 0.5 && time > nextChirp) { nextChirp = time + 0.7 + Math.random() * 2.4; fx.chirp(); }
+    // the sign, which has been dark in the daylight, flickers back on
+    if (t > E.sign) { const q = t - E.sign, on = q < .12 ? 0 : q < .22 ? 1 : q < .4 ? 0 : q < .5 ? 1 : q < .66 ? 0 : 1; if (on !== (sigOn ? 1 : 0)) { sigOn = !!on; fx.flick(); } s.signM.color.setScalar(on ? 1.9 : 0.1); } else sigOn = false;
+    const led = talking ? 1.6 + Math.sin(time * 31) * 0.8 : 0.12; for (const m of s.spkLed) m.color.setRGB(led, led * 0.5, led * 0.12);
+    // fades: in from black, out to black once she has finished and the sign has come on
+    let op = 1 - ss(t / 1.4);
+    if (endT < 0 && t >= E.sign + 3.2 && cue >= 4 && !talking && !queue.length) endT = t;
+    if (endT >= 0) { op = ss((t - endT) / 2.2); if (t - endT > 2.6) { finish(); return; } }
+    if (skipT >= 0) { op = Math.max(op, ss((t - skipT) / 0.35)); if (t - skipT > 0.4) { finish(); return; } }
+    fadeEl.style.background = "#000"; fadeEl.style.opacity = op.toFixed(3);
+    try { let down = false; for (const pd of navigator.getGamepads ? navigator.getGamepads() : []) if (pd) for (const b of [0, 1, 2, 3, 9]) if (pd.buttons[b] && pd.buttons[b].pressed) down = true; if (down && !padHeld) skip(); padHeld = down; } catch (e) {}
+    gunPass.enabled = false; placeCamera(); composer.render();
+  }
   function tick(dt, time) {
+    if (mode === "end") { tickEnd(dt, time); return; }
     t += dt; const s = S;
     // camera
     pathAt(t, P); let x = P[0], y = P[1], z = P[2];
@@ -4701,7 +4879,7 @@ const Cut = (() => {
   }
   $("cutSkip").addEventListener("click", e => { e.stopPropagation(); skip(); });
   addEventListener("keydown", e => { if (state !== "cut" || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return; const k = e.key.toLowerCase(); if (k === "escape" || k === "enter" || k === " ") { e.preventDefault(); skip(); } });
-  return { prep, play, tick, skip, get t() { return t; }, set t(v) { t = v; }, get S() { return S; } };
+  return { prep, play, playEnding: then => play(then, "end"), tick, skip, get t() { return t; }, set t(v) { t = v; }, get S() { return S; } };
 })();
 
 /* ---------- boot ---------- */
