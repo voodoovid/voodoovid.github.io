@@ -1,1 +1,67 @@
-[]
+[
+ {
+  "hash": "4802d5b1",
+  "chamber": 4,
+  "text": "That is a laser. It burns. Please do not stand in it. I still have the cleaning records from the last one."
+ },
+ {
+  "hash": "bca3d73d",
+  "chamber": 4,
+  "text": "Light goes through portals the way you do, only faster, and without complaining. The receivers on the walls want light. The doors want the receivers."
+ },
+ {
+  "hash": "c71bcf4f",
+  "chamber": 4,
+  "text": "A beam goes into one portal and out of the other, and leaves the way that portal faces. Move a portal and the light goes with it. The receiver it was lighting will notice."
+ },
+ {
+  "hash": "98c5f6f6",
+  "chamber": 4,
+  "text": "The door is on the other side of that wall. So is the sentry. I am holding a doorway open over there. The other end is up to you."
+ },
+ {
+  "hash": "60d991a5",
+  "chamber": 5,
+  "text": "I have installed launch pads. They are like stairs, but faster and less forgiving."
+ },
+ {
+  "hash": "91a0a2a6",
+  "chamber": 5,
+  "text": "A launch pad throws whatever stands on it along the same arc, every time. It does not check what it is throwing."
+ },
+ {
+  "hash": "9dcabdb5",
+  "chamber": 5,
+  "text": "Every pad has exactly one landing spot. Subjects, crates, the pad makes no distinction. Neither, frankly, do I."
+ },
+ {
+  "hash": "cddc9a33",
+  "chamber": 5,
+  "text": "Carry a portal through a reset field and it closes. Carry a cube through and it is recycled. A portal shot, however, goes straight through. Nothing stops a portal shot, except a wall I paid extra for."
+ },
+ {
+  "hash": "e78364ff",
+  "chamber": 6,
+  "text": "The door up there is on a camera scale. It wants one camera. Not a person. Not a crate. A camera."
+ },
+ {
+  "hash": "febbc0bd",
+  "chamber": 6,
+  "text": "There is exactly one camera in this room, and it is watching the floor. If it watches you for long enough, I start you again."
+ },
+ {
+  "hash": "deadbddb",
+  "chamber": 6,
+  "text": "Open a portal on the wall a camera hangs from, and the wall stops holding it. A fallen camera can be carried, and it goes through portals like anything else."
+ },
+ {
+  "hash": "f333a790",
+  "chamber": 6,
+  "text": "You weighed my camera. On a scale. I have been reduced to a unit of measurement."
+ },
+ {
+  "hash": "240efa1b",
+  "chamber": 6,
+  "text": "Inside the pen, the panel turns gravity round for anything loose. Things that fall up keep going until something stops them. A portal counts as something. Step on the panel again and down is down."
+ }
+]
