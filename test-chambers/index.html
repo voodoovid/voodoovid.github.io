@@ -473,7 +473,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 await RAPIER.init();
 
-const VERSION = "v6.5";
+const VERSION = "v6.6";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -1686,27 +1686,56 @@ function level40() {
     done: ["You painted my wall and then walked through it. I have had contractors who did less damage."] } });
 }
 function level41() {
-  const L = 26, W = 12, H = 7, h = hall({ L, W, H, zc: 6 });
-  h.beams = [{ pos: [8, 0.42, 0.02], dir: [0, 0, 1] }];
-  h.receivers = [{ pos: [L, 0.75, 2.5], n: [-1, 0, 0], w: 1.5, h: 1.5, door: "d1" }];
-  h.cubes = [[3, 0.35, 9.5, "prism"]]; h.doors = [exitDoor(L, 6)]; h.par = [60, 0];
-  h.signs.push(chSign(41, "PRISM", 4.6, 3.6), hint("THE PRISM CRATE TURNS LIGHT OUT OF ITS LENS", [14, 3.2, 12], [0, 0, -1], 6, 1));
-  return Object.assign(h, { num: 41, name: "Prism", track: 1, say: {
-    intro: ["This crate has a lens in one face. Light that strikes the crate leaves by the lens. Somebody patented that. I have their badge somewhere.", "The beam and the receiver are not on speaking terms. Introduce them."],
-    hint: ["The lens points wherever you were looking when you put the crate down. Stand in line with the receiver, face it, and set the crate down in the beam."],
-    done: ["Light, bent round a corner by a box. The crate did most of the work. I have given it your commendation."] } });
+  // v6.6 Prism: the crate sits in the beam by the door, bending it into a blank wall. Slide it along and the light finds the receiver on the back
+  // wall: the inner door opens. The second receiver, round the corner past that door, needs the crate too, and lifting the crate shuts the door.
+  // There is another receiver for the door, further along the back wall, and one panel past the doorway looks straight down the room at it. The
+  // beam, with no crate in it, lands on a panel. So: both portals while the door is open, then take the crate. One portal never moves again
+  const L = 34, W = 12, H = 7, h = hall({ L, W, H, zc: 9 }); darkAll(h);
+  const B = h.boxes;
+  B.push(bx(20, 0, 0, 20.6, H, 4.2, "dark"), bx(20, 0, 7.4, 20.6, H, W, "dark"), bx(20, 3.2, 4.2, 20.6, H, 7.4, "dark"));     // the wall, and its doorway
+  whiteOn(h, bx(0.75, 0.05, 0, 2.25, 2.3, 0.1));                                                    // where the beam lands when nothing is in it
+  whiteOn(h, bx(L - 0.1, 0.05, 3.85, L, 2.3, 5.35));                                                // the end wall, seen through the doorway
+  whiteOn(h, bx(20.6, 0.05, 10.05, 20.7, 2.3, 11.55));                                              // the back of the wall: only from inside
+  h.beams = [{ pos: [1.5, 0.42, W - 0.02], dir: [0, 0, -1] }];
+  h.receivers = [{ pos: [0, 0.75, 9], n: [1, 0, 0], w: 1.5, h: 1.5, door: "d0" }, { pos: [0, 0.75, 4.6], n: [1, 0, 0], w: 1.5, h: 1.5, door: "d0" },
+    { pos: [27, 0.75, W], n: [0, 0, -1], w: 1.5, h: 1.5, door: "d1" }];
+  h.cubes = [[1.5, 0.35, 10.7, "prism", Math.PI / 2]];
+  h.plates = [{ pos: [22, 0, 8.7], door: "d0", hold: 2.5 }];                                         // the way back out, for anyone who shuts themselves in
+  h.doors = [{ id: "d0", min: [20, 0, 4.2], max: [20.6, 3.2, 7.4], rise: 3.5, need: 1 }, exitDoor(L, 9)];
+  h.start = { pos: [4.5, 0, 7], yaw: -Math.PI / 2, pitch: -0.05 }; h.par = [150, 3];
+  h.lamps.push(lamp(27, H - .3, 9, .5, 9));
+  h.signs.push(chSign(40, "PRISM", 8, 3.6));
+  return Object.assign(h, { num: 40, name: "Prism", track: 1, say: {
+    intro: ["This crate has a lens in one face. Light that goes into the crate comes out of the lens. Somebody patented that. I have their badge somewhere.", "At present it is lighting a wall. The wall is not grateful. The receivers might be."],
+    hint: ["The crate cannot be in two places. I have checked. The light, on the other hand, has never been particular about where it comes from."],
+    done: ["One beam, three receivers, and a crate that did the thinking. I have put it forward for your job."] } });
 }
 function level42() {
-  const L = 26, W = 12, H = 7, h = hall({ L, W, H, zc: 6 });
-  h.boxes.push(bx(21, 0, 8, 22, H, 10));
-  h.sparkers = [{ pos: [0.05, 1.5, 9], dir: [1, 0, 0], speed: 6, life: 14 }];
-  h.sockets = [{ pos: [16, 1.5, 0], n: [0, 0, 1], door: "d1" }]; h.doors = [exitDoor(L, 6)]; h.par = [70, 2];
-  h.boxes.push(bx(24.6, 0, 0.5, 25.4, 2.4, 1.1));
-  h.signs.push(chSign(42, "LIVE WIRE", 4.6, 3.6), hint("THE SOCKET WANTS A SPARK", [9, 3.2, 0], [0, 0, 1], 4, .9), scrawl("X", "", [16, 1.5, 12], [0, 0, -1], 1.3, 1.3));
-  return Object.assign(h, { badge: [25, 1, 0.3], num: 42, name: "Live Wire", track: 2, say: {
-    intro: ["That is a spark. It travels in a straight line, bounces off whatever it meets, and gives up after a few seconds. I have worked with people like that.", "The socket on the far wall would like it. Do not stand in its way. It does not go round."],
-    hint: ["Somebody has marked the wall opposite the socket. A spark that goes into a portal comes straight out of the other. Give it one where it lands, and one on the mark."],
-    done: ["The socket has its spark. You still have your eyebrows. I had a small bet with myself, and I have lost it."] } });
+  // v6.6 Live Wire: the spark runs up and down a fenced lane by the door, where it can be watched safely. The socket is past a reset field, in
+  // a flue behind a shutter; a crate on the plate lifts the shutter, and the field recycles crates. So the crate goes round by portal first. Then
+  // the spark: the only panel it lands on cannot be seen from past the field, and the only panel that faces the socket cannot be seen from this
+  // side. The spark does not need portals to keep going, though. Send it through to bounce along the far lane, walk through the field while it
+  // is over there (your portals close, it carries on), and catch it again from the far side before it burns out
+  const L = 32, W = 12, H = 7, h = hall({ L, W, H, zc: 8 }); darkAll(h);
+  const B = h.boxes;
+  B.push(bx(8, 0, 9, 8.4, H, W, "dark"), bx(0, 0, 8.9, 8, 1, 9, "dark"));                           // the lane: a wall to bounce off, and a rail
+  whiteOn(h, bx(7.9, 0.05, 9.45, 8, 2.35, 10.95));                                                  // where the spark lands
+  whiteOn(h, bx(4.75, 0.05, 0, 6.25, 2.35, 0.1));                                                   // a panel on this side for you
+  B.push(bx(12, 0, 0, 12.4, H, 4.75, "dark"), bx(12, 0, 7.25, 12.4, H, W, "dark"), bx(12, 3.2, 4.75, 12.4, H, 7.25, "dark"));
+  h.fields = [{ min: [12, 0, 4.75], max: [12.4, 3.2, 7.25] }];
+  whiteOn(h, bx(L - 0.1, 0.05, 1.25, L, 2.35, 2.75));                                               // the end wall: seen from both sides of the field
+  whiteOn(h, bx(12.4, 0.05, 9.25, 12.5, 2.35, 10.75));                                              // the back of the field wall: it faces the socket
+  B.push(bx(24, 0, 9, 25, H, 11, "dark"), bx(22.6, 0, 8.9, 24, 3.3, 9.2, "dark"), bx(22.6, 0, 10.8, 24, 3.3, 11.1, "dark"));     // the flue
+  h.sparkers = [{ pos: [0.05, 1.5, 10.2], dir: [1, 0, 0], speed: 6, life: 18 }];
+  h.sockets = [{ pos: [24, 1.5, 10], n: [-1, 0, 0], door: "d1" }];
+  h.cubes = [[3, 0.35, 3]]; h.plates = [{ pos: [17, 0, 4], door: ["d0", "d1"] }];
+  h.doors = [{ id: "d0", min: [22.6, 0, 9.2], max: [22.9, 3.2, 10.8], rise: 3.5, need: 1 }, exitDoor(L, 8, "d1", 2)]; h.par = [170, 5];
+  h.lamps.push(lamp(22, 3, 10, .4, 5));
+  h.signs.push(chSign(44, "LIVE WIRE", 4.6, 3.6));
+  return Object.assign(h, { num: 44, name: "Live Wire", track: 2, say: {
+    intro: ["That is a spark. It travels in a straight line, bounces off whatever it meets, and gives up after a while. I have worked with people like that.", "The socket would like it. The socket is past the field, behind a shutter, at the end of a flue. I did not want it to be easy for the spark either."],
+    hint: ["The field takes your portals away. It has never once taken anything from the spark. Think about which of you is better off."],
+    done: ["The socket has its spark, and you still have your eyebrows. I had a small bet with myself. I have lost it."] } });
 }
 function level43() {
   // v6.3 Press: the switch holds the door for three seconds, and the door is past three presses that fall out of step. Nobody runs that.
@@ -1833,17 +1862,25 @@ function level46() {                       // Mirror Test: show the bolted sentr
     hint: ["It has spent its whole life looking at everything except itself. Some of my best people were like that. Show it the view."],
     done: ["It shot itself in the back. Do not tell the others. They are all the same model. They will take it personally."] } });
 }
-function level47() {                       // Second Opinion: two of them, three panels, one portal used twice
+function level47() {
+  // v6.6 Second Opinion: two bolted sentries facing you, and nothing in front of the near one takes a portal, so it can never be shown itself.
+  // The far one can see a panel on each side wall, though, and one of them looks back at the near one: the far sentry does the shooting. The
+  // third panel, behind the far sentry, is hidden by a fin from the doorway; it shows from further in along the left wall, on ground the near
+  // sentry covered and the far one cannot reach. The left-hand panel is used twice: once as a window, once as a mirror
   const L = 34, W = 12, H = 7, h = hall({ L, W, H, zc: 6 }); darkAll(h);
-  whiteOn(h, bx(6, 0, 0, 10, 3.4, 0.1)); whiteOn(h, bx(17, 0, W - 0.1, 21, 3.4, W)); whiteOn(h, bx(29, 0, 0, 33.6, 3.4, 0.1));
-  h.boxes.push(bx(3.5, 0, 8.8, 4.5, 2.4, 11, "dark"));                     // somewhere to stand out of the way
-  h.sentries = [{ pos: [14, 0, 6], yaw: Math.PI / 2, range: 11, cone: 60, dmg: 15, bolt: true }, { pos: [25.5, 0, 6], yaw: Math.PI / 2, range: 19, cone: 55, dmg: 15, bolt: true }];
-  h.par = [100, 4];
-  h.signs.push(chSign(47, "SECOND OPINION", 4.6, 4.8), hint("ONE PANEL CAN SERVE TWO MASTERS", [9, 3.2, 12], [0, 0, -1], 5, 1));
-  return Object.assign(h, { num: 47, name: "Second Opinion", track: 1, say: {
-    intro: ["Two bolted sentries this time. The second one is at the far end, and it has better eyesight. I gave it the good lenses.", "Three panels take portals. You will need all three, and one of them twice."],
-    hint: ["The panel on the right serves both of them. It is behind the first sentry and in front of the second. Deal with the near one first."],
-    done: ["Two sentries, one reflection each. I would call it vanity, but they did not survive long enough to enjoy it."] } });
+  h.boxes.push(bx(30.2, 0, 0, 30.6, H, 1.15, "dark"));                                              // the fin
+  whiteOn(h, bx(18.25, 0.05, W - 0.1, 19.75, 2.35, W));                                             // left wall: in front of the far sentry
+  whiteOn(h, bx(19.75, 0.05, 0, 21.25, 2.35, 0.1));                                                 // right wall: it looks back at the near one
+  whiteOn(h, bx(31.25, 0.05, 0, 32.75, 2.35, 0.1));                                                 // right wall, behind the far sentry
+  h.sentries = [{ pos: [14, 0, 6], yaw: Math.PI / 2, range: 11, cone: 55, dmg: 15, bolt: true }, { pos: [25.5, 0, 6], yaw: Math.PI / 2, range: 10, cone: 55, dmg: 15, bolt: true }];
+  h.par = [120, 3];
+  den(h, { W, side: 0, x: 8, scr: ["TWO OF THEM, AND THEY STILL", "NEVER COMPARE NOTES.  - O."],
+    line: "That is the lens fitter's room. He fitted one set of lenses and asked for a day off. I am still considering it." });
+  h.signs.push(chSign(39, "SECOND OPINION", 3.4, 4.8));
+  return Object.assign(h, { badge: [9.3, 4.1, -4.8], num: 39, name: "Second Opinion", track: 1, say: {
+    intro: ["Two bolted sentries. The far one has the good lenses. I ordered one set. It seemed enough at the time.", "You will notice that nothing in front of the near one takes a portal. I noticed first. That is why."],
+    hint: ["It will never see itself. That does not mean nobody has an opinion of it."],
+    done: ["One of them shot the other, and then itself. I have seen committees end the same way."] } });
 }
 function level48() {                       // v6.1 Scales: one camera, and it is watching the floor. Knock it down and it is the weight the scale wants
   const L = 26, W = 14, H = 9, h = hall({ L, W, H, zc: 7, ey: 4, ledge: 5 }); darkAll(h);
@@ -1860,37 +1897,44 @@ function level48() {                       // v6.1 Scales: one camera, and it is
     hint: ["Open a portal on the wall a camera hangs from, and the wall stops holding it. A fallen camera can be carried, and it goes through portals like anything else."],
     done: ["You weighed my camera. On a scale. I have been reduced to a unit of measurement."] } });
 }
-function level49() {                       // Paperweight: the camera that watches the landing is also the weight you need
+function level49() {                       // v6.6 Paperweight (kept, trimmed): the camera that watches the landing is also the weight you need
+  // The only white in the room is a panel round each camera, both too high to walk into, so portals move nothing but cameras here. The door
+  // wants two cameras on the scale past the acid; the pad throws anything; the camera over there watches where it throws you
   const L = 32, W = 12, H = 8, h = hall({ L, W, H, zc: 6, pits: [[10, 18]] }); darkAll(h);
-  whiteOn(h, bx(0, 0, 0, 0.1, H, W)); whiteOn(h, bx(20, 2.2, W - 0.1, 27, H, W));
+  whiteOn(h, bx(0, 3.7, 8.3, 0.1, 6.1, 10.7)); whiteOn(h, bx(22.3, 4.4, W - 0.1, 24.7, 6.8, W));
   h.pads = [{ pos: [6.5, 0, 6], from: [6.5, 0.92, 6], to: [22.5, 0.92, 6], T: 1.2 }];
-  h.cubes = [[3, 0.35, 2.5]];
   h.cams = [{ pos: [0.12, 4.8, 9.5], n: [1, 0, 0] }, { pos: [23.5, 5.6, W - 0.1], n: [0, 0, -1], watch: { aim: [22.5, 0, 6], sweep: 0.55, period: 5, range: 13, cone: 22 } }];
-  h.plates = [{ pos: [26, 0, 3], door: "d1" }, { pos: [26, 0, 9], door: "d1", cams: 2 }]; h.doors = [exitDoor(L, 6, "d1", 2)];
-  h.par = [120, 3];
-  h.signs.push(chSign(49, "PAPERWEIGHT", 4.6, 4.4), hint("THE PAD THROWS ANYTHING. CAMERAS INCLUDED.", [4, 3.2, 12], [0, 0, -1], 5.4, 1), { kind: "hint", a: "CAMERA SCALE: 2", pos: [L - 0.02, 3.6, 9], n: [-1, 0, 0], w: 2.6, h: .6 });
-  return Object.assign(h, { badge: [0.6, 6.6, 1], num: 49, name: "Paperweight", track: 0, say: {
-    intro: ["The door wants the crate on one plate and two cameras on the other. Over there. Past the acid. The launch pad will take anything you give it.", "The camera across the pit watches the landing. If it sees you arrive, you start again. I do like a welcome committee."],
-    hint: ["Bring the watching camera down from here, before you fly. It lands on the far side, which is exactly where you need it. Then the other one, on the wall behind you, goes over on the pad."],
+  h.plates = [{ pos: [26, 0, 9], door: "d1", cams: 2 }]; h.doors = [exitDoor(L, 6, "d1", 1)];
+  h.par = [120, 2];
+  h.signs.push(chSign(45, "PAPERWEIGHT", 4.6, 4.4));
+  return Object.assign(h, { num: 45, name: "Paperweight", track: 0, say: {
+    intro: ["The door is on a camera scale. It wants two. Over there, past the acid. The launch pad will take anything you give it.", "The camera across the pit watches the landing. If it sees you arrive, you start again. I do like a welcome committee."],
+    hint: ["Count the cameras in this room. Now count the ones the door wants. I did the sum before you came in. It is why I am not worried about my cameras. I should be."],
     done: ["You knocked down the only camera watching you and used it as a paperweight. I have stopped being surprised. I have not stopped being offended."] } });
 }
-function level50() {                       // Hot Seat: point the facility's own laser at the guards, then at the receiver
+function level50() {
+  // v6.6 Hot Seat (kept, tightened): the facility's own laser burns out the guards, then lights the receiver. The near sentry now stands
+  // close enough to the long panel to jam the stretch opposite it, so it has to be burned from the short panel on the other wall. The door
+  // wants a sentry on the plate as well as the light, and only a burned-out one comes off its bolts. The receiver's beam crosses the room, so
+  // the light goes on last, from past it
   const L = 32, W = 12, H = 7, h = hall({ L, W, H, zc: 6 }); darkAll(h);
-  h.beams = [{ pos: [0.02, 1.0, 3], dir: [1, 0, 0] }];
-  h.boxes.push(bx(9, 0, 1.8, 10, 3.2, 4.2, "dark")); whiteOn(h, bx(8.9, 0, 1.8, 9, 3.2, 4.2));    // a white block catches the beam
+  h.beams = [{ pos: [0.02, 1.0, 3], dir: [1, 0, 0], hot: 900 }];
+  h.boxes.push(bx(9, 0, 2.25, 10, 3.2, 3.75, "dark")); whiteOn(h, bx(8.9, 0.05, 2.25, 9, 2.35, 3.75));    // a white block catches the beam
   whiteOn(h, bx(15, 0.05, W - 0.1, 27, 2.6, W));                           // a long low panel on the far wall
+  whiteOn(h, bx(19.25, 0.05, 0, 20.75, 2.35, 0.1));                        // and a short one on the near wall
   h.boxes.push(bx(5, 0, 8, 6, 2.6, 11.5, "dark"));                         // cover by the start
-  h.sentries = [{ pos: [20, 0, 7], yaw: Math.PI / 2, range: 15, cone: 55, dmg: 15, bolt: true }, { pos: [24, 0, 3.6], yaw: Math.PI / 2, range: 17, cone: 55, dmg: 15, bolt: true }];
-  h.receivers = [{ pos: [17, 1.1, 0], n: [0, 0, 1], w: 1.6, h: 1.6, door: "d1" }]; h.doors = [exitDoor(L, 6)];
-  h.par = [100, 5];
-  h.signs.push(chSign(50, "HOT SEAT", 4.6, 3.8), hint("LIGHT DOES NOT CARE WHAT IT LANDS ON", [8, 3.2, 12], [0, 0, -1], 5.2, 1),
+  h.sentries = [{ pos: [20, 0, 8.5], yaw: Math.PI / 2, range: 15, cone: 55, dmg: 15, bolt: true }, { pos: [24, 0, 3.6], yaw: Math.PI / 2, range: 17, cone: 55, dmg: 15, bolt: true }];
+  h.receivers = [{ pos: [26, 1.1, 0], n: [0, 0, 1], w: 1.6, h: 1.6, door: "d1" }];
+  h.plates = [{ pos: [29.5, 0, 9.8], door: "d1" }]; h.doors = [exitDoor(L, 6, "d1", 2)];
+  h.par = [150, 5];
+  h.signs.push(chSign(41, "HOT SEAT", 4.6, 3.8),
     scrawl("SHE THINKS THE LASERS", "ARE FOR THE DOORS.  - O.", [12, 1.3, 0.001], [0, 0, 1], 3.2, 0.95));
-  return Object.assign(h, { badge: [31, 1, 11.3], num: 50, name: "Hot Seat", track: 1, say: {
-    intro: ["The receiver is on the left wall, past two bolted sentries. The laser is behind you. The laser does not care who is in the way. I have always admired that about it.", "Please do not burn the sentries. Those are the instructions. I am required to give them."],
-    hint: ["Put one portal on the white block where the beam lands and the other on the long panel opposite the sentries. Slide the far one along until the light finds each of them, then the receiver."],
-    done: ["You burned out two sentries with a laser I installed to open doors. I will be adding that to the list of things you have repurposed. It is a long list. It is getting longer."] } });
+  return Object.assign(h, { badge: [31, 1, 11.3], num: 41, name: "Hot Seat", track: 1, say: {
+    intro: ["The door wants light on the receiver and a sentry on the plate. Both sentries are bolted down. The laser is behind you. I have had it turned up. It does not care who is in the way. I have always admired that about it.", "Please do not burn the sentries. Those are the instructions. I am required to give them."],
+    hint: ["A bolt holds a sentry for exactly as long as the sentry is worth bolting down. I will say no more. I have already been told off for saying that."],
+    done: ["You burned out two sentries with a laser I installed to open doors, and then you weighed the door down with one of them. The list of things you have repurposed is getting longer."] } });
 }
-function level51() {                       // Heavy Hat: crates from the ceiling, and the same crate twice
+function level51() {                       // Heavy Hat (kept in v6.6, hints trimmed): crates from the ceiling, and the same crate twice
   const L = 30, W = 12, H = 10, h = hall({ L, W, H, zc: 6 }); darkAll(h);
   whiteOn(h, bx(3.5, 0, 4.5, 6.5, 0.1, 7.5));                             // a white floor patch at the start
   whiteOn(h, bx(16, H - 0.1, 1, 20, H, 4)); whiteOn(h, bx(16, H - 0.1, 8, 20, H, 11));    // ceiling strips over each sentry
@@ -1899,13 +1943,13 @@ function level51() {                       // Heavy Hat: crates from the ceiling
   h.sentries = [{ pos: [18, 0, 2.5], yaw: Math.PI / 2, range: 14, cone: 55, dmg: 15, bolt: true }, { pos: [18, 0, 9.5], yaw: Math.PI / 2, range: 14, cone: 55, dmg: 15, bolt: true }];
   h.plates = [{ pos: [25, 0, 6], door: "d1" }]; h.doors = [exitDoor(L, 6)];
   h.par = [120, 6];
-  h.signs.push(chSign(51, "HEAVY HAT", 4.6, 3.8), hint("NOTHING HERE LOOKS UP", [8, 3.4, 12], [0, 0, -1], 4, 1));
+  h.signs.push(chSign(42, "HEAVY HAT", 4.6, 3.8));
   return Object.assign(h, { num: 51, name: "Heavy Hat", track: 2, say: {
     intro: ["Two bolted sentries, one crate, and a very high ceiling. I had the ceiling raised. I cannot remember why. Something about morale.", "The door wants the crate. You may find the crate has other duties first."],
-    hint: ["A portal on the floor by you and one on the ceiling over a sentry. Drop the crate in. Afterwards the floor round the first sentry takes a portal, so the crate can come back to you for a second go."],
+    hint: ["They watch the door. They watch each other's backs. In all the years they have stood there, neither has once looked up. I find that very relatable."],
     done: ["You hit two sentries on the head with the same crate. Twice is not a coincidence. Twice is a technique."] } });
 }
-function level52() {                       // Lift Off: flip gravity under two sentries and let the ceiling do the rest
+function level52() {                       // Lift Off (kept in v6.6, hints trimmed): flip gravity under two sentries and let the ceiling do the rest
   const L = 32, W = 12, H = 9, h = hall({ L, W, H, zc: 6 }); darkAll(h);
   h.boxes.push(bx(11, 0, 0, 12, H, 4.5, "dark"), bx(11, 0, 7.5, 12, H, W, "dark"), bx(11, 3.2, 4.5, 12, H, 7.5, "dark"));     // a wall with a doorway
   h.sentries = [{ pos: [19, 0, 3], yaw: Math.PI / 2, range: 13, cone: 55, dmg: 15 }, { pos: [19, 0, 9], yaw: Math.PI / 2, range: 13, cone: 55, dmg: 15 }, { pos: [26, 0, 6], yaw: Math.PI / 2, range: 9, cone: 50, dmg: 15, bolt: true }];
@@ -1914,10 +1958,12 @@ function level52() {                       // Lift Off: flip gravity under two s
   whiteOn(h, bx(24, H - 0.1, 4.5, 28, H, 7.5)); whiteOn(h, bx(2, 0, 1.5, 5, 0.1, 4.5));      // a ceiling strip over the bolted one, a floor patch at home
   h.plates = [{ pos: [29, 0, 3], door: "d1" }]; h.doors = [exitDoor(L, 6)];
   h.par = [120, 4];
-  h.signs.push(chSign(52, "LIFT OFF", 4.6, 3.6), hint("THE PANEL FLIPS DOWN FOR THEM, NOT FOR YOU", [6, 3.2, 12], [0, 0, -1], 5.6, 1));
+  den(h, { W, side: 1, x: 5.5, two: 1, scr: ["SHE CAN TURN THE ROOM OVER.", "SHE CANNOT TURN YOU OVER.  - O."], scr2: ["DAY 301. SHE ASKED WHERE I SLEEP.", "I SAID THE CEILING. SHE CHECKED.  - O."],
+    line: "You have found the maintenance bunk. Maintenance never did. I stopped sending the reminders some years ago." });
+  h.signs.push(chSign(43, "LIFT OFF", 4.6, 3.6));
   return Object.assign(h, { badge: [10.5, 1, 11.3], num: 52, name: "Lift Off", track: 0, say: {
     intro: ["Two sentries stand in a gravity zone. A third, bolted down, is further on. The panel by you turns their gravity upside down. Yours stays where it is. I am not a monster.", "Sentries are built to stand up. Nobody built them to land."],
-    hint: ["Step on the panel and they fall up. Step on it again and they fall down. The bolted one needs a crate from that ceiling strip, and the crate goes in through the floor by the panel."],
+    hint: ["Two of them are only standing there out of habit. The third I bolted down myself, and it has never thanked me. Bolts do nothing about what arrives from above."],
     done: ["They fell up, then down, and the last one was hit by a crate from above. I have never seen sentries so thoroughly informed about gravity."] } });
 }
 function level53() {                       // Hall Of Mirrors: every trick at once
@@ -2286,6 +2332,7 @@ function placePortal(idx, o, n, u, boxes) {
   const P = portals[idx];
   P.o.copy(o); P.n.copy(n); P.u.copy(u); P.boxes = boxes; P.on = true; P.open = 0; P.mesh.visible = true;
   portalFrame(P); portalTransforms(); camKnock(P);
+  if (world && phys) for (const c of props()) if (c.body) c.body.wakeUp();      // v6.6: a crate asleep on a panel has to notice the hole that has just opened under it
 }
 function closePortal(P) { P.on = false; P.mesh.visible = false; P.boxes = []; }
 // sliding panels: out, wait, back, wait. A portal on one moves with it, and closes if the panel carries it behind something
@@ -2542,7 +2589,7 @@ function buildLevel(idx) {
     const A = raft ? makeRaft() : makeCube(), Bg = raft ? { group: new THREE.Group(), mats: [] } : makeCube(); Bg.group.visible = false;
     const sh = new THREE.Mesh(SHADOW_GEO, new THREE.MeshBasicMaterial({ map: SHADOW_TEX, transparent: true, depthWrite: false, opacity: .6, polygonOffset: true, polygonOffsetFactor: -2 })); sh.visible = false; sh.frustumCulled = false; sh.renderOrder = 2;
     scene.add(A.group, Bg.group, sh);
-    W.cubes.push({ p: new V3(...c), v: new V3(), spawn: c.slice(), mesh: A.group, ghost: Bg.group, mats: A.mats, gmats: Bg.mats, shadow: sh, held: false, hv: new V3(), yaw: 0, q: new QT(), pv: new V3(...c), raft, prism: tag === "prism", seven: tag === "seven" });
+    W.cubes.push({ p: new V3(...c), v: new V3(), spawn: c.slice(), mesh: A.group, ghost: Bg.group, mats: A.mats, gmats: Bg.mats, shadow: sh, held: false, hv: new V3(), yaw: 0, q: new QT(), pv: new V3(...c), raft, prism: tag === "prism", seven: tag === "seven", yaw0: raft ? 0 : c0[4] || 0 });
     if (tag) v5Dress(W.cubes[W.cubes.length - 1], A);
   }
   // sentries (turret robots)
@@ -2557,7 +2604,7 @@ function buildLevel(idx) {
     em.position.copy(o).addScaledVector(dir, -0.25); em.lookAt(em.position.clone().add(dir)); em.rotateY(Math.PI / 2); levelGroup.add(em);
     const lens = new THREE.Mesh(new THREE.CircleGeometry(0.13, 24), BEAM_LENS); lens.position.copy(o).addScaledVector(dir, 0.012); lens.lookAt(o.clone().add(dir)); levelGroup.add(lens);
     const segs = []; for (let i = 0; i < 10; i++) { const core = new THREE.Mesh(BEAM_GEO, BEAM_CORE), glow = new THREE.Mesh(BEAM_GEO, BEAM_GLOW); core.visible = glow.visible = false; core.frustumCulled = glow.frustumCulled = false; glow.renderOrder = 6; core.renderOrder = 7; levelGroup.add(core, glow); segs.push({ core, glow }); }
-    W.beams.push({ o, dir, segs, em });
+    W.beams.push({ o, dir, segs, em, hot: d.hot || 0 });      // v6.6: hot = a beam turned up (damage per second; 95 by default), drawn thicker
   }
   for (const d of (lv.receivers || [])) {
     const n = new V3(...d.n), pos = new V3(...d.pos), horiz = Math.abs(n.x) > 0.5 ? 2 : 0;
@@ -3263,7 +3310,7 @@ function makePhysics(W) {
   cc.enableAutostep(0.32, 0.22, false); cc.enableSnapToGround(0.22);
   cc.setMaxSlopeClimbAngle(50 * Math.PI / 180); cc.setMinSlopeSlideAngle(55 * Math.PI / 180);
   cc.setApplyImpulsesToDynamicBodies(true); cc.setCharacterMass(70);
-  for (const c of W.cubes) addCubeBody(c);
+  for (const c of W.cubes) { addCubeBody(c); if (c.yaw0) { c.spawnQ = new QT().setFromAxisAngle(new V3(0, 1, 0), c.yaw0); setCubeState(c, c.p.clone(), c.spawnQ); } }      // v6.6: a crate can start turned (the prism's lens)
   for (const s of W.sentries) addSentryBody(s);
 }
 // move the player by its velocity with the character controller; returns -1 when it landed or stands on something, 1 when it hit a ceiling
@@ -3390,7 +3437,7 @@ function respawnCube(c, why) {
   sfx.fizzle(); if (holding === c) dropCube(true);
   c.held = false; c.lostT = 0;
   if (c.kind === "sentry") { setCubeState(c, new V3(...c.spawn), c.spawnQ); c.seen = 0; c.burst = 0; c.spray = 0; if (c.state === "on") c.wake = 1.5; return; }   // back where it stood; a broken one stays broken
-  setCubeState(c, cubeHome(c), new QT());
+  setCubeState(c, cubeHome(c), c.spawnQ || new QT());
   if (c.seven) { if (!run.said.sevenLost) { run.said.sevenLost = 1; say("sevenLost"); } }
   else if (!run.said.cube) { run.said.cube = 1; say("sadosCube"); }
 }
@@ -4015,7 +4062,7 @@ function physicsStep(dt) {
     const full = !p.charge || (p.chg = on ? Math.min(p.charge, (p.chg || 0) + dt) : 0) >= p.charge;      // a slow button needs weight on it for a while before it counts
     if (p.hold) { if (on && full) p.left = p.hold; else if (p.left > 0) { const b = Math.ceil(p.left * 2); p.left -= dt; if (Math.ceil(p.left * 2) !== b) sfx.tick(p.left); } }   // a relay holds it for a few seconds after you step off
     p.active = (on && full) || p.left > 0;
-    if (p.active) for (const d of W.doors) if (d.id === p.door) d.cnt++;
+    if (p.active) for (const d of W.doors) if (Array.isArray(p.door) ? p.door.includes(d.id) : d.id === p.door) d.cnt++;      // v6.6: one plate can count toward several doors
   }
   v5Doors(W);
   for (const d of W.doors) d.want = d.auto ? (alive && Math.abs(pl.p.x - d.box.min[0]) < 5 && Math.abs(pl.p.z - (d.min0[2] + d.max0[2]) / 2) < 4 && Math.abs(pl.p.y - HY - d.min0[1]) < 2.5 ? 1 : d.want0 || 0) : d.cnt >= (d.need || 1) ? 1 : 0;
@@ -5026,10 +5073,10 @@ function updateBeams(dt, time) {
     let i = 0;
     for (const sg of allSegs) {
       if (i >= b.segs.length) break; const m = b.segs[i++];
-      for (const [mesh, th] of [[m.core, 0.045], [m.glow, 0.17]]) { mesh.visible = true; mesh.position.copy(sg.o).addScaledVector(sg.d, sg.len / 2); mesh.lookAt(tmpA.copy(sg.o).add(sg.d)); mesh.scale.set(th * (1 + .08 * Math.sin(time * 40 + i)), th * (1 + .08 * Math.sin(time * 37)), sg.len); }
+      for (const [mesh, th] of [[m.core, b.hot ? 0.07 : 0.045], [m.glow, b.hot ? 0.3 : 0.17]]) { mesh.visible = true; mesh.position.copy(sg.o).addScaledVector(sg.d, sg.len / 2); mesh.lookAt(tmpA.copy(sg.o).add(sg.d)); mesh.scale.set(th * (1 + .08 * Math.sin(time * 40 + i)), th * (1 + .08 * Math.sin(time * 37)), sg.len); }
       if (alive) {
         tmpB.set(pl.p.x, pl.p.y, pl.p.z); const d1 = distSegPoint(sg.o, sg.d, sg.len, tmpB); tmpB.y = pl.p.y + 0.6; const d2 = distSegPoint(sg.o, sg.d, sg.len, tmpB); tmpB.y = pl.p.y - 0.6; const d3 = distSegPoint(sg.o, sg.d, sg.len, tmpB);
-        if (Math.min(d1, d2, d3) < 0.42) { hurt(95 * dt, "beam"); if (!run.said.beamHurt) { run.said.beamHurt = 1; say("burn"); } }
+        if (Math.min(d1, d2, d3) < 0.42) { hurt((b.hot || 95) * dt, "beam"); if (!run.said.beamHurt) { run.said.beamHurt = 1; say("burn"); } }
       }
     }
     for (; i < b.segs.length; i++) b.segs[i].core.visible = b.segs[i].glow.visible = false;
