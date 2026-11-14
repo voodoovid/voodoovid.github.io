@@ -473,7 +473,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 await RAPIER.init();
 
-const VERSION = "v6.6";
+const VERSION = "v6.7";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -685,8 +685,9 @@ function signTex(kind, line1, line2, w, h) {
     g.strokeStyle = exit ? "#7dffa4" : dark ? "#e8edf0" : "#14181c"; g.lineWidth = Math.max(3, ch * .05); g.strokeRect(g.lineWidth, g.lineWidth, cw - g.lineWidth * 2, ch - g.lineWidth * 2);
     g.fillStyle = exit ? "#9dffbb" : dark ? "#f4f7f8" : "#14181c"; g.textAlign = "center"; g.textBaseline = "middle";
     if (line2) {
-      g.font = `800 ${ch * .38}px Helvetica, Arial, sans-serif`; g.fillText(line1, cw / 2, ch * .36);
-      g.fillStyle = dark ? "#ff9d2e" : g.fillStyle; g.font = `700 ${ch * .2}px Helvetica, Arial, sans-serif`; g.fillText(line2, cw / 2, ch * .74);
+      const fit = (wt, size, str) => { g.font = `${wt} ${size}px Helvetica, Arial, sans-serif`; const m = g.measureText(str).width, mx = cw * .86; return m > mx ? size * mx / m : size; };   // v6.7: shrink text that is wider than its sign
+      g.font = `800 ${fit(800, ch * .38, line1)}px Helvetica, Arial, sans-serif`; g.fillText(line1, cw / 2, ch * .36);
+      g.fillStyle = dark ? "#ff9d2e" : g.fillStyle; g.font = `700 ${fit(700, ch * .2, line2)}px Helvetica, Arial, sans-serif`; g.fillText(line2, cw / 2, ch * .74);
     } else { g.font = `800 ${ch * (exit ? .55 : .3)}px Helvetica, Arial, sans-serif`; wrapText(g, line1, cw / 2, ch / 2, cw * .88, ch * .34); }
   }, false);
   return t;
@@ -2495,6 +2496,17 @@ function buildLevel(idx) {
   { const e = lv.exitLight, p = new THREE.Mesh(new THREE.PlaneGeometry(e.z1 - e.z0, e.y1 - e.y0), MAT.exitLight); p.rotation.y = -Math.PI / 2; p.position.set(e.x, (e.y0 + e.y1) / 2, (e.z0 + e.z1) / 2); levelGroup.add(p); }
   // signs
   for (const s of lv.signs) {
+    if (s.kind === "chamber" && s.n[2] > 0.5) {        // v6.7: a panel standing proud of the wall under a sign hid half of it: lift the sign above a white panel, or set it on the face of a dark one
+      let up = null, fwd = 0;
+      for (const b of lv.boxes) {
+        if (b.max[2] <= s.pos[2] + 0.03 || b.min[2] > s.pos[2] + 0.4 || b.min[2] < s.pos[2] - 0.3) continue;
+        if (!(b.min[0] < s.pos[0] + s.w / 2 && b.max[0] > s.pos[0] - s.w / 2 && b.min[1] < s.pos[1] + s.h / 2 && b.max[1] > s.pos[1] - s.h / 2)) continue;
+        if (b.mat === "white") up = Math.max(up === null ? -1e9 : up, b.max[1]); else fwd = Math.max(fwd, b.max[2] - s.pos[2]);
+      }
+      s.pos = s.pos.slice();
+      if (up !== null && up + 0.1 + s.h < lv.H - 0.1) s.pos[1] = up + 0.1 + s.h / 2; else if (up !== null) fwd = Math.max(fwd, 0.1);
+      s.pos[2] += fwd;
+    }
     const tx = signTex(s.kind, s.a, s.b, s.w, s.h);
     const m = new THREE.Mesh(new THREE.PlaneGeometry(s.w, s.h), new THREE.MeshBasicMaterial({ map: tx, color: new THREE.Color(.92, .92, .92), transparent: s.kind === "scrawl" }));
     m.userData.ownMat = 1; m.userData.ownMap = 1;
@@ -3975,13 +3987,13 @@ function v5Dress(c, A) {
     const lens = new THREE.Mesh(new THREE.CircleGeometry(0.2, 28), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.6, 2.1, .9), side: THREE.DoubleSide })); lens.position.z = -0.372; lens.rotation.y = Math.PI; A.group.add(lens);
     const rim = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.025, 8, 30), SENT.steel); rim.position.z = -0.37; A.group.add(rim);
   }
-  if (c.seven) {
-    const tx = canvasTex(256, 256, g => {
-      g.clearRect(0, 0, 256, 256); g.fillStyle = "rgba(226,214,180,.95)"; g.save(); g.translate(128, 128); g.rotate(-0.09); g.fillRect(-92, -70, 184, 140); g.restore();     // a strip of masking tape, put on by hand
-      g.fillStyle = "#1d2226"; g.font = '700 150px "Bradley Hand", "Noteworthy", "Marker Felt", "Comic Sans MS", cursive'; g.textAlign = "center"; g.textBaseline = "middle"; g.save(); g.translate(128, 136); g.rotate(-0.07); g.fillText("7", 0, 0); g.restore();
+  if (c.seven) {          // v6.7: the dome stands 9 cm proud of each face and hid the 7; the tape now sits above it, clear of dome and ring
+    const tx = canvasTex(512, 300, g => {
+      g.clearRect(0, 0, 512, 300); g.fillStyle = "rgba(232,220,186,.97)"; g.save(); g.translate(256, 150); g.rotate(-0.04); g.fillRect(-244, -120, 488, 240); g.restore();     // a strip of masking tape, put on by hand
+      g.fillStyle = "#14181c"; g.textAlign = "center"; g.textBaseline = "middle"; g.font = '800 230px "Bradley Hand", "Noteworthy", "Marker Felt", "Segoe Print", "Comic Sans MS", cursive'; g.save(); g.translate(256, 158); g.rotate(-0.05); g.fillText("7", 0, 0); g.restore();
     }, false);
-    const mat = new THREE.MeshBasicMaterial({ map: tx, transparent: true, color: new THREE.Color(.9, .9, .9) });
-    for (let i = 0; i < 4; i++) { const p = new THREE.Mesh(new THREE.PlaneGeometry(0.34, 0.34), mat), a = i * Math.PI / 2; p.position.set(Math.sin(a) * 0.415, 0.02, Math.cos(a) * 0.415); p.rotation.y = a; A.group.add(p); }
+    const mat = new THREE.MeshBasicMaterial({ map: tx, transparent: true, color: new THREE.Color(.95, .95, .95), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    for (let i = 0; i < 4; i++) { const p = new THREE.Mesh(new THREE.PlaneGeometry(0.31, 0.181), mat), a = i * Math.PI / 2; p.position.set(Math.sin(a) * 0.362, 0.252, Math.cos(a) * 0.362); p.rotation.y = a; A.group.add(p); }
     A.mats[1].emissive.setHex(0xffd9a0);
   }
 }
@@ -5195,7 +5207,7 @@ function frame(ts) {
   }
   for (const pd of world.pads) pd.ringMat.color.setRGB(.4 + pd.flash * 2, 1.6 + pd.flash * 2, 2.6 + pd.flash);
   for (const pl of world.plates) {
-    pl.press += ((pl.pressed ? 1 : 0) - pl.press) * Math.min(1, dt * 14); pl.top.position.y = pl.pos[1] + 0.07 - pl.press * 0.05;
+    pl.press += ((pl.pressed ? 1 : 0) - pl.press) * Math.min(1, dt * 14); pl.top.position.y = 0.07 - pl.press * 0.05;
     let over = false; for (const c of props()) if ((c.held || c.v.y < -0.5) && plateUnder(c.p) === pl) over = true;
     pl.aim += ((over ? 1 : 0) - pl.aim) * Math.min(1, dt * 12);
     const pulse = 0.65 + 0.35 * Math.sin(performance.now() / 120);
