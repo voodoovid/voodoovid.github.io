@@ -473,7 +473,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 await RAPIER.init();
 
-const VERSION = "v6.4";
+const VERSION = "v6.5";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -2882,6 +2882,7 @@ const camPosOf = M => _tv.set(M.elements[12], M.elements[13], M.elements[14]);
 function facing(P, M) { camPosOf(M); return P.n.dot(_tv.sub(P.o)) > 0.02; }
 function renderHop(p, k, M, deeper) {
   const P = portals[p], Qp = portals[1 - p], rt = rts[p][k];
+  Self.forView(camPosOf(M));
   vcam.matrixWorld.copy(M); vcam.matrixWorldInverse.copy(M).invert();
   vcam.projectionMatrix.copy(camera.projectionMatrix); vcam.projectionMatrixInverse.copy(camera.projectionMatrixInverse);
   _tv.copy(Qp.o).addScaledVector(Qp.n, -0.012);
@@ -2910,7 +2911,9 @@ function renderFrame(time) {
   renderer.getDrawingBufferSize(_dbs);
   for (let p = 0; p < 2; p++) { const P = portals[p]; P.mat.uniforms.uRes.value.copy(_dbs); if (jobs[p].length) { P.mat.uniforms.tMap.value = rts[p][1].texture; P.mat.uniforms.uHas.value = 1; } else { P.mat.uniforms.uHas.value = 0; P.mat.uniforms.tMap.value = null; } }
   gunPass.enabled = showGun;
+  Self.forMain(camera.position);
   composer.render();
+  Self.hide();
 }
 
 /* =====================================================================================
@@ -3433,6 +3436,149 @@ function cubeGhost(c, dt) {
     }
   }
 }
+/* ---------- the test subject (v6.5): you, seen only through a portal ----------
+   An original figure: a charcoal facility coverall with pale piping, a padded grey vest, a white helmet with a dark visor, a slim back
+   pack whose two lights follow the open portals, and the Gyre held in both hands. It is never drawn in your own view (you would be
+   looking out of the helmet): `Self.forView` shows it for each portal hop and `Self.forMain` hides it again. While you are passing
+   through a portal a second copy (`rigs[1]`) is drawn coming out of the other one, cut at the portal's plane, exactly like a crate's
+   ghost; that copy is the only one the main view may show. Either copy is skipped for any view whose eye is inside its helmet. */
+const Self = (() => {
+  const UP = new V3(0, 1, 0), _a = new V3(), _b = new V3(), _c = new V3(), _d = new V3(), _e2 = new V3(), _hd = [new V3(), new V3()];
+  const L1 = 0.44, L2 = 0.44, A1 = 0.27, A2 = 0.25, HIP = 0.93, HIPX = 0.105, SHY = 1.42, SHX = 0.2, GS = 0.8;
+  const st = { active: false, ghost: false, walk: 0, air: 0, ph: 0, vf: 0, vr: 0, pitch: 0, breath: 0 };
+  function makeRig() {
+    const mats = [], pairs = [];
+    const S = o => { const m = new THREE.MeshStandardMaterial(o); mats.push(m); return m; };
+    const suit = S({ color: 0x2b333d, roughness: .86, metalness: 0 }), trim = S({ color: 0xc9d0d6, roughness: .7, metalness: 0 });
+    const vest = S({ color: 0x8e99a3, roughness: .78, metalness: 0 }), boot = S({ color: 0x15181c, roughness: .6, metalness: .1 });
+    const sole = S({ color: 0x8e99a3, roughness: .6, metalness: 0 }), glove = S({ color: 0x1b1f24, roughness: .7, metalness: 0 });
+    const shell = S({ color: 0xf4f6f7, roughness: .3, metalness: .05, envMapIntensity: 1.1, emissive: 0x2a2d30 }), visor = S({ color: 0x0b1118, roughness: .08, metalness: .9, envMapIntensity: 1.6 });
+    const pack = S({ color: 0x59636d, roughness: .4, metalness: .6 });
+    const ledB = new THREE.MeshBasicMaterial({ color: 0x143a5a }), ledO = new THREE.MeshBasicMaterial({ color: 0x5a3414 }); mats.push(ledB, ledO); pairs.push([gunLedB, ledB], [gunLedO, ledO]);
+    const root = new THREE.Group(); root.matrixAutoUpdate = false; root.visible = false;
+    const add = (geo, mat, par = root) => { const m = new THREE.Mesh(geo, mat); par.add(m); return m; };
+    const seg = (r1, r2, mat) => add(new THREE.CylinderGeometry(r1, r2, 1, 16), mat);        // unit-high limb, stretched between two joints
+    const ball = (r, mat, par) => add(new THREE.SphereGeometry(r, 16, 12), mat, par);
+    const R = { root, mats, pairs };
+    // body: pelvis, waist, chest, vest, collar
+    R.body = new THREE.Group(); root.add(R.body);
+    const pelvis = ball(1, suit, R.body); pelvis.scale.set(0.19, 0.125, 0.125); pelvis.position.y = 0.95;
+    const chest = add(new THREE.CapsuleGeometry(0.125, 0.26, 6, 20), suit, R.body); chest.scale.set(1.42, 1, 0.9); chest.position.y = 1.21;
+    const pad = add(new THREE.CapsuleGeometry(0.133, 0.12, 6, 20), vest, R.body); pad.scale.set(1.44, 1, 0.96); pad.position.y = 1.3;
+    const belt = add(new THREE.CylinderGeometry(0.178, 0.182, 0.045, 24), trim, R.body); belt.scale.z = 0.68; belt.position.y = 1.02;
+    const buckle = add(new THREE.BoxGeometry(0.05, 0.04, 0.012), pack, R.body); buckle.position.set(0, 1.02, -0.125);
+    for (const sx of [-1, 1]) { const strap = add(new THREE.BoxGeometry(0.035, 0.3, 0.012), trim, R.body); strap.position.set(sx * 0.095, 1.3, -0.128); strap.rotation.x = 0.06; ball(0.07, vest, R.body).position.set(sx * SHX, SHY, 0); }
+    add(new THREE.CylinderGeometry(0.058, 0.075, 0.07, 18), suit, R.body).position.y = 1.5;
+    // back pack with the two portal lights
+    const pk = add(new THREE.BoxGeometry(0.22, 0.28, 0.075), pack, R.body); pk.position.set(0, 1.27, 0.15);
+    const pkTop = add(new THREE.CylinderGeometry(0.0375, 0.0375, 0.22, 16), pack, R.body); pkTop.rotation.z = Math.PI / 2; pkTop.position.set(0, 1.41, 0.15);
+    add(new THREE.BoxGeometry(0.15, 0.012, 0.004), trim, R.body).position.set(0, 1.34, 0.189);
+    add(new THREE.BoxGeometry(0.03, 0.07, 0.006), ledB, R.body).position.set(-0.03, 1.24, 0.189); add(new THREE.BoxGeometry(0.03, 0.07, 0.006), ledO, R.body).position.set(0.03, 1.24, 0.189);
+    // head: helmet, visor band, crest, ear caps
+    R.head = new THREE.Group(); R.head.position.set(0, 1.56, 0); root.add(R.head);
+    const helm = ball(0.128, shell, R.head); helm.scale.set(1, 1.04, 1.1); helm.position.y = 0.06;
+    const vz = add(new THREE.SphereGeometry(0.131, 28, 10, Math.PI * 1.5 - 1.05, 2.1, 1.22, 0.62), visor, R.head); vz.scale.set(1, 1.04, 1.1); vz.position.y = 0.06;
+    const crest = add(new THREE.TorusGeometry(0.129, 0.012, 8, 28, Math.PI), trim, R.head); crest.rotation.y = Math.PI / 2; crest.scale.set(1.1, 1.04, 1); crest.position.y = 0.062;
+    for (const sx of [-1, 1]) { const ear = add(new THREE.CylinderGeometry(0.026, 0.03, 0.016, 18), trim, R.head); ear.rotation.z = Math.PI / 2; ear.position.set(sx * 0.128, 0.045, 0.01); }
+    // limbs
+    R.leg = [-1, 1].map(sx => ({ sx, thigh: seg(0.096, 0.074, suit), shin: seg(0.07, 0.054, suit), knee: ball(0.076, vest), stripe: seg(0.088, 0.0855, trim),
+      foot: (() => { const g = new THREE.Group(); root.add(g); const up = add(new THREE.CapsuleGeometry(0.058, 0.14, 4, 12), boot, g); up.rotation.x = Math.PI / 2; up.scale.set(1, 1, 0.8); up.position.set(0, -0.012, -0.05);
+        const so = add(new THREE.BoxGeometry(0.11, 0.02, 0.245), sole, g); so.position.set(0, -0.06, -0.05); const cuff = add(new THREE.CylinderGeometry(0.062, 0.066, 0.08, 14), boot, g); cuff.position.y = 0.04; return g; })() }));
+    R.arm = [-1, 1].map(sx => ({ sx, upper: seg(0.062, 0.05, suit), fore: seg(0.05, 0.041, suit), elbow: ball(0.055, vest), cuff: seg(0.05, 0.045, trim), hand: ball(0.048, glove) }));
+    // the gun: a copy of the view model with its own materials (so the cut plane never reaches the one in your hands)
+    R.aim = new THREE.Group(); R.aim.position.set(0, 1.36, 0); root.add(R.aim);
+    R.gun = gun.clone(true); R.gun.position.set(0.13, -0.15, -0.36); R.gun.rotation.set(0, 0.1, 0); R.gun.scale.setScalar(GS); R.aim.add(R.gun);
+    const seen = new Map();
+    R.gun.traverse(o => { if (!o.material) return; let m = seen.get(o.material); if (!m) { m = o.material.clone(); seen.set(o.material, m); mats.push(m); pairs.push([o.material, m]); } o.material = m; });
+    // soft contact shadow, as the crates have
+    R.shadow = new THREE.Mesh(SHADOW_GEO, new THREE.MeshBasicMaterial({ map: SHADOW_TEX, transparent: true, depthWrite: false, opacity: .5, polygonOffset: true, polygonOffsetFactor: -2 }));
+    R.shadow.visible = false; R.shadow.frustumCulled = false; R.shadow.renderOrder = 2;
+    root.traverse(o => { o.frustumCulled = false; });
+    scene.add(root, R.shadow);
+    return R;
+  }
+  let rigs = null;
+  const between = (m, A, B) => { _d.subVectors(B, A); const l = _d.length() || 1e-4; m.position.copy(A).addScaledVector(_d, 0.5); m.quaternion.setFromUnitVectors(UP, _d.multiplyScalar(1 / l)); m.scale.set(1, l, 1); };
+  // two-bone reach: the middle joint for a limb from S to T, bent toward `pole`; T is pulled in if it is out of reach
+  function bend(S, T, l1, l2, pole, E) {
+    _d.subVectors(T, S); let dist = _d.length(); const reach = l1 + l2 - 0.004;
+    if (dist < 1e-4) { _d.set(0, -1, 0); dist = 1e-4; } else _d.multiplyScalar(1 / dist);
+    if (dist > reach) { dist = reach; T.copy(S).addScaledVector(_d, dist); }
+    const a = (l1 * l1 - l2 * l2 + dist * dist) / (2 * dist), h = Math.sqrt(Math.max(0, l1 * l1 - a * a));
+    _e2.copy(pole).addScaledVector(_d, -pole.dot(_d)); if (_e2.lengthSq() < 1e-6) _e2.set(0, 0, -1); _e2.normalize();
+    return E.copy(S).addScaledVector(_d, a).addScaledVector(_e2, h);
+  }
+  const S0 = new V3(), T0 = new V3(), E0 = new V3(), P0 = new V3();
+  function pose(R) {
+    const w = st.walk, air = st.air, sp = Math.hypot(st.vf, st.vr) || 1, fz = -st.vf / sp, fx = st.vr / sp;      // local step direction (forward is -z)
+    const lean = clamp(st.pitch, -1.2, 1.2), bobY = -0.018 * w * Math.abs(Math.sin(st.ph)) - 0.03 * air + Math.sin(st.breath) * 0.003;
+    R.body.position.y = bobY; R.body.rotation.x = -0.05 - 0.06 * w * Math.max(0, st.vf / sp) + lean * 0.06;
+    R.head.position.y = 1.56 + bobY; R.head.rotation.set(lean * 0.8, 0, 0);
+    R.aim.position.y = 1.36 + bobY; R.aim.rotation.set(lean * 0.9, 0, 0); R.aim.updateMatrix(); R.gun.updateMatrix();
+    for (let i = 0; i < R.gun.children.length; i++) { const s = gun.children[i], d = R.gun.children[i]; d.quaternion.copy(s.quaternion); d.scale.copy(s.scale); }
+    for (const [s, d] of R.pairs) { d.color.copy(s.color); d.opacity = s.opacity; }
+    for (const L of R.leg) {
+      const ph = st.ph + (L.sx > 0 ? Math.PI : 0), sw = Math.sin(ph), lift = Math.max(0, Math.cos(ph));
+      S0.set(L.sx * HIPX, HIP + bobY, 0);
+      T0.set(L.sx * (HIPX + 0.015) + fx * sw * 0.3 * w, 0.075 + lift * 0.13 * w, 0.02 + fz * sw * 0.34 * w);
+      if (air > 0.001) { _c.set(L.sx * (HIPX + 0.03), 0.2 + (L.sx > 0 ? 0.0 : 0.1), L.sx > 0 ? 0.2 : -0.14); T0.lerp(_c, air); }
+      bend(S0, T0, L1, L2, P0.set(L.sx * 0.12, 0.1, -1), E0);
+      between(L.thigh, S0, E0); between(L.shin, E0, T0); L.knee.position.copy(E0);
+      _a.copy(E0).lerp(S0, 0.44); _b.copy(E0).lerp(S0, 0.5); between(L.stripe, _b, _a);
+      L.foot.position.copy(T0); L.foot.rotation.set(-lift * 0.35 * w + air * (L.sx > 0 ? -0.5 : 0.25), 0, 0);
+    }
+    for (const A of R.arm) {
+      S0.set(A.sx * SHX, SHY + bobY, 0);
+      if (A.sx > 0) T0.set(0, -0.085, 0.055); else T0.set(-0.012, -0.072, -0.07);         // right hand on the grip, left under the battery pack
+      T0.applyMatrix4(R.gun.matrix).applyMatrix4(R.aim.matrix);
+      bend(S0, T0, A1, A2, P0.set(A.sx * 0.75, -1, 0.35), E0);
+      between(A.upper, S0, E0); between(A.fore, E0, T0); A.elbow.position.copy(E0); A.hand.position.copy(T0);
+      _a.copy(T0).lerp(E0, 0.1); _b.copy(T0).lerp(E0, 0.3); between(A.cuff, _a, _b);
+    }
+  }
+  function update(dt) {
+    if (!rigs) rigs = [makeRig(), makeRig()];
+    const pl = player;
+    st.active = (state === "play" || state === "paused") && !!world; st.ghost = false;
+    for (const R of rigs) { for (const m of R.mats) m.clippingPlanes = null; R.shadow.visible = false; }
+    if (!st.active) return;
+    const cy = Math.cos(pl.yaw), sy = Math.sin(pl.yaw), k = Math.min(1, dt * 10);
+    const vf = -(pl.v.x * sy + pl.v.z * cy), vr = pl.v.x * cy - pl.v.z * sy, spd = Math.hypot(pl.v.x, pl.v.z);
+    st.vf += (vf - st.vf) * k; st.vr += (vr - st.vr) * k; st.pitch += (pl.pitch - st.pitch) * Math.min(1, dt * 18);
+    st.walk += ((pl.ground ? Math.min(1, spd / 4.5) : 0) - st.walk) * k; st.air += ((pl.ground ? 0 : 1) - st.air) * Math.min(1, dt * 7);
+    st.ph += dt * Math.min(spd, 7) * 1.6 * (pl.ground ? 1 : 0.25); st.breath += dt * 1.7;
+    const A = rigs[0], B = rigs[1];
+    A.root.matrix.makeRotationY(pl.yaw).setPosition(pl.p.x, pl.p.y - HY, pl.p.z); A.root.matrixWorldNeedsUpdate = true;
+    _hd[0].set(pl.p.x, pl.p.y + EYE, pl.p.z);
+    pose(A);
+    const fy = floorBelow(pl.p.x, pl.p.y, pl.p.z, 7);
+    if (fy !== null) { const hgt = pl.p.y - HY - fy; A.shadow.position.set(pl.p.x, fy + 0.012, pl.p.z); A.shadow.scale.setScalar(1.15 + hgt * 0.22); A.shadow.material.opacity = clamp(.5 - hgt * .08, .06, .5); st.shadow = true; } else st.shadow = false;
+    if (!bothPortals()) return;
+    for (const P of portals) {
+      tmpA.copy(pl.p).sub(P.o); const d = P.n.dot(tmpA);
+      if (d < 1.0 && d > -1.0 && Math.abs(tmpA.dot(P.r)) < PW + 0.1 && Math.abs(tmpA.dot(P.u)) < PH + 0.25) {
+        const O = portals[1 - P.idx];
+        const pa = [new THREE.Plane(P.n.clone(), -P.n.dot(P.o))];
+        const pb = [new THREE.Plane(O.n.clone(), -O.n.dot(O.o)),
+          new THREE.Plane(O.r.clone().negate(), O.r.dot(O.o) + PW), new THREE.Plane(O.r.clone(), -O.r.dot(O.o) + PW),
+          new THREE.Plane(O.u.clone().negate(), O.u.dot(O.o) + PH), new THREE.Plane(O.u.clone(), -O.u.dot(O.o) + PH)];
+        for (const m of A.mats) m.clippingPlanes = pa; for (const m of B.mats) m.clippingPlanes = pb;
+        B.root.matrix.multiplyMatrices(P.T, A.root.matrix); B.root.matrixWorldNeedsUpdate = true; _hd[1].copy(_hd[0]).applyMatrix4(P.T);
+        pose(B); st.ghost = true; return;
+      }
+    }
+  }
+  // which copies a view may show: never one whose helmet the eye is inside
+  const live = () => st.active && (state === "play" || state === "paused") && !Lift.on;
+  function forView(eye) {
+    if (!rigs) return; if (!live()) return hide();
+    rigs[0].root.visible = eye.distanceToSquared(_hd[0]) > 0.2; rigs[0].shadow.visible = rigs[0].root.visible && st.shadow;
+    rigs[1].root.visible = st.ghost && eye.distanceToSquared(_hd[1]) > 0.2;
+  }
+  function forMain(eye) { if (!rigs) return; if (!live()) return hide(); rigs[0].root.visible = false; rigs[0].shadow.visible = false; rigs[1].root.visible = st.ghost && eye.distanceToSquared(_hd[1]) > 0.2; }
+  function hide() { if (!rigs) return; for (const R of rigs) { R.root.visible = false; R.shadow.visible = false; } }
+  return { update, forView, forMain, hide, st, get rigs() { return rigs; } };
+})();
 function angDiff(a, b) { let d = a - b; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return d; }
 
 /* ---------- grab / drop ---------- */
@@ -5011,6 +5157,7 @@ function frame(ts) {
     else pl.ringMat.color.setRGB(.5 + (.35 * pulse - .5) * pl.aim, .32 + (2.6 * pulse - .32) * pl.aim, .12 + (.9 * pulse - .12) * pl.aim);
   }
   for (const P of portals) { P.open += ((P.on ? 1 : 0) - P.open) * Math.min(1, dt * 9); }
+  Self.update(dt);
   renderFrame(ts / 1000);
 }
 
@@ -5667,7 +5814,7 @@ function boot() {
   setTimeout(() => { try { Cut.prep(); } catch (e) { console.error(e); } }, 400);       // build the opening film while the title is up, so it starts at once
   setTimeout(() => { try { const L = Lift.build(); renderer.compile(L.sc, camera); } catch (e) { console.error(e); } }, 1100);   // and the lift, so the first ride never stalls
 }
-window.__tc = { hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS }), lineHash, get state() { return state; }, Cut, get Lift() { return Lift; }, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
+window.__tc = { Self, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS }), lineHash, get state() { return state; }, Cut, get Lift() { return Lift; }, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
 try { boot(); } catch (err) { console.error(err); $("loading").hidden = false; $("loading").innerHTML = '<div style="max-width:420px;text-align:center;line-height:1.6;font-size:13px;letter-spacing:.05em">Something went wrong starting the game.<br><small>' + String(err && err.message || err) + "</small></div>"; }
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>
