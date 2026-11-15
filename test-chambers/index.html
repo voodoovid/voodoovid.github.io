@@ -75,7 +75,6 @@ body.mouselook #stage, body.mouselook #gl { cursor: none; }
   font-size: 12px; letter-spacing: .36em; font-weight: 700; color: rgba(255,255,255,.55); }
 #fade.on { opacity: 1; }
 #liftHud { position: absolute; inset: 0; z-index: 14; pointer-events: none; font-family: inherit; }
-#liftFloor { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 22px); left: 50%; transform: translateX(-50%); padding: 6px 16px; border-radius: 8px; background: rgba(8,10,12,.72); border: 1px solid rgba(255,140,60,.55); color: #ffb067; font: 700 22px/1 "SF Mono", ui-monospace, Menlo, monospace; letter-spacing: .12em; text-shadow: 0 0 10px rgba(255,140,60,.6); }
 #liftTo { position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 46px); transform: translateX(-50%); color: rgba(235,242,248,.9); font-weight: 700; font-size: 13px; letter-spacing: .22em; text-transform: uppercase; text-shadow: 0 1px 6px rgba(0,0,0,.8); white-space: nowrap; }
 #liftSkip { position: absolute; right: calc(env(safe-area-inset-right, 0px) + 18px); bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); pointer-events: auto; cursor: pointer; padding: 9px 18px; border-radius: 999px; background: rgba(8,10,12,.6); border: 1px solid rgba(235,242,248,.35); color: rgba(235,242,248,.85); font: 700 12px/1 inherit; font-family: inherit; letter-spacing: .14em; text-transform: uppercase; -webkit-tap-highlight-color: transparent; }
 #liftSkip:hover { border-color: rgba(255,176,103,.8); color: #ffb067; }
@@ -459,7 +458,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
   </div>
 
   <div id="fade">LIFT</div>
-  <div id="liftHud" hidden><div id="liftFloor">B01</div><div id="liftTo"></div><button type="button" id="liftSkip" data-tip="Skip the rest of the ride; you still walk out yourself">Skip</button></div>
+  <div id="liftHud" hidden><div id="liftTo"></div><button type="button" id="liftSkip" data-tip="Skip the rest of the ride; you still walk out yourself">Skip</button></div>
   <div id="cut" hidden>
     <div class="bar t"></div><div class="bar b"></div>
     <div id="cutGrain"></div>
@@ -484,7 +483,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 await RAPIER.init();
 
-const VERSION = "v7.6";
+const VERSION = "v7.7";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -887,7 +886,7 @@ function level4() {
     exit: { min: [15.5, 10, 2.8], max: [17.5, 12.4, 5.2] }, exitLight: { x: 17.97, y0: 10.4, y1: 12.8, z0: 3, z1: 5 },
     doors: [], plates: [], cubes: [],
     signs: [
-      { kind: "chamber", a: "TEST CHAMBER 04", b: "LIFT", pos: [8, 13, 0], n: [0, 0, 1], w: 4.2, h: 1.1 },
+      { kind: "chamber", a: "TEST CHAMBER 04", b: "LIFT", pos: [6, 13, 0], n: [0, 0, 1], w: 4.2, h: 1.1 },
       { kind: "exit", a: "EXIT", pos: [14, 14.4, 4], n: [-1, 0, 0], w: 2.2, h: .75 }
     ],
     say: {
@@ -1411,7 +1410,7 @@ function level25() {
   den(h, { W: 12, side: 0, x: 24, y: 2.6, scr: ["IT NEVER TURNS ROUND.", "I SLEPT BEHIND IT FOR A MONTH.  - O."],      // v7.6: the guarded lane, behind the sentry; the free portal goes on its panel and the held doorway takes you in. Low, because the lane is narrow
     line: "I held that door open for the test, not for sightseeing. Out you come." });
   return Object.assign(h, { num: 11, name: "Heavy Lifting", track: 0, say: {
-    intro: ["Now that you have met the sentries, I would like you to pick one up. Do not worry. It will do enough worrying for both of you.", "This door wants two weights. I have provided one crate and one sentry. The sentry does not know it is a weight yet.", "The door is on the other side of that wall. So is the sentry."],
+    intro: ["Now that you have met the sentries, I would like you to pick one up. Do not worry. It will do enough worrying for both of you.", "This door wants two weights. I have provided one crate. Arithmetic is not my department.", "The door is on the other side of that wall. So is the sentry."],
     hint: ["A sentry sleeps while you carry it, and wakes a moment after you put it down. Think about which way it will be facing when it does. It certainly will."], hint2: ["It wakes facing the way you faced when you put it down. A wall is very poor company. That is the point."],
     done: ["You used a guard as a paperweight. Its supervisor would be furious, if it still had one."] } });
 }
@@ -4508,7 +4507,7 @@ function startLevel(idx, quiet) {
   Music.set(world.lv.track); Music.kick(); setVoiceRoom(roomSize());
   preloadVoice([...(world.lv.say.intro || []), ...(world.lv.say.hint || []), ...(world.lv.say.hint2 || []), ...(world.lv.say.done || []), ...(storyLine(world.lv.name) ? [STORY[world.lv.name]] : []), ...(world.lv.hatch ? PARCEL_LINES : [])]);
   state = "play";
-  if (!quiet) setTimeout(() => { if (state === "play" && levelIdx === idx) say("intro"); }, 1400);
+  if (!quiet) introWhenOut(idx, 1400);
   if (idx === 0 && !quiet && !store.get("tipDone", 0)) setTimeout(() => {
     if (state !== "play" || levelIdx !== 0) return; store.set("tipDone", 1);
     const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(p => p && p.connected) : [];
@@ -4516,13 +4515,24 @@ function startLevel(idx, quiet) {
   }, 15000);
 }
 let carry = null;
+// v7.7: SaDos introduces a room only once you can see it: never during the ride, never while the lift doors are still shut or opening
+function introWhenOut(idx, ms) {
+  let tries = 0;
+  const go = () => {
+    if (levelIdx !== idx || !world) return;
+    const inLift = Lift.on || state === "lift" || Dock.phase === "wait" || (Dock.phase === "open" && Dock.open < 0.95);
+    if ((inLift || state !== "play") && tries++ < 200) { setTimeout(go, 150); return; }
+    if (state === "play") setTimeout(() => { if (state === "play" && levelIdx === idx) say("intro"); }, inLift ? 0 : 350);
+  };
+  setTimeout(go, ms);
+}
 const resumeRoom = () => { const pr = Math.min(store.get("progress5", 0), CHAMBERS.length - 1), r = store.get("room", -1); return r >= 0 && r < LEVEL_FUNCS.length && ROOM[r].c <= pr ? r : FIRST[pr]; };
 // through the door into the next room of the same chamber: a checkpoint, no results card
 function nextPart() {
   const R = ROOM[levelIdx], line = pick(world.lv.say.done), i = levelIdx + 1;
   carry = { time: run.time, portals: run.portals, top: run.top };
   sfx.complete(); if (holding) dropCube(true); sadosShutUp(); store.set("room", i);
-  const go = () => { startLevel(i, true); toast("Checkpoint · part " + (R.part + 2) + " of " + R.parts); say("done", line); setTimeout(() => { if (state === "play" && levelIdx === i) say("intro"); }, 900); };
+  const go = () => { startLevel(i, true); toast("Checkpoint · part " + (R.part + 2) + " of " + R.parts); say("done", line); introWhenOut(i, 900); };
   if (window.__tcNoLift) { go(); return; }
   state = "lift"; inp.fwd = inp.right = 0; resetSticks(); $("fade").classList.add("on");          // a ride down to the next room
   setTimeout(() => Lift.ride(go, "Part " + (R.part + 2) + " of " + R.parts + " · " + ROOM_NAMES[i]), 330);
@@ -5128,9 +5138,13 @@ canvas.addEventListener("mousedown", e => {
 });
 addEventListener("contextmenu", e => e.preventDefault());
 // a trackpad or mouse: pointer lock where it exists, otherwise follow the (hidden) cursor and keep turning at the screen edge
+let lastTouchT = -1e9;
+addEventListener("pointerdown", e => { if (e.pointerType === "touch") { lastTouchT = performance.now(); edgeX = edgeY = 0; } }, true);
+addEventListener("pointermove", e => { if (e.pointerType === "touch") { lastTouchT = performance.now(); edgeX = edgeY = 0; } }, true);
 addEventListener("mousemove", e => {
   if ((state !== "play" && !Lift.on) || anyOv()) return;
   if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
+  if (performance.now() - lastTouchT < 1500 && !document.pointerLockElement) return;      // v7.7: a mouse event made by a finger (iPadOS sends them) is not a trackpad; it used to leave the view turning at a screen edge
   enterMouseMode();
   // locked to the centre (the gun's sights): the view follows the trackpad one to one, straight away, with no easing
   if (document.pointerLockElement) { const dx = Math.abs(e.movementX) > 400 ? 0 : e.movementX, dy = Math.abs(e.movementY) > 400 ? 0 : e.movementY; inp.lookX += dx * 0.0022 * opts.sens; inp.lookY += dy * 0.0022 * opts.sens * (opts.invert ? -1 : 1); return; }
@@ -5223,7 +5237,7 @@ let padFire = [false, false];
   });
   { const gb = GamePad.settingsButton(); gb.dataset.tip = "See and change what each controller button does"; $("vOpt").before(gb); }
 }
-const padRest = [0, 0, 0, 0], padStill = [0, 0, 0, 0], padLast = [0, 0, 0, 0];
+const padRest = [0, 0, 0, 0], padStill = [0, 0, 0, 0], padLast = [0, 0, 0, 0], padSum = [0, 0, 0, 0], padN = [0, 0, 0, 0];
 function readPad() {
   const pads = navigator.getGamepads ? navigator.getGamepads() : []; let gp = null;
   for (const p of pads) if (p && p.connected && p.axes.length >= 4) { gp = p; break; }
@@ -5232,10 +5246,15 @@ function readPad() {
   // a worn stick rests off-centre and spins the view on its own: learn where each axis sits when it hasn't moved for 1.5 seconds and treat that as centre
   const raw = [0, 1, 2, 3].map(i => gp.axes[i] || 0);
   const now = performance.now();
-  raw.forEach((v, i) => { if (Math.abs(v - padLast[i]) < 0.015 && Math.abs(v) < 0.3) { if (!padStill[i]) padStill[i] = now; if (now - padStill[i] > 1500) padRest[i] = v; } else padStill[i] = 0; padLast[i] = v; });
+  // v7.7: a Bluetooth stick jitters by a few hundredths every frame, which kept resetting the old frame-to-frame test, so the centre was never learned and the
+  // view crept. Now an axis counts as at rest while it stays within 0.05 of where it settled; after 0.6 s its average becomes the centre.
+  raw.forEach((v, i) => {
+    if (padStill[i] && Math.abs(v - padLast[i]) < 0.05 && Math.abs(v) < 0.35) { padSum[i] += v; padN[i]++; if (now - padStill[i] > 600) padRest[i] = padSum[i] / padN[i]; }
+    else { padStill[i] = now; padLast[i] = v; padSum[i] = v; padN[i] = 1; }
+  });
   if ((state !== "play" && !Lift.on) || anyOv()) return out;
   const c = raw.map((v, i) => v - padRest[i]);
-  const rad = (x, y) => { const m = Math.hypot(x, y), DZ = 0.24; if (m < DZ) return [0, 0]; const k = Math.min(1, (m - DZ) / (1 - DZ)) / m; return [x * k, y * k]; };      // round dead zone, so a stick leaning on one axis can't creep on the other
+  const rad = (x, y) => { const m = Math.hypot(x, y), DZ = 0.28; if (m < DZ) return [0, 0]; const k = Math.min(1, (m - DZ) / (1 - DZ)) / m; return [x * k, y * k]; };      // round dead zone, so a stick leaning on one axis can't creep on the other
   [out.mx, out.my] = rad(c[0], c[1]); [out.lx, out.ly] = rad(c[2], c[3]);
   return out;
 }
@@ -6197,6 +6216,7 @@ const Cut = (() => {
    One model serves the ride down the shaft (Lift) and the car docked behind the start of every room (Dock),
    so the car you ride in is the car you walk out of.
    ===================================================================================== */
+let liftFloorTxt = "B01";
 const CAR = { W: 4.0, D: 4.0, H: 3.2, DW: 2.0, DH: 2.6, EYE_Z: 0.6, T: 0.5 };      // size, door size, where you stand (behind the centre), tunnel depth through the wall
 let _carM = null;
 function carMats() {
@@ -6207,7 +6227,6 @@ function carMats() {
     for (let y = 0; y < h; y += 32) for (let x = (y / 32) % 2 ? 16 : 0; x < w; x += 32) { g.save(); g.translate(x + 8, y + 8); g.rotate(((x + y) / 32) % 2 ? .6 : -.6); g.fillStyle = "#5d666e"; g.fillRect(-7, -2, 14, 4); g.fillStyle = "#262b30"; g.fillRect(-7, 2, 14, 1); g.restore(); }
   });
   tread.repeat.set(5, 5);
-  const ind = canvasTex(256, 64, (g, w, h) => { g.fillStyle = "#0c0e10"; g.fillRect(0, 0, w, h); g.fillStyle = "#ffb067"; g.beginPath(); g.moveTo(w / 2 - 16, 18); g.lineTo(w / 2 + 16, 18); g.lineTo(w / 2, 46); g.fill(); g.fillRect(w / 2 - 70, 26, 34, 6); g.fillRect(w / 2 + 36, 26, 34, 6); }, false);
   _carM = {
     steel: std({ color: 0xb9c1c8, roughness: .3, metalness: .85, envMapIntensity: 1.2 }),
     brushed: std({ color: 0x8e979f, roughness: .38, metalness: .8, envMapIntensity: 1.0 }),
@@ -6216,8 +6235,7 @@ function carMats() {
     glass: new THREE.MeshStandardMaterial({ color: 0xbfd8e8, roughness: .05, metalness: .1, transparent: true, opacity: .09, envMap: ENV, envMapIntensity: .6, side: THREE.DoubleSide, depthWrite: false }),
     light: new THREE.MeshBasicMaterial({ color: new THREE.Color(1.02, 1.0, .95) }),
     amber: new THREE.MeshBasicMaterial({ color: new THREE.Color(2.6, 1.2, .25) }),
-    green: new THREE.MeshBasicMaterial({ color: new THREE.Color(.4, 2.2, .7) }),
-    ind: new THREE.MeshBasicMaterial({ map: ind, color: new THREE.Color(1.6, 1.6, 1.6) })
+    green: new THREE.MeshBasicMaterial({ color: new THREE.Color(.4, 2.2, .7) })
   };
   return _carM;
 }
@@ -6245,7 +6263,21 @@ function buildCar() {
   for (const sx of [-1, 1]) box(M.brushed, pw, H, 0.08, sx * (DW / 2 + pw / 2), H / 2, -D / 2 + 0.04);
   box(M.brushed, DW, H - DH, 0.08, 0, (DH + H) / 2, -D / 2 + 0.04);
   for (const sx of [-1, 1]) box(M.steel, 0.05, DH, 0.12, sx * (DW / 2 + 0.025), DH / 2, -D / 2 + 0.06);
-  box(M.darkSteel, 0.72, 0.2, 0.02, 0, DH + 0.3, -D / 2 + 0.09); plane(M.ind, 0.66, 0.165, 0, DH + 0.3, -D / 2 + 0.101);
+  // v7.7: the floor display: the floor number in amber segments, with a small arrow while the car moves (each car has its own)
+  const icv = document.createElement("canvas"); icv.width = 512; icv.height = 128; const ig = icv.getContext("2d");
+  const itex = new THREE.CanvasTexture(icv); itex.colorSpace = THREE.SRGBColorSpace; itex.anisotropy = 8;
+  let shown = "";
+  const setFloor = (txt, dir) => {
+    const key = txt + "|" + dir; if (key === shown) return; shown = key;
+    const w = 512, h = 128; ig.fillStyle = "#0b0c0d"; ig.fillRect(0, 0, w, h);
+    ig.font = "700 92px 'SF Mono', ui-monospace, Menlo, monospace"; ig.textAlign = "center"; ig.textBaseline = "middle";
+    ig.fillStyle = "rgba(255,150,70,.09)"; ig.fillText("888", w / 2 + 28, h / 2 + 4);                                  // the unlit segments
+    ig.shadowColor = "rgba(255,140,50,.85)"; ig.shadowBlur = 14; ig.fillStyle = "#ffb067"; ig.fillText(txt, w / 2 + 28, h / 2 + 4);
+    if (dir) { ig.beginPath(); const x = 92, y = h / 2 + 4, s = dir < 0 ? 1 : -1; ig.moveTo(x - 26, y - 18 * s); ig.lineTo(x + 26, y - 18 * s); ig.lineTo(x, y + 22 * s); ig.closePath(); ig.fill(); }
+    ig.shadowBlur = 0; itex.needsUpdate = true;
+  };
+  setFloor(liftFloorTxt, 0);
+  box(M.darkSteel, 0.72, 0.2, 0.02, 0, DH + 0.3, -D / 2 + 0.09); plane(new THREE.MeshBasicMaterial({ map: itex, color: new THREE.Color(1.6, 1.6, 1.6) }), 0.66, 0.165, 0, DH + 0.3, -D / 2 + 0.101);
   const cp = box(M.darkSteel, 0.26, 0.56, 0.03, DW / 2 + 0.5, 1.25, -D / 2 + 0.095);
   const lamps = [];
   for (let i = 0; i < 5; i++) { const b = new THREE.Mesh(new THREE.CircleGeometry(0.03, 16), i === 4 ? M.amber : M.brushed); b.position.set(DW / 2 + 0.5, 1.44 - i * 0.09, -D / 2 + 0.112); g.add(b); if (i === 4) lamps.push(b); }
@@ -6263,7 +6295,7 @@ function buildCar() {
   g.traverse(o => { o.frustumCulled = false; });
   const setDoor = e => { for (const l of leaves) l.g.position.x = l.sx * (DW / 4 + (DW / 2 - 0.02) * e); for (const m of lamps) m.material = e > 0.5 ? M.green : M.amber; };
   setDoor(0);
-  return { g, setDoor };
+  return { g, setDoor, setFloor };
 }
 
 /* =====================================================================================
@@ -6656,7 +6688,7 @@ const Lift = (() => {
     try { build(); } catch (e) { arrive(); return; }
     after = arrive; built = false; on = true; t = 0; t0 = performance.now(); skipT = endT = -1; padHeld = true; sway = Math.random() * 6;
     ly = 0; lp = -0.08; inp.lookX = inp.lookY = 0; mLookX = mLookY = 0;
-    fl0 = 3 + Math.floor(Math.random() * 30); hideTip(); S.car.setDoor(0);
+    fl0 = 3 + Math.floor(Math.random() * 30); hideTip(); S.car.setDoor(0); S.car.setFloor("B" + String(fl0).padStart(2, "0"), -1);
     scenePass.scene = S.sc; camera.fov = 72; camera.updateProjectionMatrix();
     $("liftTo").textContent = label || ""; $("liftHud").hidden = false; $("hud").hidden = true; syncTouch && syncTouch();
     sfx.lift(); HoldMusic.play(); setTimeout(() => $("fade").classList.remove("on"), 60);
@@ -6675,10 +6707,10 @@ const Lift = (() => {
     if (!built && t > 0.3) { built = true; try { if (after) after(); } catch (e) { console.error(e); } $("hud").hidden = true; syncTouch && syncTouch(); }   // the next room is built behind the ride
     const u = ease(t / DUR), s = DROP * u, v = DROP * (ease((t + 0.02) / DUR) - u) / 0.02;
     S.shaft.position.y = ((s % SEG) + SEG) % SEG;
-    $("liftFloor").textContent = "B" + String(fl0 + Math.floor(s / 6)).padStart(2, "0");
+    liftFloorTxt = "B" + String(fl0 + Math.floor(s / 6)).padStart(2, "0"); S.car.setFloor(liftFloorTxt, v > 0.6 ? -1 : 0);
     const L = takeLook(dt); ly += L.dyaw; lp = clamp(lp + L.dpitch, -1.45, 1.45);          // free look, with every control you look with in a chamber
-    cam.pos.set(Math.sin(time * 1.3 + sway) * 0.004 * v, Math.sin(time * 9) * 0.003 * Math.min(1, v / 3), CAR.EYE_Z);
-    cam.yaw = ly; cam.pitch = lp; cam.roll = Math.sin(time * 2.2 + sway) * 0.0025 * v;
+    cam.pos.set(Math.sin(time * 1.3 + sway) * 0.0005 * v, Math.sin(time * 9) * 0.0008 * Math.min(1, v / 3), CAR.EYE_Z);     // v7.7: a faint hum of movement, no rocking
+    cam.yaw = ly; cam.pitch = lp; cam.roll = Math.sin(time * 1.6 + sway) * 0.00025 * v;
     if (endT < 0 && t > DUR - 0.35) { endT = t; $("fade").classList.add("on"); }
     if ((endT >= 0 && t - endT > 0.34) || (skipT >= 0 && t - skipT > 0.34)) { arrived(); return; }
     try { let down = false; for (const pd of navigator.getGamepads ? navigator.getGamepads() : []) if (pd) for (const b of [0, 1, 2, 3, 9]) if (pd.buttons[b] && pd.buttons[b].pressed) down = true; if (!down) padHeld = false; else if (!padHeld) skip(); } catch (e) {}
@@ -6738,7 +6770,7 @@ function planDock(lv) {
     const sh = box(wall - sg * T, wall - sg * (T + D + 0.55), c - W / 2 - 0.45, c + W / 2 + 0.45, y0 - 0.45, y0 + H + 0.65);
     carveBoxes(B, sh); B.push(Object.assign(sh, { mat: "dark", portal: false }));
     carveBoxes(B, inner); carveBoxes(B, tunnel); carveBoxes(B, proud);
-    const a0 = wall - sg * T, a1 = wall - sg * (T + D + 0.1), l0 = c - W / 2 - 0.05, l1 = c + W / 2 + 0.05, LT = 0.08, dk = b => Object.assign(b, { mat: "dark", portal: false });
+    const a0 = wall - sg * T, a1 = wall - sg * (T + D + 0.1), l0 = c - W / 2 - 0.05, l1 = c + W / 2 + 0.05, LT = 0.04, dk = b => Object.assign(b, { mat: "dark", portal: false });
     B.push(dk(box(a0, a1, l0, l0 + LT, y0, y0 + H + 0.25)), dk(box(a0, a1, l1 - LT, l1, y0, y0 + H + 0.25)), dk(box(a1, a1 + sg * LT, l0, l1, y0, y0 + H + 0.25)),
       dk(box(a0, a1, l0, l1, y0 + H + 0.25 - LT, y0 + H + 0.25)), dk(box(a0, a1, l0, l1, y0, y0 + 0.02)));
     for (const b of [box(a0, a0 - sg * LT, l0, c - DW / 2, y0, y0 + H + 0.25), box(a0, a0 - sg * LT, c + DW / 2, l1, y0, y0 + H + 0.25), box(a0, a0 - sg * LT, c - DW / 2, c + DW / 2, y0 + DH, y0 + H + 0.25)]) B.push(dk(b));
@@ -6770,7 +6802,7 @@ const Dock = (() => {
     if (!car) { car = buildCar(); scene.add(car.g); }
     d = W.lv.dock || null; car.g.visible = !!d; strip = null; phase = "shut"; e = 0; car.setDoor(0); wasOpen = false;
     if (!d) { door = null; return; }
-    car.g.position.set(d.C[0], d.C[1], d.C[2]); car.g.rotation.set(0, d.yaw, 0);
+    car.g.position.set(d.C[0], d.C[1] + 0.03, d.C[2]); car.g.rotation.set(0, d.yaw, 0);      // v7.7: just above the alcove's floor liner, so nothing is flush with the car (that flicker was the moiré)
     const box = { min: d.door.min.slice(), max: d.door.max.slice(), mat: "dark", portal: false };
     door = { need: 99, id: "lift", dock: true, box, min0: box.min.slice(), max0: box.max.slice(), rise: 0, t: 0, lights: [], open: false };
     W.doors.push(door);
@@ -6800,7 +6832,7 @@ const Dock = (() => {
     pl.yaw = d.yaw + yaw; pl.pitch = pitch; pl.ground = false; pl.safe = pl.p.clone(); pl.outT = 0; _pPrev.copy(pl.p);
     if (phys) phys.pc.setTranslation(pl.p);
     camOffset.set(0, 0, 0); eyePos(prevEye); cam.yaw = pl.yaw; cam.pitch = pl.pitch;
-    phase = "wait"; tt = 0; setOpen(0);
+    phase = "wait"; tt = 0; setOpen(0); car.setFloor(liftFloorTxt, 0);
     return true;
   }
   function shut() { if (!d || !car) return; phase = "shut"; tt = 0; setOpen(0); }      // a respawn or restart: the doors are closed
