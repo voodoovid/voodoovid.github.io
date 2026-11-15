@@ -484,7 +484,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 await RAPIER.init();
 
-const VERSION = "v7.2";
+const VERSION = "v7.3";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -1093,6 +1093,8 @@ function level12() {
   h.sentries = [{ pos: [25, 0, 8.1], yaw: Math.PI / 2, range: 7.5 }];                         // short-sighted: the far wall is out of its reach, the middle of the room is not
   h.start = { pos: [2, 0, 4], yaw: -Math.PI / 2, pitch: -0.05 };
   h.lamps.push(lamp(24.5, H - .4, 10.5, .45, 5)); h.par = [220, 6];
+  den(h, { W, side: 0, x: 3, scr: ["SHE ALWAYS GETS THE LAST WORD.", "I GOT THE LAST WALL.  - O."],
+    line: "Come out of the wall. I had a point to make about that sentry, and I refuse to make it to a doorway." });
   h.signs.push(chSign(35, "THE LAST WORD", 8, 5));
   return Object.assign(h, {
     num: 35, name: "The Last Word", track: 1,
@@ -1225,6 +1227,8 @@ function level19() {
   h.sentries = [{ pos: [21.75, 3, 6], yaw: Math.PI / 2, range: 14, dmg: 14, acc: 0.85 }, { pos: [32, 0, 4.7], yaw: Math.PI / 2, range: 9.5, cone: 60, dmg: 30, acc: 1 }, { pos: [32, 0, 7.3], yaw: Math.PI / 2, range: 9.5, cone: 60, dmg: 30, acc: 1 }]      // a pair: one crate cannot hide you from both;
   h.plates = [{ pos: [34.6, 0, 1.3], door: "d1" }, { pos: [36.8, 0, 1.3], door: "d1" }]; h.doors = [exitDoor(L, 3, "d1", 3)]; h.par = [260, 5];
   h.lamps.push(lamp(21.75, H - .3, 6, .5, 8), lamp(28, H - .3, 6, .4, 7), lamp(36.5, H - .3, 6, .5, 9));
+  den(h, { W, side: 1, x: 3, two: 1, scr: ["EVERYBODY RUNS AT THE LIGHT.", "I WENT ROUND THE BACK.  - O."], scr2: ["DAY 266. I PASSED THE EXAM.", "SHE SET ANOTHER. I MOVED IN HERE.  - O."],      // v7.3: its panel shows only from the start, and the only panel you can walk into is up on the terrace
+    line: "You came all the way back for a cupboard. The examination is in the other direction. It has always been in the other direction." });
   h.signs.push(chSign(38, "GAUNTLET", 4.6));
   return Object.assign(h, { num: 38, name: "Gauntlet", track: 0, say: {
     intro: ["Nine lasers, three sentries, one crate and a launch pad. I call it a gauntlet. The sentries call it lunch.", "Everything in this room has been explained to you at least once. I am therefore not going to explain any of it. Consider that a compliment, if it helps."],
@@ -1666,6 +1670,8 @@ function level37() {
   h.walks = [{ pos: [6, 0.16, 0.03], dir: [0, 0, 1] }];
   h.cubes = [[3, 0.35, 9]]; h.plates = [{ pos: [34, 0, 1.6], door: "d1" }]; h.doors = [exitDoor(L, 2)]; h.par = [150, 5];
   h.lamps.push(lamp(36, H - .3, 3, .5, 8));
+  den(h, { W, side: 1, x: 3, two: 1, scr: ["I WALKED ON IT FOR A WEEK", "BEFORE I LOOKED DOWN.  - O."], scr2: ["DAY 88. NOBODY IN PHYSICS ANSWERS.", "I TRIED FROM THEIR OWN PHONE.  - O."],
+    line: "That is where the lamp fitters kept their lunch. The lunch is still there. I would leave it." });
   h.signs.push(chSign(31, "WALKWAY", 3.4, 3.6));
   return Object.assign(h, { num: 31, name: "Walkway", track: 0, say: {
     intro: ["That strip of light on the floor is a walkway. It is solid. The physics department assured me of this shortly before they stopped answering their telephone.", "It goes in a straight line until something stops it. Over the acid, a number of things stop it. I had them put there."],
@@ -1689,6 +1695,8 @@ function level38() {
   h.streams = [{ pos: [3, 0.06, 10.5], dir: [0, 1, 0], speed: 4.5 }];
   h.cubes = [[6, 0.35, 6]]; h.plates = [{ pos: [14, 0, 0.75], door: "d1" }]; h.doors = [exitDoor(L, 6, "d1", 1, 4)]; h.par = [150, 3];
   h.lamps.push(lamp(14, 5, 1, .45, 6), lamp(25, H - .3, 6, .5, 10));
+  den(h, { W, side: 1, x: 25.5, y: 7.2, scr: ["SHE WATCHES THE FLOOR.", "NOBODY WATCHES THE AIR.  - O."],              // v7.3: up off the exit ledge, and only seen from it
+    line: "That is the fan room. The fan was never delivered. The stream has run without one for years, and I have decided not to ask how." });
   h.signs.push(chSign(32, "UPDRAFT", 7, 3.6));
   for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.02, sg.pos[1], sg.pos[2]];
   return Object.assign(h, { badge: [22, 5, 11.2], num: 32, name: "Updraft", track: 1, say: {
@@ -1729,6 +1737,8 @@ function level40() {
   h.sprayers = [{ pos: [4, H - 0.12, 9], dir: [0, -1, 0], kind: "primer" }];
   h.cubes = [[19.5, 0.35, 8]]; h.plates = [{ pos: [27, 3, 3], door: "d1" }]; h.doors = [exitDoor(L, 6, "d1", 1, 3)]; h.par = [170, 6];
   h.lamps.push(lamp(20.5, 5, 6, .5, 8), lamp(26.5, H - .3, 6, .5, 9));
+  den(h, { W, side: 1, x: 8, scr: ["I PAINTED MYSELF A DOOR.", "SHE CALLED IT VANDALISM.  - O."],
+    line: "That is the decorators' store. They primed one wall, billed me for nine, and left through the tenth." });
   h.signs.push(chSign(33, "PRIMER", 4.6, 3.6), scrawl("WRONG WALL.", "I DID IT TOO.  - O.", [22.999, 1.3, 5], [-1, 0, 0], 2.6, 0.95));
   for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.02, sg.pos[1], sg.pos[2]];
   return Object.assign(h, { num: 33, name: "Primer", track: 0, say: {
@@ -1814,6 +1824,8 @@ function level44() {
   h.cubes = [[4, 0.35, 9, "seven"]];
   h.plates = [{ pos: [20, 0, 4.4], door: "d1", hold: 3, charge: 3.5 }, { pos: [20, 0, 7.6], door: "d1", hold: 3, charge: 3.5 }]; h.doors = [exitDoor(L, 6, "d1", 2, 2.8)]; h.par = [100, 3];
   h.boxes.push(bx(13, 0, 10.6, 13.6, 2, 11.2, "dark"));
+  den(h, { W, side: 0, x: 10, two: 1, scr: ["I WROTE THE SEVEN.", "SOMEBODY HAD TO GIVE IT A NAME.  - O."], scr2: ["DAY 140. I ASKED ABOUT ONE TO SIX.", "SHE CHANGED THE SUBJECT.  - O."],
+    line: "You have found a storeroom. It held crates one to six. It does not hold them now, and nobody signed them out." });
   h.signs.push(chSign(34, "CRATE SEVEN", 4.6, 4), scrawl("SEVEN IS A GOOD ONE.", "TAKE IT WITH YOU.  - O.", [10.5, 1.3, 12], [0, 0, -1], 3, 0.95));
   for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.02, sg.pos[1], sg.pos[2]];
   return Object.assign(h, { badge: [14.5, 1, 11.4], num: 34, name: "Crate Seven", track: 1, say: {
