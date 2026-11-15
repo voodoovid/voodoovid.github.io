@@ -328,6 +328,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
       <div class="opt">SaDos voice <button id="oVoice" type="button">On</button></div>
       <div class="opt">Look speed <input id="oSens" type="range" min="0.4" max="2.2" step="0.05" value="1"></div>
       <div class="opt">Invert look (up/down) <button id="oInvert" type="button">Off</button></div>
+      <div class="opt">Gun hand <button id="oHand" type="button">Left</button></div>
       <div class="opt">Trackpad: swipe up walks <button id="oScroll" type="button">Forward</button></div>
       <div class="opt">Picture <button id="oQuality" type="button">Auto</button></div>
       <div class="opt">Full screen <button id="oFull" type="button">Enter</button></div>
@@ -395,7 +396,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
             <li><b>Chambers have several rooms.</b> Each door between them is a checkpoint: the arrow button (or <kbd>R</kbd>) restarts the room you are in, and Play carries on from it next time.</li></ul></div>
         </div>
       </div>
-      <button class="btn" id="bHowBack" type="button" style="margin-top:14px">&lsaquo; Back</button>
+      <button class="btn primary" id="bHowBack" type="button" style="margin-top:14px;text-align:center">Done</button>
     </div>
   </div>
 
@@ -472,9 +473,10 @@ import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 await RAPIER.init();
 
-const VERSION = "v6.8";
+const VERSION = "v6.9";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -2444,6 +2446,9 @@ const gunParts = { rings: new THREE.Group(), prongs: new THREE.Group(), core: nu
   flash.position.z = -0.3; flash.scale.setScalar(0.2); gun.add(flash); gunParts.flash = flash;
 }
 gun.position.set(0.25, -0.24, -0.66); gun.rotation.y = 0.07; gun.scale.setScalar(0.5);
+// v6.9: the gun is held in the left hand by default (Options > Gun hand); handSign() is -1 for left, +1 for right
+const handSign = () => opts.hand === "right" ? 1 : -1;
+function applyHand() { const k = handSign(); gun.position.x = 0.25 * k; gun.rotation.y = 0.07 * k; }
 let gunTint = new THREE.Color("#2fa4ff");
 function setGunColor(idx) { gunTint.set(idx ? "#ff9d2e" : "#2fa4ff"); }
 let gunSpin = 0;
@@ -2979,7 +2984,7 @@ const H_PL = [HX, HY, HX], H_CUBE = [0.35, 0.35, 0.35];
 const AXN = ["x", "y", "z"];
 const player = { p: new V3(), v: new V3(), ground: false, yaw: 0, pitch: 0, hp: 100 };
 const inp = { fwd: 0, right: 0, jumpQ: false, lookX: 0, lookY: 0 };
-const opts = Object.assign({ music: true, sfx: true, voice: true, sens: 1, invert: false, scrollInv: false, quality: "auto", challenge: false }, store.get("opts", {}));
+const opts = Object.assign({ music: true, sfx: true, voice: true, sens: 1, invert: false, scrollInv: false, quality: "auto", challenge: false, hand: "left" }, store.get("opts", {}));
 let state = "title";            // title | play | paused | dead | done
 let levelIdx = 0;
 const run = { time: 0, portals: 0, top: 0, deadT: 0, idle: 0, hinted: 0, fell: false, said: {} };
@@ -3491,12 +3496,277 @@ function cubeGhost(c, dt) {
     }
   }
 }
-/* ---------- the test subject (v6.5): you, seen only through a portal ----------
-   An original figure: a charcoal facility coverall with pale piping, a padded grey vest, a white helmet with a dark visor, a slim back
-   pack whose two lights follow the open portals, and the Gyre held in both hands. It is never drawn in your own view (you would be
-   looking out of the helmet): `Self.forView` shows it for each portal hop and `Self.forMain` hides it again. While you are passing
-   through a portal a second copy (`rigs[1]`) is drawn coming out of the other one, cut at the portal's plane, exactly like a crate's
-   ghost; that copy is the only one the main view may show. Either copy is skipped for any view whose eye is inside its helmet. */
+/*COURIER-BEGIN*/
+/* ---------- the courier (v6.9): the test subject, a parcel courier who walked in out of the rain and was kept ----------
+   An original figure. Rust ripstop jacket (shaped torso, raised zip, yoke and side seams, chest pocket, ribbed hem and cuffs, reflective
+   band across the back), the hood down and bunched round the collar with its drawstrings, a cross-body messenger bag on the left hip
+   with an undelivered parcel poking out of it, a visitor pass clipped to the chest, dark jeans with seams and turned-up hems, white
+   sneakers with laces, and a face (eyes, brows, nose, ears, mouth) under short dark hair. Hands have fingers that close round the gun.
+   `courierParts(S, root)` builds one copy with the materials made by `S` (each copy needs its own, for the portal cut planes) and
+   returns the pieces `Self.pose` moves: body, head, legs (thigh, shin, knee, hem, foot) and arms (upper, fore, elbow, cuff, hand). */
+const courierParts = (() => {
+  let T = null;
+  const TS = 0.66;                                         // the torso is this much shallower front to back than side to side
+  const TORSO = [[0.168, 0.85], [0.178, 0.875], [0.177, 0.95], [0.172, 1.03], [0.178, 1.12], [0.192, 1.22], [0.203, 1.31], [0.2, 1.375], [0.186, 1.425], [0.15, 1.468], [0.095, 1.5], [0.062, 1.515]];
+  const rAt = y => { const P = TORSO; if (y <= P[0][1]) return P[0][0]; for (let i = 1; i < P.length; i++) if (y <= P[i][1]) { const t = (y - P[i - 1][1]) / (P[i][1] - P[i - 1][1]); return P[i - 1][0] + (P[i][0] - P[i - 1][0]) * t; } return P[P.length - 1][0]; };
+  function surfN(x, y, side) { const r = rAt(y), xx = Math.min(Math.abs(x), r * 0.995) * Math.sign(x || 1), z = side * TS * Math.sqrt(Math.max(0, r * r - xx * xx)); return new V3(xx / (r * r), 0, z / (r * r * TS * TS)).normalize(); }
+  function surfP(x, y, side, off = 0) { const r = rAt(y), xx = Math.min(Math.abs(x), r * 0.995) * Math.sign(x || 1), z = side * TS * Math.sqrt(Math.max(0, r * r - xx * xx)); return new V3(xx, y, z).addScaledVector(surfN(x, y, side), off); }
+  // canvas textures, made once and shared by both copies
+  function cv(w, h, paint, rep, srgb = true) {
+    const c = document.createElement("canvas"); c.width = w; c.height = h; paint(c.getContext("2d"), w, h);
+    const t = new THREE.CanvasTexture(c); if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; if (rep) t.repeat.set(rep[0], rep[1]); return t;
+  }
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const speck = (g, w, h, n, a, cols) => { for (let i = 0; i < n; i++) { g.globalAlpha = a * (0.3 + 0.7 * rnd()); g.fillStyle = cols[(rnd() * cols.length) | 0]; g.fillRect(rnd() * w, rnd() * h, 1 + rnd() * 1.6, 1 + rnd() * 1.6); } g.globalAlpha = 1; };
+  function textures() {
+    if (T) return T;
+    T = {
+      // rust ripstop: a fine grid of heavier threads over a mottled weave
+      jacket: cv(256, 256, (g, w, h) => {
+        g.fillStyle = "#b1502a"; g.fillRect(0, 0, w, h); speck(g, w, h, 9000, 0.22, ["#7f3518", "#c9653a", "#9c4421"]);
+        g.strokeStyle = "rgba(90,30,10,.2)"; g.lineWidth = 1;
+        for (let i = 0; i < w; i += 18) { g.beginPath(); g.moveTo(i + 0.5, 0); g.lineTo(i + 0.5, h); g.stroke(); g.beginPath(); g.moveTo(0, i + 0.5); g.lineTo(w, i + 0.5); g.stroke(); }
+      }, [6, 4]),
+      rib: cv(128, 32, (g, w, h) => { g.fillStyle = "#8e3d1d"; g.fillRect(0, 0, w, h); for (let i = 0; i < w; i += 4) { g.fillStyle = "rgba(0,0,0,.28)"; g.fillRect(i, 0, 1.5, h); g.fillStyle = "rgba(255,180,140,.12)"; g.fillRect(i + 2, 0, 1, h); } }, [6, 1]),
+      // dark indigo denim: diagonal twill, slight fading, a seam line down each side (the lathe's u = 0.25 and 0.75)
+      denim: cv(256, 256, (g, w, h) => {
+        g.fillStyle = "#2a3550"; g.fillRect(0, 0, w, h);
+        g.strokeStyle = "rgba(150,170,210,.13)"; g.lineWidth = 1; for (let i = -h; i < w; i += 3) { g.beginPath(); g.moveTo(i, h); g.lineTo(i + h, 0); g.stroke(); }
+        speck(g, w, h, 6000, 0.2, ["#1b2338", "#45567d", "#334267"]);
+        for (const u of [0.25, 0.75]) { g.fillStyle = "rgba(20,26,40,.8)"; g.fillRect(u * w - 2, 0, 4, h); g.fillStyle = "rgba(205,150,80,.75)"; for (let y = 0; y < h; y += 6) { g.fillRect(u * w - 5, y, 1.4, 3.2); g.fillRect(u * w + 4, y + 3, 1.4, 3.2); } }
+      }, [1, 2]),
+      // cardboard with a strip of brown tape and a shipping label (lines and a barcode, no words)
+      parcel: cv(256, 256, (g, w, h) => {
+        g.fillStyle = "#c39557"; g.fillRect(0, 0, w, h); speck(g, w, h, 5000, 0.25, ["#a87a3f", "#d8ae73", "#8f6a39"]);
+        g.fillStyle = "rgba(110,70,30,.75)"; g.fillRect(w * 0.42, 0, w * 0.16, h); g.fillStyle = "rgba(255,230,180,.25)"; g.fillRect(w * 0.43, 0, w * 0.03, h);
+        g.fillStyle = "#f3f1ea"; g.fillRect(w * 0.08, h * 0.12, w * 0.3, h * 0.36); g.fillStyle = "#2a2a2a";
+        for (let i = 0; i < 4; i++) g.fillRect(w * 0.11, h * (0.16 + i * 0.05), w * (0.2 - i * 0.03), 3);
+        for (let x = 0; x < 60; x += 2 + ((rnd() * 3) | 0)) g.fillRect(w * 0.11 + x, h * 0.38, 1 + ((rnd() * 2) | 0), h * 0.07);
+      }),
+      // visitor pass: white card, cyan band, a photo square and a printed line (the band says VISITOR)
+      pass: cv(128, 180, (g, w, h) => {
+        g.fillStyle = "#f6f7f7"; g.fillRect(0, 0, w, h); g.fillStyle = "#1fb5d6"; g.fillRect(0, 0, w, 46);
+        g.fillStyle = "#ffffff"; g.font = "bold 26px sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("VISITOR", w / 2, 24);
+        g.fillStyle = "#c9ced2"; g.fillRect(14, 60, 46, 56); g.fillStyle = "#8d969c"; g.beginPath(); g.arc(37, 80, 11, 0, 7); g.fill(); g.fillRect(22, 96, 30, 20);
+        g.fillStyle = "#3b4146"; for (let i = 0; i < 4; i++) g.fillRect(70, 64 + i * 13, 44 - i * 6, 5);
+        g.fillStyle = "#1fb5d6"; g.fillRect(14, 130, 100, 6); g.fillStyle = "#3b4146"; g.fillRect(14, 146, 70, 5); g.fillRect(14, 158, 50, 5);
+      }, null),
+      sneaker: cv(128, 128, (g, w, h) => { g.fillStyle = "#eeeeea"; g.fillRect(0, 0, w, h); speck(g, w, h, 1800, 0.12, ["#c8c8c2", "#ffffff"]); g.strokeStyle = "rgba(0,0,0,.12)"; for (let y = 6; y < h; y += 12) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); } }, [2, 2]),
+      hair: cv(128, 128, (g, w, h) => { g.fillStyle = "#24180f"; g.fillRect(0, 0, w, h); g.strokeStyle = "rgba(90,62,40,.5)"; g.lineWidth = 1; for (let i = 0; i < 900; i++) { const x = rnd() * w, y = rnd() * h; g.beginPath(); g.moveTo(x, y); g.lineTo(x + (rnd() - 0.5) * 3, y + 4 + rnd() * 5); g.stroke(); } }, [3, 3]),
+      bag: cv(128, 128, (g, w, h) => { g.fillStyle = "#33363c"; g.fillRect(0, 0, w, h); for (let i = 0; i < w; i += 3) { g.fillStyle = i % 6 ? "rgba(0,0,0,.18)" : "rgba(255,255,255,.05)"; g.fillRect(i, 0, 1.5, h); g.fillRect(0, i, w, 1); } }, [2, 2]),
+    };
+    return T;
+  }
+  // --- geometry helpers ---
+  function rbox(w, h, d, r) {
+    const sh = new THREE.Shape(), x = w / 2 - r, y = h / 2 - r;
+    sh.moveTo(-x, -h / 2); sh.lineTo(x, -h / 2); sh.quadraticCurveTo(w / 2, -h / 2, w / 2, -y); sh.lineTo(w / 2, y); sh.quadraticCurveTo(w / 2, h / 2, x, h / 2);
+    sh.lineTo(-x, h / 2); sh.quadraticCurveTo(-w / 2, h / 2, -w / 2, y); sh.lineTo(-w / 2, -y); sh.quadraticCurveTo(-w / 2, -h / 2, -x, -h / 2);
+    const g = new THREE.ExtrudeGeometry(sh, { depth: Math.max(1e-4, d - 2 * r), bevelEnabled: true, bevelSize: r, bevelThickness: r, bevelSegments: 3, curveSegments: 5 });
+    g.translate(0, 0, -(d - 2 * r) / 2); g.computeVertexNormals(); return g;
+  }
+  const lathe = (prof, seg = 28) => new THREE.LatheGeometry(prof.map(([r, y]) => new THREE.Vector2(r, y)), seg);
+  // a limb sleeve one unit long (y -0.5 to 0.5), to be stretched between two joints
+  const sleeve = rs => lathe(rs.map(([t, r]) => [r, t - 0.5]), 24);
+  // a flat band laid along points on a surface (normals given), for the strap and the reflective band
+  function ribbon(pts, nrm, w) {
+    const pos = [], uv = [], idx = [], n = pts.length;
+    for (let i = 0; i < n; i++) {
+      const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n - 1, i + 1)], t = new V3().subVectors(b, a).normalize(), s = new V3().crossVectors(t, nrm[i]).normalize();
+      for (const k of [-0.5, 0.5]) { const p = pts[i].clone().addScaledVector(s, k * w); pos.push(p.x, p.y, p.z); uv.push(k + 0.5, i / (n - 1)); }
+      if (i) { const q = i * 2; idx.push(q - 2, q - 1, q, q - 1, q + 1, q); }
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals(); return g;
+  }
+  const tube = (pts, r, seg = 40, rs = 6) => new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), seg, r, rs, false);
+  // orient a mesh so its +z faces `n` with its +y as close to up as it can be
+  function bake(g) {
+    g.updateMatrixWorld(true); const inv = new THREE.Matrix4().copy(g.matrixWorld).invert(), by = new Map(), drop = [];
+    g.traverse(o => { if (!o.isMesh) return; let geo = o.geometry.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld)); if (geo.index) geo = geo.toNonIndexed();
+      for (const k of Object.keys(geo.attributes)) if (!["position", "normal", "uv"].includes(k)) geo.deleteAttribute(k);
+      if (!geo.attributes.uv) geo.setAttribute("uv", new THREE.Float32BufferAttribute(new Float32Array(geo.attributes.position.count * 2), 2));
+      (by.get(o.material) || by.set(o.material, []).get(o.material)).push(geo); drop.push(o); });
+    for (const o of drop) o.parent.remove(o);
+    for (const k of [...g.children]) g.remove(k);
+    for (const [m, list] of by) g.add(new THREE.Mesh(mergeGeometries(list), m));
+  }
+  function faceTo(m, n, up = new V3(0, 1, 0)) { const z = n.clone().normalize(), x = new V3().crossVectors(up, z).normalize(), y = new V3().crossVectors(z, x); m.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, y, z)); }
+
+  return function courierParts(S, root) {
+    const tx = textures();
+    const jacket = S({ map: tx.jacket, color: 0xffffff, roughness: 0.78, metalness: 0 });
+    const jacketDk = S({ map: tx.jacket, color: 0xc8b2a8, roughness: 0.82, metalness: 0 });         // the hood lining and inside of the collar
+    const rib = S({ map: tx.rib, color: 0xffffff, roughness: 0.92, metalness: 0 });
+    const reflect = S({ color: 0xd7dadb, roughness: 0.35, metalness: 0.35, envMapIntensity: 1.4 });
+    const zipM = S({ color: 0x1d1f22, roughness: 0.45, metalness: 0.6 }), metal = S({ color: 0x9aa1a7, roughness: 0.3, metalness: 0.9 });
+    const denim = S({ map: tx.denim, color: 0xffffff, roughness: 0.9, metalness: 0 }), denimHem = S({ map: tx.denim, color: 0xb8c4dc, roughness: 0.9, metalness: 0 });
+    const skin = S({ color: 0xc28a62, roughness: 0.62, metalness: 0 }), skinDk = S({ color: 0x9b6545, roughness: 0.7, metalness: 0 });
+    const lip = S({ color: 0x8f5243, roughness: 0.55, metalness: 0 }), eyeW = S({ color: 0xf1ede6, roughness: 0.25, metalness: 0 }), iris = S({ color: 0x2b1a10, roughness: 0.15, metalness: 0 });
+    const hair = S({ map: tx.hair, color: 0xffffff, roughness: 0.95, metalness: 0 }), brow = S({ color: 0x1e140c, roughness: 0.95, metalness: 0 });
+    const strapM = S({ color: 0x232529, roughness: 0.85, metalness: 0, side: THREE.DoubleSide }), bagM = S({ map: tx.bag, color: 0xffffff, roughness: 0.8, metalness: 0 });
+    const buckle = S({ color: 0x15171a, roughness: 0.5, metalness: 0.2 }), parcel = S({ map: tx.parcel, color: 0xffffff, roughness: 0.92, metalness: 0 });
+    const passM = S({ map: tx.pass, color: 0xffffff, roughness: 0.4, metalness: 0 }), clip = S({ color: 0x2a2d31, roughness: 0.5, metalness: 0.3 });
+    const shoe = S({ map: tx.sneaker, color: 0xffffff, roughness: 0.55, metalness: 0 }), soleM = S({ color: 0xd9d9d4, roughness: 0.7, metalness: 0 }), tread = S({ color: 0x3a3c40, roughness: 0.9, metalness: 0 });
+    const accent = S({ color: 0x23345a, roughness: 0.5, metalness: 0 }), lace = S({ color: 0xf7f7f3, roughness: 0.8, metalness: 0 }), cord = S({ color: 0xece6dc, roughness: 0.8, metalness: 0 });
+    const add = (geo, mat, par = root) => { const m = new THREE.Mesh(geo, mat); par.add(m); return m; };
+    const at = (m, x, y, z) => { m.position.set(x, y, z); return m; };
+    const P = {};
+
+    /* ===== body: jeans seat, jacket, collar and hood, zip, seams, pocket, band, pass, strap and bag ===== */
+    const body = P.body = new THREE.Group(); root.add(body);
+    { const g = lathe([[0.1, 0.77], [0.152, 0.79], [0.166, 0.83], [0.171, 0.88], [0.168, 0.93]], 28); g.scale(1, 1, 0.74); add(g, denim, body); }
+    { const g = lathe(TORSO, 40); g.scale(1, 1, TS); add(g, jacket, body); }
+    { const g = new THREE.TorusGeometry(0.17, 0.013, 8, 40); g.rotateX(Math.PI / 2); g.scale(1, 1, TS * 1.03); at(add(g, rib, body), 0, 0.862, 0); }
+    // shoulder caps where the sleeves join
+    for (const sx of [-1, 1]) { at(add(new THREE.SphereGeometry(0.068, 20, 14), jacket, body), sx * 0.198, 1.405, 0).scale.set(1, 0.78, 1); }
+    // the hood, down: a soft roll round the back of the collar, and its fold lying on the shoulders
+    { const g = new THREE.TorusGeometry(0.088, 0.03, 14, 40); g.rotateX(Math.PI / 2); const m = add(g, jacket, body); at(m, 0, 1.478, 0.018); m.rotation.x = -0.32; m.scale.set(1.12, 1, 1.02); }
+    { const g = new THREE.SphereGeometry(0.15, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.42); const m = add(g, jacketDk, body); at(m, 0, 1.41, 0.1); m.rotation.x = 1.45; m.scale.set(0.98, 0.6, 0.42); }
+    { const g = new THREE.SphereGeometry(0.15, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.42); const m = add(g, jacket, body); at(m, 0, 1.408, 0.105); m.rotation.x = 1.45; m.scale.set(1.0, 0.64, 0.46); }
+    // drawstrings with their aglets
+    for (const sx of [-1, 1]) {
+      const pts = [new V3(sx * 0.03, 1.47, -0.085), new V3(sx * 0.034, 1.44, -0.115), new V3(sx * 0.04, 1.39, -0.128), new V3(sx * 0.044, 1.34, -0.134)];
+      add(tube(pts, 0.0035, 16, 6), cord, body); at(add(new THREE.CylinderGeometry(0.0045, 0.0045, 0.018, 8), metal, body), sx * 0.044, 1.33, -0.135);
+    }
+    // zip: tape, teeth and a pull, standing just proud of the jacket down the middle of the front
+    { const pts = []; for (let y = 0.865; y <= 1.505; y += 0.04) pts.push(surfP(0, y, -1, 0.003)); add(tube(pts, 0.0055, 48, 6), zipM, body);
+      const pts2 = []; for (let y = 0.865; y <= 1.505; y += 0.04) pts2.push(surfP(0, y, -1, 0.0055)); add(tube(pts2, 0.0028, 48, 5), metal, body);
+      const pull = add(rbox(0.012, 0.03, 0.005, 0.002), zipM, body); pull.position.copy(surfP(0, 1.425, -1, 0.009)); faceTo(pull, surfN(0, 1.425, -1).negate()); }
+    // seams: a yoke across the chest and back, and side seams
+    for (const side of [-1, 1]) { const pts = []; for (let x = -0.19; x <= 0.191; x += 0.02) pts.push(surfP(x, 1.335 - 0.012 * Math.abs(x) / 0.19, side, 0.0015)); add(tube(pts, 0.0026, 30, 4), jacketDk, body); }
+    for (const sx of [-1, 1]) { const pts = []; for (let y = 0.87; y <= 1.36; y += 0.05) pts.push(new V3(sx * (rAt(y) + 0.0015), y, 0)); add(tube(pts, 0.0026, 16, 4), jacketDk, body); }
+    // chest pocket with a zip, on the right
+    { const n = surfN(0.115, 1.255, -1), pk = add(rbox(0.075, 0.085, 0.01, 0.004), jacket, body); pk.position.copy(surfP(0.115, 1.255, -1, 0.004)); faceTo(pk, n.clone().negate());
+      const z = add(new THREE.BoxGeometry(0.06, 0.005, 0.004), zipM, body); z.position.copy(surfP(0.115, 1.288, -1, 0.0105)); faceTo(z, n.clone().negate()); }
+    // reflective band across the back
+    { const pts = [], nrm = []; for (let x = -0.19; x <= 0.191; x += 0.02) { pts.push(surfP(x, 1.18, 1, 0.0025)); nrm.push(surfN(x, 1.18, 1)); } add(ribbon(pts, nrm, 0.032), reflect, body); }
+    // visitor pass, clipped to the left chest
+    { const n = surfN(-0.098, 1.3, -1), card = add(new THREE.PlaneGeometry(0.052, 0.073), passM, body); card.position.copy(surfP(-0.098, 1.3, -1, 0.006)); faceTo(card, n.clone().negate()); card.rotateZ(0.05);
+      const c = add(new THREE.BoxGeometry(0.016, 0.012, 0.006), clip, body); c.position.copy(surfP(-0.098, 1.34, -1, 0.006)); faceTo(c, n.clone().negate()); }
+    // the strap: over the right shoulder, across the chest and down the back to the bag on the left hip
+    {
+      const pts = [], nrm = [];
+      const F = [[-0.2, 0.93], [-0.15, 1.02], [-0.08, 1.12], [0.0, 1.22], [0.07, 1.31], [0.12, 1.385], [0.145, 1.43]];
+      for (const [x, y] of F) { pts.push(surfP(x, y, -1, 0.006)); nrm.push(surfN(x, y, -1)); }
+      for (const [z, y] of [[-0.05, 1.468], [0, 1.478], [0.05, 1.468]]) { pts.push(new V3(0.15, y + 0.006, z)); nrm.push(new V3(0, 1, 0)); }
+      for (const [x, y] of F.slice().reverse()) { pts.push(surfP(x * 0.98, y, 1, 0.006)); nrm.push(surfN(x, y, 1)); }
+      add(ribbon(pts, nrm, 0.042), strapM, body);
+      // the strap's buckle on the chest
+      const b = add(rbox(0.05, 0.036, 0.008, 0.003), buckle, body); b.position.copy(surfP(-0.03, 1.18, -1, 0.012)); faceTo(b, surfN(-0.03, 1.18, -1).negate()); b.rotateZ(0.75);
+    }
+    // the messenger bag, on the left hip and a little behind it, with the parcel that never got signed for
+    {
+      const bag = new THREE.Group(); body.add(bag); bag.position.set(-0.13, 0.88, 0.15); bag.rotation.set(0.05, 2.55, 0.04);
+      at(add(rbox(0.3, 0.22, 0.095, 0.022), bagM, bag), 0, 0, 0);
+      const flap = add(rbox(0.31, 0.15, 0.012, 0.006), bagM, bag); at(flap, 0, 0.04, -0.054);
+      for (const sx of [-1, 1]) { at(add(new THREE.BoxGeometry(0.024, 0.09, 0.006), strapM, bag), sx * 0.08, -0.02, -0.061); at(add(rbox(0.032, 0.022, 0.008, 0.003), buckle, bag), sx * 0.08, -0.05, -0.064); }
+      at(add(new THREE.BoxGeometry(0.24, 0.006, 0.004), reflect, bag), 0, 0.105, -0.06);
+      const box = add(new THREE.BoxGeometry(0.17, 0.12, 0.085), parcel, bag); at(box, 0.04, 0.13, 0.004); box.rotation.z = -0.22;
+    }
+
+    /* ===== head: face, ears, hair ===== */
+    const head = P.head = new THREE.Group(); root.add(head);
+    {
+      // the skull and face from one sphere: a narrower jaw, a chin, cheekbones, the back of the head fuller
+      const g = new THREE.SphereGeometry(0.1, 48, 36), p = g.attributes.position;
+      for (let i = 0; i < p.count; i++) {
+        let x = p.getX(i), y = p.getY(i), z = p.getZ(i); const yn = y / 0.1, front = Math.max(0, -z / 0.1);
+        if (yn < 0) { const k = 1 - 0.3 * Math.pow(-yn, 1.4); x *= k; z *= 1 - 0.12 * Math.pow(-yn, 1.6) * (z > 0 ? 1.5 : 0.4); }
+        if (yn < -0.55) z -= 0.012 * front * (-yn - 0.55) / 0.45;                               // the chin comes forward
+        if (z > 0) { z *= 1.08; y += 0.006 * (z / 0.1); }                                       // fuller back of the skull
+        x *= 0.88 + 0.04 * Math.max(0, 1 - Math.abs(yn + 0.05) * 3) * front;                     // cheekbones
+        p.setXYZ(i, x, y * 1.12, z * 1.03);
+      }
+      g.computeVertexNormals(); at(add(g, skin, head), 0, 0.075, 0);
+      at(add(new THREE.CylinderGeometry(0.048, 0.054, 0.12, 20), skin, head), 0, -0.035, 0.008);          // the neck turns with the head
+      // ears
+      for (const sx of [-1, 1]) {
+        const e = add(new THREE.TorusGeometry(0.019, 0.007, 8, 18, Math.PI * 1.5), skin, head); at(e, sx * 0.087, 0.07, 0.01); e.rotation.set(0, sx * Math.PI / 2 - sx * 0.25, sx > 0 ? -Math.PI * 0.62 : Math.PI * 1.62); e.scale.set(1, 1.35, 1);
+        const lobe = add(new THREE.SphereGeometry(0.014, 12, 10), skin, head); at(lobe, sx * 0.086, 0.07, 0.012); lobe.scale.set(0.45, 1.25, 0.9);
+      }
+      // nose: bridge, tip and wings
+      { const br = add(new THREE.CylinderGeometry(0.007, 0.011, 0.04, 12, 1, true), skin, head); at(br, 0, 0.07, -0.098); br.rotation.x = -0.32;
+        at(add(new THREE.SphereGeometry(0.0105, 14, 12), skin, head), 0, 0.052, -0.106);
+        for (const sx of [-1, 1]) { const w = add(new THREE.SphereGeometry(0.0075, 12, 10), skin, head); at(w, sx * 0.0105, 0.048, -0.1); w.scale.set(1, 0.8, 1); at(add(new THREE.SphereGeometry(0.0035, 8, 6), skinDk, head), sx * 0.007, 0.042, -0.104); } }
+      // eyes: whites, irises, lids and brows
+      for (const sx of [-1, 1]) {
+        const ex = sx * 0.032, ey = 0.085;
+        const w = add(new THREE.SphereGeometry(0.0125, 16, 12), eyeW, head); at(w, ex, ey, -0.087); w.scale.set(1.2, 0.8, 0.7);
+        at(add(new THREE.SphereGeometry(0.0066, 12, 10), iris, head), ex, ey, -0.0952);
+        const lid = add(new THREE.SphereGeometry(0.0138, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.42), skin, head); at(lid, ex, ey + 0.0015, -0.087); lid.scale.set(1.22, 0.85, 0.78); lid.rotation.x = -0.35;
+        const b = add(rbox(0.032, 0.0065, 0.008, 0.0028), brow, head); at(b, ex + sx * 0.003, ey + 0.019, -0.093); b.rotation.set(-0.25, sx * 0.25, -sx * 0.12);
+      }
+      // mouth: upper and lower lip and the line between
+      { const ul = add(new THREE.CapsuleGeometry(0.005, 0.026, 4, 10), lip, head); at(ul, 0, 0.018, -0.094); ul.rotation.z = Math.PI / 2; ul.scale.set(0.85, 1, 0.8);
+        const ll = add(new THREE.CapsuleGeometry(0.0058, 0.02, 4, 10), lip, head); at(ll, 0, 0.009, -0.093); ll.rotation.z = Math.PI / 2; ll.scale.set(1, 1, 0.8);
+        const ln = add(new THREE.BoxGeometry(0.03, 0.0016, 0.004), skinDk, head); at(ln, 0, 0.0135, -0.0985); }
+      // short hair: a cap over the crown, cut close at the sides, with a fringe pushed up at the front
+      { const g = new THREE.SphereGeometry(0.106, 40, 24, 0, Math.PI * 2, 0, Math.PI * 0.5), p = g.attributes.position;
+        for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), f = Math.max(0, -z / 0.106); const tuft = 1 + 0.035 * Math.sin(x * 160) * Math.sin(z * 140) * (y / 0.106); p.setXYZ(i, x * tuft * 0.9, y * (1 + 0.1 * f) * tuft, z * tuft * 1.04); }
+        g.computeVertexNormals(); const m = add(g, hair, head); at(m, 0, 0.092, 0.006); m.rotation.x = 0.2;
+        for (const sx of [-1, 1]) { const t = add(new THREE.SphereGeometry(0.03, 14, 10), hair, head); at(t, sx * 0.068, 0.112, -0.052); t.scale.set(0.55, 0.9, 0.9); }
+        const back = add(new THREE.SphereGeometry(0.1035, 36, 18, 0, Math.PI * 2, Math.PI * 0.5, Math.PI * 0.2), hair, head); at(back, 0, 0.098, 0.012); back.scale.set(0.9, 1.1, 1.05); back.rotation.x = -0.5;
+        for (const sx of [-1, 1]) { const sb = add(rbox(0.006, 0.03, 0.016, 0.0025), hair, head); at(sb, sx * 0.086, 0.08, -0.018); }
+        const fr = add(new THREE.CapsuleGeometry(0.016, 0.06, 4, 12), hair, head); at(fr, 0, 0.152, -0.066); fr.rotation.set(0.5, 0, Math.PI / 2); fr.scale.set(1, 1, 0.75); }
+    }
+
+    /* ===== legs: jeans with seams and turned-up hems, and sneakers ===== */
+    const thighG = sleeve([[0, 0.099], [0.2, 0.096], [0.5, 0.087], [0.8, 0.078], [1, 0.074]]), shinG = sleeve([[0, 0.073], [0.25, 0.068], [0.6, 0.063], [1, 0.064]]);
+    const hemG = sleeve([[0, 0.071], [0.15, 0.073], [0.85, 0.073], [1, 0.071]]);
+    function sneaker() {
+      const g = new THREE.Group(); root.add(g);
+      at(add(rbox(0.104, 0.03, 0.27, 0.012), soleM, g), 0, -0.06, -0.045);
+      at(add(rbox(0.1, 0.008, 0.262, 0.004), tread, g), 0, -0.0745, -0.045);
+      at(add(new THREE.BoxGeometry(0.106, 0.006, 0.272), accent, g), 0, -0.049, -0.045);
+      { const u = new THREE.CapsuleGeometry(0.05, 0.15, 6, 16), p = u.attributes.position;          // the upper: a capsule lying along the foot, flat underneath, lower at the toe
+        u.rotateX(Math.PI / 2); for (let i = 0; i < p.count; i++) { const z = p.getZ(i); let y = p.getY(i); if (y < -0.018) y = -0.018; y *= z < 0 ? 1 - 0.45 * Math.min(1, -z / 0.12) : 1; p.setY(i, y); }
+        u.computeVertexNormals(); const m = add(u, shoe, g); at(m, 0, -0.03, -0.045); m.scale.set(1, 0.95, 1); }
+      at(add(new THREE.SphereGeometry(0.045, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), soleM, g), 0, -0.04, -0.13).scale.set(1.08, 0.42, 1.1);
+      { const t = add(rbox(0.044, 0.055, 0.012, 0.005), shoe, g); at(t, 0, 0.012, -0.075); t.rotation.x = 0.85; }
+      for (let i = 0; i < 4; i++) { const l = add(new THREE.CapsuleGeometry(0.0028, 0.046, 3, 6), lace, g); at(l, 0, -0.002 - i * 0.008, -0.07 - i * 0.017); l.rotation.set(0.85, 0, Math.PI / 2 + (i % 2 ? 0.16 : -0.16)); }
+      { const c = new THREE.TorusGeometry(0.052, 0.01, 8, 24); c.rotateX(Math.PI / 2); at(add(c, shoe, g), 0, 0.004, 0.012).scale.set(0.92, 1, 1.05); }
+      at(add(rbox(0.026, 0.04, 0.012, 0.004), accent, g), 0, 0.0, 0.07).rotation.x = -0.2;
+      for (const sx of [-1, 1]) { const pts = [new V3(sx * 0.053, -0.04, 0.06), new V3(sx * 0.054, -0.025, 0.0), new V3(sx * 0.052, -0.035, -0.06), new V3(sx * 0.046, -0.042, -0.12)]; add(tube(pts, 0.004, 14, 5), accent, g); }
+      return g;
+    }
+    P.leg = [-1, 1].map(sx => ({ sx, thigh: add(thighG, denim), shin: add(shinG, denim), knee: add(new THREE.SphereGeometry(0.077, 18, 14), denim), stripe: add(hemG, denimHem), foot: sneaker() }));
+
+    /* ===== arms: sleeves with ribbed cuffs, and hands with fingers ===== */
+    const upperG = sleeve([[0, 0.067], [0.2, 0.067], [0.5, 0.065], [0.8, 0.059], [1, 0.057]]), foreG = sleeve([[0, 0.058], [0.4, 0.055], [0.8, 0.05], [1, 0.049]]);
+    const cuffG = sleeve([[0, 0.05], [0.1, 0.052], [0.9, 0.052], [1, 0.049]]);
+    // a hand: palm toward local +z, fingers along +y from the wrist, curled closed (`curl`, radians per joint); the thumb on the +x side times `th`
+    function hand(th, curl) {
+      const g = new THREE.Group(); root.add(g);
+      at(add(rbox(0.074, 0.08, 0.03, 0.012), skin, g), 0, 0.045, 0);
+      const fx = [-0.026, -0.009, 0.008, 0.025].map(v => v * th), fl = [[0.03, 0.021, 0.017], [0.034, 0.024, 0.019], [0.032, 0.023, 0.018], [0.025, 0.018, 0.015]];
+      for (let f = 0; f < 4; f++) {
+        let px = fx[f], py = 0.084, pz = 0, a = 0.15;
+        for (let j = 0; j < 3; j++) {
+          const len = fl[f][j], r = 0.0098 - j * 0.0009 - (f === 0 ? 0.0012 : 0);
+          a += curl * (j ? 1.1 : 0.85);
+          const dy = Math.cos(a) * len, dz = Math.sin(a) * len, m = add(new THREE.CapsuleGeometry(r, len, 3, 8), skin, g);
+          at(m, px, py + dy / 2, pz + dz / 2); m.rotation.x = a; px += 0; py += dy; pz += dz;
+        }
+        at(add(new THREE.SphereGeometry(0.0105, 10, 8), skin, g), fx[f], 0.083, -0.003);
+      }
+      const tg = new THREE.Group(); g.add(tg); tg.position.set(th * 0.034, 0.024, 0.006); tg.rotation.set(0.55, 0, -th * 0.75);
+      at(add(new THREE.CapsuleGeometry(0.0125, 0.03, 3, 8), skin, tg), 0, 0.016, 0);
+      const t2 = add(new THREE.CapsuleGeometry(0.0108, 0.024, 3, 8), skin, tg); at(t2, 0, 0.045, 0.008); t2.rotation.x = 0.45;
+      return g;
+    }
+    P.arm = [-1, 1].map(sx => ({ sx, upper: add(upperG, jacket), fore: add(foreG, jacket), elbow: add(new THREE.SphereGeometry(0.058, 18, 14), jacket), cuff: add(cuffG, rib), hand: hand(sx, 1.05) }));
+    // the parts that never move against each other become one mesh per material (far fewer draw calls in each portal view)
+    for (const g of [P.body, P.head, ...P.leg.map(L => L.foot), ...P.arm.map(A => A.hand)]) bake(g);
+    return P;
+  };
+})();
+/*COURIER-END*/
+
+/* ---------- the test subject (v6.5, the courier since v6.9): you, seen only through a portal ----------
+   The figure is built by `courierParts` above. It is never drawn in your own view: `Self.forView` shows it for each portal hop and
+   `Self.forMain` hides it again. While you are passing through a portal a second copy (`rigs[1]`) is drawn coming out of the other
+   one, cut at the portal's plane, exactly like a crate's ghost; that copy is the only one the main view may show. Either copy is
+   skipped for any view whose eye is inside its head. The gun is in the hand Options > Gun hand picks (`handSign()`, left by default). */
 const Self = (() => {
   const UP = new V3(0, 1, 0), _a = new V3(), _b = new V3(), _c = new V3(), _d = new V3(), _e2 = new V3(), _hd = [new V3(), new V3()];
   const L1 = 0.44, L2 = 0.44, A1 = 0.27, A2 = 0.25, HIP = 0.93, HIPX = 0.105, SHY = 1.42, SHX = 0.2, GS = 0.8;
@@ -3504,42 +3774,8 @@ const Self = (() => {
   function makeRig() {
     const mats = [], pairs = [];
     const S = o => { const m = new THREE.MeshStandardMaterial(o); mats.push(m); return m; };
-    const suit = S({ color: 0x2b333d, roughness: .86, metalness: 0 }), trim = S({ color: 0xc9d0d6, roughness: .7, metalness: 0 });
-    const vest = S({ color: 0x8e99a3, roughness: .78, metalness: 0 }), boot = S({ color: 0x15181c, roughness: .6, metalness: .1 });
-    const sole = S({ color: 0x8e99a3, roughness: .6, metalness: 0 }), glove = S({ color: 0x1b1f24, roughness: .7, metalness: 0 });
-    const shell = S({ color: 0xf4f6f7, roughness: .3, metalness: .05, envMapIntensity: 1.1, emissive: 0x2a2d30 }), visor = S({ color: 0x0b1118, roughness: .08, metalness: .9, envMapIntensity: 1.6 });
-    const pack = S({ color: 0x59636d, roughness: .4, metalness: .6 });
-    const ledB = new THREE.MeshBasicMaterial({ color: 0x143a5a }), ledO = new THREE.MeshBasicMaterial({ color: 0x5a3414 }); mats.push(ledB, ledO); pairs.push([gunLedB, ledB], [gunLedO, ledO]);
     const root = new THREE.Group(); root.matrixAutoUpdate = false; root.visible = false;
-    const add = (geo, mat, par = root) => { const m = new THREE.Mesh(geo, mat); par.add(m); return m; };
-    const seg = (r1, r2, mat) => add(new THREE.CylinderGeometry(r1, r2, 1, 16), mat);        // unit-high limb, stretched between two joints
-    const ball = (r, mat, par) => add(new THREE.SphereGeometry(r, 16, 12), mat, par);
-    const R = { root, mats, pairs };
-    // body: pelvis, waist, chest, vest, collar
-    R.body = new THREE.Group(); root.add(R.body);
-    const pelvis = ball(1, suit, R.body); pelvis.scale.set(0.19, 0.125, 0.125); pelvis.position.y = 0.95;
-    const chest = add(new THREE.CapsuleGeometry(0.125, 0.26, 6, 20), suit, R.body); chest.scale.set(1.42, 1, 0.9); chest.position.y = 1.21;
-    const pad = add(new THREE.CapsuleGeometry(0.133, 0.12, 6, 20), vest, R.body); pad.scale.set(1.44, 1, 0.96); pad.position.y = 1.3;
-    const belt = add(new THREE.CylinderGeometry(0.178, 0.182, 0.045, 24), trim, R.body); belt.scale.z = 0.68; belt.position.y = 1.02;
-    const buckle = add(new THREE.BoxGeometry(0.05, 0.04, 0.012), pack, R.body); buckle.position.set(0, 1.02, -0.125);
-    for (const sx of [-1, 1]) { const strap = add(new THREE.BoxGeometry(0.035, 0.3, 0.012), trim, R.body); strap.position.set(sx * 0.095, 1.3, -0.128); strap.rotation.x = 0.06; ball(0.07, vest, R.body).position.set(sx * SHX, SHY, 0); }
-    add(new THREE.CylinderGeometry(0.058, 0.075, 0.07, 18), suit, R.body).position.y = 1.5;
-    // back pack with the two portal lights
-    const pk = add(new THREE.BoxGeometry(0.22, 0.28, 0.075), pack, R.body); pk.position.set(0, 1.27, 0.15);
-    const pkTop = add(new THREE.CylinderGeometry(0.0375, 0.0375, 0.22, 16), pack, R.body); pkTop.rotation.z = Math.PI / 2; pkTop.position.set(0, 1.41, 0.15);
-    add(new THREE.BoxGeometry(0.15, 0.012, 0.004), trim, R.body).position.set(0, 1.34, 0.189);
-    add(new THREE.BoxGeometry(0.03, 0.07, 0.006), ledB, R.body).position.set(-0.03, 1.24, 0.189); add(new THREE.BoxGeometry(0.03, 0.07, 0.006), ledO, R.body).position.set(0.03, 1.24, 0.189);
-    // head: helmet, visor band, crest, ear caps
-    R.head = new THREE.Group(); R.head.position.set(0, 1.56, 0); root.add(R.head);
-    const helm = ball(0.128, shell, R.head); helm.scale.set(1, 1.04, 1.1); helm.position.y = 0.06;
-    const vz = add(new THREE.SphereGeometry(0.131, 28, 10, Math.PI * 1.5 - 1.05, 2.1, 1.22, 0.62), visor, R.head); vz.scale.set(1, 1.04, 1.1); vz.position.y = 0.06;
-    const crest = add(new THREE.TorusGeometry(0.129, 0.012, 8, 28, Math.PI), trim, R.head); crest.rotation.y = Math.PI / 2; crest.scale.set(1.1, 1.04, 1); crest.position.y = 0.062;
-    for (const sx of [-1, 1]) { const ear = add(new THREE.CylinderGeometry(0.026, 0.03, 0.016, 18), trim, R.head); ear.rotation.z = Math.PI / 2; ear.position.set(sx * 0.128, 0.045, 0.01); }
-    // limbs
-    R.leg = [-1, 1].map(sx => ({ sx, thigh: seg(0.096, 0.074, suit), shin: seg(0.07, 0.054, suit), knee: ball(0.076, vest), stripe: seg(0.088, 0.0855, trim),
-      foot: (() => { const g = new THREE.Group(); root.add(g); const up = add(new THREE.CapsuleGeometry(0.058, 0.14, 4, 12), boot, g); up.rotation.x = Math.PI / 2; up.scale.set(1, 1, 0.8); up.position.set(0, -0.012, -0.05);
-        const so = add(new THREE.BoxGeometry(0.11, 0.02, 0.245), sole, g); so.position.set(0, -0.06, -0.05); const cuff = add(new THREE.CylinderGeometry(0.062, 0.066, 0.08, 14), boot, g); cuff.position.y = 0.04; return g; })() }));
-    R.arm = [-1, 1].map(sx => ({ sx, upper: seg(0.062, 0.05, suit), fore: seg(0.05, 0.041, suit), elbow: ball(0.055, vest), cuff: seg(0.05, 0.045, trim), hand: ball(0.048, glove) }));
+    const R = Object.assign({ root, mats, pairs }, courierParts(S, root));      // v6.9: the courier
     // the gun: a copy of the view model with its own materials (so the cut plane never reaches the one in your hands)
     R.aim = new THREE.Group(); R.aim.position.set(0, 1.36, 0); root.add(R.aim);
     R.gun = gun.clone(true); R.gun.position.set(0.13, -0.15, -0.36); R.gun.rotation.set(0, 0.1, 0); R.gun.scale.setScalar(GS); R.aim.add(R.gun);
@@ -3563,12 +3799,13 @@ const Self = (() => {
     _e2.copy(pole).addScaledVector(_d, -pole.dot(_d)); if (_e2.lengthSq() < 1e-6) _e2.set(0, 0, -1); _e2.normalize();
     return E.copy(S).addScaledVector(_d, a).addScaledVector(_e2, h);
   }
-  const S0 = new V3(), T0 = new V3(), E0 = new V3(), P0 = new V3();
+  const S0 = new V3(), T0 = new V3(), E0 = new V3(), P0 = new V3(), _hm = new THREE.Matrix4();
   function pose(R) {
     const w = st.walk, air = st.air, sp = Math.hypot(st.vf, st.vr) || 1, fz = -st.vf / sp, fx = st.vr / sp;      // local step direction (forward is -z)
     const lean = clamp(st.pitch, -1.2, 1.2), bobY = -0.018 * w * Math.abs(Math.sin(st.ph)) - 0.03 * air + Math.sin(st.breath) * 0.003;
-    R.body.position.y = bobY; R.body.rotation.x = -0.05 - 0.06 * w * Math.max(0, st.vf / sp) + lean * 0.06;
+    { const rx = -0.03 - 0.05 * w * Math.max(0, st.vf / sp) + lean * 0.05; R.body.rotation.x = rx; R.body.position.set(0, bobY + 0.95 * (1 - Math.cos(rx)), -0.95 * Math.sin(rx)); }     // leans from the hips
     R.head.position.y = 1.56 + bobY; R.head.rotation.set(lean * 0.8, 0, 0);
+    const k = handSign(); R.gun.position.x = 0.13 * k; R.gun.rotation.y = 0.1 * k;                       // the gun hand (Options > Gun hand)
     R.aim.position.y = 1.36 + bobY; R.aim.rotation.set(lean * 0.9, 0, 0); R.aim.updateMatrix(); R.gun.updateMatrix();
     for (let i = 0; i < R.gun.children.length; i++) { const s = gun.children[i], d = R.gun.children[i]; d.quaternion.copy(s.quaternion); d.scale.copy(s.scale); }
     for (const [s, d] of R.pairs) { d.color.copy(s.color); d.opacity = s.opacity; }
@@ -3579,16 +3816,20 @@ const Self = (() => {
       if (air > 0.001) { _c.set(L.sx * (HIPX + 0.03), 0.2 + (L.sx > 0 ? 0.0 : 0.1), L.sx > 0 ? 0.2 : -0.14); T0.lerp(_c, air); }
       bend(S0, T0, L1, L2, P0.set(L.sx * 0.12, 0.1, -1), E0);
       between(L.thigh, S0, E0); between(L.shin, E0, T0); L.knee.position.copy(E0);
-      _a.copy(E0).lerp(S0, 0.44); _b.copy(E0).lerp(S0, 0.5); between(L.stripe, _b, _a);
+      _a.copy(T0).lerp(E0, 0.07); _b.copy(T0).lerp(E0, 0.16); between(L.stripe, _a, _b);            // the turned-up hem, just above the shoe
       L.foot.position.copy(T0); L.foot.rotation.set(-lift * 0.35 * w + air * (L.sx > 0 ? -0.5 : 0.25), 0, 0);
     }
     for (const A of R.arm) {
       S0.set(A.sx * SHX, SHY + bobY, 0);
-      if (A.sx > 0) T0.set(0, -0.085, 0.055); else T0.set(-0.012, -0.072, -0.07);         // right hand on the grip, left under the battery pack
+      const grip = A.sx === k;
+      if (grip) T0.set(0, -0.06, 0.03); else T0.set(-0.012 * k, -0.06, -0.085);         // the gun hand on the grip, the other under the battery pack
       T0.applyMatrix4(R.gun.matrix).applyMatrix4(R.aim.matrix);
       bend(S0, T0, A1, A2, P0.set(A.sx * 0.75, -1, 0.35), E0);
-      between(A.upper, S0, E0); between(A.fore, E0, T0); A.elbow.position.copy(E0); A.hand.position.copy(T0);
-      _a.copy(T0).lerp(E0, 0.1); _b.copy(T0).lerp(E0, 0.3); between(A.cuff, _a, _b);
+      between(A.upper, S0, E0); between(A.fore, E0, T0); A.elbow.position.copy(E0);
+      _a.copy(T0).lerp(E0, 0.0); _b.copy(T0).lerp(E0, 0.2); between(A.cuff, _a, _b);
+      // the hand: fingers on along the forearm, palm in toward the grip (gun hand) or up under the pack (other hand)
+      _d.subVectors(T0, E0).normalize(); _c.set(grip ? -A.sx : 0, grip ? 0 : 1, 0); _c.addScaledVector(_d, -_c.dot(_d)).normalize(); _b.crossVectors(_d, _c);
+      A.hand.quaternion.setFromRotationMatrix(_hm.makeBasis(_b, _d, _c)); A.hand.position.copy(T0).addScaledVector(_d, -0.012);
     }
   }
   function update(dt) {
@@ -4533,8 +4774,8 @@ const TIPS = {
   bHint: "Ask SaDos for a hint (T). Press again for a firmer one", bCredits: "Who and what made this", bCreditsBack: "Back to the results", oChal: "After finishing the game: only a few portals per room",
   bGuide: "How to play (H)", bRestart: "Restart from the last checkpoint (R)", bFull: "Full screen on or off (F)", bPause: "Pause (Esc)",
   bPlay: "Start, or carry on from the last chamber you reached", bChambers: "Choose any chamber you have reached", bOptions: "Sound, look speed, picture quality, progress", bHow: "Controls, and everything you will meet",
-  bChBack: "Back to where you were", bOptBack: "Back to where you were", bHowBack: "Back to where you were",
-  oMusic: "Music on or off", oSfx: "Sound effects on or off", oVoice: "SaDos and the sentries speak, or only subtitles", oSens: "How fast the view turns", oInvert: "Push up to look down",
+  bChBack: "Back to where you were", bOptBack: "Back to where you were", bHowBack: "Close the guide (Esc, or tap outside it)",
+  oMusic: "Music on or off", oSfx: "Sound effects on or off", oVoice: "SaDos and the sentries speak, or only subtitles", oSens: "How fast the view turns", oInvert: "Push up to look down", oHand: "Which hand holds the portal gun (left or right)",
   oScroll: "Which way a two-finger swipe walks", oQuality: "Auto adjusts to keep the game smooth; High is sharper; Low is fastest", oFull: "Full screen on or off", oReset: "Lock the chambers again and start over (asks first)", oStory: "Watch the opening story again", oEnding: "Watch the closing story (the very end of the game)", cutSkip: "Skip the opening (Esc)",
   bResume: "Back to the chamber (Esc)", bRetry: "Start again from the last checkpoint", bPauseGuide: "Controls, and everything you will meet", bPauseOpt: "Sound, look speed, picture quality", bPauseCh: "Choose any chamber you have reached", bPauseMenu: "Leave the chamber and go to the title",
   bNext: "On to the next chamber (Return)", bAgain: "Play this chamber again from its first room", bDoneMenu: "Go to the title", bResetYes: "Erase progress. This cannot be undone", bResetNo: "Change nothing",
@@ -4605,6 +4846,7 @@ function askHint() { if (state !== "play") return; const now = performance.now()
 click("bHint", askHint);
 click("bPauseGuide", () => { howFrom = "ovPause"; showOv("ovHow"); });
 click("bHowBack", () => showOv(howFrom));
+$("ovHow").addEventListener("click", e => { if (e.target === e.currentTarget) showOv(howFrom); });   // a tap outside the guide closes it
 click("bOptBack", () => showOv(optsFrom));
 click("bResume", resume);
 click("bRetry", () => { hideOv(); beginLevel(levelIdx, true); });
@@ -4632,12 +4874,14 @@ function syncOpts() {
   on("oChal", opts.challenge); on("oMusic", opts.music); on("oSfx", opts.sfx); on("oVoice", opts.voice); on("oInvert", opts.invert); { const b = $("oScroll"); b.textContent = opts.scrollInv ? "Back" : "Forward"; b.classList.toggle("on", !!opts.scrollInv); }
   $("oSens").value = opts.sens; $("oQuality").textContent = { auto: "Auto", high: "High", low: "Low" }[opts.quality];
   $("oFull").textContent = inFull() ? "Exit" : "Enter";
+  $("oHand").textContent = opts.hand === "right" ? "Right" : "Left";
 }
 const saveOpts = () => store.set("opts", opts);
 click("oMusic", () => { opts.music = !opts.music; applyAudioOpts(); saveOpts(); syncOpts(); });
 click("oSfx", () => { opts.sfx = !opts.sfx; applyAudioOpts(); saveOpts(); syncOpts(); });
 click("oVoice", () => { opts.voice = !opts.voice; if (!opts.voice) sadosShutUp(); saveOpts(); syncOpts(); });
 click("oInvert", () => { opts.invert = !opts.invert; saveOpts(); syncOpts(); });
+click("oHand", () => { opts.hand = opts.hand === "right" ? "left" : "right"; applyHand(); saveOpts(); syncOpts(); });
 click("oScroll", () => { opts.scrollInv = !opts.scrollInv; saveOpts(); syncOpts(); });
 click("oChal", () => { if (!opts.challenge && !store.get("finished5", 0)) { toast("Finish the game once to unlock challenge mode"); return; } opts.challenge = !opts.challenge; saveOpts(); syncOpts(); });
 click("oQuality", () => { opts.quality = { auto: "high", high: "low", low: "auto" }[opts.quality]; applyQuality(); saveOpts(); syncOpts(); });
@@ -5862,7 +6106,7 @@ const Lift = (() => {
 
 /* ---------- boot ---------- */
 function boot() {
-  resize(); applyQuality();
+  resize(); applyQuality(); applyHand();
   addEventListener("resize", () => resize()); addEventListener("orientationchange", () => setTimeout(resize, 200));
   if (window.visualViewport) visualViewport.addEventListener("resize", () => setTimeout(resize, 50));
   startLevel(resumeRoom(), true); state = "title";
@@ -5872,7 +6116,7 @@ function boot() {
   setTimeout(() => { try { Cut.prep(); } catch (e) { console.error(e); } }, 400);       // build the opening film while the title is up, so it starts at once
   setTimeout(() => { try { const L = Lift.build(); renderer.compile(L.sc, camera); } catch (e) { console.error(e); } }, 1100);   // and the lift, so the first ride never stalls
 }
-window.__tc = { Self, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS }), lineHash, get state() { return state; }, Cut, get Lift() { return Lift; }, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
+window.__tc = { Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS }), lineHash, get state() { return state; }, Cut, get Lift() { return Lift; }, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
 try { boot(); } catch (err) { console.error(err); $("loading").hidden = false; $("loading").innerHTML = '<div style="max-width:420px;text-align:center;line-height:1.6;font-size:13px;letter-spacing:.05em">Something went wrong starting the game.<br><small>' + String(err && err.message || err) + "</small></div>"; }
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>
