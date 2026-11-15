@@ -497,7 +497,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 await RAPIER.init();
 
-const VERSION = "v8.0";
+const VERSION = "v8.1";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -1153,7 +1153,7 @@ function level13() {
   for (const b of h.boxes) if (b.max[0] === 8 && b.max[1] === 0) undark(b);                       // the near floor and back wall take portals: no use to anyone across the pit
   whiteOn(h, bx(0, 0, 0, 0.1, H, W));
   h.boxes.push(bx(23, 0, 8.6, L, 3.2, W, "dark"));                                                 // the ledge with the plate
-  h.pads = [{ pos: [4.5, 0, 6], from: [4.5, 0.92, 6], to: [20.5, 0.92, 6], T: 1.15 }, { pos: [20, 0, 2.6], from: [20, 0.92, 2.6], to: [28.9, 4.12, 11.1], T: 1.25 }];
+  h.pads = [{ pos: [4.5, 0, 6], from: [4.5, 0.92, 6], to: [20.5, 0.92, 6], T: 1.15 }, { pos: [20, 0, 2.6], from: [20, 0.92, 2.6], to: [28.9, 4.12, 11.1], T: 1.25, tint: [2.8, .85, .12], double: true }];   // v8.1: the island pad (the one that lobs up to the plate) is orange with a double ring
   h.cubes = [[3, 0.35, 9.5]]; h.plates = [{ pos: [29, 3.2, 11.2], door: "d1" }]; h.doors = [exitDoor(L, 6)];
   h.lamps.push(lamp(26.5, H - .3, 10.3, .5, 8)); h.badge = [24, 4.4, 11.3]; h.par = [60, 0];
   h.signs.push(chSign(12, "AIR MAIL", 4.6));
@@ -1902,7 +1902,8 @@ function level44() {
     intro: ["This is crate number seven. Somebody on the staff put tape on it and wrote the number by hand. That is against regulations. So is talking to it. They did both.", "It is equipment. You will carry it to the buttons, and you will not become attached to it. I mention this because of what happened last time."],
     hint: ["The buttons are slow to wake and quick to sleep. You are the other way round. Plan accordingly."], hint2: ["Open the way up before you step off the second slow button. After that, you will only have three seconds."],
     done: ["You left crate seven on the button. Correct. It is equipment. It is sitting there now, on its own, in the dark, and that is completely fine."],
-    done7: ["You have taken crate seven with you. That is theft of facility property. I have filed the report. Nobody will read it. Keep the crate."] } });
+    done7: ["You have taken crate seven with you. That is theft of facility property. I have filed the report. Nobody will read it. Keep the crate."],
+    doneAway: ["Crate seven is not on the button. It is not with you either. It is lying about somewhere, being a loose end. I dislike loose ends. Nobody else is here to dislike them, so it falls to me."] } });
 }
 function level45() {
   const L = 28, W = 16, H = 9, h = hall({ L, W, H, zc: 8 }), lit = w => w.sockets.filter(s => s.lit).length;
@@ -2046,9 +2047,8 @@ function level49() {                       // v6.6 Paperweight (kept, trimmed): 
   h.plates = [{ pos: [26, 0, 9], door: "d1", cams: 2 }]; h.doors = [exitDoor(L, 6, "d1", 1)];
   h.par = [120, 2];
   h.signs.push(chSign(45, "PAPERWEIGHT", 4.6, 4.4));
-  return Object.assign(h, { num: 45, name: "Paperweight", track: 0, say: {
+  return Object.assign(h, { num: 45, nohint: true, name: "Paperweight", track: 0, say: {
     intro: ["The door is on a camera scale. It wants two. Over there, past the acid. The launch pad will take anything you give it.", "The camera across the pit watches the landing. If it sees you arrive, you start again. I do like a welcome committee."],
-    hint: ["Count the cameras in this room. Now count the ones the door wants. I did the sum before you came in. It is why I am not worried about my cameras. I should be."], hint2: ["Knock both cameras down. One goes over on the pad. The other one goes with you."],
     done: ["You knocked down the only camera watching you and used it as a paperweight. I have stopped being surprised. I have not stopped being offended."] } });
 }
 function level50() {
@@ -2121,9 +2121,8 @@ function level53() {                       // Hall Of Mirrors: every trick at on
   h.par = [200, 9];
   h.signs.push(chSign(53, "HALL OF MIRRORS", 4.6, 5),
     scrawl("I COUNTED HER CAMERAS.", "I STOPPED AT A HUNDRED.  - O.", [6, 1.3, 0.001], [0, 0, 1], 3.4, 1));
-  return Object.assign(h, { num: 53, name: "Hall Of Mirrors", track: 2, say: {
+  return Object.assign(h, { num: 53, nohint: true, name: "Hall Of Mirrors", track: 2, say: {
     intro: ["This is the last room I built before the staff left. It has a little of everything. They said it was too much. They were right, and they are gone, and it is still here.", "The door wants the receiver lit and two cameras on the scale. Between you and all of that are two bolted sentries and a camera that never blinks."],
-    hint: ["Light first. Everything else in here waits on it."], hint2: ["The far sentry can be shown itself. A camera comes down when its wall opens beside it."],
     done: ["You took apart my best room with my own equipment. I would be furious, if I were not so tired. Go on. There is more."] } });
 }
 
@@ -2792,13 +2791,15 @@ function buildLevel(idx) {
   for (const d of (lv.pads || [])) {
     const g = new THREE.Group(); g.position.set(...d.pos);
     const base = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.08, 0.1, 40), MAT.plateBase); base.position.y = 0.05;
-    const ringMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(.4, 1.6, 2.6) }); ringMat.userData = {};
+    const tint = d.tint || [.4, 1.6, 2.6];      // v8.1: a pad can have its own colour (and a second ring), so two pads in one room can be told apart
+    const ringMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(...tint) }); ringMat.userData = {};
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.78, 0.045, 10, 56), ringMat); ring.rotation.x = Math.PI / 2; ring.position.y = 0.11; ring.userData.ownMat = 1;
+    if (d.double) { const ring2 = new THREE.Mesh(new THREE.TorusGeometry(0.93, 0.03, 10, 56), ringMat); ring2.rotation.x = Math.PI / 2; ring2.position.y = 0.11; ring2.userData.ownMat = 1; g.add(ring2); }
     const sh = new THREE.Shape(); sh.moveTo(0, 0.42); sh.lineTo(0.28, 0.02); sh.lineTo(0.1, 0.02); sh.lineTo(0.1, -0.38); sh.lineTo(-0.1, -0.38); sh.lineTo(-0.1, 0.02); sh.lineTo(-0.28, 0.02);
     const arrow = new THREE.Mesh(new THREE.ShapeGeometry(sh), ringMat); arrow.rotation.x = -Math.PI / 2; arrow.position.y = 0.105;
     arrow.rotation.z = Math.atan2(-(d.to[0] - d.pos[0]), -(d.to[2] - d.pos[2]));   // points where the pad throws
     g.add(base, ring, arrow); levelGroup.add(g);
-    W.pads.push({ pos: d.pos.slice(), to: d.to, from: d.from, T: d.T, ringMat, cool: 0, flash: 0 });
+    W.pads.push({ pos: d.pos.slice(), to: d.to, from: d.from, T: d.T, ringMat, tint, cool: 0, flash: 0 });
   }
   // gravity panels: step on the pad and "down" flips for every loose object in its zone (not for you)
   for (const d of (lv.gravs || [])) {
@@ -4584,7 +4585,11 @@ const allBadges = () => store.get("badges", []).filter(c => BADGE_CH.has(c)).len
 function completeLevel() {
   if (state !== "play") return;
   if (ROOM[levelIdx].part < ROOM[levelIdx].parts - 1 && !window.__tcSolo) { nextPart(); return; }
-  const took7 = !!(holding && holding.seven); if (took7) v5Seven();
+  // Crate Seven counts as taken if it is in your hands OR lying close by when you leave (set down in the doorway, or beside you), not only when held;
+  // v8.1: it used to be held-only, so a crate you walked out with but had put down at the door was reported as left on the button
+  const sev = world.cubes.find(c => c.seven), onPlate = !!sev && world.plates.some(p => Math.hypot(sev.p.x - p.pos[0], sev.p.z - p.pos[2]) < 0.8 && sev.p.y - p.pos[1] < 1.2);
+  const took7 = !!sev && (!!(holding && holding.seven) || sev.p.distanceTo(player.p) < 4); if (took7) v5Seven();
+  const away7 = !!sev && !took7 && !onPlate;
   state = "done"; sfx.complete(); if (holding) dropCube();
   const CH = ROOM[levelIdx].c, lastCh = CH + 1 >= CHAMBERS.length;
   store.set("progress5", Math.min(Math.max(store.get("progress5", 0), CH + 1), CHAMBERS.length - 1)); store.set("room", lastCh ? FIRST[CH] : FIRST[CH + 1]);
@@ -4597,7 +4602,7 @@ function completeLevel() {
   if (!(best[CH] >= medal)) { best[CH] = medal; store.set("best", best); }
   $("dMedal").innerHTML = '<b class="m' + medal + '">' + MEDAL[medal] + "</b> &middot; par " + fmtT(parT) + ", " + parP + " portals" + (store.get("badges", []).includes(CH) ? " &middot; badge found" : " &middot; badge not found") + (() => { const [cd, ct] = chamberCams(CH); return ct ? " &middot; cameras down " + cd + " of " + ct + (cd === ct ? " &middot; <b class=\"m3\">Lens Cap award</b>" : "") : ""; })() + (world.lv.hatch ? (Parcel.done ? " &middot; parcel delivered and signed for" : " &middot; parcel not delivered") : "");
   $("bCredits").hidden = !lastCh;
-  const lines = lastCh && allBadges() ? [LINES.allBadges[0]] : (took7 && world.lv.say.done7) || world.lv.say.done; const q = pick(lines);
+  const lines = lastCh && allBadges() ? [LINES.allBadges[0]] : (took7 && world.lv.say.done7) || (away7 && world.lv.say.doneAway) || world.lv.say.done; const q = pick(lines);
   $("dQuote").innerHTML = "<i>SADOS</i>" + q;
   $("bNext").hidden = lastCh;
   setTimeout(() => {
@@ -4921,7 +4926,7 @@ function say(key, text) {
   let lines;
   if (text) lines = [text];
   else if (key === "intro") { const st = storyLine(world.lv.name, true); lines = st ? [st, ...world.lv.say.intro] : world.lv.say.intro; }
-  else if (key === "hint" || key === "hint2") lines = world.lv.say[key];
+  else if (key === "hint" || key === "hint2") { lines = world.lv.nohint ? null : world.lv.say[key]; if (!lines || !lines.length) return; }      // v8.1: a room with no hint says nothing
   else if (LINES[key]) lines = [freshPick(key, key === "death" && isDelivery() ? LINES.death.concat(LINES.deathD) : LINES[key])];
   else return;
   const now = performance.now();
@@ -5073,7 +5078,9 @@ function openGuide() {
 }
 click("bHow", () => { howFrom = "ovTitle"; showOv("ovHow"); });
 click("bGuide", openGuide);
-function askHint() { if (state !== "play") return; const now = performance.now(); if (now - run.hintAt < 6000) return; run.hintAt = now; run.hinted = Math.max(run.hinted, 1); sadosShutUp();
+function askHint() { if (state !== "play") return; const now = performance.now(); if (now - run.hintAt < 6000) return; run.hintAt = now;
+  if (world.lv.nohint || !(world.lv.say.hint && world.lv.say.hint.length)) { toast("SaDos gives no hint in this room."); return; }      // v8.1: Paperweight and Hall Of Mirrors have none
+  run.hinted = Math.max(run.hinted, 1); sadosShutUp();
   // v6.8: two levels. The first press is a nudge; the second and later presses give the firmer one (never the whole route)
   const two = !!(world.lv.say.hint2 && world.lv.say.hint2.length); run.hintLv = two ? Math.min(run.hintLv + 1, 2) : 1;
   if (two) toast("Hint " + run.hintLv + " of 2"); say(run.hintLv === 2 ? "hint2" : "hint"); }
@@ -5699,7 +5706,7 @@ function frame(ts) {
     if (fy !== null) { lm.visible = true; lm.position.set(c.p.x, fy + 0.02, c.p.z); lm.rotation.z += dt * 1.5; }
     lm.material.color.copy(plateUnder(c.p) ? LAND_ON : LAND_OFF);
   }
-  for (const pd of world.pads) pd.ringMat.color.setRGB(.4 + pd.flash * 2, 1.6 + pd.flash * 2, 2.6 + pd.flash);
+  for (const pd of world.pads) pd.ringMat.color.setRGB(pd.tint[0] + pd.flash * 2, pd.tint[1] + pd.flash * 2, pd.tint[2] + pd.flash);
   for (const pl of world.plates) {
     pl.press += ((pl.pressed ? 1 : 0) - pl.press) * Math.min(1, dt * 14); pl.top.position.y = 0.07 - pl.press * 0.05;
     let over = false; for (const c of props()) if ((c.held || c.v.y < -0.5) && plateUnder(c.p) === pl) over = true;
