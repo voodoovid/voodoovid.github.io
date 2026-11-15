@@ -497,7 +497,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 await RAPIER.init();
 
-const VERSION = "v8.2";
+const VERSION = "v8.3";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -894,24 +894,95 @@ function paintNote(g, cw, ch, sp) {
   g.fillStyle = "rgba(255,255,255,.18)"; g.fillRect(-cw * .14, -ch * .06, cw * .28, ch * .03); g.restore();
   lintGrime(g, cw, ch, paper, k * .8, rnd);
 }
+// v8.3: lost and found in Retrieval (37). The crayon drawing of Lint pinned over the shelf, and the ticket hung beside it
+function paintLintDrawing(g, cw, ch) {
+  const s = cw / 300, rnd = lintRng(3707), rr = a => (rnd() * 2 - 1) * a; g.save(); g.scale(s, s); const H2 = ch / s;
+  g.fillStyle = "rgba(0,0,0,.28)"; g.fillRect(9, 11, 286, H2 - 16);
+  g.fillStyle = "#f2eee0"; g.beginPath(); g.moveTo(6, 6); g.lineTo(294, 4); g.lineTo(292, H2 - 26); g.lineTo(270, H2 - 6); g.lineTo(4, H2 - 8); g.closePath(); g.fill();
+  g.fillStyle = "#d8d2bf"; g.beginPath(); g.moveTo(292, H2 - 26); g.lineTo(270, H2 - 6); g.lineTo(268, H2 - 28); g.closePath(); g.fill();                    // a turned-up corner
+  g.strokeStyle = "rgba(120,110,90,.16)"; g.lineWidth = 1; g.beginPath(); g.moveTo(6, H2 / 2 + 3); g.lineTo(294, H2 / 2 - 2); g.moveTo(150, 6); g.lineTo(148, H2 - 8); g.stroke();   // it was folded in four
+  const L = document.createElement("canvas"); L.width = cw; L.height = ch; const c = L.getContext("2d"); c.scale(s, s); c.lineCap = "round"; c.lineJoin = "round";
+  const wax = (pts, col, w, close) => { for (let pass = 0; pass < 3; pass++) { c.strokeStyle = col; c.globalAlpha = .5; c.lineWidth = w * (.8 + rnd() * .4); c.beginPath(); pts.forEach((p, i) => { const q = [p[0] + rr(1.6), p[1] + rr(1.6)]; i ? c.lineTo(q[0], q[1]) : c.moveTo(q[0], q[1]); }); if (close) c.closePath(); c.stroke(); } c.globalAlpha = 1; };
+  const ring = (x, y, r, k = 14) => { const p = []; for (let i = 0; i <= k; i++) { const a = i / k * 6.283 + .4; p.push([x + Math.cos(a) * r * (1 + rr(.06)), y + Math.sin(a) * r * (1 + rr(.06))]); } return p; };
+  const sock = [[82, 66], [150, 60], [152, 150], [158, 196], [196, 204], [246, 214], [272, 244], [272, 282], [250, 306], [180, 312], [112, 312], [84, 290], [78, 240], [80, 150]];
+  c.save(); c.beginPath(); sock.forEach((p, i) => i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1])); c.closePath(); c.clip();                                   // coloured in, not quite to the edges
+  for (let d = -260; d < 330; d += 9) wax([[60 + d + rr(4), 320], [60 + d + 250 + rr(4), 50]], "#f4b942", 8.5);
+  wax([[78, 80], [154, 76]], "#c2303a", 7); wax([[78, 97], [154, 93]], "#2f7fc0", 7); c.restore();
+  wax(sock, "#3a3126", 3.2, true);
+  for (const [x, y, r, px, py] of [[188, 243, 20, 5, 4], [232, 250, 13, -4, 3]]) { c.fillStyle = "#fdfcf6"; c.beginPath(); c.arc(x, y, r, 0, 6.3); c.fill(); wax(ring(x, y, r), "#1c1c1c", 2.6); wax(ring(x + px, y + py, r * .36, 8), "#1c1c1c", r * .42); }
+  wax([[176, 282], [200, 291], [228, 286]], "#3a3126", 3);                                                                                                 // a mouth, of sorts
+  wax(ring(258, 277, 8, 9), "#1c1c1c", 6); for (let a = 0; a < 6.28; a += .8) wax([[258 + Math.cos(a) * 11, 277 + Math.sin(a) * 11], [258 + Math.cos(a) * 16, 277 + Math.sin(a) * 16]], "#3a3126", 1.8);   // the hole in the toe
+  wax([[80, 150], [112, 214], [152, 150]], "#2a2a2a", 2.4); c.fillStyle = "#fdfcf6"; c.fillRect(97, 212, 32, 24); c.fillStyle = "#f4b942"; c.fillRect(97, 212, 32, 8); wax([[97, 212], [129, 212], [129, 236], [97, 236]], "#2a2a2a", 1.6, true); wax([[102, 228], [108, 226], [113, 229], [119, 226], [124, 228]], "#555", 1.3);   // the visitor lanyard
+  const cols = ["#c2303a", "#2f7fc0", "#3f8f4a", "#7a4aa0"]; let x = 86;
+  [..."LINT"].forEach((ch2, i) => { const sz = 44 + rr(5), y0 = 330 + rr(5), sh = rr(.12); for (const st of SCRAWL_GLYPHS[ch2]) wax(st.map(([u, v]) => [x + (u + (1 - v) * sh) * sz * .8, y0 + v * sz]), cols[i], 5.5); x += (Math.max(...SCRAWL_GLYPHS[ch2].flat().map(q => q[0])) + .36) * sz * .8 + rr(2); });
+  c.setTransform(1, 0, 0, 1, 0, 0); c.globalCompositeOperation = "destination-out";                                                                         // the tooth of the paper showing through the wax
+  for (let i = 0; i < 2600; i++) { c.fillStyle = `rgba(0,0,0,${.2 + rnd() * .5})`; c.fillRect(rnd() * cw, rnd() * ch, 1 + rnd() * 1.6, 1 + rnd() * 1.6); }
+  g.restore(); g.drawImage(L, 0, 0); g.save(); g.scale(s, s);
+  g.fillStyle = "rgba(0,0,0,.3)"; g.beginPath(); g.arc(152, 22, 8, 0, 6.3); g.fill(); g.fillStyle = "#c2303a"; g.beginPath(); g.arc(150, 19, 8, 0, 6.3); g.fill(); g.fillStyle = "rgba(255,255,255,.55)"; g.beginPath(); g.arc(147.5, 16.5, 2.6, 0, 6.3); g.fill();   // pinned
+  g.restore();
+}
+function paintLostTicket(g, cw, ch) {
+  const s = ch / 110; g.save(); g.scale(s, s); const W2 = cw / s;
+  g.strokeStyle = "#8a7a5a"; g.lineWidth = 1.6; g.beginPath(); g.moveTo(20, 55); g.quadraticCurveTo(8, 30, 14, 0); g.stroke();                                // its string
+  g.fillStyle = "#d9c08a"; g.beginPath(); g.moveTo(26, 14); g.lineTo(W2 - 4, 14); g.lineTo(W2 - 4, 106); g.lineTo(26, 106); g.lineTo(6, 78); g.lineTo(6, 42); g.closePath(); g.fill();
+  g.fillStyle = "#b89c62"; g.beginPath(); g.arc(22, 60, 9, 0, 6.3); g.fill(); g.globalCompositeOperation = "destination-out"; g.beginPath(); g.arc(22, 60, 4, 0, 6.3); g.fill(); g.globalCompositeOperation = "source-over";
+  g.fillStyle = "#2a2118"; g.textBaseline = "middle"; g.textAlign = "left"; g.font = "bold 34px 'Courier New', Courier, monospace"; g.fillText("LOST.", 42, 46);
+  g.font = "19px 'Courier New', Courier, monospace"; g.fillText("Reward: none.", 42, 82); g.strokeStyle = "rgba(42,33,24,.5)"; g.lineWidth = 1; g.beginPath(); g.moveTo(42, 64); g.lineTo(W2 - 14, 64); g.stroke();
+  g.restore();
+}
+
+const LINT_PAINT = { drawing: paintLintDrawing, ticket: paintLostTicket };
+// v8.3: set dressing that goes with the notes in three late rooms: the way to Room 37, lost and found itself, and the office door.
+// Signs are ordinary staff signs; `loose` props are looked at, never touched (no collider), so nothing about the room changes
+const LINT_SET = {
+  "Primer": h => h.signs.push(hint("LOST AND FOUND: ROOM 37  >", [13.4, 2.25, 0.001], [0, 0, 1], 2.5, 0.42)),
+  "Retrieval": h => {
+    const x = 8.3, y = 1.2;
+    h.signs.push(hint("LOST AND FOUND", [x, 2.95, 0.001], [0, 0, 1], 1.9, 0.42));
+    h.loose = [["box", x, y, 0.17, 1.9, 0.05, 0.34, 0x3b4046], ["box", x - 0.8, y - 0.14, 0.15, 0.05, 0.24, 0.26, 0x2c3035], ["box", x + 0.8, y - 0.14, 0.15, 0.05, 0.24, 0.26, 0x2c3035],     // the shelf and its brackets
+      ["box", x - 0.6, y + 0.145, 0.17, 0.36, 0.24, 0.26, 0x9a7b52, 0.12], ["cyl", x - 0.18, y + 0.075, 0.2, 0.045, 0.1, 0, 0xd8d4c8], ["box", x + 0.22, y + 0.04, 0.16, 0.3, 0.03, 0.22, 0x51575e, -0.3],
+      ["cyl", x + 0.62, y + 0.045, 0.2, 0.02, 0.5, 0, 0x7a2a30, 0, Math.PI / 2]];                                                  // a box, a mug, a clipboard, a rolled umbrella. No sock
+  },
+  "Out Of Order": h => h.signs.push(hint("BE RIGHT BACK", [23.999, 6.0, -2.87], [-1, 0, 0], 1.25, 0.34))
+};
+function buildLoose(lv) {                        // loose props: [kind, x, y, z, a, b, c, colour, turn about y, turn about z]
+  for (const [kind, x, y, z, a, b, c, col, ry, rz] of lv.loose || []) {
+    const m = new THREE.Mesh(kind === "cyl" ? new THREE.CylinderGeometry(a, a, b, 14) : new THREE.BoxGeometry(a, b, c), new THREE.MeshStandardMaterial({ color: col, roughness: .85, metalness: 0 }));
+    m.userData.ownMat = 1; m.position.set(x, y, z); if (ry) m.rotation.y = ry; if (rz) m.rotation.z = rz; levelGroup.add(m);
+  }
+}
 function lintTex(s) {                              // a sticker or note's canvas texture, at 1400 px per metre so it reads up close
   const px = 1400, cw = Math.round(s.w * px / 2) * 2, ch = Math.round(s.h * px / 2) * 2;
-  return canvasTex(cw, ch, (g) => (s.kind === "note" ? paintNote : paintSticker)(g, cw, ch, s.spec), false);
+  return canvasTex(cw, ch, (g) => (s.kind === "note" ? paintNote : LINT_PAINT[s.spec.t] || paintSticker)(g, cw, ch, s.spec), false);
 }
-// v8.2: what goes where (rooms 1 to 30; Fable 5.2 adds 31 to 53). A sticker entry is { t }, a note is { note, near }.
+// v8.2: what goes where. A sticker entry is { t }, a note is { note, near }. Rooms 1 to 30 find their own spots.
+// v8.3: rooms 31 to 53. Each of these is given its spot (`at`: position on the wall face, the wall's normal), every one on a dark panel and checked by bot.
+// Extras for these: `big` / `under` (a large, underlined note), `scale`, `rot`, and the two pictures at lost and found (t "drawing", "ticket")
 const LINT_DRESS = {
   "Delivery": [{ t: "tl" }], "Freefall": [{ t: "dot" }], "Special Delivery": [{ t: "tl" }], "Heavy Lifting": [{ t: "tl" }], "Air Mail": [{ t: "bumper" }],
   "Reset": [{ note: "Where do the cubes go when they fizzle?" }], "Scales": [{ t: "tl" }], "Borrowed Cover": [{ note: "Where's Lint?", small: true }],
   "Friendly Fire": [{ t: "tl" }], "Skylight": [{ note: "Has anyone seen Lint?" }], "Field Trip": [{ t: "dot" }], "Mirror Test": [{ t: "tl" }],
   "Gantry": [{ note: "Was that the lift?", near: "dock" }], "Long Jump": [{ t: "bumper" }], "Rebound": [{ t: "tl" }],
-  "Press": [{ note: "Who's been holding for forty-one years?" }], "Short Notice": [{ t: "tl" }], "Terminal Velocity": [{ t: "dot" }]
+  "Press": [{ note: "Who's been holding for forty-one years?" }], "Short Notice": [{ t: "tl" }], "Terminal Velocity": [{ t: "dot" }],
+  "Updraft": [{ t: "tl", at: [[10.6, 1.15, 0], [0, 0, 1]] }],
+  "Primer": [{ note: "Has anyone come back from Room 37?", at: [[13.4, 1.6, 0], [0, 0, 1]] }],                          // under the sign that points there
+  "The Last Word": [{ t: "tl", at: [[11.8, 1.1, 0], [0, 0, 1]] }],
+  "Cold Storage": [{ note: "Room 37 is next. Has anyone come back?", at: [[9.2, 1.5, 0], [0, 0, 1]] }],
+  "Retrieval": [{ t: "drawing", at: [[8.4, 2.08, 0], [0, 0, 1]], rot: -0.05 }, { t: "ticket", at: [[8.92, 1.68, 0], [0, 0, 1]], rot: 0.09 }, { t: "dot", at: [[7.15, 1.0, 0], [0, 0, 1]] }],
+  "Prism": [{ note: "Are you more of a sock?", at: [[12.6, 1.5, 0], [0, 0, 1]] }, { t: "tl", at: [[14.3, 1.05, 0], [0, 0, 1]] }],
+  "Lift Off": [{ t: "tl", at: [[8.6, 1.15, 0], [0, 0, 1]] }],
+  "Hall Of Mirrors": [{ note: "Where's Lint?", small: true, at: [[6, 1.25, 11.4], [-1, 0, 0]] }, { t: "tl", at: [[2.6, 1.1, 0], [0, 0, 1]] }],      // the last time it is written small
+  "Out Of Order": [{ note: "Will they be right back?", at: [[24, 5.45, -2.87], [-1, 0, 0]] }, { t: "bumper", scale: 0.7, at: [[19.99, 5.07, -5.82], [-1, 0, 0]] }],   // by the office door; on the side of the television
+  "Sorting Hall": [{ t: "tl", at: [[8.4, 1.1, 0], [0, 0, 1]] }],
+  "The Way Out": [{ note: "Where's Lint?", big: true, under: true, at: [[16, 1.7, 6.75], [-1, 0, 0]] }]                 // once more, large, on the dark end wall beside the door out
 };
 const lintStage = n => n <= 15 ? 0 : n <= 30 ? 1 : n <= 45 ? 2 : 3;           // both · Lint curling off · Lint torn away · outline only
 const lintGrimeOf = n => clamp((n - 6) / 47, 0, 1);                              // the deeper in, the longer it has been up
-const LINT_SIZE = { tl: [0.3, 0.257], dot: [0.17, 0.17], bumper: [0.4, 0.171], note: [0.42, 0.28], noteS: [0.3, 0.2] };
+const LINT_SIZE = { tl: [0.3, 0.257], dot: [0.17, 0.17], bumper: [0.4, 0.171], note: [0.42, 0.28], noteS: [0.3, 0.2], noteL: [0.84, 0.56], drawing: [0.62, 0.8], ticket: [0.38, 0.2] };
 // find a spot for each entry on a dark wall you can see from the start, clear of signs, doors, the lift, cameras and anything moving.
 // Rays go out level from the start at sticker height; the hit face must be a dark box with the whole patch on it and nothing in front of it
 function lintDress(lv, idx) {
+  if (LINT_SET[lv.name]) LINT_SET[lv.name](lv);
   const list = LINT_DRESS[lv.name]; if (!list || !lv.start) return;
   const n = idx + 1, rnd = lintRng(lintSeed(lv.name + "|lint")), rr = a => (rnd() * 2 - 1) * a;
   const S = lv.start.pos, blk = [...(lv.movers || []), ...(lv.shifters || []), ...(lv.spinners || []), ...(lv.glass || []), ...lv.doors];
@@ -946,10 +1017,11 @@ function lintDress(lv, idx) {
     return true;
   };
   list.forEach((e, i) => {
-    const kind = e.note ? "note" : "sticker", sz = e.note ? LINT_SIZE[e.small ? "noteS" : "note"] : LINT_SIZE[e.t], r = Math.hypot(sz[0], sz[1]) / 2 + 0.02;
-    const spec = { t: e.t, stage: lintStage(n), grime: lintGrimeOf(n), seed: lintSeed(lv.name + i), text: e.note };
-    const rot = e.note ? rr(0.08) : (rnd() < .5 ? -1 : 1) * (0.06 + rnd() * 0.15);      // slapped on: never straight
+    const kind = e.note ? "note" : "sticker", sz0 = e.note ? LINT_SIZE[e.big ? "noteL" : e.small ? "noteS" : "note"] : LINT_SIZE[e.t], sz = e.scale ? [sz0[0] * e.scale, sz0[1] * e.scale] : sz0, r = Math.hypot(sz[0], sz[1]) / 2 + 0.02;
+    const spec = { t: e.t, stage: lintStage(n), grime: lintGrimeOf(n), seed: lintSeed(lv.name + i), text: e.note, under: e.under };
+    const rot0 = e.note ? rr(0.08) : (rnd() < .5 ? -1 : 1) * (0.06 + rnd() * 0.15), rot = e.rot != null ? e.rot : rot0;      // slapped on: never straight
     let spot = null;
+    if (e.at) { const ax = e.at[1].findIndex(v => v); spot = [e.at[0].slice(), ax, Math.sign(e.at[1][ax])]; }      // v8.3: a spot chosen by hand
     if (e.near === "dock" && D) {                // beside the lift door, where a call button would be
       for (const side of [1, -1]) {
         const p = [0, D.y0 + 1.35, 0]; p[D.ax] = D.wall; p[D.lat] = D.c + side * 1.6;
@@ -2923,6 +2995,7 @@ function buildLevel(idx) {
     m.position.set(s.pos[0] + s.n[0] * off, s.pos[1] + s.n[1] * off, s.pos[2] + s.n[2] * off);
     m.lookAt(m.position.x + s.n[0], m.position.y + s.n[1], m.position.z + s.n[2]); if (s.rot) m.rotateZ(s.rot); levelGroup.add(m);
   }
+  buildLoose(lv);                                    // v8.3: the lost-and-found shelf
   // acid pools
   for (const a of lv.acid) {
     const t = TEX.acid.clone(); t.needsUpdate = true; t.repeat.set((a.x1 - a.x0) / 3, (a.z1 - a.z0) / 3);
@@ -5099,7 +5172,11 @@ const PARCEL_LINES = [
 // once per save (saved as `lint`). Never hints. Rooms 31 to 53 get theirs from Fable 5.2
 const LINT_ASIDE = {
   "Two Keys": "Someone has been writing on my walls. I have not read it. I do not know who Lint is. I assume it is a kind of roller.",
-  "Rebound": "There is no program. There was never a program. If you have seen a program, you saw it in a different facility."
+  "Rebound": "There is no program. There was never a program. If you have seen a program, you saw it in a different facility.",
+  "Crate Seven": "Ted? I do not know a Ted. There is a sock in storage. That is all.",                                  // v8.3: rooms 31 to 53
+  "Retrieval": "Lost and found has no sock. I checked. Twice. Professionally.",
+  "Heavy Hat": "Someone keeps asking me about forty-one years. It has not been forty-one years. It has been forty-one years and some months.",
+  "Out Of Order": "That television is not on. You did not turn it on. Nobody turned it on."
 };
 function lintLine(name, mark) {
   const l = LINT_ASIDE[name]; if (!l) return null;
