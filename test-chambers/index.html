@@ -483,7 +483,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 await RAPIER.init();
 
-const VERSION = "v7.7";
+const VERSION = "v7.8";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -1061,6 +1061,7 @@ function level10() {
   const B = h.boxes; B.push(bx(0, 13, 0, 9, 14, 3.5, "dark"));
   whiteOn(h, bx(3, 0, 3.8, 8, 0.1, 7));                                                                      // the floor under the gantry
   whiteOn(h, bx(0, 5.5, 3.6, 0.1, 9.5, 5.6));                                                                // and high on the back wall, facing across the pit
+  whiteOn(h, bx(1, 16.9, 0.3, 8.5, 17, 3.3)).roost = true;                                                              // v7.8: the roof over the gantry, seen from the lower floor: a way back up after a fall
   h.cubes = [[6.6, 14.35, 1.8]]; h.plates = [{ pos: [23, 0, 7.5], door: "d1" }]; h.doors = [exitDoor(L, 6)];
   h.sentries = [{ pos: [27, 0, 4.6], yaw: Math.PI / 2, range: 11, dmg: 15, acc: 0.85 }];
   h.start = { pos: [2.6, 14, 1.7], yaw: Math.PI, pitch: -0.3 }; h.par = [80, 3];
@@ -1167,6 +1168,7 @@ function level15() {
   h.boxes.push(bx(0, 15, 0, 4, 16, 4, "dark"));                                                             // the gantry you start on
   whiteOn(h, bx(0.1, 0, 0.1, 10, 0.1, W - 0.1));                                                           // the near floor
   whiteOn(h, bx(0, 2, 4.5, 0.1, H - 0.4, 7.5));                                                           // the strip on the back wall
+  whiteOn(h, bx(0.4, H - 0.1, 0.4, 3.6, H, 3.6)).roost = true;                                                       // v7.8: the roof over the gantry: fall short and you can portal back up
   h.start = { pos: [2, 16, 2], yaw: -Math.PI / 2, pitch: -0.3 };
   h.lamps.push(lamp(3, 13, 6, .45, 9)); h.par = [60, 2];
   h.signs.push(chSign(24, "LONG JUMP", 9, 5));
@@ -1275,6 +1277,7 @@ function level20() {
   whiteOn(h, bx(0.1, 0, 0.1, 8, 0.1, W - 0.1));                                                           // the near floor
   whiteOn(h, bx(0, 6, 4.5, 0.1, 19, 7.5));                                                              // the strip on the back wall: too high and you miss the island
   whiteOn(h, bx(27.3, 4, 0.8, 29.7, 4.1, 3.2));                                                           // the panel the pad drops you on
+  whiteOn(h, bx(0.5, H - 0.1, 0.4, 5.5, H, 3.6)).roost = true;                                                       // v7.8: the roof over the gantry: fall short and you can portal back up
   h.start = { pos: [3, 10, 2], yaw: Math.PI, pitch: -0.3 };
   h.pads = [{ pos: [24, 4.02, 2], from: [24, 4.94, 2], to: [28.5, 5.02, 2], T: 3.1 }];                     // a very high lob onto the panel, from anywhere on the pad
   h.lamps.push(lamp(3, 13, 6, .45, 10), lamp(26.5, 14, 6, .5, 10)); h.par = [90, 3];
@@ -2969,6 +2972,24 @@ function camKnock(P) {
     if (Math.abs(tmpA.dot(P.u)) < PH + 0.25 && Math.abs(tmpA.dot(tmpB)) < PW + 0.25) dropCam(c);
   }
 }
+// v7.8: does a shot's path (through portals) pass through a live camera on its wall? The head and its arm count, a ball 0.38 m round them
+const _cs = new V3();
+function camShot(res) {
+  if (!world || !world.cams) return null;
+  let best = null, along = 0;
+  for (const g of res.segs) {
+    for (const c of world.cams) {
+      if (c.dead || c.fall) continue;
+      for (const k of [0.32, 0.14]) {
+        _cs.copy(c.mount).addScaledVector(c.n, k).sub(g.o); const t = _cs.dot(g.d);
+        if (t < 0 || t > g.len + 0.45) continue;
+        if (_cs.lengthSq() - t * t < 0.38 * 0.38 && (!best || along + t < best.s)) best = { c, s: along + t, p: g.o.clone().addScaledVector(g.d, t) };
+      }
+    }
+    along += g.len;
+  }
+  return best;
+}
 function dropCam(c) {
   c.dead = true; c.sees = false; c.seen = 0; if (c.cone) c.cone.visible = false;
   c.led.material.color.setRGB(.03, .01, .01);
@@ -3280,8 +3301,10 @@ function firePortal(idx) {
   const res = castRay(o, d, 220, false, true);
   kick = 1; $("cross").classList.remove("pulse"); void $("cross").offsetWidth; $("cross").classList.add("pulse");
   setGunColor(idx); sfx.shoot(idx);
-  const h = res.hit;
+  const h = res.hit, shotCam = camShot(res);       // v7.8: a shot that hits a camera knocks it off, whatever the wall behind it is made of
+  if (shotCam) dropCam(shotCam.c);
   if (!h) { fxOrb(idx, o.clone().add(tmpA.copy(d).multiplyScalar(0.5)), o.clone().add(tmpA.copy(d).multiplyScalar(40)), null); return; }
+  if (shotCam && !h.box.portal) { fxOrb(idx, o.clone().add(tmpA.copy(d).multiplyScalar(0.5)), shotCam.p, -1, null); return; }
   const ok = h.box.portal && tryPlacePortal(idx, h);
   fxOrb(idx, o.clone().add(tmpA.copy(d).multiplyScalar(0.5)), h.point, ok ? idx : -1, h);
   if (ok) { run.portals++; run.used++; sfx.open(idx); updateCross(); onPortalPlaced(); }
@@ -3324,6 +3347,7 @@ function teleportPlayer(P) {
   const rot = _qb.setFromRotationMatrix(_tm.extractRotation(P.T)); _qa.premultiply(rot);
   const eyeCam = eyeOld.clone().applyMatrix4(P.T);              // where the camera is after passing through
   pl.p.applyMatrix4(P.T); pl.v.applyMatrix3(P.R);
+  { const O = portals[1 - P.idx]; if (O.n.y < -0.9 && O.boxes.some(b => b.roost)) { pl.v.x = 0; pl.v.z = 0; } }    // v7.8: a roof panel over a gantry (`roost`) drops you straight down onto it, so a fall-and-climb-back never overshoots
   _f.set(0, 0, -1).applyQuaternion(_qa); _up.set(0, 1, 0).applyQuaternion(_qa);
   pl.pitch = clamp(Math.asin(clamp(_f.y, -1, 1)), -1.5, 1.5);
   pl.yaw = Math.hypot(_f.x, _f.z) > 1e-3 ? Math.atan2(-_f.x, -_f.z) : (_f.y > 0 ? Math.atan2(_up.x, _up.z) : Math.atan2(-_up.x, -_up.z));
@@ -4649,7 +4673,7 @@ addEventListener("pagehide", goBackground); addEventListener("pageshow", syncVis
 document.addEventListener("freeze", goBackground); document.addEventListener("resume", syncVisibility);
 setInterval(syncVisibility, 500);     // safety net: some iPad window changes never fire an event
 for (const ev of ["pointerdown", "keydown", "touchend", "click"]) addEventListener(ev, () => { if (actx && !bg && actx.state !== "running") { actx.resume().catch(() => {}); Music.kick(); } }, { passive: true, capture: true });
-function applyAudioOpts() { if (!actx) return; musicBus.gain.setTargetAtTime(opts.music ? 0.55 : 0, actx.currentTime, 0.1); sfxBus.gain.setTargetAtTime(opts.sfx ? 0.8 : 0, actx.currentTime, 0.1); }
+function applyAudioOpts() { if (!actx) return; musicBus.gain.setTargetAtTime(opts.music && !liftMute ? 0.55 : 0, actx.currentTime, 0.1); sfxBus.gain.setTargetAtTime(opts.sfx ? 0.8 : 0, actx.currentTime, 0.1); }
 
 /* ---------- music: a steady, never-silent bed (drone, bass, pulse, arpeggio) with a short motif every bar ---------- */
 const Music = (() => {
@@ -4855,7 +4879,8 @@ function loadVoice(text) {
 }
 function preloadVoice(lines) { if (actx && opts.voice) for (const l of lines) loadVoice(l); }
 let showDuck = false;                 // v7.2: the TV show keeps the room music down while it plays
-function duckMusic(on) { if (showDuck) on = true; if (actx && musicBus) musicBus.gain.setTargetAtTime(opts.music ? (on ? 0.2 : 0.55) : 0, actx.currentTime, on ? 0.08 : 0.5); }
+let liftMute = false;                 // v7.8: in the lift (the ride and the docked car until you step out) the room music is off: only the Muzak plays
+function duckMusic(on) { if (showDuck) on = true; if (actx && musicBus) musicBus.gain.setTargetAtTime(opts.music && !liftMute ? (on ? 0.2 : 0.55) : 0, actx.currentTime, liftMute ? 0.15 : on ? 0.08 : 0.5); }
 function nextSub() {
   if (subBusy || !subQ.length) return;
   const text = subQ.shift(); subBusy = true;
@@ -6357,20 +6382,21 @@ const HoldMusic = (() => {
     } catch (e) { console.error(e); }
     busy = false;
   }
-  function play() {
+  function play() {                     // v7.8: entering the lift. The room music goes off until you leave it; the Muzak loops for as long as you stay
+    liftMute = true; duckMusic(false);
     if (!actx || !buf || !opts.music || src) return;
     try {
       const hp = actx.createBiquadFilter(), lp = actx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 160; lp.type = "lowpass"; lp.frequency.value = 5200;   // a small ceiling speaker
-      gain = actx.createGain(); gain.gain.setValueAtTime(0.0001, actx.currentTime); gain.gain.linearRampToValueAtTime(0.42, actx.currentTime + 0.5);
+      gain = actx.createGain(); gain.gain.setValueAtTime(0.0001, actx.currentTime); gain.gain.linearRampToValueAtTime(0.8, actx.currentTime + 0.5);     // v7.8: louder (was 0.42)
       src = actx.createBufferSource(); src.buffer = buf; src.loop = true; src.connect(hp); hp.connect(lp); lp.connect(gain); gain.connect(master);
       startedAt = actx.currentTime - pos; src.start(0, pos % LEN); duckMusic(true);
     } catch (e) { console.error(e); src = null; }
   }
-  function stop(fade = 0.9) {
+  function stop(fade = 0.9) {           // leaving the lift: the Muzak fades and the room music comes back
+    const was = liftMute; liftMute = false; if (was) duckMusic(false);
     if (!src || !actx) return;
     const s = src, g = gain, t = actx.currentTime; pos = (t - startedAt) % LEN; src = null;
     try { g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0.0001, t + fade); s.stop(t + fade + 0.05); } catch (e) {}
-    duckMusic(false);
   }
   return { render, play, stop, get ready() { return !!buf; }, get playing() { return !!src; }, get buf() { return buf; } };
 })();
@@ -6696,8 +6722,7 @@ const Lift = (() => {
   function arrived() {
     if (!on) return; on = false; scenePass.scene = scene; camera.fov = 72; camera.updateProjectionMatrix();
     $("liftHud").hidden = true; if (!built) { built = true; if (after) after(); }
-    Dock.board(ly, lp);                       // stand in the docked car the way you were standing in this one
-    HoldMusic.stop(1.4);                      // the hold music fades as the doors open
+    if (!Dock.board(ly, lp)) HoldMusic.stop(1.4);     // stand in the docked car the way you were standing in this one; v7.8: the Muzak keeps playing until you step out (Dock.step)
     $("hud").hidden = false; resetSticks(); syncTouch && syncTouch();
     requestAnimationFrame(() => $("fade").classList.remove("on"));
   }
@@ -6835,10 +6860,11 @@ const Dock = (() => {
     phase = "wait"; tt = 0; setOpen(0); car.setFloor(liftFloorTxt, 0);
     return true;
   }
-  function shut() { if (!d || !car) return; phase = "shut"; tt = 0; setOpen(0); }      // a respawn or restart: the doors are closed
+  function shut() { if (!Lift.on) HoldMusic.stop(0.6); if (!d || !car) return; phase = "shut"; tt = 0; setOpen(0); }      // v7.8: and you are out of the lift, so the Muzak stops      // a respawn or restart: the doors are closed
   function step(dt) {                     // from the door update, every physics step
     if (!d || !door) return;
     tt += dt;
+    if (liftMute && !Lift.on && depth() > 0.3) HoldMusic.stop(1.2);      // v7.8: stepped out of the car: the Muzak fades, the room music comes back
     if (phase === "wait") { if (tt > 0.45) { phase = "open"; tt = 0; sfx.ding(); } }
     else if (phase === "open") { setOpen(Math.min(1, e + dt / 0.9)); if (depth() > 1.8 && !propIn()) { phase = "close"; tt = 0; } }
     else if (phase === "close") { setOpen(Math.max(0, e - dt / 1.1)); if (e <= 0) phase = "shut"; else if (depth() < 1.2 && depth() > -CAR.D - 1) { phase = "open"; } }
