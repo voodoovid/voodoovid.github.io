@@ -73,7 +73,8 @@ body.mouselook #stage, body.mouselook #gl { cursor: none; }
 #liftHud { position: absolute; inset: 0; z-index: 14; pointer-events: none; font-family: inherit; }
 #liftFloor { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 22px); left: 50%; transform: translateX(-50%); padding: 6px 16px; border-radius: 8px; background: rgba(8,10,12,.72); border: 1px solid rgba(255,140,60,.55); color: #ffb067; font: 700 22px/1 "SF Mono", ui-monospace, Menlo, monospace; letter-spacing: .12em; text-shadow: 0 0 10px rgba(255,140,60,.6); }
 #liftTo { position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 46px); transform: translateX(-50%); color: rgba(235,242,248,.9); font-weight: 700; font-size: 13px; letter-spacing: .22em; text-transform: uppercase; text-shadow: 0 1px 6px rgba(0,0,0,.8); white-space: nowrap; }
-#liftSkip { position: absolute; right: 18px; bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); color: rgba(235,242,248,.55); font-size: 12px; letter-spacing: .08em; }
+#liftSkip { position: absolute; right: calc(env(safe-area-inset-right, 0px) + 18px); bottom: calc(env(safe-area-inset-bottom, 0px) + 18px); pointer-events: auto; cursor: pointer; padding: 9px 18px; border-radius: 999px; background: rgba(8,10,12,.6); border: 1px solid rgba(235,242,248,.35); color: rgba(235,242,248,.85); font: 700 12px/1 inherit; font-family: inherit; letter-spacing: .14em; text-transform: uppercase; -webkit-tap-highlight-color: transparent; }
+#liftSkip:hover { border-color: rgba(255,176,103,.8); color: #ffb067; }
 #cut { position: absolute; inset: 0; z-index: 30; pointer-events: none; }
 #cutGrain { position: absolute; inset: 0; pointer-events: none; opacity: .055; mix-blend-mode: overlay; background-size: 192px 192px; } #cutGrain::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) 55%, rgba(0,0,0,.42) 100%); }
 #cut .bar { position: absolute; left: 0; right: 0; height: 8.5%; background: #000; } #cut .bar.t { top: 0; } #cut .bar.b { bottom: 0; }
@@ -368,6 +369,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
         </div>
         <div class="gtwo">
           <div class="gsec"><h3>What you will meet</h3><ul>
+            <li><b>The lift</b> between rooms: look around as it goes down. <b>Skip</b> (or <kbd>Space</kbd>, or A) ends the ride early. When the doors open, walk out into the next room yourself.</li>
             <li><b>Acid</b>: do not touch. SaDos finds this funny.</li>
             <li><b>Cubes</b> sit on the round <b>buttons</b> to open <b>doors</b>. Cubes cannot pass a reset field.</li>
             <li><b>Sentries</b> see in front of them and shoot after a moment's warning. A live one <b>jams portals</b> inside its red ring. Come at one from behind or the side and <b>GRAB</b> picks it up: it sleeps while carried, shields you from other sentries, weighs down a button, and wakes a moment after you put it down, facing the way you were. It cannot be pushed over: only a falling cube, or another sentry's fire, puts one out for good.</li>
@@ -452,7 +454,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
   </div>
 
   <div id="fade">LIFT</div>
-  <div id="liftHud" hidden><div id="liftFloor">B01</div><div id="liftTo"></div><div id="liftSkip">Tap to skip</div></div>
+  <div id="liftHud" hidden><div id="liftFloor">B01</div><div id="liftTo"></div><button type="button" id="liftSkip" data-tip="Skip the rest of the ride; you still walk out yourself">Skip</button></div>
   <div id="cut" hidden>
     <div class="bar t"></div><div class="bar b"></div>
     <div id="cutGrain"></div>
@@ -476,7 +478,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 await RAPIER.init();
 
-const VERSION = "v7.0";
+const VERSION = "v7.1";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -2519,6 +2521,7 @@ function disposeLevel() {
 function buildLevel(idx) {
   disposeLevel();
   const lv = LEVEL_FUNCS[idx](); lv.num = ROOM[idx].c + 1;
+  try { planDock(lv); } catch (e) { console.error(e); lv.dock = null; }       // v7.1: the lift alcove behind the start
   for (const sg of lv.signs) if (sg.kind === "chamber" && /^TEST CHAMBER/.test(sg.a)) sg.a = "TEST CHAMBER " + String(lv.num).padStart(2, "0");   // numbered by the chamber it belongs to
   const W = world = { idx, lv, solids: lv.boxes, air: lv.air.map(a => bx(...a)), doors: [], plates: [], cubes: [], camProps: [], acid: [], fx: [], t: 0, dyn: [], sentries: [], beams: [], receivers: [], fields: [], gravs: [], pools: [], offices: [], cams: [], movers: [], glass: [], spinners: [], core: null, walks: [], streams: [], sprayers: [], sparkers: [], sockets: [], crushers: [], shifters: [], switches: [], blobs: [], patches: [], ev: {} };
   // static surfaces
@@ -2591,6 +2594,7 @@ function buildLevel(idx) {
     strip(0.05, hgt * 0.55, d.min[1] + hgt * 0.45, d.min[2] - 0.085); strip(0.05, hgt * 0.55, d.min[1] + hgt * 0.45, d.max[2] + 0.085);   // and down each jamb
     W.doors.push({ need: d.need || 1, id: d.id, auto: !!d.auto, box, min0: d.min.slice(), max0: d.max.slice(), rise: d.rise, t: 0, group: g, lights, light: lights[0], open: false });
   }
+  Dock.attach(W);           // v7.1: the docked car and its doors
   // moving panels: a slab that slides back and forth along a wall. A portal placed on one rides along with it
   for (const d of (lv.movers || [])) {
     const mat = d.mat || "white", box = { min: d.min.slice(), max: d.max.slice(), mat, portal: mat === "white" };
@@ -3182,6 +3186,7 @@ function viewDir(out) { return out.set(-Math.sin(player.yaw) * Math.cos(player.p
 function eyePos(out) { return out.set(player.p.x, player.p.y + EYE, player.p.z); }
 const portalLimit = () => (world.lv.par ? world.lv.par[1] : 4) + 2;      // challenge mode: this many portals per attempt at a room
 function firePortal(idx) {
+  if (Lift.on) return;          // v7.1: no shots while the lift is still moving (the next room is already built behind it)
   if (state !== "play" || !world) return;
   if (opts.challenge && run.used >= portalLimit()) { sfx.fizzle(); toast("Out of portals. Restart the room to try again."); return; }
   if (portals[idx].locked) { sfx.fizzle(); toast("The facility is holding that portal open"); return; }     // a held portal is the level's, not yours
@@ -3924,6 +3929,7 @@ function angDiff(a, b) { let d = a - b; while (d > Math.PI) d -= Math.PI * 2; wh
 /* ---------- grab / drop ---------- */
 const tipOnce = k => { const n = store.get(k, 0); if (n >= 3) return false; store.set(k, n + 1); return true; };
 function useAction() {
+  if (Lift.on) return;
   if (state !== "play" || !world) return;
   if (v5Use()) return;
   if (holding) { dropCube(); return; }
@@ -4361,6 +4367,7 @@ function physicsStep(dt) {
   for (const d of W.doors) d.want = d.auto ? (alive && Math.abs(pl.p.x - d.box.min[0]) < 5 && Math.abs(pl.p.z - (d.min0[2] + d.max0[2]) / 2) < 4 && Math.abs(pl.p.y - HY - d.min0[1]) < 2.5 ? 1 : d.want0 || 0) : d.cnt >= (d.need || 1) ? 1 : 0;
   for (const d of W.doors) if (d.auto && d.want) d.want0 = 1;     // once an open-plan exit has opened for you it stays open
   for (const d of W.doors) {
+    if (d.dock) { Dock.step(dt); continue; }          // v7.1: the lift doors run themselves
     const was = d.open;
     d.t = clamp(d.t + (d.want ? 1 : -1) * dt * 1.15, 0, 1);
     d.open = d.t > 0.05; if (d.open !== was) sfx.door(d.open);
@@ -4394,6 +4401,7 @@ function respawn() {
   if (portals[0].on || portals[1].on) { clearPortals(); updateCross(); }   // dying closes your portals, so a pair by the spawn can't drop you straight back into the acid
   cam.roll = 0; camOffset.set(0, 0, 0); eyePos(prevEye); state = "play"; pl.hp = 100; run.sinceHit = 9; hurtFlash = 0;
   for (const c of props()) if (c.p.y < world.lv.start.pos[1] - 40 || c.returnOnRespawn) { c.returnOnRespawn = false; respawnCube(c); }
+  Dock.shut();
 }
 function resetLevelState() {
   run.deaths = 0; run.roomT = 0;
@@ -4643,6 +4651,8 @@ const sfx = {
   grab: SFX(t => { osc("triangle", 300, 500, t, 0.14, 0.14); osc("triangle", 500, 760, t + 0.07, 0.14, 0.1); }),
   drop: SFX(t => { osc("triangle", 500, 260, t, 0.16, 0.14); noise(t, 0.1, 0.1, 700, 200, 1, "lowpass"); }),
   button: SFX((t, on) => { osc("square", on ? 330 : 250, on ? 330 : 170, t, 0.1, 0.07); osc("sine", on ? 660 : 330, on ? 660 : 220, t + 0.05, 0.2, 0.12); }),
+  ding: SFX(t => { osc("triangle", 1318, 1318, t, 0.9, 0.07); osc("sine", 2636, 2636, t, 0.4, 0.02); osc("triangle", 988, 988, t + 0.22, 1.2, 0.07); }),
+  slide: SFX((t, open) => { noise(t, 0.85, 0.05, open ? 300 : 700, open ? 700 : 300, 1.0); osc("sine", 55, 50, t, 0.85, 0.05); }),
   door: SFX((t, open) => { noise(t, 0.7, 0.1, open ? 200 : 900, open ? 900 : 200, 1.4); osc("sawtooth", open ? 90 : 140, open ? 140 : 80, t, 0.6, 0.05); }),
   death: SFX(t => { noise(t, 0.9, 0.35, 2800, 120, 0.8); osc("sawtooth", 220, 40, t, 0.8, 0.22); }),
   sentryOff: SFX(t => { osc("sawtooth", 300, 40, t, 0.6, 0.18); noise(t, 0.5, 0.2, 2400, 200, 1); osc("square", 90, 50, t + 0.4, 0.2, 0.1); }),
@@ -4797,7 +4807,7 @@ function showOv(id) {
 }
 function hideOv() { for (const o of OVS) $(o).hidden = true; syncTouch(); }
 function anyOv() { return OVS.find(o => !$(o).hidden) || null; }
-function syncTouch() { $("touch").hidden = !(isTouch && state === "play" && !anyOv()); }
+function syncTouch() { $("touch").hidden = !(isTouch && state === "play" && !anyOv() && !(typeof Lift !== "undefined" && Lift.on)); }     // v7.1: no walk stick or buttons in the lift
 $("ver").textContent = VERSION; for (const id of ["vTitle", "vOpt", "vPause"]) $(id).textContent = "Test Chambers " + VERSION;
 
 function inFull() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
@@ -4982,7 +4992,7 @@ let lockFailed = false, lockAsked = false, mouseMode = false, locked = false, la
 function enterMouseMode() { if (mouseMode) return; mouseMode = true; document.body.classList.add("mouselook"); }
 document.addEventListener("pointerlockchange", () => {
   locked = !!document.pointerLockElement;
-  if (!locked && state === "play" && !isTouch) pause();
+  if (!locked && state === "play" && !isTouch && !Lift.on) pause();
 });
 document.addEventListener("pointerlockerror", () => { lockFailed = true; });
 function tryLock() { setTimeout(() => { if (!document.pointerLockElement) lockFailed = true; }, 600); tryLock0(); }
@@ -4997,7 +5007,7 @@ canvas.addEventListener("mousedown", e => {
 addEventListener("contextmenu", e => e.preventDefault());
 // a trackpad or mouse: pointer lock where it exists, otherwise follow the (hidden) cursor and keep turning at the screen edge
 addEventListener("mousemove", e => {
-  if (state !== "play" || anyOv()) return;
+  if ((state !== "play" && !Lift.on) || anyOv()) return;
   if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
   enterMouseMode();
   // locked to the centre (the gun's sights): the view follows the trackpad one to one, straight away, with no easing
@@ -5029,6 +5039,7 @@ const stick = { id: null, ox: 0, oy: 0, x: 0, y: 0 }, looks = new Map();
 const base = $("stickBase"), knob = $("stickKnob"), STICK_R = 62;
 function blockedTarget(t) { return !!(t.closest && t.closest(".ov,.ibtn,.tbtn,#gamesPill,[data-pill],#hudBtns,button")); }
 stageEl.addEventListener("pointerdown", e => {
+  if (e.pointerType === "touch" && Lift.on && !anyOv()) { if (!blockedTarget(e.target) && !e.target.closest("#liftSkip")) { looks.set(e.pointerId, { x: e.clientX, y: e.clientY }); e.preventDefault(); } return; }   // v7.1: in the lift, any finger looks around
   if (e.pointerType !== "touch" || state !== "play" || anyOv()) return;
   const tb = e.target.closest && e.target.closest(".tbtn");
   if (tb) {
@@ -5069,7 +5080,7 @@ for (const ev of ["touchend", "touchcancel"]) addEventListener(ev, e => {
   if (stick.id !== null) { const r = stageEl.getBoundingClientRect(); if (![...e.touches].some(t => t.clientX - r.left < innerWidth * 0.5)) resetSticks(); }   // no finger left on the stick side
 }, true);
 addEventListener("blur", resetSticks); document.addEventListener("visibilitychange", () => { if (document.hidden) resetSticks(); });
-stageEl.addEventListener("touchmove", e => { if (state === "play") e.preventDefault(); }, { passive: false });
+stageEl.addEventListener("touchmove", e => { if (state === "play" || Lift.on) e.preventDefault(); }, { passive: false });
 document.addEventListener("gesturestart", e => e.preventDefault());
 
 /* ---------- controller ---------- */
@@ -5100,7 +5111,7 @@ function readPad() {
   const raw = [0, 1, 2, 3].map(i => gp.axes[i] || 0);
   const now = performance.now();
   raw.forEach((v, i) => { if (Math.abs(v - padLast[i]) < 0.015 && Math.abs(v) < 0.3) { if (!padStill[i]) padStill[i] = now; if (now - padStill[i] > 1500) padRest[i] = v; } else padStill[i] = 0; padLast[i] = v; });
-  if (state !== "play" || anyOv()) return out;
+  if ((state !== "play" && !Lift.on) || anyOv()) return out;
   const c = raw.map((v, i) => v - padRest[i]);
   const rad = (x, y) => { const m = Math.hypot(x, y), DZ = 0.24; if (m < DZ) return [0, 0]; const k = Math.min(1, (m - DZ) / (1 - DZ)) / m; return [x * k, y * k]; };      // round dead zone, so a stick leaning on one axis can't creep on the other
   [out.mx, out.my] = rad(c[0], c[1]); [out.lx, out.ly] = rad(c[2], c[3]);
@@ -5432,6 +5443,19 @@ function fieldTex() {
   }, false); return t;
 }
 
+// every way of looking (touch, trackpad, mouse, controller) as a turn this frame; used in a chamber and in the lift
+function takeLook(dt) {
+  const pad = readPad(); let dyaw = 0;
+  { const sm = 1 - Math.exp(-dt * 26), ax = mLookX * sm, ay = mLookY * sm; mLookX -= ax; mLookY -= ay; inp.lookX += ax; inp.lookY += ay; if (Math.abs(mLookX) < 1e-5) mLookX = 0; if (Math.abs(mLookY) < 1e-5) mLookY = 0; }   // trackpad look is eased over a few frames
+  if (mouseMode && !document.pointerLockElement) {
+    const on = edgeX || edgeY; edgeHold = on ? Math.min(1, edgeHold + dt * 2.5) : 0;        // edge turning eases in, so grazing the edge doesn't spin the view
+    dyaw -= Math.sign(edgeX) * edgeX * edgeX * 1.5 * opts.sens * dt * edgeHold; inp.lookY += Math.sign(edgeY) * edgeY * edgeY * 0.9 * opts.sens * dt * edgeHold * (opts.invert ? -1 : 1);
+  }
+  dyaw -= inp.lookX + pad.lx * 2.6 * opts.sens * dt;
+  const dpitch = -(inp.lookY + pad.ly * 2.1 * opts.sens * dt * (opts.invert ? -1 : 1));
+  inp.lookX = inp.lookY = 0;
+  return { pad, dyaw, dpitch };
+}
 let lastT = 0, acc = 0, titleT = 0, fpsAcc = 0, fpsN = 0;
 const STEP = 1 / 120;
 function frame(ts) {
@@ -5443,20 +5467,13 @@ function frame(ts) {
   fpsAcc += dt * 1000; if (++fpsN >= 10) { adaptQuality(fpsAcc / fpsN); fpsAcc = fpsN = 0; }
   const playing = state === "play" || state === "dead";
   if (playing) {
-    const pad = readPad();
-    { const sm = 1 - Math.exp(-dt * 26), ax = mLookX * sm, ay = mLookY * sm; mLookX -= ax; mLookY -= ay; inp.lookX += ax; inp.lookY += ay; if (Math.abs(mLookX) < 1e-5) mLookX = 0; if (Math.abs(mLookY) < 1e-5) mLookY = 0; }   // trackpad look is eased over a few frames
-    if (mouseMode && !document.pointerLockElement) {
-      const on = edgeX || edgeY; edgeHold = on ? Math.min(1, edgeHold + dt * 2.5) : 0;        // edge turning eases in, so grazing the edge doesn't spin the view
-      player.yaw -= Math.sign(edgeX) * edgeX * edgeX * 1.5 * opts.sens * dt * edgeHold; inp.lookY += Math.sign(edgeY) * edgeY * edgeY * 0.9 * opts.sens * dt * edgeHold * (opts.invert ? -1 : 1);
-    }
-    player.yaw -= inp.lookX + pad.lx * 2.6 * opts.sens * dt;
-    player.pitch = clamp(player.pitch - (inp.lookY + pad.ly * 2.1 * opts.sens * dt * (opts.invert ? -1 : 1)), -1.5, 1.5);
-    inp.lookX = inp.lookY = 0;
+    const L = takeLook(dt), pad = L.pad;
+    player.yaw += L.dyaw; player.pitch = clamp(player.pitch + L.dpitch, -1.5, 1.5);
     wheelV *= Math.exp(-dt * 9); wheelS *= Math.exp(-dt * 9); if (Math.abs(wheelV) < 0.04) wheelV = 0; if (Math.abs(wheelS) < 0.04) wheelS = 0;
     inp.fwd = clamp((keys.f ? 1 : 0) - (keys.b ? 1 : 0) - stick.y - pad.my + wheelV, -1, 1);
     inp.right = clamp((keys.r ? 1 : 0) - (keys.l ? 1 : 0) + stick.x + pad.mx + wheelS, -1, 1);
     acc += dt; let n = 0;
-    while (acc >= STEP && n++ < 12) { physicsStep(STEP); acc -= STEP; run.time += STEP; }
+    while (acc >= STEP && n++ < 12) { physicsStep(STEP); acc -= STEP; if (!Dock.holding) run.time += STEP; }      // v7.1: the clock starts when you step out of the lift
     if (n >= 12) acc = 0;
     sadosTick(dt);
     cam.yaw = player.yaw; cam.pitch = player.pitch;
@@ -6053,25 +6070,177 @@ const Cut = (() => {
 })();
 
 /* =====================================================================================
-   The lift between rooms: a glass car dropping through the shaft past other test tracks. About four seconds,
-   skippable (tap, Return, Space, Esc, any pad face button). The next room is built while you ride, so you never wait at the far end.
+   v7.1 The lift car: a square glass car, 4 m by 4 m and 3.2 m high, with sliding double doors 2 m wide.
+   One model serves the ride down the shaft (Lift) and the car docked behind the start of every room (Dock),
+   so the car you ride in is the car you walk out of.
+   ===================================================================================== */
+const CAR = { W: 4.0, D: 4.0, H: 3.2, DW: 2.0, DH: 2.6, EYE_Z: 0.6, T: 0.5 };      // size, door size, where you stand (behind the centre), tunnel depth through the wall
+let _carM = null;
+function carMats() {
+  if (_carM) return _carM;
+  const std = o => new THREE.MeshStandardMaterial(Object.assign({ envMap: ENV }, o));
+  const tread = canvasTex(256, 256, (g, w, h) => {                       // diamond plate, so the floor reads as a lift floor
+    g.fillStyle = "#3b4248"; g.fillRect(0, 0, w, h);
+    for (let y = 0; y < h; y += 32) for (let x = (y / 32) % 2 ? 16 : 0; x < w; x += 32) { g.save(); g.translate(x + 8, y + 8); g.rotate(((x + y) / 32) % 2 ? .6 : -.6); g.fillStyle = "#5d666e"; g.fillRect(-7, -2, 14, 4); g.fillStyle = "#262b30"; g.fillRect(-7, 2, 14, 1); g.restore(); }
+  });
+  tread.repeat.set(5, 5);
+  const ind = canvasTex(256, 64, (g, w, h) => { g.fillStyle = "#0c0e10"; g.fillRect(0, 0, w, h); g.fillStyle = "#ffb067"; g.beginPath(); g.moveTo(w / 2 - 16, 18); g.lineTo(w / 2 + 16, 18); g.lineTo(w / 2, 46); g.fill(); g.fillRect(w / 2 - 70, 26, 34, 6); g.fillRect(w / 2 + 36, 26, 34, 6); }, false);
+  _carM = {
+    steel: std({ color: 0xb9c1c8, roughness: .3, metalness: .85, envMapIntensity: 1.2 }),
+    brushed: std({ color: 0x8e979f, roughness: .38, metalness: .8, envMapIntensity: 1.0 }),
+    darkSteel: std({ color: 0x2b3137, roughness: .4, metalness: .7, envMapIntensity: .9 }),
+    tread: std({ map: tread, roughness: .55, metalness: .6, envMapIntensity: .7 }),
+    glass: new THREE.MeshStandardMaterial({ color: 0xbfd8e8, roughness: .05, metalness: .1, transparent: true, opacity: .09, envMap: ENV, envMapIntensity: .6, side: THREE.DoubleSide, depthWrite: false }),
+    light: new THREE.MeshBasicMaterial({ color: new THREE.Color(1.02, 1.0, .95) }),
+    amber: new THREE.MeshBasicMaterial({ color: new THREE.Color(2.6, 1.2, .25) }),
+    green: new THREE.MeshBasicMaterial({ color: new THREE.Color(.4, 2.2, .7) }),
+    ind: new THREE.MeshBasicMaterial({ map: ind, color: new THREE.Color(1.6, 1.6, 1.6) })
+  };
+  return _carM;
+}
+// the car, built round its floor centre; the doors are on the -z face (the way a yaw of 0 looks)
+function buildCar() {
+  const M = carMats(), g = new THREE.Group(), { W, D, H, DW, DH } = CAR;
+  const box = (m, sx, sy, sz, x, y, z) => { const o = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), m); o.position.set(x, y, z); g.add(o); return o; };
+  const plane = (m, sx, sy, x, y, z, ry, rx) => { const o = new THREE.Mesh(new THREE.PlaneGeometry(sx, sy), m); o.position.set(x, y, z); o.rotation.set(rx || 0, ry || 0, 0); g.add(o); return o; };
+  box(M.darkSteel, W, 0.12, D, 0, -0.06, 0); plane(M.tread, W - 0.24, D - 0.24, 0, 0.004, 0, 0, -Math.PI / 2);
+  box(M.darkSteel, W, 0.16, D, 0, H + 0.08, 0);
+  plane(M.light, W - 1.9, D - 2.1, 0, H - 0.006, 0.15, 0, Math.PI / 2);                       // the ceiling light, a soft panel
+  box(M.brushed, W - 0.9, 0.04, 0.12, 0, H - 0.02, -D / 2 + 0.55); box(M.brushed, W - 0.9, 0.04, 0.12, 0, H - 0.02, D / 2 - 0.4);
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) box(M.steel, 0.12, H, 0.12, sx * (W / 2 - 0.06), H / 2, sz * (D / 2 - 0.06));      // corner posts
+  for (const sx of [-1, 1]) box(M.steel, 0.06, H, 0.08, sx * (W / 2 - 0.04), H / 2, 0.3);
+  box(M.steel, 0.08, H, 0.06, 0, H / 2, D / 2 - 0.04);
+  plane(M.glass, W - 0.12, H, 0, H / 2, D / 2 - 0.03, Math.PI);                                 // three glass walls
+  for (const sx of [-1, 1]) plane(M.glass, D - 0.12, H, sx * (W / 2 - 0.03), H / 2, 0, -sx * Math.PI / 2);
+  box(M.darkSteel, W - 0.2, 0.18, 0.04, 0, 0.09, D / 2 - 0.07); for (const sx of [-1, 1]) box(M.darkSteel, 0.04, 0.18, D - 0.3, sx * (W / 2 - 0.07), 0.09, 0.1);   // kick plates
+  box(M.steel, W - 0.5, 0.1, 0.05, 0, H - 0.1, D / 2 - 0.06); for (const sx of [-1, 1]) box(M.steel, 0.05, 0.1, D - 0.5, sx * (W / 2 - 0.06), H - 0.1, 0.1);
+  box(M.steel, W - 0.5, 0.05, 0.05, 0, 1.0, D / 2 - 0.16); for (const sx of [-1, 1]) box(M.steel, 0.05, 0.05, D - 0.9, sx * (W / 2 - 0.16), 1.0, 0.2);   // handrail
+  for (const x of [-1.2, 0, 1.2]) box(M.steel, 0.04, 0.04, 0.12, x, 1.0, D / 2 - 0.1);
+  for (const sx of [-1, 1]) for (const z of [-0.9, 0.3, 1.4]) box(M.steel, 0.12, 0.04, 0.04, sx * (W / 2 - 0.1), 1.0, z);
+  // the front: two steel panels and a header round the doorway, a floor display, a call panel
+  const pw = (W - DW) / 2;
+  for (const sx of [-1, 1]) box(M.brushed, pw, H, 0.08, sx * (DW / 2 + pw / 2), H / 2, -D / 2 + 0.04);
+  box(M.brushed, DW, H - DH, 0.08, 0, (DH + H) / 2, -D / 2 + 0.04);
+  for (const sx of [-1, 1]) box(M.steel, 0.05, DH, 0.12, sx * (DW / 2 + 0.025), DH / 2, -D / 2 + 0.06);
+  box(M.darkSteel, 0.72, 0.2, 0.02, 0, DH + 0.3, -D / 2 + 0.09); plane(M.ind, 0.66, 0.165, 0, DH + 0.3, -D / 2 + 0.101);
+  const cp = box(M.darkSteel, 0.26, 0.56, 0.03, DW / 2 + 0.5, 1.25, -D / 2 + 0.095);
+  const lamps = [];
+  for (let i = 0; i < 5; i++) { const b = new THREE.Mesh(new THREE.CircleGeometry(0.03, 16), i === 4 ? M.amber : M.brushed); b.position.set(DW / 2 + 0.5, 1.44 - i * 0.09, -D / 2 + 0.112); g.add(b); if (i === 4) lamps.push(b); }
+  const st = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.03), M.amber); st.position.set(DW / 2 + 0.5, 1.5, -D / 2 + 0.112); g.add(st); lamps.push(st);
+  // two door leaves (glass in a steel frame) that slide sideways behind the front panels
+  const leaves = [];
+  for (const sx of [-1, 1]) {
+    const L = new THREE.Group(), lw = DW / 2;
+    const f = (sx2, sy, sz, x, y) => { const o = new THREE.Mesh(new THREE.BoxGeometry(sx2, sy, sz), M.steel); o.position.set(x, y, 0); L.add(o); };
+    f(lw, 0.08, 0.05, 0, DH - 0.04); f(lw, 0.16, 0.05, 0, 0.08); f(0.06, DH, 0.05, -sx * (lw / 2 - 0.03), DH / 2); f(0.04, DH, 0.05, sx * (lw / 2 - 0.02), DH / 2);
+    const gl = new THREE.Mesh(new THREE.PlaneGeometry(lw - 0.1, DH - 0.24), M.glass); gl.position.set(0, DH / 2 + 0.04, 0); L.add(gl);
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(lw - 0.1, 0.05, 0.03), M.brushed); bar.position.set(0, 1.0, 0.02); L.add(bar);
+    L.position.set(sx * lw / 2, 0, -D / 2 + 0.13); g.add(L); leaves.push({ g: L, sx });
+  }
+  g.traverse(o => { o.frustumCulled = false; });
+  const setDoor = e => { for (const l of leaves) l.g.position.x = l.sx * (DW / 4 + (DW / 2 - 0.02) * e); for (const m of lamps) m.material = e > 0.5 ? M.green : M.amber; };
+  setDoor(0);
+  return { g, setDoor };
+}
+
+/* =====================================================================================
+   v7.1 "Please Hold": the lift's music, an original bossa nova in F (vibraphone tune, electric piano, nylon guitar,
+   upright bass, brushes, strings, a flute on the second time round), the same tune the Hold Music cartoon uses.
+   Rendered once into a 16-bar loop shortly after boot (so the first ride never waits), played through a small
+   ceiling-speaker filter while you ride. It picks up where it left off on the next ride, follows the Music setting,
+   and the room's own music dips under it.
+   ===================================================================================== */
+const HoldMusic = (() => {
+  const BPM = 100, BEAT = 60 / BPM, BAR = BEAT * 4, BARS = 16, LEN = BARS * BAR, mid = m => 440 * Math.pow(2, (m - 69) / 12);
+  const MEL = [
+    [[0, 69, 3], [3, 67, 1], [4, 69, 2], [6, 72, 2]], [[0, 74, 3], [3, 72, 1], [4, 69, 4]], [[0, 70, 2], [2, 69, 1], [3, 67, 1], [4, 65, 2], [6, 62, 2]], [[0, 64, 6], [6, 67, 2]],
+    [[0, 76, 3], [3, 74, 1], [4, 72, 2], [6, 69, 2]], [[0, 66, 2], [2, 69, 2], [4, 72, 2], [6, 74, 2]], [[0, 70, 3], [3, 69, 1], [4, 67, 2], [6, 64, 2]], [[0, 65, 6]]
+  ];
+  const CH = [[53, [0, 4, 7, 11]], [50, [0, 3, 7, 10]], [55, [0, 3, 7, 10]], [48, [0, 4, 7, 10]], [57, [0, 3, 7, 10]], [50, [0, 4, 7, 10]], [55, [0, 3, 7, 10]], [48, [0, 4, 7, 10]]];
+  let buf = null, busy = false, src = null, gain = null, pos = 0, startedAt = 0;
+  async function render() {
+    if (buf || busy || typeof OfflineAudioContext === "undefined") return; busy = true;
+    try {
+      const sr = 32000, TAIL = 2.0, ac = new OfflineAudioContext(2, Math.ceil((LEN + TAIL) * sr), sr);
+      const out = ac.createGain(); out.gain.value = 0.9; out.connect(ac.destination);
+      const ir = ac.createBuffer(2, sr * 0.9, sr); let seed = 11; const rr = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+      for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < d.length; i++) d[i] = (rr() * 2 - 1) * Math.pow(1 - i / d.length, 3.2); }
+      const rev = ac.createConvolver(); rev.buffer = ir; const rg = ac.createGain(); rg.gain.value = 0.2; rev.connect(rg); rg.connect(out);
+      const mus = ac.createGain(); mus.gain.value = 0.8; mus.connect(out); mus.connect(rev);
+      const noise = ac.createBuffer(1, sr, sr); { const d = noise.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = rr() * 2 - 1; }
+      const vibes = (f, t, vol) => { const g = ac.createGain(), trem = ac.createGain(), lfo = ac.createOscillator(), lg = ac.createGain(); lfo.frequency.value = 5.2; lg.gain.value = 0.28; lfo.connect(lg); lg.connect(trem.gain); trem.gain.value = 0.72;
+        for (const [m, v] of [[1, 1], [4, 0.18], [10, 0.04]]) { const o = ac.createOscillator(); o.frequency.value = f * m; const og = ac.createGain(); og.gain.value = v; o.connect(og); og.connect(g); o.start(t); o.stop(t + 1.8); }
+        lfo.start(t); lfo.stop(t + 1.8); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.006); g.gain.setTargetAtTime(0.0001, t + 0.01, 0.55); g.connect(trem); trem.connect(mus); };
+      const flute = (f, t, len, vol) => { const o = ac.createOscillator(), g = ac.createGain(), vib = ac.createOscillator(), vg = ac.createGain(), lp = ac.createBiquadFilter(); o.type = "triangle"; o.frequency.value = f; vib.frequency.value = 5; vg.gain.value = f * 0.006; vib.connect(vg); vg.connect(o.frequency);
+        lp.type = "lowpass"; lp.frequency.value = 2600; o.connect(lp); lp.connect(g); g.connect(mus); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.07); g.gain.setValueAtTime(vol * 0.85, t + Math.max(0.08, len - 0.06)); g.gain.linearRampToValueAtTime(0.0001, t + len + 0.08); o.start(t); vib.start(t); o.stop(t + len + 0.1); vib.stop(t + len + 0.1); };
+      const ep = (f, t, len, vol) => { const c = ac.createOscillator(), m = ac.createOscillator(), mg = ac.createGain(), g = ac.createGain(); c.frequency.value = f; m.frequency.value = f; mg.gain.setValueAtTime(f * 1.6, t); mg.gain.setTargetAtTime(f * 0.15, t, 0.12); m.connect(mg); mg.connect(c.frequency); c.connect(g); g.connect(mus);
+        g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.008); g.gain.setTargetAtTime(vol * 0.4, t + 0.02, 0.25); g.gain.setTargetAtTime(0.0001, t + len, 0.08); c.start(t); m.start(t); c.stop(t + len + 0.5); m.stop(t + len + 0.5); };
+      const pluck = (f, t, vol) => { const o = ac.createOscillator(), o2 = ac.createOscillator(), lp = ac.createBiquadFilter(), g = ac.createGain(); o.type = "sawtooth"; o2.type = "triangle"; o.frequency.value = f; o2.frequency.value = f * 2.003; lp.type = "lowpass"; lp.frequency.setValueAtTime(f * 6, t); lp.frequency.setTargetAtTime(f * 1.4, t, 0.08);
+        o.connect(lp); o2.connect(lp); lp.connect(g); g.connect(mus); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.004); g.gain.setTargetAtTime(0.0001, t + 0.005, 0.22); o.start(t); o2.start(t); o.stop(t + 1.2); o2.stop(t + 1.2); };
+      const bass = (f, t, len, vol) => { const o = ac.createOscillator(), o2 = ac.createOscillator(), g = ac.createGain(), lp = ac.createBiquadFilter(), g2 = ac.createGain(); o.frequency.value = f; o2.type = "triangle"; o2.frequency.value = f; lp.type = "lowpass"; lp.frequency.value = 600; g2.gain.value = 0.35;
+        o2.connect(g2); g2.connect(lp); o.connect(lp); lp.connect(g); g.connect(mus); g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + 0.012); g.gain.setTargetAtTime(vol * 0.5, t + 0.03, 0.2); g.gain.setTargetAtTime(0.0001, t + len, 0.05); o.start(t); o2.start(t); o.stop(t + len + 0.3); o2.stop(t + len + 0.3); };
+      const brush = (t, vol, len) => { const s = ac.createBufferSource(); s.buffer = noise; const bp = ac.createBiquadFilter(), g = ac.createGain(); bp.type = "bandpass"; bp.frequency.value = 5200; bp.Q.value = 0.6; s.connect(bp); bp.connect(g); g.connect(mus);
+        g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + len * 0.4); g.gain.linearRampToValueAtTime(0.0001, t + len); s.start(t, (t * 7.3) % 0.8); s.stop(t + len + 0.02); };
+      const click = (t, vol) => { const o = ac.createOscillator(), g = ac.createGain(), bp = ac.createBiquadFilter(); o.type = "square"; o.frequency.value = 1700; bp.type = "bandpass"; bp.frequency.value = 1900; bp.Q.value = 4; o.connect(bp); bp.connect(g); g.connect(mus); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05); o.start(t); o.stop(t + 0.07); };
+      const pad = (fs, t, len, vol) => { for (const f of fs) for (const det of [-8, 7]) { const o = ac.createOscillator(), g = ac.createGain(), lp = ac.createBiquadFilter(); o.type = "sawtooth"; o.frequency.value = f; o.detune.value = det; lp.type = "lowpass"; lp.frequency.value = 1300; o.connect(lp); lp.connect(g); g.connect(mus);
+        g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + len * 0.45); g.gain.linearRampToValueAtTime(0.0001, t + len * 1.05); o.start(t); o.stop(t + len * 1.1); } };
+      const e8 = BEAT / 2;
+      for (let b = 0; b < BARS; b++) {
+        const t0 = b * BAR, bi = b % 8, [R, iv] = CH[bi];
+        for (const e of (b % 2 ? [0, 3, 6] : [0, 2, 5])) iv.forEach((s, j) => pluck(mid(R + 12 + s), t0 + e * e8 + j * 0.012, 0.035));
+        for (const e of [1, 4]) iv.forEach(s => ep(mid(R + 12 + s), t0 + e * e8, e8 * 1.5, 0.018));
+        pad(iv.map(s => mid(R + 24 + s)), t0, BAR, 0.006);
+        bass(mid(R - 12), t0, e8 * 2.8, 0.22); bass(mid(R - 5), t0 + 3 * e8, e8 * 0.9, 0.16); bass(mid(R - 5), t0 + 4 * e8, e8 * 2.8, 0.2); bass(mid(R - 12), t0 + 7 * e8, e8 * 0.9, 0.15);
+        for (let e = 0; e < 8; e++) brush(t0 + e * e8, e % 4 === 2 ? 0.05 : 0.022, e8 * 0.9); (b % 2 ? [2, 4] : [0, 3, 6]).forEach(e => click(t0 + e * e8, 0.05));
+        for (const [e, m, l] of MEL[bi]) { vibes(mid(m + 12), t0 + e * e8, 0.07); if (b >= 8) flute(mid(m + 12), t0 + e * e8, l * e8 * 0.95, 0.045); }
+      }
+      const r = await ac.startRendering();
+      // fold the tail back over the start, so the loop is seamless
+      const n = Math.round(LEN * sr), loop = new AudioBuffer({ numberOfChannels: 2, length: n, sampleRate: sr });
+      for (let c = 0; c < 2; c++) { const s = r.getChannelData(c), d = loop.getChannelData(c); for (let i = 0; i < n; i++) d[i] = s[i] + (i + n < s.length ? s[i + n] : 0); }
+      buf = loop;
+    } catch (e) { console.error(e); }
+    busy = false;
+  }
+  function play() {
+    if (!actx || !buf || !opts.music || src) return;
+    try {
+      const hp = actx.createBiquadFilter(), lp = actx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 160; lp.type = "lowpass"; lp.frequency.value = 5200;   // a small ceiling speaker
+      gain = actx.createGain(); gain.gain.setValueAtTime(0.0001, actx.currentTime); gain.gain.linearRampToValueAtTime(0.42, actx.currentTime + 0.5);
+      src = actx.createBufferSource(); src.buffer = buf; src.loop = true; src.connect(hp); hp.connect(lp); lp.connect(gain); gain.connect(master);
+      startedAt = actx.currentTime - pos; src.start(0, pos % LEN); duckMusic(true);
+    } catch (e) { console.error(e); src = null; }
+  }
+  function stop(fade = 0.9) {
+    if (!src || !actx) return;
+    const s = src, g = gain, t = actx.currentTime; pos = (t - startedAt) % LEN; src = null;
+    try { g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0.0001, t + fade); s.stop(t + fade + 0.05); } catch (e) {}
+    duckMusic(false);
+  }
+  return { render, play, stop, get ready() { return !!buf; }, get playing() { return !!src; } };
+})();
+
+/* =====================================================================================
+   The lift between rooms: the glass car dropping through the shaft past other test tracks. About four seconds.
+   v7.1: look around freely while it travels (the same look controls as in play); taps no longer skip it, the Skip button,
+   Return, Space, Esc or a pad face button do. The next room is built while you ride, and the ride ends with you
+   standing in the same car docked behind the start of the next room (Dock): the doors open and you walk out.
    ===================================================================================== */
 const Lift = (() => {
-  let S = null, t = 0, t0 = 0, on = false, after = null, built = null, skipT = -1, endT = -1, fl0 = 0, padHeld = true, sway = 0;
-  const DUR = 4.2, SEG = 24, DROP = 40;
+  let S = null, t = 0, t0 = 0, on = false, after = null, built = null, skipT = -1, endT = -1, fl0 = 0, padHeld = true, sway = 0, ly = 0, lp = 0;
+  const DUR = 4.2, SEG = 24, DROP = 40, HW = 4.4;
   const ease = x => { x = clamp(x, 0, 1); return x * x * x * (x * (x * 6 - 15) + 10); };
   function build() {
     if (S) return S;
-    const sc = new THREE.Scene(); sc.background = new THREE.Color(0x0b0d10); sc.fog = new THREE.Fog(0x0b0d10, 14, 52);
-    sc.add(new THREE.HemisphereLight(0xeef3f8, 0x2a3038, 0.75));
-    const carLight = new THREE.PointLight(0xfff0dc, 9, 14, 1.4); carLight.position.set(0, 1.0, 0); sc.add(carLight);
+    const sc = new THREE.Scene(); sc.background = new THREE.Color(0x0b0d10); sc.fog = new THREE.Fog(0x0b0d10, 16, 56);
+    sc.add(new THREE.HemisphereLight(0xeef3f8, 0x2a3038, 0.8));
+    const carLight = new THREE.PointLight(0xfff0dc, 12, 16, 1.4); carLight.position.set(0, 1.4, 0); sc.add(carLight);
     const std = o => new THREE.MeshStandardMaterial(Object.assign({ envMap: ENV }, o));
-    const wallTex = TEX.dark.clone(); wallTex.needsUpdate = true; wallTex.repeat.set(3, 9);
+    const wallTex = TEX.dark.clone(); wallTex.needsUpdate = true; wallTex.repeat.set(4, 9);
     const M = { wall: std({ map: wallTex, roughness: .42, metalness: .5, envMapIntensity: .5, color: 0x8c959d }), steel: std({ color: 0xb9c1c8, roughness: .3, metalness: .85, envMapIntensity: 1.2 }),
       darkSteel: std({ color: 0x2b3137, roughness: .4, metalness: .7 }), band: new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 2.3, 2.4) }), amber: new THREE.MeshBasicMaterial({ color: new THREE.Color(2.6, 1.2, .25) }),
-      glass: new THREE.MeshStandardMaterial({ color: 0xbfd8e8, roughness: .05, metalness: .1, transparent: true, opacity: .05, envMap: ENV, envMapIntensity: .5, side: THREE.DoubleSide, depthWrite: false }),
       hazard: new THREE.MeshStandardMaterial({ map: canvasTex(128, 32, (g, w, h) => { g.fillStyle = "#e3b21f"; g.fillRect(0, 0, w, h); g.fillStyle = "#15181b"; for (let x = -32; x < w + 32; x += 24) { g.beginPath(); g.moveTo(x, h); g.lineTo(x + 12, h); g.lineTo(x + 12 + h, 0); g.lineTo(x + h, 0); g.fill(); } }), roughness: .6, metalness: .2 }) };
-    M.hazard.map.repeat.set(8, 1);
+    M.hazard.map.repeat.set(10, 1);
     const winTex = canvasTex(512, 256, (g, w, h) => {                    // a glimpse into another test chamber: white panels, a lamp, a plate, a dark exit
       g.fillStyle = "#e9eef2"; g.fillRect(0, 0, w, h); g.strokeStyle = "#9aa6b1"; g.lineWidth = 3;
       for (let x = 0; x <= w; x += 64) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke(); } for (let y = 0; y <= h; y += 64) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
@@ -6081,7 +6250,7 @@ const Lift = (() => {
       g.fillStyle = "rgba(0,0,0,.18)"; g.fillRect(0, h * .86, w, h * .14);
     }, false);
     const winMat = new THREE.MeshBasicMaterial({ map: winTex, color: new THREE.Color(1.3, 1.3, 1.3) });
-    const shaft = new THREE.Group(); sc.add(shaft); const HW = 3.2;           // shaft half width
+    const shaft = new THREE.Group(); sc.add(shaft);
     for (let u = -2; u <= 2; u++) {                                          // five repeating units, wrapped as the car falls
       const g = new THREE.Group(); g.position.y = u * SEG; shaft.add(g);
       for (let k = 0; k < 4; k++) {
@@ -6101,51 +6270,173 @@ const Lift = (() => {
       }
       const amber = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 8), M.amber); amber.position.set(-HW + .05, 6, 0); g.add(amber);
     }
-    for (const [x, z] of [[-.9, -HW + .12], [.9, -HW + .12]]) { const rail = new THREE.Mesh(new THREE.BoxGeometry(0.12, SEG * 5, 0.1), M.steel); rail.position.set(x, 0, z); shaft.add(rail); }
-    // the car: a glass drum with a steel floor and crown, a handrail and a ring light
-    const car = new THREE.Group(); sc.add(car);
-    const R = 1.35, Hc = 2.7;
-    const floor = new THREE.Mesh(new THREE.CylinderGeometry(R + .05, R + .05, 0.14, 40), M.darkSteel); floor.position.y = -0.07; car.add(floor);
-    const crown = new THREE.Mesh(new THREE.CylinderGeometry(R + .05, R + .05, 0.18, 40), M.darkSteel); crown.position.y = Hc + .09; car.add(crown);
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(R - .12, 0.035, 8, 56), M.band); ring.rotation.x = Math.PI / 2; ring.position.y = Hc - .02; car.add(ring);
-    const glass = new THREE.Mesh(new THREE.CylinderGeometry(R, R, Hc, 48, 1, true), M.glass); glass.position.y = Hc / 2; glass.renderOrder = 3; car.add(glass);
-    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2 + Math.PI / 8, post = new THREE.Mesh(new THREE.BoxGeometry(0.05, Hc, 0.07), M.steel); post.position.set(Math.sin(a) * R, Hc / 2, Math.cos(a) * R); post.rotation.y = a; car.add(post); }
-    const rail = new THREE.Mesh(new THREE.TorusGeometry(R - .1, 0.022, 8, 56), M.steel); rail.rotation.x = Math.PI / 2; rail.position.y = 1.0; car.add(rail);
-    const lip = new THREE.Mesh(new THREE.TorusGeometry(R + .02, 0.03, 8, 56), M.amber); lip.rotation.x = Math.PI / 2; lip.position.y = 0.02; car.add(lip);
-    car.position.y = -1.62;
+    for (const [x, z] of [[-1.3, -HW + .12], [1.3, -HW + .12]]) { const rail = new THREE.Mesh(new THREE.BoxGeometry(0.12, SEG * 5, 0.1), M.steel); rail.position.set(x, 0, z); shaft.add(rail); }
+    const car = buildCar(); car.g.position.y = -EYE - HY; sc.add(car.g);      // the floor sits one eye height below the camera
     sc.traverse(o => { o.frustumCulled = false; });
-    return (S = { sc, shaft });
+    return (S = { sc, shaft, car });
   }
   function ride(arrive, label) {           // arrive() builds the next room (it runs while the car is moving) and is called exactly once
     try { build(); } catch (e) { arrive(); return; }
     after = arrive; built = false; on = true; t = 0; t0 = performance.now(); skipT = endT = -1; padHeld = true; sway = Math.random() * 6;
-    fl0 = 3 + Math.floor(Math.random() * 30); unlockPointer(); hideTip();
-    scenePass.scene = S.sc; camera.fov = 70; camera.updateProjectionMatrix();
+    ly = 0; lp = -0.08; inp.lookX = inp.lookY = 0; mLookX = mLookY = 0;
+    fl0 = 3 + Math.floor(Math.random() * 30); hideTip(); S.car.setDoor(0);
+    scenePass.scene = S.sc; camera.fov = 72; camera.updateProjectionMatrix();
     $("liftTo").textContent = label || ""; $("liftHud").hidden = false; $("hud").hidden = true; syncTouch && syncTouch();
-    sfx.lift(); setTimeout(() => $("fade").classList.remove("on"), 60);
+    sfx.lift(); HoldMusic.play(); setTimeout(() => $("fade").classList.remove("on"), 60);
   }
   function arrived() {
     if (!on) return; on = false; scenePass.scene = scene; camera.fov = 72; camera.updateProjectionMatrix();
-    $("liftHud").hidden = true; if (!built) { built = true; if (after) after(); } $("hud").hidden = false; syncTouch && syncTouch();
+    $("liftHud").hidden = true; if (!built) { built = true; if (after) after(); }
+    Dock.board(ly, lp);                       // stand in the docked car the way you were standing in this one
+    HoldMusic.stop(1.4);                      // the hold music fades as the doors open
+    $("hud").hidden = false; resetSticks(); syncTouch && syncTouch();
     requestAnimationFrame(() => $("fade").classList.remove("on"));
   }
   function skip() { if (!on || skipT >= 0 || t < 0.25) return; skipT = t; $("fade").classList.add("on"); }
   function tick(dt, time) {
     t = window.__liftT !== undefined ? window.__liftT : (performance.now() - t0) / 1000;           // wall-clock, so a slow frame never stretches the ride
-    if (!built && t > 0.3) { built = true; try { if (after) after(); } catch (e) { console.error(e); } $("hud").hidden = true; }   // the next room is built behind the ride
+    if (!built && t > 0.3) { built = true; try { if (after) after(); } catch (e) { console.error(e); } $("hud").hidden = true; syncTouch && syncTouch(); }   // the next room is built behind the ride
     const u = ease(t / DUR), s = DROP * u, v = DROP * (ease((t + 0.02) / DUR) - u) / 0.02;
     S.shaft.position.y = ((s % SEG) + SEG) % SEG;
     $("liftFloor").textContent = "B" + String(fl0 + Math.floor(s / 6)).padStart(2, "0");
-    cam.pos.set(0.12 + Math.sin(time * 1.3 + sway) * 0.004 * v, Math.sin(time * 9) * 0.003 * Math.min(1, v / 3), 0.12);
-    cam.yaw = Math.PI * 0.75 + Math.sin(t * 0.5 + sway) * 0.45; cam.pitch = -0.2 + Math.sin(t * 0.4) * 0.06; cam.roll = Math.sin(time * 2.2 + sway) * 0.0025 * v;
+    const L = takeLook(dt); ly += L.dyaw; lp = clamp(lp + L.dpitch, -1.45, 1.45);          // free look, with every control you look with in a chamber
+    cam.pos.set(Math.sin(time * 1.3 + sway) * 0.004 * v, Math.sin(time * 9) * 0.003 * Math.min(1, v / 3), CAR.EYE_Z);
+    cam.yaw = ly; cam.pitch = lp; cam.roll = Math.sin(time * 2.2 + sway) * 0.0025 * v;
     if (endT < 0 && t > DUR - 0.35) { endT = t; $("fade").classList.add("on"); }
     if ((endT >= 0 && t - endT > 0.34) || (skipT >= 0 && t - skipT > 0.34)) { arrived(); return; }
     try { let down = false; for (const pd of navigator.getGamepads ? navigator.getGamepads() : []) if (pd) for (const b of [0, 1, 2, 3, 9]) if (pd.buttons[b] && pd.buttons[b].pressed) down = true; if (!down) padHeld = false; else if (!padHeld) skip(); } catch (e) {}
     gunPass.enabled = false; placeCamera(); composer.render();
   }
-  addEventListener("keydown", e => { if (!on || e.repeat) return; const k = e.key.toLowerCase(); if (k === "escape" || k === "enter" || k === " ") { e.preventDefault(); skip(); } }, true);
-  addEventListener("pointerdown", e => { if (on) skip(); }, true);
-  return { ride, tick, skip, build, get on() { return on; } };
+  addEventListener("keydown", e => { if (!on) return; const k = e.key.toLowerCase(); if (k === "escape" || k === "enter" || k === " ") { e.preventDefault(); e.stopImmediatePropagation(); if (!e.repeat) skip(); } }, true);
+  $("liftSkip").addEventListener("click", e => { e.stopPropagation(); skip(); });
+  $("liftSkip").addEventListener("pointerdown", e => e.stopPropagation());
+  return { ride, tick, skip, build, get on() { return on; }, get look() { return [ly, lp]; }, set look(v) { ly = v[0]; lp = v[1]; } };
+})();
+
+/* =====================================================================================
+   v7.1 The docked car. Every room has a lift alcove cut into the wall behind its start, on a stretch of dark wall
+   (never a white panel, so no puzzle loses a surface), with the same car standing in it. After a ride you are put
+   in the car facing the way you looked; the doors open with a ding and you walk out yourself. They close behind
+   you once you are clear. Deaths, Restart and starting from a menu use the normal start spot with the doors shut.
+   The room clock starts when you step out. planDock() runs on the level data before anything is built.
+   ===================================================================================== */
+function planDock(lv) {
+  const s = lv.start, yaw = s.yaw, f = [Math.round(-Math.sin(yaw)), Math.round(-Math.cos(yaw))];
+  if (Math.abs(f[0]) + Math.abs(f[1]) !== 1) return null;                     // only square-on starts
+  const ax = f[0] ? 0 : 2, lat = ax === 0 ? 2 : 0, sg = f[0] || f[1], y0 = s.pos[1], c0 = s.pos[lat], B = lv.boxes;
+  const { W, D, H, DW, DH, T } = CAR;
+  const ray = (o, d, max) => { let best = max; for (const b of B) { const h = rayBox(o, d, b, best); if (h && h.t < best) best = h.t; } return best; };
+  const pt = (along, side, y) => { const p = [0, y, 0]; p[ax] = along; p[lat] = side; return p; };
+  const dir = (a, l, y) => { const d = [0, y, 0]; d[ax] = a; d[lat] = l; return d; };
+  const box = (a0, a1, l0, l1, yy0, yy1) => { const mn = [0, yy0, 0], mx = [0, yy1, 0]; mn[ax] = Math.min(a0, a1); mx[ax] = Math.max(a0, a1); mn[lat] = Math.min(l0, l1); mx[lat] = Math.max(l0, l1); return { min: mn, max: mx }; };
+  const ov = (A, b) => A.min[0] < b.max[0] && b.min[0] < A.max[0] && A.min[1] < b.max[1] && b.min[1] < A.max[1] && A.min[2] < b.max[2] && b.min[2] < A.max[2];
+  const back = ray(pt(s.pos[ax], c0, y0 + 1.2), dir(-sg, 0, 0), 12); if (back >= 12) return null;
+  const wall = s.pos[ax] - sg * back;                                          // the wall face behind the start
+  const things = [...(lv.signs || []), ...(lv.cams || []), ...(lv.held || []), ...(lv.switches || []), ...(lv.receivers || []), ...(lv.beams || []), ...(lv.sprayers || []), ...(lv.sparkers || []), ...(lv.sockets || []), ...(lv.scrawls || [])].map(o => o.pos).filter(Boolean);
+  const moving = [...(lv.movers || []), ...(lv.spinners || []), ...(lv.shifters || []), ...(lv.glass || []), ...(lv.crushers || []), ...(lv.doors || [])];
+  const why = (k, o) => { if (window.__dockWhy) window.__dockWhy.push(k + o); };
+  const plain = b => Object.keys(b).every(k => k === "min" || k === "max" || k === "mat" || k === "portal");
+  for (const allowWhite of [false, true]) for (const o of [0, .5, -.5, 1, -1, 1.5, -1.5, 2, -2, 2.5, -2.5, 3, -3, 3.5, -3.5, 4, -4, 5, -5, 6, -6, 7, -7, 8, -8]) {      // a dark stretch of wall if there is one; where the whole wall is white, the doorway takes a piece of it
+    const c = c0 + o;
+    // the wall is really there across the doorway and its frame, at the same depth
+    let ok = true;
+    for (const l of [-1.25, -0.6, 0, 0.6, 1.25]) for (const y of [0.25, 1.3, 2.4, 2.85]) { const d = ray(pt(wall + sg * 1.0, c + l, y0 + y), dir(-sg, 0, 0), 3); if (Math.abs(d - 1.0) > 0.12) { ok = false; break; } }
+    if (!ok) { why('wall', o); continue; }
+    // floor in front of the doorway, at the start's height, and nothing standing in the way
+    for (const l of [-0.8, 0, 0.8]) { const d = ray(pt(wall + sg * 0.5, c + l, y0 + 0.5), [0, -1, 0], 2); if (d < 0.3 || d > 0.56) ok = false; }
+    for (const y of [0.4, 1.5]) if (ray(pt(wall + sg * 0.05, c, y0 + y), dir(sg, 0, 0), 1.6) < 1.5) ok = false;
+    if (!ok) { why('floor', o); continue; }
+    const patch = box(wall - sg * (T + 0.1), wall + sg * 0.2, c - DW / 2 - 0.15, c + DW / 2 + 0.15, y0 + 0.02, y0 + DH + 0.15);
+    const inner = box(wall - sg * T, wall - sg * (T + D + 0.1), c - W / 2 - 0.05, c + W / 2 + 0.05, y0, y0 + H + 0.25);
+    const shell = box(wall - sg * 0.05, wall - sg * (T + D + 0.55), c - W / 2 - 0.45, c + W / 2 + 0.45, y0 - 0.45, y0 + H + 0.65);
+    if (B.some(b => ov(patch, b) && ((b.portal && !allowWhite) || !plain(b)))) { why('white', o); continue; }          // never a white panel, never a special box
+    if (B.some(b => ov(shell, b) && !plain(b))) { why('special', o); continue; }
+    const shellA = box(wall - sg * 0.3, wall - sg * (T + D + 0.55), c - W / 2 - 0.45, c + W / 2 + 0.45, y0 - 0.45, y0 + H + 0.65);     // (a panel standing proud of the wall sits inside the room's air)
+    if (lv.air.some(a => ov(shellA, { min: a.slice(0, 3), max: a.slice(3) }))) { why('air', o); continue; }      // nothing else lives behind the wall here
+    if (moving.some(m => m.min && ov(shell, m))) { why('moving', o); continue; }
+    if (things.some(p => Math.abs(p[ax] - wall) < 0.6 && Math.abs(p[lat] - c) < 1.7 && p[1] < y0 + H + 0.8 && p[1] > y0 - 0.6)) { why('thing', o); continue; }      // no sign, camera or device on that bit of wall
+    // build it: a dark shell, the car's room and the doorway carved out of everything, then dark liners inside
+    const tunnel = box(wall - sg * (T + 0.06), wall, c - DW / 2, c + DW / 2, y0, y0 + DH), proud = box(wall, wall + sg * 0.25, c - DW / 2, c + DW / 2, y0 + 0.15, y0 + DH);   // in front of the wall only above the floor (never notch a floor panel)
+    // the shell starts T into the wall and nothing may overlap it: a portal on the wall in front opens only the boxes it samples, so an overlapping box would stop you walking through
+    const sh = box(wall - sg * T, wall - sg * (T + D + 0.55), c - W / 2 - 0.45, c + W / 2 + 0.45, y0 - 0.45, y0 + H + 0.65);
+    carveBoxes(B, sh); B.push(Object.assign(sh, { mat: "dark", portal: false }));
+    carveBoxes(B, inner); carveBoxes(B, tunnel); carveBoxes(B, proud);
+    const a0 = wall - sg * T, a1 = wall - sg * (T + D + 0.1), l0 = c - W / 2 - 0.05, l1 = c + W / 2 + 0.05, LT = 0.08, dk = b => Object.assign(b, { mat: "dark", portal: false });
+    B.push(dk(box(a0, a1, l0, l0 + LT, y0, y0 + H + 0.25)), dk(box(a0, a1, l1 - LT, l1, y0, y0 + H + 0.25)), dk(box(a1, a1 + sg * LT, l0, l1, y0, y0 + H + 0.25)),
+      dk(box(a0, a1, l0, l1, y0 + H + 0.25 - LT, y0 + H + 0.25)), dk(box(a0, a1, l0, l1, y0, y0 + 0.02)));
+    for (const b of [box(a0, a0 - sg * LT, l0, c - DW / 2, y0, y0 + H + 0.25), box(a0, a0 - sg * LT, c + DW / 2, l1, y0, y0 + H + 0.25), box(a0, a0 - sg * LT, c - DW / 2, c + DW / 2, y0 + DH, y0 + H + 0.25)]) B.push(dk(b));
+    const air = box(a0 - sg * LT, a1 + sg * LT, l0 + LT, l1 - LT, y0 + 0.02, y0 + H + 0.25 - LT), ta = box(wall - sg * (T + 0.1), wall + sg * 0.02, c - DW / 2, c + DW / 2, y0, y0 + DH);
+    lv.air.push([...air.min, ...air.max], [...ta.min, ...ta.max]);
+    const C = pt(wall - sg * (T + D / 2 + 0.05), c, y0);
+    lv.lamps.push(lamp(C[0], y0 + H - 0.3, C[2], 0.9, 3.2, 1, .97, .92));
+    return (lv.dock = { C, yaw: Math.atan2(-f[0], -f[1]), f, ax, lat, sg, wall, c, y0, off: o, white: allowWhite,
+      door: box(wall - sg * (T + 0.02), wall - sg * (T - 0.1), c - DW / 2, c + DW / 2, y0, y0 + DH), inner: air });
+  }
+  return null;
+}
+// cut box R out of every box in the list (each cut box becomes up to six pieces with the same finish)
+function carveBoxes(list, R) {
+  for (let i = list.length - 1; i >= 0; i--) {
+    const b = list[i];
+    if (!(b.min[0] < R.max[0] && R.min[0] < b.max[0] && b.min[1] < R.max[1] && R.min[1] < b.max[1] && b.min[2] < R.max[2] && R.min[2] < b.max[2])) continue;
+    list.splice(i, 1);
+    const lo = b.min.slice(), hi = b.max.slice();
+    for (let a = 0; a < 3; a++) {
+      if (lo[a] < R.min[a]) { const mx = hi.slice(); mx[a] = R.min[a]; list.push({ min: lo.slice(), max: mx, mat: b.mat, portal: b.portal }); lo[a] = R.min[a]; }
+      if (hi[a] > R.max[a]) { const mn = lo.slice(); mn[a] = R.max[a]; list.push({ min: mn, max: hi.slice(), mat: b.mat, portal: b.portal }); hi[a] = R.max[a]; }
+    }
+  }
+}
+const Dock = (() => {
+  let car = null, d = null, door = null, phase = "shut", tt = 0, e = 0, wasOpen = false, strip = null;
+  function attach(W) {                     // after a room is built: stand the car in its alcove, add the door's collider
+    if (!car) { car = buildCar(); scene.add(car.g); }
+    d = W.lv.dock || null; car.g.visible = !!d; strip = null; phase = "shut"; e = 0; car.setDoor(0); wasOpen = false;
+    if (!d) { door = null; return; }
+    car.g.position.set(d.C[0], d.C[1], d.C[2]); car.g.rotation.set(0, d.yaw, 0);
+    const box = { min: d.door.min.slice(), max: d.door.max.slice(), mat: "dark", portal: false };
+    door = { need: 99, id: "lift", dock: true, box, min0: box.min.slice(), max0: box.max.slice(), rise: 0, t: 0, lights: [], open: false };
+    W.doors.push(door);
+    // the room side of the doorway: a steel frame standing proud of the wall, and a status strip over it (amber shut, green open)
+    const M = carMats(), { DW, DH } = CAR, fr = new THREE.Group(); levelGroup.add(fr);
+    const piece = (m, a0, a1, l0, l1, y0, y1) => { const mn = [0, y0, 0], mx = [0, y1, 0]; mn[d.ax] = Math.min(a0, a1); mx[d.ax] = Math.max(a0, a1); mn[d.lat] = l0; mx[d.lat] = l1;
+      const o = new THREE.Mesh(new THREE.BoxGeometry(mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2]), m); o.position.set((mn[0] + mx[0]) / 2, (mn[1] + mx[1]) / 2, (mn[2] + mx[2]) / 2); o.frustumCulled = false; fr.add(o); return o; };
+    const w = d.wall, sg = d.sg, c = d.c, y = d.y0;
+    piece(M.brushed, w - sg * 0.02, w + sg * 0.07, c - DW / 2 - 0.16, c - DW / 2, y, y + DH + 0.16); piece(M.brushed, w - sg * 0.02, w + sg * 0.07, c + DW / 2, c + DW / 2 + 0.16, y, y + DH + 0.16);
+    piece(M.brushed, w - sg * 0.02, w + sg * 0.07, c - DW / 2 - 0.16, c + DW / 2 + 0.16, y + DH, y + DH + 0.16);
+    piece(M.darkSteel, w - sg * 0.02, w + sg * 0.04, c - DW / 2 - 0.16, c + DW / 2 + 0.16, y + DH + 0.24, y + DH + 0.5);
+    strip = piece(M.amber, w + sg * 0.04, w + sg * 0.05, c - DW / 2 + 0.1, c + DW / 2 - 0.1, y + DH + 0.35, y + DH + 0.39);
+  }
+  function setOpen(x) {
+    e = x; car.setDoor(x * x * (3 - 2 * x));
+    const shut = x < 0.85;                              // the leaves block the way until they are nearly open
+    for (let a = 0; a < 3; a++) { door.box.min[a] = door.min0[a]; door.box.max[a] = door.max0[a]; }
+    if (!shut) { door.box.min[1] = door.min0[1] - 60; door.box.max[1] = door.min0[1] - 59.9; }
+    const o = x > 0.05; if (o !== wasOpen) { wasOpen = o; sfx.slide(o); }
+    if (strip) strip.material = x > 0.5 ? carMats().green : carMats().amber;
+  }
+  const depth = () => (player.p[d.ax === 0 ? "x" : "z"] - d.wall) * d.sg;   // how far into the room you are (negative: still in the car)
+  function board(yaw, pitch) {             // after a ride: put the player in the car, the way they were standing in the ride's car
+    if (!d || !world || world.lv.dock !== d) return false;
+    const pl = player, f = d.f;
+    pl.p.set(d.C[0] - f[0] * CAR.EYE_Z, d.y0 + HY, d.C[2] - f[1] * CAR.EYE_Z); pl.v.set(0, 0, 0);
+    pl.yaw = d.yaw + yaw; pl.pitch = pitch; pl.ground = false; pl.safe = pl.p.clone(); pl.outT = 0; _pPrev.copy(pl.p);
+    if (phys) phys.pc.setTranslation(pl.p);
+    camOffset.set(0, 0, 0); eyePos(prevEye); cam.yaw = pl.yaw; cam.pitch = pl.pitch;
+    phase = "wait"; tt = 0; setOpen(0);
+    return true;
+  }
+  function shut() { if (!d || !car) return; phase = "shut"; tt = 0; setOpen(0); }      // a respawn or restart: the doors are closed
+  function step(dt) {                     // from the door update, every physics step
+    if (!d || !door) return;
+    tt += dt;
+    if (phase === "wait") { if (tt > 0.45) { phase = "open"; tt = 0; sfx.ding(); } }
+    else if (phase === "open") { setOpen(Math.min(1, e + dt / 0.9)); if (depth() > 1.8 && !propIn()) { phase = "close"; tt = 0; } }
+    else if (phase === "close") { setOpen(Math.max(0, e - dt / 1.1)); if (e <= 0) phase = "shut"; else if (depth() < 1.2 && depth() > -CAR.D - 1) { phase = "open"; } }
+    door.t = e; door.open = e > 0.05;
+  }
+  const propIn = () => props().some(c => { const q = c.p; return q.x > door.min0[0] - 1 && q.x < door.max0[0] + 1 && q.z > door.min0[2] - 1 && q.z < door.max0[2] + 1 && Math.abs(q.y - d.y0) < 3; });
+  return { attach, board, shut, step, get holding() { return !!d && (phase === "wait" || phase === "open") && depth() < 0.3; }, get phase() { return phase; }, get info() { return d; }, get open() { return e; } };
 })();
 
 /* ---------- boot ---------- */
@@ -6159,8 +6450,9 @@ function boot() {
   requestAnimationFrame(frame);
   setTimeout(() => { try { Cut.prep(); } catch (e) { console.error(e); } }, 400);       // build the opening film while the title is up, so it starts at once
   setTimeout(() => { try { const L = Lift.build(); renderer.compile(L.sc, camera); } catch (e) { console.error(e); } }, 1100);   // and the lift, so the first ride never stalls
+  setTimeout(() => HoldMusic.render(), 2200);                                       // and its music, rendered once in the background
 }
-window.__tc = { Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS }), lineHash, get state() { return state; }, Cut, get Lift() { return Lift; }, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
+window.__tc = { Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS }), lineHash, get state() { return state; }, Cut, get Lift() { return Lift; }, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
 try { boot(); } catch (err) { console.error(err); $("loading").hidden = false; $("loading").innerHTML = '<div style="max-width:420px;text-align:center;line-height:1.6;font-size:13px;letter-spacing:.05em">Something went wrong starting the game.<br><small>' + String(err && err.message || err) + "</small></div>"; }
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>
