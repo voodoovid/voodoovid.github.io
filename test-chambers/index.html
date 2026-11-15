@@ -483,7 +483,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 await RAPIER.init();
 
-const VERSION = "v7.8";
+const VERSION = "v7.9";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -2976,10 +2976,11 @@ function camKnock(P) {
 const _cs = new V3();
 function camShot(res) {
   if (!world || !world.cams) return null;
+  const scale = (world.lv.plates || []).some(p => p.cams);      // v7.9: cameras that are part of the puzzle (watching cameras, and every camera in a room with a camera scale) still only fall to a portal on their wall
   let best = null, along = 0;
   for (const g of res.segs) {
     for (const c of world.cams) {
-      if (c.dead || c.fall) continue;
+      if (c.dead || c.fall || c.watch || scale) continue;
       for (const k of [0.32, 0.14]) {
         _cs.copy(c.mount).addScaledVector(c.n, k).sub(g.o); const t = _cs.dot(g.d);
         if (t < 0 || t > g.len + 0.45) continue;
