@@ -54,6 +54,10 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; oversc
 #sentrySub { position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 112px); transform: translateX(-50%); max-width: min(520px, 70%); text-align: center;
   font-size: 16px; line-height: 1.3; font-weight: 600; color: #ffd9d4; text-shadow: 0 1px 8px #000, 0 0 3px #000; opacity: 0; transition: opacity .25s; pointer-events: none; }
 #sentrySub.on { opacity: 1; }
+#showSub { position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 150px); transform: translateX(-50%); max-width: min(560px, 74%); text-align: center; color: #fff; font-size: 14px; line-height: 1.35; background: rgba(0,0,0,.62); padding: 6px 12px; border-radius: 6px; opacity: 0; transition: opacity .25s; pointer-events: none; }
+#showSub.on { opacity: 1; }
+#showSub i { font-style: normal; font-weight: 800; letter-spacing: .14em; font-size: 11px; display: block; margin-bottom: 2px; color: #9fb8f0; }
+#showSub i.lint { color: #f4b942; } #showSub i.sados { color: #ff8a7a; }
 #sentrySub i { font-style: normal; color: #ff5a4a; font-weight: 800; letter-spacing: .14em; font-size: 11px; display: block; margin-bottom: 2px; }
 #sub i { font-style: normal; color: var(--orange); font-weight: 800; letter-spacing: .14em; font-size: 12px; display: block; margin-bottom: 2px; }
 #hurt { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at 50% 50%, rgba(160,0,0,0) 38%, rgba(190,10,10,.78) 100%); transition: opacity .18s; }
@@ -280,6 +284,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
     </svg>
     <div id="sub"></div>
     <div id="sentrySub"></div>
+    <div id="showSub"></div>
     <div id="toast"></div>
     <div id="flash"></div>
     <div id="prompt"></div>
@@ -467,6 +472,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
 </div>
 <script src="../lib/gamepad.js"></script>
 <script src="lines.js"></script>
+<script src="hold-show.js"></script>
 <script type="importmap">{ "imports": { "three": "../lib/three.module.min.js", "three/addons/": "../lib/three-addons/" } }</script>
 <script type="module">
 import * as THREE from "../lib/three.module.min.js";
@@ -478,7 +484,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 await RAPIER.init();
 
-const VERSION = "v7.1";
+const VERSION = "v7.2";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -1515,6 +1521,9 @@ function level32() {
   h.boxes.push(bx(21.6, 4, -7, 21.9, 7, -3.0, "dark"), bx(21.6, 4, -1.8, 21.9, 7, -1.2, "dark"), bx(21.6, 4, -3.0, 21.9, 5.3, -1.8, "dark"), bx(21.6, 6.15, -3.0, 21.9, 7, -1.8, "dark"), bx(21.6, 4.6, -1.2, 23.5, 6.5, 0, "dark"));
   whiteOn(h, bx(21.95, 4.05, -1.3, 23.45, 6.35, -1.2)); whiteOn(h, bx(17.5, 4.05, -4.9, 17.6, 6.35, -3.4));
   h.lamps.push(lamp(22.9, 6.6, -4.6, .5, 4, ...WARM));
+  // v7.2: the office TV, left on, playing Hold Music (HoldShow). It sits on the desk, off the route; its box is dark and solid
+  h.boxes.push(bx(19.99, 4.78, -6.27, 20.81, 5.34, -5.64, "dark"));
+  h.tv = { pos: [20.4, 4.78, -5.64], yaw: 0, zone: [17.5, 3.9, -7, 21.6, 7.5, -0.6] };
   h.glass = [{ min: [18, 4.6, -1.2], max: [21.6, 6.5, -0.08], hp: 6 }];       // the pane you see is its front face; the block behind it is what stops you
   h.offices.push({ pos: [19.8, 5.55, -0.08], n: [0, 0, 1], w: 3.6, h: 1.9, glass: 0 });
   h.boxes.push(bx(15, 0, 0, 25.5, 4, 2.4, "dark"));                                   // the gallery under the window
@@ -2595,6 +2604,7 @@ function buildLevel(idx) {
     W.doors.push({ need: d.need || 1, id: d.id, auto: !!d.auto, box, min0: d.min.slice(), max0: d.max.slice(), rise: d.rise, t: 0, group: g, lights, light: lights[0], open: false });
   }
   Dock.attach(W);           // v7.1: the docked car and its doors
+  HoldShow.attach(W);       // v7.2: the office TV, where a level has one
   // moving panels: a slab that slides back and forth along a wall. A portal placed on one rides along with it
   for (const d of (lv.movers || [])) {
     const mat = d.mat || "white", box = { min: d.min.slice(), max: d.max.slice(), mat, portal: mat === "white" };
@@ -3931,6 +3941,7 @@ const tipOnce = k => { const n = store.get(k, 0); if (n >= 3) return false; stor
 function useAction() {
   if (Lift.on) return;
   if (state !== "play" || !world) return;
+  if (HoldShow.use()) return;
   if (v5Use()) return;
   if (holding) { dropCube(); return; }
   const eye = eyePos(new V3()), f = viewDir(new V3());
@@ -4524,6 +4535,7 @@ function ensureAudio() {
     setVoiceRoom(world ? roomSize() : 20);
     actx.onstatechange = () => { if (actx.state !== "running" && !bg && !document.hidden) { actx.resume().catch(() => {}); setTimeout(() => Music.kick(), 200); } };
     Music.start();
+    setTimeout(() => { try { HoldShow.preload(); } catch (e) {} }, 1500);       // v7.2: the TV show's clips
   }
   if (actx.state !== "running") actx.resume().catch(() => {});
 }
@@ -4724,7 +4736,8 @@ function loadVoice(text) {
   return voiceBufs.get(h);
 }
 function preloadVoice(lines) { if (actx && opts.voice) for (const l of lines) loadVoice(l); }
-function duckMusic(on) { if (actx && musicBus) musicBus.gain.setTargetAtTime(opts.music ? (on ? 0.2 : 0.55) : 0, actx.currentTime, on ? 0.08 : 0.5); }
+let showDuck = false;                 // v7.2: the TV show keeps the room music down while it plays
+function duckMusic(on) { if (showDuck) on = true; if (actx && musicBus) musicBus.gain.setTargetAtTime(opts.music ? (on ? 0.2 : 0.55) : 0, actx.currentTime, on ? 0.08 : 0.5); }
 function nextSub() {
   if (subBusy || !subQ.length) return;
   const text = subQ.shift(); subBusy = true;
@@ -5462,6 +5475,7 @@ function frame(ts) {
   requestAnimationFrame(frame);
   if (!world) return;
   const dt = Math.min(0.05, (ts - lastT) / 1000 || 0.016); lastT = ts;
+  HoldShow.tick(dt);
   if (state === "cut") { Cut.tick(dt, ts / 1000); return; }
   if (Lift.on) { Lift.tick(dt, ts / 1000); return; }
   fpsAcc += dt * 1000; if (++fpsN >= 10) { adaptQuality(fpsAcc / fpsN); fpsAcc = fpsN = 0; }
@@ -5499,7 +5513,7 @@ function frame(ts) {
   { let left = 0, need = ""; for (const p of world.plates) { if (p.left > 0 && !p.pressed) left = Math.max(left, p.left); if (p.charge && p.pressed && p.chg < p.charge) need = "Slow button: " + (p.charge - p.chg).toFixed(1); else if (p.active) { const d = world.doors.find(d => d.id === p.door); if (d && d.cnt < (d.need || 1)) need = "Door needs " + (d.need || 1) + " buttons: " + d.cnt + " held"; } }
     const el = $("prompt"), cs = world.camSeen || 0; el.classList.toggle("on", (left > 0 || cs > 0.05 || !!need) && state === "play");
     if (cs > 0.05) el.textContent = "Camera has you: " + Math.round(cs * 100) + "%"; else if (need) el.textContent = need + (left > 0 ? " · timer " + left.toFixed(1) : ""); else if (left > 0) el.textContent = "Door closes in " + left.toFixed(1);
-    if (world.v5msg && state === "play" && cs <= 0.05) { el.classList.add("on"); el.textContent = world.v5msg; } }
+    { const vm = world.v5msg || HoldShow.msg; if (vm && state === "play" && cs <= 0.05) { el.classList.add("on"); el.textContent = vm; } } }
   updateFx(dt);
   for (const c of world.cubes) cubeGhost(c, dt);
   // A cube that would land on a plate (held over it, or falling onto it) lights the plate's ring green and pulses; a pressed plate glows steady green
@@ -6217,7 +6231,193 @@ const HoldMusic = (() => {
     try { g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0.0001, t + fade); s.stop(t + fade + 0.05); } catch (e) {}
     duckMusic(false);
   }
-  return { render, play, stop, get ready() { return !!buf; }, get playing() { return !!src; } };
+  return { render, play, stop, get ready() { return !!buf; }, get playing() { return !!src; }, get buf() { return buf; } };
+})();
+
+/* =====================================================================================
+   v7.2 Hold Music: the sock-puppet show on the old TV in Out Of Order's office (a level's `tv: { pos, yaw, zone }`).
+   The drawing and timing live in hold-show.js (HoldShowArt, shared with the preview page); this part is the set, the sound
+   and the rules. From outside the office the picture loops with no sound. Step into the office (`zone`) and, once SaDos
+   has finished talking, the show starts from the top with sound: through a small TV-speaker filter, quieter further from
+   the set, music under Music, voices under Voice, effects under Sound effects; the room music dips while it plays and
+   the show dips while SaDos talks. GRAB while looking at the set stops it (or plays it again). It stops when you leave
+   the office, pause or leave the app, and starts from the top on the next visit. Ted and Lint are recorded by the voice
+   Action ("voice": "ted"/"lint" in voice-todo.json); a line with no clip yet is played as puppet babble with a subtitle.
+   The music is the lift's own "Please Hold" (HoldMusic). The clips are fetched when any room is built, so nothing waits.
+   ===================================================================================== */
+const HoldShow = (() => {
+  const CW = 640, CHh = 360, SC = CW / 1280, FPS = 15;
+  let art = null, cv = null, cx = null, tex = null, tv = null, T = 0, mode = "idle", acc = 0, waitT = 0, wasIn = false, inside = false, look = false, painted = "";
+  let out = null, mus = null, voc = null, fx = null, ana = null, anaBuf = null, nodes = [], schedTo = 0, live = false, t0 = 0, rms = 0, msg = "", fetched = false;
+  const bufs = new Map(), sc = new V3(), sn = new V3(), _e = new V3(), _f = new V3();
+  const durOf = text => (window.TC_VOICE && window.TC_VOICE[lineHash(text)]) || 0;
+  const subEl = () => $("showSub");
+  function ensure() {
+    if (cv) return true;
+    if (!window.HoldShowArt) return false;
+    try {
+      art = HoldShowArt.make(durOf);
+      cv = document.createElement("canvas"); cv.width = CW; cv.height = CHh; cx = cv.getContext("2d");
+      tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.generateMipmaps = false; tex.minFilter = THREE.LinearFilter;
+      art.draw(cx, 8, SC); art.standby(cx, 0, SC); tex.needsUpdate = true;            // builds the patterns now, so the first real frame is quick
+    } catch (e) { console.error(e); cv = null; return false; }
+    return true;
+  }
+  function preload() {
+    if (fetched || !actx || !ensure()) return; fetched = true;
+    for (const l of art.LINES) loadVoice(l.text).then(b => { if (b) bufs.set(l.text, b); });
+  }
+  let M = null;
+  function mats() {
+    if (M) return M;
+    const std = o => new THREE.MeshStandardMaterial(Object.assign({ envMap: ENV }, o));
+    M = { shell: std({ color: 0x8d877a, roughness: .62, metalness: 0, envMapIntensity: .35 }), dark: std({ color: 0x17181b, roughness: .45, metalness: .1, envMapIntensity: .6 }),
+      metal: std({ color: 0xb8bec4, roughness: .3, metalness: .9, envMapIntensity: 1 }), screen: new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(1.35, 1.35, 1.35) }), led: new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, .4, .2) }) };
+    return M;
+  }
+  // the set: a beige CRT with a dark bezel, two dials and rabbit-ear aerials. Its box is in the level (dark, solid)
+  function attach(W) {
+    stopAudio(); tv = null; mode = "idle"; T = 0; wasIn = false; inside = false; msg = ""; painted = ""; hideSub();
+    preload();
+    const d = W && W.lv.tv; if (!d || !ensure()) return;
+    const m = mats(), g = new THREE.Group(), add = (geo, mat, x, y, z) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); g.add(o); return o; };
+    const BW = 0.82, BH = 0.56, BD = 0.62;
+    add(new THREE.BoxGeometry(BW, BH, BD * 0.55), m.shell, 0, BH / 2, -BD * 0.275);                                   // the front of the cabinet
+    add(new THREE.BoxGeometry(BW * 0.7, BH * 0.78, BD * 0.45), m.shell, 0, BH * 0.45, -BD * 0.75);                     // the tube's back
+    add(new THREE.BoxGeometry(0.62, 0.38, 0.02), m.dark, -0.07, BH / 2 + 0.02, 0.006);                                  // bezel
+    const scr = add(new THREE.PlaneGeometry(0.576, 0.324), m.screen, -0.07, BH / 2 + 0.02, 0.018);
+    for (const y of [0.36, 0.22]) { const k = add(new THREE.CylinderGeometry(0.028, 0.028, 0.03, 16), m.dark, 0.32, y, 0.012); k.rotation.x = Math.PI / 2; }
+    add(new THREE.BoxGeometry(0.06, 0.012, 0.012), m.led, 0.32, 0.1, 0.006);
+    for (const s of [-1, 1]) { const a = add(new THREE.CylinderGeometry(0.006, 0.008, 0.5, 6), m.metal, 0.08 * s, BH + 0.22, -BD * 0.5); a.rotation.z = -s * 0.5; }
+    add(new THREE.SphereGeometry(0.05, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), m.dark, 0, BH, -BD * 0.5);
+    g.position.set(d.pos[0], d.pos[1], d.pos[2]); g.rotation.y = d.yaw || 0; levelGroup.add(g); g.updateMatrixWorld(true);
+    scr.getWorldPosition(sc); sn.set(0, 0, 1).applyAxisAngle(new V3(0, 1, 0), d.yaw || 0);
+    tv = { g, d }; paint(true);
+  }
+  function inZone(p) { const z = tv.d.zone; return p.x > z[0] && p.y > z[1] && p.z > z[2] && p.x < z[3] && p.y < z[4] && p.z < z[5]; }
+  function hideSub() { const el = subEl(); if (el) el.classList.remove("on"); }
+
+  /* ---------- sound ---------- */
+  const N = (o) => { nodes.push(o); return o; };
+  function bus() {
+    out = actx.createGain(); out.gain.value = 0.0001;
+    const hp = actx.createBiquadFilter(), lp = actx.createBiquadFilter(), pk = actx.createBiquadFilter();
+    hp.type = "highpass"; hp.frequency.value = 150; lp.type = "lowpass"; lp.frequency.value = 6500; pk.type = "peaking"; pk.frequency.value = 1800; pk.gain.value = 3; pk.Q.value = 0.8;
+    out.connect(hp); hp.connect(pk); pk.connect(lp); lp.connect(master);
+    mus = actx.createGain(); voc = actx.createGain(); fx = actx.createGain(); mus.connect(out); voc.connect(out); fx.connect(out);
+    ana = actx.createAnalyser(); ana.fftSize = 512; anaBuf = new Float32Array(ana.fftSize); voc.connect(ana);
+    out._parts = [hp, lp, pk];
+  }
+  function startAudio() {
+    if (!actx || actx.state !== "running") return;
+    bus(); live = true; nodes = []; t0 = actx.currentTime - T; schedTo = T; showDuck = true; duckMusic(true);
+    const HB = HoldMusic.buf, ms = art.MUSIC_START + 1.0;
+    if (HB) {                                                                                  // the lift's Please Hold, from where the show is
+      const s = N(actx.createBufferSource()); s.buffer = HB; s.loop = true; const g = actx.createGain(); s.connect(g); g.connect(mus);
+      const at = Math.max(actx.currentTime, t0 + ms), off = Math.max(0, T - ms) % HB.duration; s.start(at, off);
+      g.gain.setValueAtTime(1, actx.currentTime); g.gain.setValueAtTime(1, Math.max(actx.currentTime, t0 + art.DUR - 1.4)); g.gain.linearRampToValueAtTime(0.0001, Math.max(actx.currentTime + 0.1, t0 + art.DUR - 0.1));
+    }
+    levels(true);
+  }
+  function stopAudio() {
+    showDuck = false;
+    if (!live) return; live = false;
+    const o = out, now = actx.currentTime;
+    try { o.gain.cancelScheduledValues(now); o.gain.setValueAtTime(o.gain.value, now); o.gain.linearRampToValueAtTime(0.0001, now + 0.25); } catch (e) {}
+    for (const n of nodes) { try { n.stop(now + 0.3); } catch (e) {} }
+    nodes = []; setTimeout(() => { try { o.disconnect(); for (const p of o._parts) p.disconnect(); mus.disconnect(); voc.disconnect(); fx.disconnect(); } catch (e) {} }, 500);
+    duckMusic(false);
+  }
+  function levels(now) {
+    const near = clamp(1 - (_e.distanceTo(sc) - 2.2) / 3.2, 0.25, 1), quiet = subBusy ? 0.35 : 1, k = now ? 0.01 : 0.15;
+    out.gain.setTargetAtTime(0.85 * near * quiet, actx.currentTime, k);
+    mus.gain.setTargetAtTime(opts.music ? 0.55 : 0, actx.currentTime, k); voc.gain.setTargetAtTime(opts.voice ? 1.0 : 0, actx.currentTime, k); fx.gain.setTargetAtTime(opts.sfx ? 0.8 : 0, actx.currentTime, k);
+  }
+  const at = st => t0 + st;
+  function tone(type, f0, f1, st, dur, vol, dest) {
+    const o = N(actx.createOscillator()), g = actx.createGain(); o.type = type; o.frequency.setValueAtTime(f0, at(st)); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), at(st) + dur);
+    g.gain.setValueAtTime(0.0001, at(st)); g.gain.linearRampToValueAtTime(vol, at(st) + 0.008); g.gain.setTargetAtTime(0.0001, at(st) + 0.01, dur / 3); o.connect(g); g.connect(dest || fx); o.start(at(st)); o.stop(at(st) + dur + 0.1);
+  }
+  function hiss(st, dur, vol, f, q, dest) {
+    if (!noiseBuf) noise(actx.currentTime, 0.01, 0.0001, 100, 100);               // makes the shared noise buffer
+    const s = N(actx.createBufferSource()); s.buffer = noiseBuf; s.loop = true; const bp = actx.createBiquadFilter(), g = actx.createGain(); bp.type = "bandpass"; bp.frequency.value = f; bp.Q.value = q;
+    s.connect(bp); bp.connect(g); g.connect(dest || fx); g.gain.setValueAtTime(0.0001, at(st)); g.gain.linearRampToValueAtTime(vol, at(st) + 0.04); g.gain.setValueAtTime(vol, at(st) + Math.max(0.05, dur - 0.08)); g.gain.linearRampToValueAtTime(0.0001, at(st) + dur);
+    s.start(at(st), Math.random()); s.stop(at(st) + dur + 0.05);
+  }
+  function cue(c) {
+    if (c.kind === "sting") [65, 69, 72, 76, 77].forEach((m, i) => tone("sine", 440 * Math.pow(2, (m + 12 - 69) / 12), 440 * Math.pow(2, (m + 12 - 69) / 12), c.t + i * 0.12, 1.2, 0.09, mus));
+    else if (c.kind === "ding") { tone("triangle", 880, 880, c.t, 1.4, 0.2); tone("triangle", 1320, 1320, c.t, 1.0, 0.04); }
+    else if (c.kind === "pa") { hiss(c.t, c.d, 0.05, 2500, 0.5); tone("square", 60, 60, c.t, c.d, 0.008); }
+    else if (c.kind === "yank") { hiss(c.t, 0.55, 0.16, 600, 0.8); tone("sine", 110, 40, c.t + 0.6, 0.3, 0.3); }
+  }
+  const VO = { ted: [102, 0.9], lint: [148, 1.15], sados: [205, 1.25] }, VOW = { a: [780, 1180], e: [500, 1850], i: [320, 2250], o: [520, 880], u: [360, 760] };
+  function babble(s) {                                                                       // a line with no clip yet: puppet gabble
+    const [f0, br] = VO[s.who], st = s.t0, d = s.d, f = f0 * (1 + 0.06 * Math.sin(s.pos * 6)) * (s.last ? (s.q ? 1.25 : 0.86) : 1);
+    const o = N(actx.createOscillator()); o.type = "sawtooth"; o.frequency.setValueAtTime(f, at(st)); o.frequency.linearRampToValueAtTime(f * (s.last && s.q ? 1.18 : 0.97), at(st) + d);
+    const b1 = actx.createBiquadFilter(), b2 = actx.createBiquadFilter(), g = actx.createGain(); b1.type = b2.type = "bandpass"; b1.frequency.value = VOW[s.v][0] * br; b2.frequency.value = VOW[s.v][1] * br; b1.Q.value = 6; b2.Q.value = 9;
+    o.connect(b1); o.connect(b2); b1.connect(g); b2.connect(g); g.connect(voc);
+    g.gain.setValueAtTime(0.0001, at(st)); g.gain.linearRampToValueAtTime(1.3, at(st) + 0.025); g.gain.setValueAtTime(1.3, at(st) + d * 0.6); g.gain.linearRampToValueAtTime(0.0001, at(st) + d);
+    o.start(at(st)); o.stop(at(st) + d + 0.05);
+  }
+  function schedule() {
+    const upto = T + 1.0;
+    for (const l of art.LINES) {
+      if (l._s === t0 || l.t0 >= upto || l.t1 <= schedTo) continue; l._s = t0;
+      const b = bufs.get(l.text);
+      if (b && opts.voice) { const s = N(actx.createBufferSource()); s.buffer = b; s.connect(voc); const off = Math.max(0, schedTo - l.t0); s.start(Math.max(actx.currentTime, at(l.t0)), off); }
+      else for (const s of art.SYL) if (s.who === l.who && s.t0 >= l.t0 - 0.01 && s.t0 < l.t1 && s.t0 >= schedTo) babble(s);
+    }
+    for (const c of art.CUES) if (c.t >= schedTo && c.t < upto) cue(c);
+    schedTo = upto;
+  }
+  function mouthOf(who, t) { return art.speaking(who, t) ? clamp(rms * 9 - 0.05, 0, 1) : 0; }
+  function paint(force) {
+    if (!cx) return;
+    if (mode === "off" || mode === "done") { if (painted !== mode || force) { art.standby(cx, T, SC); tex.needsUpdate = true; painted = mode; } return; }
+    painted = ""; art.draw(cx, T, SC, live ? mouthOf : null, false); tex.needsUpdate = true;
+  }
+  function showSub() {
+    const el = subEl(); if (!el) return; const l = live ? art.lineAt(T) : null;
+    if (!l) { el.classList.remove("on"); return; }
+    const key = l.text; if (el._k !== key) { el._k = key; el.innerHTML = ""; const i = document.createElement("i"); i.textContent = { ted: "TED", lint: "LINT", sados: "SADOS · ON TV" }[l.who]; i.className = l.who; el.append(i, document.createTextNode(l.text)); }
+    el.classList.add("on");
+  }
+
+  /* ---------- per frame ---------- */
+  function tick(dt) {
+    msg = "";
+    if (!tv) return;
+    const running = state === "play" && !bg && !Lift.on;
+    eyePos(_e); viewDir(_f);
+    if (running) {
+      inside = inZone(_e);
+      if (inside && !wasIn && mode !== "off") { mode = "wait"; waitT = 0; }
+      if (!inside && wasIn) { if (mode !== "off") mode = "idle"; }
+      wasIn = inside;
+      if (mode === "wait" && (!subBusy || (waitT += dt) > 6)) { mode = "show"; T = 0; }      // let SaDos finish, but not for ever
+      if (mode === "show") { T += dt; if (T >= art.DUR) { mode = "done"; T = 0; } }
+      else if (mode === "idle" || mode === "wait") T = (T + dt) % art.DUR;
+      else T += dt;
+    }
+    const want = running && mode === "show" && inside;
+    if (want && !live) startAudio(); else if (!want && live) stopAudio();
+    if (live) {
+      schedule(); levels(false);
+      ana.getFloatTimeDomainData(anaBuf); let s = 0; for (let i = 0; i < anaBuf.length; i++) s += anaBuf[i] * anaBuf[i]; rms = Math.sqrt(s / anaBuf.length);
+    }
+    showSub();
+    const dist = _e.distanceTo(sc), faces = _f.dot(tmpA.copy(sc).sub(_e).normalize());
+    look = running && inside && dist < 3.4 && faces > 0.82;
+    if (look) msg = mode === "show" ? "GRAB stops the show" : "GRAB plays Hold Music";
+    if (dist < 24 && running) { acc += dt; if (acc >= 1 / FPS) { acc = 0; paint(); } }
+  }
+  function use() {
+    if (!look) return false;
+    if (mode === "show") { mode = "off"; stopAudio(); hideSub(); toast("Show stopped"); }
+    else { mode = "show"; T = 0; }
+    paint(true); return true;
+  }
+  return { attach, tick, use, ensure, preload, get msg() { return msg; }, get mode() { return mode; }, get T() { return T; }, get live() { return live; }, get art() { return art; }, get on() { return !!tv; }, set T(v) { T = v; } };
 })();
 
 /* =====================================================================================
@@ -6450,9 +6650,10 @@ function boot() {
   requestAnimationFrame(frame);
   setTimeout(() => { try { Cut.prep(); } catch (e) { console.error(e); } }, 400);       // build the opening film while the title is up, so it starts at once
   setTimeout(() => { try { const L = Lift.build(); renderer.compile(L.sc, camera); } catch (e) { console.error(e); } }, 1100);   // and the lift, so the first ride never stalls
-  setTimeout(() => HoldMusic.render(), 2200);                                       // and its music, rendered once in the background
+  setTimeout(() => HoldMusic.render(), 2200);
+  setTimeout(() => { try { HoldShow.ensure(); HoldShow.preload(); } catch (e) { console.error(e); } }, 3000);   // the TV show's picture and voices, ready before anyone reaches the office                                       // and its music, rendered once in the background
 }
-window.__tc = { Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS }), lineHash, get state() { return state; }, Cut, get Lift() { return Lift; }, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
+window.__tc = { Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, get state() { return state; }, Cut, get Lift() { return Lift; }, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
 try { boot(); } catch (err) { console.error(err); $("loading").hidden = false; $("loading").innerHTML = '<div style="max-width:420px;text-align:center;line-height:1.6;font-size:13px;letter-spacing:.05em">Something went wrong starting the game.<br><small>' + String(err && err.message || err) + "</small></div>"; }
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>

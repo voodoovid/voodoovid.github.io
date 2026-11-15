@@ -40,6 +40,16 @@ def sentry_mp3(wav, sr, out):          # the sentries' small, bright speaker voi
     return round(float(probe.strip()), 2)
 
 
+PUPPETS = {"ted": ("am_michael", 0.95), "lint": ("am_puck", 1.05)}   # v7.2: Ted and Lint, the sock puppets on the office TV (dry, no SaDos effect; the game adds the TV speaker)
+
+
+def puppet_mp3(wav, out):
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", wav, "-af", "highpass=f=90,acompressor=threshold=-18dB:ratio=2.5", "-codec:a", "libmp3lame", "-b:a", "96k", out], check=True)
+    level_mp3(out)
+    probe = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", out], capture_output=True, text=True, check=True).stdout
+    return round(float(probe.strip()), 2)
+
+
 def main(model, voices):
     todo = json.load(open(os.path.join(TC, "voice-todo.json")))
     if not todo:
@@ -50,7 +60,7 @@ def main(model, voices):
     levels_path = os.path.join(SCRIPTS, "glados_levels.json")
     levels = json.load(open(levels_path))
     for t in todo:
-        if t.get("voice") != "sentry":
+        if t.get("voice") not in ("sentry",) + tuple(PUPPETS):
             levels[t["hash"]] = t["chamber"]
     json.dump(levels, open(levels_path, "w"), indent=0)
 
@@ -65,6 +75,13 @@ def main(model, voices):
                 os.makedirs(os.path.join(TC, "voice"), exist_ok=True)
                 sentry_durs[t["hash"]] = sentry_mp3(wav, sr, os.path.join(TC, "voice", t["hash"] + ".mp3"))
                 print("spoke (sentry)", t["hash"], t["text"][:60]); continue
+            if t.get("voice") in PUPPETS:
+                pv, spd = PUPPETS[t["voice"]]
+                samples, sr = kokoro.create(t["text"].replace("SaDos", "Sahdos"), voice=pv, speed=spd, lang="en-us")
+                wav = os.path.join(tmp, t["hash"] + ".wav"); sf.write(wav, np.asarray(samples, dtype=np.float32), sr)
+                os.makedirs(os.path.join(TC, "voice"), exist_ok=True)
+                sentry_durs[t["hash"]] = puppet_mp3(wav, os.path.join(TC, "voice", t["hash"] + ".mp3"))
+                print("spoke (" + t["voice"] + ")", t["hash"], t["text"][:60]); continue
             speak = t["text"].replace("SaDos", "Sahdos")      # her name is said "SAH-dos"
             samples, sr = kokoro.create(speak, voice="af_heart", speed=1.0, lang="en-us")
             wav = os.path.join(tmp, t["hash"] + ".wav"); sf.write(wav, np.asarray(samples, dtype=np.float32), sr)
