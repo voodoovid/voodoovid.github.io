@@ -1,1 +1,32 @@
-[]
+[
+ {
+  "hash": "32fc21b8",
+  "chamber": 1,
+  "text": "Another cupboard. I keep finding these. I did not build them, which I find more upsetting than if I had."
+ },
+ {
+  "hash": "b43b2822",
+  "chamber": 2,
+  "text": "You are inside a wall. I would like to be clear that the wall is not part of the test, and neither is whatever is written on it."
+ },
+ {
+  "hash": "a51abd61",
+  "chamber": 2,
+  "text": "That is not the cell. It is a different cell. Nobody is in it. Please do not wave at it."
+ },
+ {
+  "hash": "29ee7e25",
+  "chamber": 3,
+  "text": "That room is behind the wall. Walls do not have rooms behind them. I have checked. I am going to check again."
+ },
+ {
+  "hash": "8d6c4b30",
+  "chamber": 3,
+  "text": "You have found a ledge. It is not on my plans. I will record it as a ledge that nobody found."
+ },
+ {
+  "hash": "86ea838b",
+  "chamber": 3,
+  "text": "That is a storeroom. It stores nothing. I have been very clear that storerooms store things."
+ }
+]

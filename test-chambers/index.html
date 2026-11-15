@@ -484,7 +484,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 await RAPIER.init();
 
-const VERSION = "v7.4";
+const VERSION = "v7.5";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -814,7 +814,7 @@ function level2() {
   alcove(B, 24, 0, 10, 5, 3, 0, 3.2, 4, -6, 9);
   // the cube is shut in a side room: a window to shoot through, no door
   B.push(bx(0, 0, 6.3, 4.5, 7, 6.6, "dark"), bx(4.2, 0, 6.6, 4.5, 1.25, 10, "dark"), bx(4.2, 2.65, 6.6, 4.5, 7, 10, "dark"), bx(4.2, 1.25, 6.6, 4.5, 2.65, 7.4, "dark"), bx(4.2, 1.25, 9.4, 4.5, 2.65, 10, "dark"));
-  return {
+  const lv = {
     num: 2, name: "Delivery", boxes: B, track: 1,
     air: [[0, 0, 0, 24, 7, 10], [10, -4, 0, 16, 0, 10], [24, 0, 3.5, 28, 3.2, 6.5]],
     lamps: [lamp(4, 6.7, 5, .55, 8), lamp(13, 6.7, 5, .5, 9), lamp(20, 6.7, 5, .55, 8), lamp(26.2, 2.9, 5, .75, 5, ...WARM), lamp(13, -2.4, 5, .55, 5, .25, 1, .45), lamp(2.1, 6.5, 8.3, .45, 5)],
@@ -835,6 +835,9 @@ function level2() {
       done: ["The cube did all the work, but I will put your name on it anyway."]
     }
   };
+  den(lv, { W: 10, side: 0, x: 6.5, scr: ["THE CUBE NEVER COMPLAINS.", "I ENVY IT.  - O."],      // v7.5: the near wall, over the start bank
+    line: "You are inside a wall. I would like to be clear that the wall is not part of the test, and neither is whatever is written on it." });
+  return lv;
 }
 function level3() {
   const B = [];
@@ -844,7 +847,7 @@ function level3() {
   B.push(bx(0, 13, 0, 9, 14, 3.5));
   darken(B.find(b => b.min[0] === 18 && b.max[1] === 0));                       // past the pit nothing takes a portal: the fall is the way across
   B.push(skin(10, -4, 0, 30, 17, 0.1), skin(10, -4, 11.9, 30, 17, 12), skin(10, 16.9, 0, 30, 17, 12), skin(10, -4, 0, 10.1, 0, 12), skin(17.9, -4, 0, 18, 0, 12));
-  return {
+  const lv = {
     badge: [8.3, 15, 0.8], num: 3, name: "Freefall", boxes: B, track: 2,
     air: [[0, 0, 0, 30, 17, 12], [10, -4, 0, 18, 0, 12], [30, 0, 4.5, 34, 3.2, 7.5]],
     lamps: [lamp(5, 16.7, 6, .5, 11), lamp(15, 16.7, 6, .5, 11), lamp(25, 16.7, 6, .5, 11), lamp(4, 9, 7, .45, 9), lamp(24, 8, 6, .35, 10), lamp(32.2, 2.9, 6, .75, 5, ...WARM), lamp(14, -2.4, 6, .55, 6, .25, 1, .45)],
@@ -863,6 +866,9 @@ function level3() {
       done: ["That was almost graceful. I have logged it as an accident."]
     }
   };
+  den(lv, { W: 12, side: 1, x: 4, scr: ["IT IS NOT THE FALL THAT TAKES TIME.", "IT IS THE WALK BACK UP.  - O."],      // v7.5: the far wall over the start bank; it throws you back, never across
+    line: "That room is behind the wall. Walls do not have rooms behind them. I have checked. I am going to check again." });
+  return lv;
 }
 function level4() {
   const B = [];
@@ -871,7 +877,7 @@ function level4() {
   alcove(B, 14, 0, 8, 4, 3, 10, 3.2, 4, -6, 18);
   darken(B.find(b => b.min[1] === 9 && b.max[1] === 10));                          // nothing by the exit takes a portal: you have to arrive from below
   B.push(skin(9, 3, 0, 14, 16, 0.1), skin(9, 3, 7.9, 14, 16, 8), skin(9, 15.9, 0, 14, 16, 8));
-  return {
+  const lv = {
     num: 4, name: "Lift", boxes: B, track: 0,
     air: [[0, 0, 0, 14, 16, 8], [3, 0, 0, 14, 16, 8], [14, 10, 2.5, 18, 13.2, 5.5]],
     lamps: [lamp(5, 15.7, 4, .5, 12), lamp(11, 15.7, 4, .5, 12), lamp(9, 7, 4, .45, 9), lamp(5, 3, 4, .4, 8), lamp(16.2, 12.9, 4, .75, 5, ...WARM)],
@@ -890,6 +896,9 @@ function level4() {
       done: ["Well done. I will be very surprised if this keeps happening."]
     }
   };
+  den(lv, { W: 8, side: 1, x: 5, scr: ["I WAITED FOR THE LIFT FOR A WEEK.", "THEN I NOTICED THE DOOR.  - O."],      // v7.5: the far wall between the start block and the step
+    line: "You have found a ledge. It is not on my plans. I will record it as a ledge that nobody found." });
+  return lv;
 }
 function level5() {
   const B = [];
@@ -899,7 +908,7 @@ function level5() {
   B.push(bx(0, 13, 0, 9, 14, 3.5));
   darken(B.find(b => b.min[0] === 18 && b.max[1] === 0));                       // past the pit nothing takes a portal: the fall is the way across
   B.push(skin(10, -4, 0, 32, 17, 0.1), skin(10, -4, 11.9, 32, 17, 12), skin(10, 16.9, 0, 32, 17, 12), skin(10, -4, 0, 10.1, 0, 12), skin(17.9, -4, 0, 18, 0, 12));
-  return {
+  const lv = {
     num: 5, name: "Special Delivery", boxes: B, track: 1,
     air: [[0, 0, 0, 32, 17, 12], [10, -4, 0, 18, 0, 12], [32, 0, 4.5, 36, 3.2, 7.5]],
     lamps: [lamp(5, 16.7, 6, .5, 11), lamp(16, 16.7, 6, .5, 11), lamp(27, 16.7, 6, .5, 11), lamp(4, 9, 7, .45, 9), lamp(25, 8, 6, .35, 10), lamp(34.2, 2.9, 6, .75, 5, ...WARM), lamp(14, -2.4, 6, .55, 6, .25, 1, .45)],
@@ -920,6 +929,9 @@ function level5() {
       done: ["Three chambers done. I would tell you how many are left, but it would only discourage you."]
     }
   };
+  den(lv, { W: 12, side: 1, x: 4, scr: ["ONE CRATE, ONE BUTTON.", "EVERYBODY'S FIRST WEEK.  - O."],      // v7.5: the far wall over the start bank
+    line: "That is a storeroom. It stores nothing. I have been very clear that storerooms store things." });
+  return lv;
 }
 /* ---------- chambers 6 to 12: sentries, light beams, reset fields ---------- */
 // a rectangular hall along +x: floor at y = 0, optional acid pits, an exit alcove (door optional) at x = L
@@ -1894,6 +1906,8 @@ function den(h, o) {
   B.splice(wi, 1);
   B.push(zb(w0.min[0], w0.min[1], 0, xa - 0.75, w0.max[1], 2, mat), zb(xa + 0.75, w0.min[1], 0, w0.max[0], w0.max[1], 2, mat),      // the wall, rebuilt round the doorway
     zb(xa - 0.75, w0.min[1], 0, xa + 0.75, sy, 2, mat), zb(xa - 0.75, sy + 2.3, 0, xa + 0.75, w0.max[1], 2, mat));
+  if (w0.portal) B.push(zb(xa - 0.75, sy, 0, xa - 0.65, sy + 2.3, 2), zb(xa + 0.65, sy, 0, xa + 0.75, sy + 2.3, 2), zb(xa - 0.75, sy, 0, xa + 0.75, sy + 0.1, 2), zb(xa - 0.75, sy + 2.2, 0, xa + 0.75, sy + 2.3, 2),
+    zb(xa - 2.5, sy, 2, xa - 0.75, sy + 2.7, 2.1), zb(xa + 0.75, sy, 2, xa + 2.5, sy + 2.7, 2.1), zb(xa - 0.75, sy + 2.3, 2, xa + 0.75, sy + 2.7, 2.1));      // v7.5: a white wall (rooms 1 to 8) gets dark skins on every face the den can see, so the only white in there is its panel
   B.push(zb(xa - 2.5, sy - 0.5, 2, xa + 2.5, sy, 6.5), zb(xa - 2.5, sy + 2.7, 2, xa + 2.5, sy + 3.2, 6.5), zb(xa - 2.5, sy, 6, xa + 2.5, sy + 2.7, 6.5));    // floor, ceiling, back
   const t = o.two || 0;
   for (const sd of [-1, 1]) {
@@ -2079,6 +2093,8 @@ function level55() {
   h.boxes.push(bx(12, 0, 0, 12.5, 1.25, 10, "dark"), bx(12, 2.65, 0, 12.5, 7, 10, "dark"), bx(12, 1.25, 0, 12.5, 2.65, 3.6, "dark"), bx(12, 1.25, 6.4, 12.5, 2.65, 10, "dark"));   // a wall with a window too high to climb through
   whiteOn(h, bx(4, 0, 0, 9, 3.2, 0.1)); whiteOn(h, bx(20.4, 0, 0.6, 22, 3.2, 3.2));         // a panel on this side, one white pillar beyond the wall
   h.badge = [20.6, 0.9, 9.3];
+  den(h, { W: 10, side: 1, x: 7, scr: ["LOOKING IS HALF THE TEST.", "THE OTHER HALF IS LOOKING HARDER.  - O."],      // v7.5: the far wall, before the window wall; nothing there to see past it
+    line: "Another cupboard. I keep finding these. I did not build them, which I find more upsetting than if I had." });
   h.signs.push(chSign(1, "LINE OF SIGHT", 5.5, 5));
   return Object.assign(h, {
     num: 3, name: "Line Of Sight", track: 2, par: [70, 2],
@@ -2102,6 +2118,8 @@ function level56() {
   h.cubes = [[3, 0.35, 3]]; h.plates = [{ pos: [17, 0, 8.3], door: "d1" }]; h.doors = [exitDoor(26, 5)];
   h.lamps.push(lamp(17, 2.3, 8.3, .5, 5));
   h.badge = [24.8, 0.9, 9.3];
+  den(h, { W: 10, side: 0, x: 9.5, scr: ["I FOLLOWED THE CUBE DOWN.", "IT DID NOT WAIT.  - O."],      // v7.5: orange on its panel, then into the held floor portal
+    line: "That is not the cell. It is a different cell. Nobody is in it. Please do not wave at it." });
   h.signs.push(chSign(2, "DROP BOX", 5.5));
   return Object.assign(h, {
     num: 5, name: "Drop Box", track: 0, par: [70, 1],
