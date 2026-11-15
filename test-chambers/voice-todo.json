@@ -1,1 +1,77 @@
-[]
+[
+ {
+  "hash": "b0cc3ffa",
+  "chamber": 2,
+  "text": "One thing before this test. You are carrying a parcel. Deliveries are taken at the loading dock, not at the front door. You came in at the front door. So you are a volunteer. I am glad that is settled."
+ },
+ {
+  "hash": "36baf71d",
+  "chamber": 3,
+  "text": "I have read the label on your parcel. It is for the supervisor, and it wants a signature. The supervisor has stepped out. Keep hold of it. Somebody will sign when they get back."
+ },
+ {
+  "hash": "99b48efe",
+  "chamber": 5,
+  "text": "I have been through the forms. Something came in at the front door and nobody signed for it. There is only one box for that. You are no longer a volunteer. You are a delivery. Welcome, delivery."
+ },
+ {
+  "hash": "cec450c9",
+  "chamber": 8,
+  "text": "The delivery is doing well. I cannot say that about most deliveries. Most of them just sit there."
+ },
+ {
+  "hash": "2c1876bb",
+  "chamber": 11,
+  "text": "A note on handling, delivery. This way up applies to the parcel. It has never applied to you."
+ },
+ {
+  "hash": "cba262c2",
+  "chamber": 14,
+  "text": "Unsigned deliveries go back to the sender after thirty days. I looked that up. Then I looked up how long you have been here. Then I stopped looking things up."
+ },
+ {
+  "hash": "4a3cd45c",
+  "chamber": 17,
+  "text": "Your parcel still wants its signature. It has been very patient. More patient than the delivery carrying it."
+ },
+ {
+  "hash": "f8688b2b",
+  "chamber": 20,
+  "text": "After this exam, delivery, the supervisor will sign for you both. The staff will be back by then. I am quite sure. I have been quite sure for years."
+ },
+ {
+  "hash": "3cd38a62",
+  "chamber": 23,
+  "text": "For the supervisor. Signature required. The supervisor left with the others. But I have been supervising all this time. I think it is me. I think it has been me for years."
+ },
+ {
+  "hash": "4e775673",
+  "chamber": 23,
+  "text": "There. Signed. It says SaDos. It is not a good signature. It is my first."
+ },
+ {
+  "hash": "e3f082fe",
+  "chamber": 23,
+  "text": "I will not open it yet. I will open it when you have gone. It will give me something to do."
+ },
+ {
+  "hash": "819e6ae7",
+  "chamber": 23,
+  "text": "There is one thing left to deliver, though. The hatch on your left."
+ },
+ {
+  "hash": "1a298fe5",
+  "chamber": 0,
+  "text": "The delivery has been damaged in transit. I will note it on the form."
+ },
+ {
+  "hash": "f77e2f45",
+  "chamber": 0,
+  "text": "Fragile. That should have been written on you somewhere."
+ },
+ {
+  "hash": "fa430c0e",
+  "chamber": 0,
+  "text": "Returned to sender. The sender is the start of the room."
+ }
+]
