@@ -497,7 +497,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 await RAPIER.init();
 
-const VERSION = "v8.1";
+const VERSION = "v8.2";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -715,6 +715,267 @@ function signTex(kind, line1, line2, w, h) {
     } else { g.font = `800 ${ch * (exit ? .55 : .3)}px Helvetica, Arial, sans-serif`; wrapText(g, line1, cw / 2, ch / 2, cw * .88, ch * .34); }
   }, false);
   return t;
+}
+/* ---------- v8.2 "Where's Lint?": Ted & Lint stickers and Ted's notes ----------
+   Somebody has been putting up stickers from the Hold Music show, and somebody (Ted) has been leaving notes asking after Lint.
+   The stickers change as you go deeper: both socks (Acts 1-2), Lint curling off (3-4), Lint torn away (5-6), only an outline (7),
+   and the later they are, the longer they have been up (grime: yellowed, faded, dirt in the edges, scuffs, chipped corners).
+   They are pictures on the wall only: no collider, never on a portal surface. Placed by `lintDress` in `buildLevel`. */
+const LINT_P = {
+  sock: new Path2D("M0 80V20Q0 0 20 0Q40 0 40 20V80Z"),
+  argyle: new Path2D("M20 22L30 36L20 50L10 36Z M20 50L30 64L20 78L10 64Z"),
+  bow: new Path2D("M20 40L11 35V45Z M20 40L29 35V45Z")
+};
+function lintRng(seed) { let s = seed >>> 0 || 1; return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; }; }
+function lintSeed(str) { let h = 2166136261; for (const c of String(str)) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0; return h; }
+function drawTedSock(g, x, y, mood) {
+  g.save(); g.translate(x, y);
+  g.fillStyle = "#22325a"; g.fill(LINT_P.sock); g.save(); g.clip(LINT_P.sock);
+  g.fillStyle = "#2e4478"; g.fill(LINT_P.argyle);
+  g.strokeStyle = "rgba(194,48,58,.5)"; g.lineWidth = .55; g.beginPath(); for (let k = -40; k <= 40; k += 20) { g.moveTo(k, 8); g.lineTo(k + 40, 64); g.moveTo(40 - k, 8); g.lineTo(-k, 64); } g.stroke();   // a fine argyle lattice (one bold pair read as a cross through him)
+  g.fillStyle = "#1a2748"; g.fillRect(0, 72, 40, 8);
+  const sh = g.createLinearGradient(0, 0, 40, 0); sh.addColorStop(0, "rgba(255,255,255,.08)"); sh.addColorStop(.6, "rgba(0,0,0,0)"); sh.addColorStop(1, "rgba(0,0,0,.25)"); g.fillStyle = sh; g.fillRect(0, 0, 40, 80);
+  g.restore();
+  for (const ex of [13, 27]) { g.fillStyle = "#e8e4d8"; g.beginPath(); g.arc(ex, 15, 4.5, 0, 6.3); g.fill(); g.fillStyle = "#22325a"; for (const [dx, dy] of [[-1, -1], [1, 1], [-1, 1], [1, -1]]) { g.beginPath(); g.arc(ex + dx * 1.1, 15 + dy * 1.1, .7, 0, 6.3); g.fill(); } }
+  g.strokeStyle = "#0f1830"; g.lineWidth = 1.5; g.lineCap = "round"; g.beginPath();
+  if (mood === "flat") { g.moveTo(14, 28); g.lineTo(26, 28); } else if (mood === "sad") { g.moveTo(14, 29); g.quadraticCurveTo(20, 26, 26, 29); } else { g.moveTo(14, 27); g.quadraticCurveTo(20, 30, 26, 27); }
+  g.stroke();
+  g.fillStyle = "#c2303a"; g.fill(LINT_P.bow); g.fillStyle = "#8f1f27"; g.beginPath(); g.arc(20, 40, 2, 0, 6.3); g.fill();
+  g.restore();
+}
+function drawLintSock(g, x, y) {
+  g.save(); g.translate(x, y);
+  g.fillStyle = "#f4b942"; g.fill(LINT_P.sock); g.save(); g.clip(LINT_P.sock);
+  g.strokeStyle = "#e0a52e"; g.lineWidth = 1.2; g.beginPath(); for (const rx of [8, 16, 24, 32]) { g.moveTo(rx, 32); g.lineTo(rx, 80); } g.stroke();
+  const sh = g.createLinearGradient(0, 0, 40, 0); sh.addColorStop(0, "rgba(255,255,255,.18)"); sh.addColorStop(.6, "rgba(0,0,0,0)"); sh.addColorStop(1, "rgba(120,70,0,.22)"); g.fillStyle = sh; g.fillRect(0, 0, 40, 80);
+  g.restore();
+  g.fillStyle = "#e2b48e"; g.beginPath(); g.ellipse(31, 5, 3.5, 2.5, 0, 0, 6.3); g.fill();
+  for (const [ex, ey, px, py] of [[12, 15, 14, 18], [28, 14, 26, 17]]) { g.fillStyle = "#fff"; g.strokeStyle = "#7a5212"; g.lineWidth = .6; g.beginPath(); g.arc(ex, ey, 6, 0, 6.3); g.fill(); g.stroke(); g.fillStyle = "#1a1a1a"; g.beginPath(); g.arc(px, py, 2.6, 0, 6.3); g.fill(); }
+  g.strokeStyle = "#7a5212"; g.lineWidth = 1.5; g.lineCap = "round"; g.beginPath(); g.moveTo(12, 28); g.quadraticCurveTo(20, 34, 28, 28); g.stroke();
+  g.strokeStyle = "#c2303a"; g.lineWidth = 1.2; g.beginPath(); g.moveTo(8, 35); g.lineTo(20, 50); g.lineTo(32, 35); g.stroke();
+  g.fillStyle = "#fbfbf4"; g.strokeStyle = "#999"; g.lineWidth = .5; g.beginPath(); g.roundRect(14, 50, 12, 15, 1.5); g.fill(); g.stroke();
+  g.strokeStyle = "#999"; g.lineWidth = .8; g.beginPath(); g.moveTo(16.5, 56); g.lineTo(23.5, 56); g.moveTo(16.5, 59); g.lineTo(21, 59); g.stroke();
+  g.restore();
+}
+// residue where a sticker has come away: a faint pale ghost with specks of glue and paper fibre
+function lintResidue(g, path, rnd, k) {
+  g.save(); g.clip(path); g.fillStyle = `rgba(235,230,214,${.1 + .06 * k})`; g.fill(path);
+  for (let i = 0; i < 160; i++) { g.fillStyle = `rgba(${rnd() < .5 ? "240,236,222" : "40,36,30"},${.08 + rnd() * .22})`; g.beginPath(); g.arc(rnd() * 140, rnd() * 120, .3 + rnd() * rnd() * 2.4, 0, 6.3); g.fill(); }
+  g.restore();
+}
+// grime: the longer a sticker has been up, the more yellow, faded and dirty it gets. Only lands on the sticker itself (source-atop)
+function lintGrime(g, W, H, edge, amt, rnd) {
+  if (amt <= 0) return;
+  g.save(); g.globalCompositeOperation = "source-atop";
+  g.fillStyle = `rgba(160,128,62,${.26 * amt})`; g.fillRect(0, 0, W, H);                         // yellowed
+  g.fillStyle = `rgba(196,190,172,${.2 * amt})`; g.fillRect(0, 0, W, H);                          // faded
+  for (let i = 0; i < 6 + amt * 26; i++) {                                                        // dirt blotches
+    const x = rnd() * W, y = rnd() * H, r = (4 + rnd() * 22) * (W / 140), gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, `rgba(58,48,32,${(.08 + rnd() * .22) * amt})`); gr.addColorStop(1, "rgba(58,48,32,0)"); g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  const lo = g.createLinearGradient(0, H * .45, 0, H); lo.addColorStop(0, "rgba(40,34,24,0)"); lo.addColorStop(1, `rgba(40,34,24,${.34 * amt})`); g.fillStyle = lo; g.fillRect(0, 0, W, H);   // dirt settles at the bottom
+  if (edge) { g.strokeStyle = `rgba(36,30,20,${.55 * amt})`; g.lineWidth = 7 * W / 140; g.filter = `blur(${2.2 * W / 140}px)`; g.stroke(edge); g.filter = "none"; }   // dirt in the edges
+  g.lineCap = "round";
+  for (let i = 0; i < amt * 22; i++) { const x = rnd() * W, y = rnd() * H, a = rnd() * 6.3, l = (3 + rnd() * 16) * W / 140; g.strokeStyle = `rgba(255,252,240,${.12 + rnd() * .25})`; g.lineWidth = (.3 + rnd() * .8) * W / 140; g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); }   // scuffs
+  if (amt > .35) for (let f = 0; f < 1 + amt * 2; f++) {                                           // a thumbprint or two
+    const x = rnd() * W, y = rnd() * H, r = (6 + rnd() * 5) * W / 140; g.strokeStyle = `rgba(50,42,30,${.06 + .08 * amt})`; g.lineWidth = .6 * W / 140;
+    for (let q = 1; q < 7; q++) { g.beginPath(); g.ellipse(x, y, r * q / 7, r * q / 7 * 1.3, rnd(), 0, 6.3); g.stroke(); }
+  }
+  g.restore();
+  if (amt > .45) { g.save(); g.globalCompositeOperation = "destination-out"; for (let i = 0; i < amt * 7; i++) { const x = rnd() * W, y = rnd() < .5 ? rnd() * H * .12 : H - rnd() * H * .12, r = (1 + rnd() * 3.5) * W / 140; g.beginPath(); g.arc(x, y, r, 0, 6.3); g.fill(); } g.restore(); }   // chipped bits
+}
+// spec: { t: "tl" | "dot" | "bumper", stage 0..3, grime 0..1, seed }. Drawn on a 140 x 120 design grid (bumper 150 x 64, dot 110 x 110)
+function paintSticker(g, cw, ch, sp) {
+  const rnd = lintRng(sp.seed), k = sp.grime || 0;
+  g.clearRect(0, 0, cw, ch);
+  if (sp.t === "dot") {
+    const s = cw / 110; g.save(); g.scale(s, s); g.translate(55, 55);
+    g.fillStyle = "#fbfbf6"; g.beginPath(); g.arc(0, 0, 46, 0, 6.3); g.fill();
+    g.fillStyle = "#22325a"; g.beginPath(); g.arc(0, 0, 40, Math.PI / 2, Math.PI * 1.5); g.fill(); g.fillStyle = "#f4b942"; g.beginPath(); g.arc(0, 0, 40, -Math.PI / 2, Math.PI / 2); g.fill();
+    g.textAlign = "center"; g.textBaseline = "alphabetic"; g.font = "500 32px Georgia, 'Times New Roman', serif";
+    g.fillStyle = "#e8e4d8"; g.fillText("T", -20, 11); g.fillStyle = "#22325a"; g.fillText("L", 20, 11);
+    g.fillStyle = "#c2303a"; g.strokeStyle = "#fbfbf6"; g.lineWidth = 2; g.beginPath(); g.arc(0, 0, 12, 0, 6.3); g.fill(); g.stroke();
+    g.fillStyle = "#fbfbf6"; g.font = "500 17px Georgia, serif"; g.fillText("&", 0, 6);
+    const gl = g.createLinearGradient(-46, -46, 46, 46); gl.addColorStop(0, "rgba(255,255,255,.22)"); gl.addColorStop(.5, "rgba(255,255,255,0)"); g.fillStyle = gl; g.beginPath(); g.arc(0, 0, 46, 0, 6.3); g.fill();
+    g.restore();
+    const edge = new Path2D(); edge.arc(55 * s, 55 * s, 46 * s, 0, 6.3); lintGrime(g, cw, ch, edge, k, rnd); return;
+  }
+  if (sp.t === "bumper") {
+    const s = cw / 150; g.save(); g.scale(s, s); g.translate(75, 32);
+    g.fillStyle = "#22325a"; g.beginPath(); g.roundRect(-66, -25, 132, 50, 6); g.fill();
+    g.strokeStyle = "#f4b942"; g.lineWidth = 1; g.beginPath(); g.roundRect(-61, -20, 122, 40, 3); g.stroke();
+    g.textAlign = "center"; g.fillStyle = "#f4b942"; g.font = "italic 18px Georgia, serif"; g.fillText("Hold Music", 0, 0);
+    g.fillStyle = "#e8e4d8"; g.font = "11px Helvetica, Arial, sans-serif"; g.fillText("with Ted & Lint", 0, 14);
+    const gl = g.createLinearGradient(0, -25, 0, 25); gl.addColorStop(0, "rgba(255,255,255,.14)"); gl.addColorStop(.45, "rgba(255,255,255,0)"); g.fillStyle = gl; g.beginPath(); g.roundRect(-66, -25, 132, 50, 6); g.fill();
+    if (k > .3) {                                                     // an old one has a corner lifting
+      const R = new Path2D("M-66 5V19Q-66 25 -60 25H-46Q-54 15 -66 5Z"), F = new Path2D("M-66 5Q-55 15 -46 25Q-55 29 -61 23Q-65 15 -66 5Z");
+      g.save(); g.globalCompositeOperation = "destination-out"; g.fill(R); g.restore();
+      g.save(); g.shadowColor = "rgba(0,0,0,.45)"; g.shadowBlur = 4; g.shadowOffsetX = 1.5; g.shadowOffsetY = 2; g.fillStyle = "#e2d8bc"; g.fill(F); g.restore();
+    }
+    g.restore();
+    const edge = new Path2D(); edge.roundRect(9 * s, 7 * s, 132 * s, 50 * s, 6 * s); lintGrime(g, cw, ch, edge, k, rnd); return;
+  }
+  // the Ted & Lint sticker
+  const s = cw / 140; g.save(); g.scale(s, s);
+  const back = new Path2D(); back.roundRect(10, 10, 120, 100, 16);
+  const st = sp.stage | 0;
+  if (st >= 3) {                                                   // Act 7: scraped off long ago; a ghost, scraps, and someone has drawn round where Lint was
+    lintResidue(g, back, rnd, 1);
+    g.fillStyle = "#ece6d4"; for (const pts of [[[12, 34], [19, 30], [18, 41]], [[118, 96], [127, 92], [125, 102]], [[60, 104], [67, 101], [70, 108]]]) { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill(); }
+    g.strokeStyle = "#f4b942"; g.lineWidth = 1.9; g.lineCap = "round"; g.lineJoin = "round";
+    const o = [[72, 100], [72, 40], [74, 28], [82, 21], [92, 20], [102, 22], [110, 30], [112, 40], [112, 100]];
+    for (let i = 0; i < o.length - 1; i++) { const [x0, y0] = o[i], [x1, y1] = o[i + 1], n = Math.max(2, Math.round(Math.hypot(x1 - x0, y1 - y0) / 7)); for (let j = 0; j < n; j += 2) { const a = j / n, b = Math.min(1, (j + 1.1) / n); g.beginPath(); g.moveTo(x0 + (x1 - x0) * a + (rnd() - .5), y0 + (y1 - y0) * a + (rnd() - .5)); g.lineTo(x0 + (x1 - x0) * b + (rnd() - .5), y0 + (y1 - y0) * b + (rnd() - .5)); g.stroke(); } }
+    g.fillStyle = "#f4b942"; g.font = "500 13px 'Marker Felt', 'Comic Sans MS', cursive"; g.textAlign = "center"; g.fillText("?", 92, 66);
+    g.restore(); lintGrime(g, cw, ch, null, k * .6, rnd); return;
+  }
+  if (st === 2) {                                                  // Acts 5-6: Lint has been torn off; Ted stays
+    const torn = new Path2D("M26 10H72L68 22L74 34L69 46L75 58L70 70L76 82L71 94L75 110H26Q10 110 10 94V26Q10 10 26 10Z");
+    lintResidue(g, new Path2D("M70 10H114Q130 10 130 26V94Q130 110 114 110H72Z"), rnd, .6);
+    g.save(); g.shadowColor = "rgba(0,0,0,.25)"; g.shadowBlur = 1.5; g.shadowOffsetY = .6; g.fillStyle = "#fbfbf6"; g.fill(torn); g.restore();
+    g.save(); g.clip(torn); drawTedSock(g, 28, 20, "flat"); g.restore();
+    g.strokeStyle = "rgba(220,214,196,.9)"; g.lineWidth = 1.4; g.beginPath(); g.moveTo(72, 10); [[68, 22], [74, 34], [69, 46], [75, 58], [70, 70], [76, 82], [71, 94], [75, 110]].forEach(([x, y]) => g.lineTo(x + 0.6, y)); g.stroke();   // white paper fibre along the tear
+    g.fillStyle = "#fbfbf6"; for (const pts of [[[84, 30], [93, 26], [91, 36]], [[102, 76], [111, 73], [108, 83], [103, 82]], [[118, 16], [125, 14], [124, 21]]]) { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill(); }
+    g.save(); g.clip(new Path2D("M86 50h22v40h-22z")); g.fillStyle = "rgba(244,185,66,.5)"; g.beginPath(); g.arc(98, 62, 1.6, 0, 6.3); g.arc(101, 70, 1.1, 0, 6.3); g.fill(); g.restore();   // a fleck of yellow left behind
+    g.restore(); const edge = new Path2D(); edge.addPath(torn, new DOMMatrix().scale(s)); lintGrime(g, cw, ch, edge, k, rnd); return;
+  }
+  // stages 0 and 1: the whole sticker
+  g.save(); g.shadowColor = "rgba(0,0,0,.28)"; g.shadowBlur = 1.4; g.shadowOffsetY = .5; g.fillStyle = "#fbfbf6"; g.fill(back); g.restore();
+  g.save(); g.clip(back); drawTedSock(g, 28, 20); drawLintSock(g, 72, 20);
+  const gl = g.createLinearGradient(10, 10, 130, 110); gl.addColorStop(0, "rgba(255,255,255,.16)"); gl.addColorStop(.5, "rgba(255,255,255,0)"); g.fillStyle = gl; g.fill(back); g.restore();
+  g.restore();
+  const edge = new Path2D(); edge.addPath(back, new DOMMatrix().scale(s)); lintGrime(g, cw, ch, edge, k, rnd);
+  if (st === 1) {                                                  // Acts 3-4: the top-right corner (Lint's) is curling off
+    g.save(); g.scale(s, s);
+    const lift = new Path2D("M86 10H114Q130 10 130 26V54Q112 40 100 26Q91 16 86 10Z");
+    g.save(); g.globalCompositeOperation = "destination-out"; g.fill(lift); g.restore();
+    lintResidue(g, lift, rnd, .4);
+    const flap = new Path2D("M86 10Q91 16 100 26Q112 40 130 54Q121 61 111 56Q100 50 94 38Q87 25 86 10Z");
+    g.save(); g.shadowColor = "rgba(0,0,0,.5)"; g.shadowBlur = 5; g.shadowOffsetX = -2.5; g.shadowOffsetY = 3; g.fillStyle = "#000"; g.fill(flap); g.restore();   // the shadow the curl throws
+    const pg = g.createLinearGradient(104, 30, 116, 52); pg.addColorStop(0, "#cdbf9b"); pg.addColorStop(.55, "#e6dcc0"); pg.addColorStop(1, "#f3ecd6"); g.fillStyle = pg; g.fill(flap);   // the paper back, rolling towards the light
+    g.strokeStyle = "rgba(150,136,104,.9)"; g.lineWidth = 1; g.beginPath(); g.moveTo(86, 10); g.quadraticCurveTo(91, 16, 100, 26); g.quadraticCurveTo(112, 40, 130, 54); g.stroke();
+    g.strokeStyle = "rgba(255,255,255,.55)"; g.lineWidth = .7; g.beginPath(); g.moveTo(96, 40); g.quadraticCurveTo(104, 50, 116, 56); g.stroke();
+    if (k > 0) { g.save(); g.clip(flap); g.fillStyle = `rgba(150,128,70,${.28 * k})`; g.fill(flap); g.restore(); }
+    g.restore();
+  }
+}
+// Ted's note: a scrap of lined paper taped up, written in navy marker in a careful, worried hand
+function paintNote(g, cw, ch, sp) {
+  const rnd = lintRng(sp.seed), rr = a => (rnd() * 2 - 1) * a, k = sp.grime || 0;
+  g.clearRect(0, 0, cw, ch);
+  const m = cw * .04, pts = [];
+  for (let i = 0; i <= 8; i++) pts.push([m + (cw - 2 * m) * i / 8 + rr(2), m * .9 + rr(m * .35)]);
+  for (let i = 1; i <= 6; i++) pts.push([cw - m + rr(m * .3), m + (ch - 2 * m) * i / 6]);
+  for (let i = 8; i >= 0; i--) pts.push([m + (cw - 2 * m) * i / 8 + rr(4), ch - m + rr(m * .5)]);        // the torn bottom edge is rougher
+  for (let i = 5; i >= 1; i--) pts.push([m + rr(m * .3), m + (ch - 2 * m) * i / 6]);
+  const paper = new Path2D(); pts.forEach(([x, y], i) => i ? paper.lineTo(x, y) : paper.moveTo(x, y)); paper.closePath();
+  g.save(); g.shadowColor = "rgba(0,0,0,.35)"; g.shadowBlur = cw * .012; g.shadowOffsetY = cw * .004; g.fillStyle = "#f2efe4"; g.fill(paper); g.restore();
+  g.save(); g.clip(paper);
+  g.strokeStyle = "rgba(110,150,200,.45)"; g.lineWidth = Math.max(1, ch * .006); for (let y = ch * .22; y < ch - m; y += ch * .16) { g.beginPath(); g.moveTo(0, y); g.lineTo(cw, y); g.stroke(); }
+  g.strokeStyle = "rgba(210,90,90,.45)"; g.beginPath(); g.moveTo(cw * .1, 0); g.lineTo(cw * .1, ch); g.stroke();
+  // the writing: the graffiti alphabet, but drawn with a fine marker, small and level
+  const words = sp.text.toUpperCase().split(" "), fs = ch * .12, gw = c => c === " " ? .55 : SCRAWL_GLYPHS[c] ? Math.max(...SCRAWL_GLYPHS[c].flat().map(q => q[0])) + .3 : .45;
+  const lines = []; let cur = "";
+  for (const w of words) { const t = cur ? cur + " " + w : w; if ([...t].reduce((a, c) => a + gw(c), 0) * fs * .8 > cw * .78 && cur) { lines.push(cur); cur = w; } else cur = t; }
+  lines.push(cur);
+  const LH = ch * .19, top = ch * .52 - (lines.length - 1) * LH / 2;
+  g.strokeStyle = "#1c2850"; g.lineCap = "round"; g.lineJoin = "round";
+  lines.forEach((ln, li) => {
+    const tw = [...ln].reduce((a, c) => a + gw(c), 0) * fs * .8; let x = cw * .54 - tw / 2 + rr(cw * .01); const base = top + li * LH + fs * .5;
+    for (const c of ln) {
+      const gl = SCRAWL_GLYPHS[c], sz = fs * (.9 + rnd() * .14);
+      if (gl) for (const stk of gl) { g.lineWidth = fs * (.1 + rnd() * .025); g.beginPath(); stk.forEach(([u, v], i) => { const px = x + u * sz * .8 + rr(sz * .02), py = base - sz + v * sz + rr(sz * .02); i ? g.lineTo(px, py) : g.moveTo(px, py); }); if (stk.length === 1) g.lineTo(x + stk[0][0] * sz * .8 + 1, base - sz + stk[0][1] * sz); g.stroke(); }
+      x += gw(c) * fs * .8 * (.96 + rnd() * .08);
+    }
+  });
+  if (sp.under) { g.lineWidth = fs * .07; g.beginPath(); g.moveTo(cw * .28, ch * .86); g.quadraticCurveTo(cw * .55, ch * .82 + rr(4), cw * .8, ch * .85); g.stroke(); }   // underlined, twice as hard
+  g.restore();
+  // masking tape across the top
+  g.save(); g.translate(cw * .5 + rr(cw * .08), m * 1.1); g.rotate(rr(.1)); g.fillStyle = "rgba(226,212,168,.85)"; g.fillRect(-cw * .14, -ch * .06, cw * .28, ch * .12);
+  g.fillStyle = "rgba(255,255,255,.18)"; g.fillRect(-cw * .14, -ch * .06, cw * .28, ch * .03); g.restore();
+  lintGrime(g, cw, ch, paper, k * .8, rnd);
+}
+function lintTex(s) {                              // a sticker or note's canvas texture, at 1400 px per metre so it reads up close
+  const px = 1400, cw = Math.round(s.w * px / 2) * 2, ch = Math.round(s.h * px / 2) * 2;
+  return canvasTex(cw, ch, (g) => (s.kind === "note" ? paintNote : paintSticker)(g, cw, ch, s.spec), false);
+}
+// v8.2: what goes where (rooms 1 to 30; Fable 5.2 adds 31 to 53). A sticker entry is { t }, a note is { note, near }.
+const LINT_DRESS = {
+  "Delivery": [{ t: "tl" }], "Freefall": [{ t: "dot" }], "Special Delivery": [{ t: "tl" }], "Heavy Lifting": [{ t: "tl" }], "Air Mail": [{ t: "bumper" }],
+  "Reset": [{ note: "Where do the cubes go when they fizzle?" }], "Scales": [{ t: "tl" }], "Borrowed Cover": [{ note: "Where's Lint?", small: true }],
+  "Friendly Fire": [{ t: "tl" }], "Skylight": [{ note: "Has anyone seen Lint?" }], "Field Trip": [{ t: "dot" }], "Mirror Test": [{ t: "tl" }],
+  "Gantry": [{ note: "Was that the lift?", near: "dock" }], "Long Jump": [{ t: "bumper" }], "Rebound": [{ t: "tl" }],
+  "Press": [{ note: "Who's been holding for forty-one years?" }], "Short Notice": [{ t: "tl" }], "Terminal Velocity": [{ t: "dot" }]
+};
+const lintStage = n => n <= 15 ? 0 : n <= 30 ? 1 : n <= 45 ? 2 : 3;           // both · Lint curling off · Lint torn away · outline only
+const lintGrimeOf = n => clamp((n - 6) / 47, 0, 1);                              // the deeper in, the longer it has been up
+const LINT_SIZE = { tl: [0.3, 0.257], dot: [0.17, 0.17], bumper: [0.4, 0.171], note: [0.42, 0.28], noteS: [0.3, 0.2] };
+// find a spot for each entry on a dark wall you can see from the start, clear of signs, doors, the lift, cameras and anything moving.
+// Rays go out level from the start at sticker height; the hit face must be a dark box with the whole patch on it and nothing in front of it
+function lintDress(lv, idx) {
+  const list = LINT_DRESS[lv.name]; if (!list || !lv.start) return;
+  const n = idx + 1, rnd = lintRng(lintSeed(lv.name + "|lint")), rr = a => (rnd() * 2 - 1) * a;
+  const S = lv.start.pos, blk = [...(lv.movers || []), ...(lv.shifters || []), ...(lv.spinners || []), ...(lv.glass || []), ...lv.doors];
+  let fy = -1e9; for (const b of lv.boxes) if (b.min[0] <= S[0] && b.max[0] >= S[0] && b.min[2] <= S[2] && b.max[2] >= S[2] && b.max[1] <= S[1] + 0.3) fy = Math.max(fy, b.max[1]);
+  if (fy < -1e8) fy = S[1] - 1;
+  const D = lv.dock, dockP = D ? (() => { const q = [0, D.y0 + 1.3, 0]; q[D.ax] = D.wall; q[D.lat] = D.c; return q; })() : null;
+  const hitBox = (o, d, b) => {               // slab test: [t, axis, sign of the face normal] or null
+    let t0 = 0, t1 = 1e9, ax = -1, sg = 0;
+    for (let a = 0; a < 3; a++) {
+      if (Math.abs(d[a]) < 1e-9) { if (o[a] <= b.min[a] || o[a] >= b.max[a]) return null; continue; }
+      let ta = (b.min[a] - o[a]) / d[a], tb = (b.max[a] - o[a]) / d[a], s2 = -Math.sign(d[a]); if (ta > tb) [ta, tb] = [tb, ta];
+      if (ta > t0) { t0 = ta; ax = a; sg = s2; } t1 = Math.min(t1, tb); if (t0 > t1) return null;
+    }
+    return ax < 0 ? null : [t0, ax, sg];
+  };
+  const placed = [];
+  const ok = (p, a, sg, box, r, isDock) => {
+    const b = 2 - a, f = p[a];
+    if (box.min[b] > p[b] - r - 0.05 || box.max[b] < p[b] + r + 0.05 || box.min[1] > p[1] - r - 0.05 || box.max[1] < p[1] + r + 0.05) return false;   // the whole patch on this face
+    const lo = sg > 0 ? f + 0.002 : f - 0.15, hi = sg > 0 ? f + 0.15 : f - 0.002;
+    for (const o of [...lv.boxes, ...blk]) if (o !== box && o.min[a] < hi && o.max[a] > lo && o.min[b] < p[b] + r && o.max[b] > p[b] - r && o.min[1] < p[1] + r && o.max[1] > p[1] - r) return false;   // nothing in front
+    const fr = p.slice(); fr[a] += sg * 0.3;
+    if (!lv.air.some(q => fr[0] > q[0] && fr[0] < q[3] && fr[1] > q[1] && fr[1] < q[4] && fr[2] > q[2] && fr[2] < q[5])) return false;   // the front is in the room
+    for (const s of lv.signs) if (Math.abs(s.pos[a] - f) < 0.35 && Math.abs(s.pos[b] - p[b]) < s.w / 2 + r + 0.15 && Math.abs(s.pos[1] - p[1]) < s.h / 2 + r + 0.15) return false;
+    for (const o of lv.offices || []) if (Math.abs(o.pos[a] - f) < 0.4 && Math.abs(o.pos[b] - p[b]) < o.w / 2 + r + 0.3 && Math.abs(o.pos[1] - p[1]) < o.h / 2 + r + 0.3) return false;
+    const near = (q, m) => q && Math.hypot(q[0] - p[0], q[1] - p[1], q[2] - p[2]) < m;
+    const ex = lv.exit; if (ex && near([(ex.min[0] + ex.max[0]) / 2, (ex.min[1] + ex.max[1]) / 2, (ex.min[2] + ex.max[2]) / 2], 2.5)) return false;
+    for (const d of lv.doors) if (near([(d.min[0] + d.max[0]) / 2, (d.min[1] + d.max[1]) / 2, (d.min[2] + d.max[2]) / 2], 2)) return false;
+    if (!isDock && dockP && (Math.hypot(p[0] - dockP[0], p[2] - dockP[2]) < 2.6 || ((p[D.ax] - D.wall) * D.sg < 0.05 && Math.abs(p[D.lat] - D.c) < 3.2))) return false;   // never by the lift door, never in its alcove
+    for (const c of [...(lv.cams || []), ...(lv.receivers || []), ...(lv.switches || []), ...(lv.sockets || []), ...(lv.beams || []), ...(lv.sprayers || []), ...(lv.sparkers || [])]) if (near(c.pos, 1.3)) return false;
+    for (const q of placed) if (near(q, 3)) return false;
+    return true;
+  };
+  list.forEach((e, i) => {
+    const kind = e.note ? "note" : "sticker", sz = e.note ? LINT_SIZE[e.small ? "noteS" : "note"] : LINT_SIZE[e.t], r = Math.hypot(sz[0], sz[1]) / 2 + 0.02;
+    const spec = { t: e.t, stage: lintStage(n), grime: lintGrimeOf(n), seed: lintSeed(lv.name + i), text: e.note };
+    const rot = e.note ? rr(0.08) : (rnd() < .5 ? -1 : 1) * (0.06 + rnd() * 0.15);      // slapped on: never straight
+    let spot = null;
+    if (e.near === "dock" && D) {                // beside the lift door, where a call button would be
+      for (const side of [1, -1]) {
+        const p = [0, D.y0 + 1.35, 0]; p[D.ax] = D.wall; p[D.lat] = D.c + side * 1.6;
+        const box = lv.boxes.find(b => b.mat !== "white" && Math.abs((D.sg > 0 ? b.max[D.ax] : b.min[D.ax]) - D.wall) < 0.02 && b.min[D.lat] <= p[D.lat] && b.max[D.lat] >= p[D.lat] && b.min[1] <= p[1] && b.max[1] >= p[1]);
+        if (box && ok(p, D.ax, D.sg, box, r, true)) { spot = [p, D.ax, D.sg]; break; }
+      }
+    }
+    for (let k = 0; k < 600 && !spot; k++) {
+      const a = rnd() * Math.PI * 2, hgt = e.note ? 1.2 + rnd() * 0.5 : 0.85 + rnd() * 1.0, o = [S[0], fy + hgt, S[2]], d = [Math.cos(a), 0, Math.sin(a)];
+      let best = null;
+      for (const b of [...lv.boxes, ...blk]) { const h = hitBox(o, d, b); if (h && h[0] > 0.05 && (!best || h[0] < best[0])) best = [...h, b]; }
+      if (!best || best[0] < 2.5 || best[0] > 18 || best[1] === 1) continue;
+      const [t, ax, sg, box] = best; if (!lv.boxes.includes(box) || box.portal || box.mat === "white" || box.mat === "glass") continue;
+      const p = [o[0] + d[0] * t, o[1], o[2] + d[2] * t]; p[ax] = sg > 0 ? box.max[ax] : box.min[ax];
+      if (ok(p, ax, sg, box, r, false)) spot = [p, ax, sg];
+    }
+    if (!spot) { console.warn("lint: no spot in", lv.name, i); return; }
+    const [p, ax, sg] = spot, nv = [0, 0, 0]; nv[ax] = sg; placed.push(p);
+    lv.signs.push({ kind, spec, pos: p, n: nv, w: sz[0], h: sz[1], rot, a: "", b: "" });
+  });
+}
+// the lift car's own sticker: every car is the same model, so where it is stuck (and which one) is picked per room.
+// The ride car and the car you step out of show the same one, because it is the same car
+function lintCarSpec(idx) {
+  const n = idx + 1, rnd = lintRng(lintSeed("car|" + idx)), t = ["tl", "tl", "dot", "bumper"][Math.floor(rnd() * 4)];
+  return { t, stage: lintStage(n), grime: lintGrimeOf(n), seed: lintSeed("carS" + idx), spot: Math.floor(rnd() * 5), u: rnd(), v: rnd(), rot: (rnd() < .5 ? -1 : 1) * (0.06 + rnd() * 0.16) };
 }
 function wrapText(g, text, x, y, maxW, lh) {
   const words = text.split(" "); const lines = []; let cur = "";
@@ -2622,6 +2883,7 @@ function buildLevel(idx) {
   disposeLevel();
   const lv = LEVEL_FUNCS[idx](); lv.num = ROOM[idx].c + 1;
   try { planDock(lv); } catch (e) { console.error(e); lv.dock = null; }       // v7.1: the lift alcove behind the start
+  try { lintDress(lv, idx); } catch (e) { console.error(e); }                 // v8.2: Ted & Lint stickers and Ted's notes
   for (const sg of lv.signs) if (sg.kind === "chamber" && /^TEST CHAMBER/.test(sg.a)) sg.a = "TEST CHAMBER " + String(lv.num).padStart(2, "0");   // numbered by the chamber it belongs to
   const W = world = { idx, lv, solids: lv.boxes, air: lv.air.map(a => bx(...a)), doors: [], plates: [], cubes: [], camProps: [], acid: [], fx: [], t: 0, dyn: [], sentries: [], beams: [], receivers: [], fields: [], gravs: [], pools: [], offices: [], cams: [], movers: [], glass: [], spinners: [], core: null, walks: [], streams: [], sprayers: [], sparkers: [], sockets: [], crushers: [], shifters: [], switches: [], blobs: [], patches: [], ev: {} };
   // static surfaces
@@ -2653,11 +2915,13 @@ function buildLevel(idx) {
       if (up !== null && up + 0.1 + s.h < lv.H - 0.1) s.pos[1] = up + 0.1 + s.h / 2; else if (up !== null) fwd = Math.max(fwd, 0.1);
       s.pos[2] += fwd;
     }
-    const tx = signTex(s.kind, s.a, s.b, s.w, s.h);
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(s.w, s.h), new THREE.MeshBasicMaterial({ map: tx, color: new THREE.Color(.92, .92, .92), transparent: s.kind === "scrawl" }));
+    const lint = s.kind === "sticker" || s.kind === "note";
+    const tx = lint ? lintTex(s) : signTex(s.kind, s.a, s.b, s.w, s.h);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(s.w, s.h), new THREE.MeshBasicMaterial(lint ? { map: tx, color: new THREE.Color(.82, .82, .82), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 } : { map: tx, color: new THREE.Color(.92, .92, .92), transparent: s.kind === "scrawl" }));
     m.userData.ownMat = 1; m.userData.ownMap = 1;
-    m.position.set(s.pos[0] + s.n[0] * 0.02, s.pos[1] + s.n[1] * 0.02, s.pos[2] + s.n[2] * 0.02);
-    m.lookAt(m.position.x + s.n[0], m.position.y + s.n[1], m.position.z + s.n[2]); levelGroup.add(m);
+    const off = lint ? 0.012 : 0.02;
+    m.position.set(s.pos[0] + s.n[0] * off, s.pos[1] + s.n[1] * off, s.pos[2] + s.n[2] * off);
+    m.lookAt(m.position.x + s.n[0], m.position.y + s.n[1], m.position.z + s.n[2]); if (s.rot) m.rotateZ(s.rot); levelGroup.add(m);
   }
   // acid pools
   for (const a of lv.acid) {
@@ -4545,7 +4809,7 @@ function startLevel(idx, quiet) {
   if (carry) { run.time = carry.time; run.portals = carry.portals; run.top = carry.top; carry = null; }      // a later room of the same chamber: the clock runs on
   { const R = ROOM[idx]; $("chNum").textContent = (world.lv.back ? "OFF THE TEST TRACK" : "CHAMBER " + String(R.c + 1).padStart(2, "0")) + (R.parts > 1 ? " · PART " + (R.part + 1) + " OF " + R.parts : ""); $("chTitle").textContent = world.lv.name; }
   Music.set(world.lv.track); Music.kick(); setVoiceRoom(roomSize());
-  preloadVoice([...(world.lv.say.intro || []), ...(world.lv.say.hint || []), ...(world.lv.say.hint2 || []), ...(world.lv.say.done || []), ...(storyLine(world.lv.name) ? [STORY[world.lv.name]] : []), ...(world.lv.hatch ? PARCEL_LINES : [])]);
+  preloadVoice([...(world.lv.say.intro || []), ...(world.lv.say.hint || []), ...(world.lv.say.hint2 || []), ...(world.lv.say.done || []), ...(storyLine(world.lv.name) ? [STORY[world.lv.name]] : []), ...(lintLine(world.lv.name) ? [LINT_ASIDE[world.lv.name]] : []), ...(world.lv.hatch ? PARCEL_LINES : [])]);
   state = "play";
   if (!quiet) introWhenOut(idx, 1400);
   if (idx === 0 && !quiet && !store.get("tipDone", 0)) setTimeout(() => {
@@ -4575,7 +4839,7 @@ function nextPart() {
   const go = () => { startLevel(i, true); toast("Checkpoint · part " + (R.part + 2) + " of " + R.parts); say("done", line); introWhenOut(i, 900); };
   if (window.__tcNoLift) { go(); return; }
   state = "lift"; inp.fwd = inp.right = 0; resetSticks(); $("fade").classList.add("on");          // a ride down to the next room
-  setTimeout(() => Lift.ride(go, "Part " + (R.part + 2) + " of " + R.parts + " · " + ROOM_NAMES[i]), 330);
+  setTimeout(() => Lift.ride(go, "Part " + (R.part + 2) + " of " + R.parts + " · " + ROOM_NAMES[i], i), 330);
 }
 // ratings: each room has a par (seconds, portals); a chamber's par is the sum. Gold beats both, silver one, bronze is finishing
 const roomPar = i => LEVEL_FUNCS[i]().par || [80, 4];
@@ -4831,6 +5095,18 @@ const PARCEL_LINES = [
   "There. Signed. It says SaDos. It is not a good signature. It is my first.",
   "I will not open it yet. I will open it when you have gone. It will give me something to do."
 ];
+// v8.2: SaDos on the Hold Music show, which she says does not exist. One line before the room's intro (after any courier story line),
+// once per save (saved as `lint`). Never hints. Rooms 31 to 53 get theirs from Fable 5.2
+const LINT_ASIDE = {
+  "Two Keys": "Someone has been writing on my walls. I have not read it. I do not know who Lint is. I assume it is a kind of roller.",
+  "Rebound": "There is no program. There was never a program. If you have seen a program, you saw it in a different facility."
+};
+function lintLine(name, mark) {
+  const l = LINT_ASIDE[name]; if (!l) return null;
+  const h = lineHash(l), told = store.get("lint", []); if (told.includes(h)) return null;
+  if (mark) { told.push(h); store.set("lint", told); }
+  return l;
+}
 function storyLine(name, mark) {            // the chamber's story line, if this save has not heard it yet
   const l = STORY[name]; if (!l) return null;
   const h = lineHash(l), told = store.get("story", []); if (told.includes(h)) return null;
@@ -4925,7 +5201,7 @@ function say(key, text) {
   if (!world) return;
   let lines;
   if (text) lines = [text];
-  else if (key === "intro") { const st = storyLine(world.lv.name, true); lines = st ? [st, ...world.lv.say.intro] : world.lv.say.intro; }
+  else if (key === "intro") { const st = storyLine(world.lv.name, true), lt = lintLine(world.lv.name, true); lines = [st, lt, ...world.lv.say.intro].filter(Boolean); }
   else if (key === "hint" || key === "hint2") { lines = world.lv.nohint ? null : world.lv.say[key]; if (!lines || !lines.length) return; }      // v8.1: a room with no hint says nothing
   else if (LINES[key]) lines = [freshPick(key, key === "death" && isDelivery() ? LINES.death.concat(LINES.deathD) : LINES[key])];
   else return;
@@ -5098,7 +5374,7 @@ click("bNext", () => {           // the lift down to the next chamber, then stra
   const i = FIRST[ROOM[levelIdx].c + 1];
   if (window.__tcNoLift) { beginLevel(i); return; }
   ensureAudio(); hideOv(); state = "lift"; $("fade").classList.add("on");
-  setTimeout(() => Lift.ride(() => beginLevel(i), "Chamber " + String(ROOM[i].c + 1).padStart(2, "0") + " · " + CH_NAMES[ROOM[i].c]), 330);
+  setTimeout(() => Lift.ride(() => beginLevel(i), "Chamber " + String(ROOM[i].c + 1).padStart(2, "0") + " · " + CH_NAMES[ROOM[i].c], i), 330);
 });
 click("bAgain", () => beginLevel(FIRST[ROOM[levelIdx].c], true));
 click("bDoneMenu", () => goTitle());
@@ -5108,7 +5384,7 @@ click("bPause", pause);
 click("bFull", toggleFull); click("oFull", toggleFull);
 click("oReset", () => showOv("ovReset"));
 click("bResetNo", () => { syncOpts(); showOv("ovOptions"); });
-click("bResetYes", () => { for (const k of ["progress5", "finished5", "room", "best", "badges", "saidBadge", "tipDone", "saidFirst", "taught", "seenOpening", "story", "parcel"]) { try { localStorage.removeItem("testchambers." + k); } catch (e) {} } optsFrom = "ovTitle"; goTitle(); toast("Progress reset"); });
+click("bResetYes", () => { for (const k of ["progress5", "finished5", "room", "best", "badges", "saidBadge", "tipDone", "saidFirst", "taught", "seenOpening", "story", "parcel", "lint"]) { try { localStorage.removeItem("testchambers." + k); } catch (e) {} } optsFrom = "ovTitle"; goTitle(); toast("Progress reset"); });
 if (store.get("progress5", null) === null) store.set("progress5", Math.min(Math.floor(store.get("progress4", 0) / 2), CHAMBERS.length - 1));     // v4.3 groups rooms into chambers: keep roughly how far you had got
 function syncOpts() {
   const on = (id, v) => { const b = $(id); b.textContent = v ? "On" : "Off"; b.classList.toggle("on", !!v); };
@@ -6350,7 +6626,31 @@ function buildCar() {
   g.traverse(o => { o.frustumCulled = false; });
   const setDoor = e => { for (const l of leaves) l.g.position.x = l.sx * (DW / 4 + (DW / 2 - 0.02) * e); for (const m of lamps) m.material = e > 0.5 ? M.green : M.amber; };
   setDoor(0);
-  return { g, setDoor, setFloor };
+  // v8.2: this car's Ted & Lint sticker (`lintCarSpec`): on a door leaf, a side or back glass wall, or the panel under the call buttons.
+  // On glass the paper back shows from outside
+  let stk = null;
+  const setSticker = sp => {
+    if (stk) { stk.parent && stk.parent.remove(stk); stk.traverse(o => { if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } if (o.geometry) o.geometry.dispose(); }); stk = null; }
+    if (!sp) return;
+    const sz = LINT_SIZE[sp.t], tex = lintTex({ kind: "sticker", w: sz[0], h: sz[1], spec: sp }), grp = new THREE.Group();
+    const fm = new THREE.Mesh(new THREE.PlaneGeometry(sz[0], sz[1]), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, color: new THREE.Color(.95, .95, .95) }));
+    fm.rotation.z = sp.rot; grp.add(fm);
+    const yy = v => v < .45 ? 0.35 + v / .45 * 0.45 : 1.2 + (v - .45) / .55 * 1.05;
+    let parent = g, glass = true;
+    if (sp.spot <= 1) { parent = leaves[sp.spot].g; grp.position.set((sp.u - .5) * 0.5, yy(sp.v), 0.008); }
+    else if (sp.spot === 2) { const s2 = sp.u < .5 ? -1 : 1; let z = -1.3 + ((sp.u * 2) % 1) * 2.7; if (Math.abs(z - 0.3) < 0.3) z += 0.6; grp.position.set(s2 * (W / 2 - 0.038), yy(sp.v), z); grp.rotation.y = -s2 * Math.PI / 2; }
+    else if (sp.spot === 3) { let x = (sp.u - .5) * 3.2; if (Math.abs(x) < 0.32) x += x < 0 ? -0.42 : 0.42; grp.position.set(x, yy(sp.v), D / 2 - 0.038); grp.rotation.y = Math.PI; }
+    else { glass = false; grp.position.set(DW / 2 + 0.5 + (sp.u - .5) * 0.2, 0.5 + sp.v * 0.22, -D / 2 + 0.084); }
+    if (glass) {
+      const c = document.createElement("canvas"); c.width = tex.image.width; c.height = tex.image.height; const cg = c.getContext("2d");
+      cg.drawImage(tex.image, 0, 0); cg.globalCompositeOperation = "source-in"; cg.fillStyle = "#ddd8ca"; cg.fillRect(0, 0, c.width, c.height);
+      const bt = new THREE.CanvasTexture(c); bt.colorSpace = THREE.SRGBColorSpace;
+      const bm = new THREE.Mesh(new THREE.PlaneGeometry(sz[0], sz[1]), new THREE.MeshBasicMaterial({ map: bt, transparent: true, depthWrite: false, color: new THREE.Color(.7, .7, .7) }));
+      bm.rotation.set(0, Math.PI, -sp.rot); bm.position.z = -0.004; grp.add(bm);
+    }
+    grp.traverse(o => { o.frustumCulled = false; }); parent.add(grp); stk = grp; g.userData.stk = grp;
+  };
+  return { g, setDoor, setFloor, setSticker };
 }
 
 /* =====================================================================================
@@ -6766,8 +7066,9 @@ const Lift = (() => {
     sc.traverse(o => { o.frustumCulled = false; });
     return (S = { sc, shaft, car });
   }
-  function ride(arrive, label) {           // arrive() builds the next room (it runs while the car is moving) and is called exactly once
+  function ride(arrive, label, to) {       // arrive() builds the next room (it runs while the car is moving) and is called exactly once; `to` is that room (v8.2: its car sticker)
     try { build(); } catch (e) { arrive(); return; }
+    try { S.car.setSticker(to == null ? null : lintCarSpec(to)); } catch (e) { console.error(e); }
     after = arrive; built = false; on = true; t = 0; t0 = performance.now(); skipT = endT = -1; padHeld = true; sway = Math.random() * 6;
     ly = 0; lp = -0.08; inp.lookX = inp.lookY = 0; mLookX = mLookY = 0;
     fl0 = 3 + Math.floor(Math.random() * 30); hideTip(); S.car.setDoor(0); S.car.setFloor("B" + String(fl0).padStart(2, "0"), -1);
@@ -6882,6 +7183,7 @@ const Dock = (() => {
   function attach(W) {                     // after a room is built: stand the car in its alcove, add the door's collider
     if (!car) { car = buildCar(); scene.add(car.g); }
     d = W.lv.dock || null; car.g.visible = !!d; strip = null; phase = "shut"; e = 0; car.setDoor(0); wasOpen = false;
+    try { car.setSticker(d ? lintCarSpec(W.idx) : null); } catch (er) { console.error(er); }      // v8.2
     if (!d) { door = null; return; }
     car.g.position.set(d.C[0], d.C[1] + 0.03, d.C[2]); car.g.rotation.set(0, d.yaw, 0);      // v7.7: just above the alcove's floor liner, so nothing is flush with the car (that flicker was the moiré)
     const box = { min: d.door.min.slice(), max: d.door.max.slice(), mat: "dark", portal: false };
@@ -6927,7 +7229,7 @@ const Dock = (() => {
     door.t = e; door.open = e > 0.05;
   }
   const propIn = () => props().some(c => { const q = c.p; return q.x > door.min0[0] - 1 && q.x < door.max0[0] + 1 && q.z > door.min0[2] - 1 && q.z < door.max0[2] + 1 && Math.abs(q.y - d.y0) < 3; });
-  return { attach, board, shut, step, get holding() { return !!d && (phase === "wait" || phase === "open") && depth() < 0.3; }, get phase() { return phase; }, get info() { return d; }, get open() { return e; } };
+  return { attach, board, shut, step, get car() { return car; }, get holding() { return !!d && (phase === "wait" || phase === "open") && depth() < 0.3; }, get phase() { return phase; }, get info() { return d; }, get open() { return e; } };
 })();
 
 /* ---------- boot ---------- */
@@ -6944,7 +7246,7 @@ function boot() {
   setTimeout(() => HoldMusic.render(), 2200);
   setTimeout(() => { try { HoldShow.ensure(); HoldShow.preload(); } catch (e) { console.error(e); } }, 3000);   // the TV show's picture and voices, ready before anyone reaches the office                                       // and its music, rendered once in the background
 }
-window.__tc = { Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES), cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, STORY, get state() { return state; }, Cut, get Lift() { return Lift; }, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
+window.__tc = { Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE)), cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
 try { boot(); } catch (err) { console.error(err); $("loading").hidden = false; $("loading").innerHTML = '<div style="max-width:420px;text-align:center;line-height:1.6;font-size:13px;letter-spacing:.05em">Something went wrong starting the game.<br><small>' + String(err && err.message || err) + "</small></div>"; }
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>
