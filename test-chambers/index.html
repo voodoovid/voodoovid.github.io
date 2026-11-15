@@ -476,7 +476,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 await RAPIER.init();
 
-const VERSION = "v6.9";
+const VERSION = "v7.0";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -1304,18 +1304,38 @@ function level23() {
     done: ["Seventy metres a second, with luggage. You have never been more streamlined. Or more like a projectile."] } });
 }
 function level24() {
-  const L = 40, W = 14, h = hall({ L, W, H: 10, zc: 7, pits: [[6, 14]] });
-  h.pads = [{ pos: [3.5, 0, 7], from: [3.5, 0.92, 7], to: [17.5, 0.92, 7], T: 1.15 }];
-  h.fields = [{ min: [23.85, 0, 0], max: [24.15, 10, W] }];
-  h.boxes.push(bx(34, 0, 1.5, 36, 3, 2.5));                           // pillar beside the emitter
-  h.beams = [{ pos: [35, 1.15, 0.02], dir: [0, 0, 1] }];
-  h.receivers = [{ pos: [30, 7, 0], n: [0, 0, 1], w: 2.2, h: 2.2, door: "d1" }];
-  h.cubes = [[2, 0.35, 11]]; h.plates = [{ pos: [31, 0, 10.5], door: "d1" }]; h.doors = [exitDoor(L, 7, "d1", 2)];
-  h.sentries = [{ pos: [38.5, 0, 2], yaw: Math.PI / 2, cone: 40, range: 6 }, { pos: [38.5, 0, 12], yaw: Math.PI / 2, cone: 40, range: 6 }];   // they guard the corners: keep to the middle
-  h.signs.push(chSign(24, "FINAL EXAM", 9.6, 5));
-  return Object.assign(h, { num: 24, name: "Final Exam", track: 2, say: {
-    intro: ["The final chamber. A pad, a pit, a field, a laser, a cube, two sentries, and a door that wants all of it.", "I have prepared a speech for when you finish. I have also prepared one for when you do not. Both are short."],
-    hint: ["Cube first. The light can wait. It always has."], hint2: ["The pad will fly the cube over the pit. The field it can only cross by portal."],
+  // v7.0 Final Exam (Batch 7, the peak): one crate does everything. It is penned (gravity and a ceiling panel get it out), it goes over the acid on
+  // the pad before you do, and past the wall the field would recycle it, so it crosses by portal, from the floor here to the one ceiling panel over
+  // the bolted sentry, which is how the sentry stops. The camera past the doorway sends you back unless its wall is opened first, from this side,
+  // and its panel is the one that looks at the receiver. Nothing past the wall can be seen from the start; the beam's panel hides behind a fin
+  const L = 48, W = 14, H = 10, h = hall({ L, W, H, zc: 7, pits: [[12, 18]] }); darkAll(h);
+  const B = h.boxes;
+  B.push(bx(5, 0, 3.7, 9, 1.6, 4, "dark"), bx(5, 0, 0, 5.3, 1.6, 3.7, "dark"), bx(8.7, 0, 0, 9, 1.6, 3.7, "dark"));          // the pen, against the wall
+  B.push(bx(4.6, 6, 0, 9.4, H, 4.4, "dark")); whiteOn(h, bx(5.85, 5.9, 0.7, 8.15, 6, 3));                                  // a low soffit over it, with one white panel
+  whiteOn(h, bx(2.25, 0.05, W - 0.1, 3.75, 2.35, W));                                                                       // one panel on the far side wall, facing the pen
+  h.gravs = [{ pad: [3.5, 0, 9], min: [5.3, 0, 0], max: [8.7, 6, 3.7] }];
+  h.pads = [{ pos: [9.5, 0, 7], from: [9.5, 0.92, 7], to: [21, 0.92, 7], T: 1.5 }, { pos: [19.6, 0, 11.6], from: [19.6, 0.92, 11.6], to: [9.5, 0.92, 11.6], T: 1.3 }];
+  B.push(bx(18, 0, 0, 18.3, 0.7, W, "dark"));                                                                              // a kerb along the far edge of the acid: the floor behind it cannot be seen from the start
+  whiteOn(h, bx(20.2, 0, 2, 22.6, 0.1, 4.4));                                                                             // a floor patch past the acid
+  B.push(bx(27.85, 0, 0, 28.15, H, 4, "dark"), bx(27.85, 0, 10, 28.15, H, W, "dark"), bx(27.85, 5.5, 4, 28.15, H, 10, "dark"));   // the wall, with one doorway
+  h.fields = [{ min: [27.85, 0, 4], max: [28.15, 5.5, 10] }];
+  whiteOn(h, bx(38.8, H - 0.1, 5.8, 41.2, H, 8.2));                                                                       // over the sentry
+  whiteOn(h, bx(30.95, 6.75, W - 0.1, 32.45, 9.05, W));                                                                       // round the camera
+  B.push(bx(42, 0, 11, 42.4, H, W, "dark")); whiteOn(h, bx(43.25, 0.85, W - 0.1, 44.75, 3.15, W));                           // a fin, and behind it the panel the beam lands on
+  h.beams = [{ pos: [44, 2.0, 0.02], dir: [0, 0, 1] }];
+  h.receivers = [{ pos: [31.7, 7.9, 0], n: [0, 0, 1], w: 1.8, h: 1.8, door: "d1" }];
+  h.cubes = [[7, 0.4, 1.9]];
+  h.sentries = [{ pos: [40, 0, 7], yaw: Math.PI / 2, range: 12, cone: 55, dmg: 26, acc: 0.95, bolt: true }];
+  h.cams = [{ pos: [0, H - 0.9, W - 1.6], n: [1, 0, 0] }, { pos: [31.7, 7.9, W - 0.1], n: [0, 0, -1], watch: { aim: [30.3, 0, 7.5], sweep: 0, range: 11, cone: 24 } }];
+  h.plates = [{ pos: [35, 0, 7], door: "d1" }]; h.doors = [exitDoor(L, 7, "d1", 2)];
+  h.par = [300, 7];
+  den(h, { W, side: 0, x: 22, two: 1, scr: ["THE LAST TEST IS NOT THE LAST.", "SHE WILL FIND MORE.  - O."], scr2: ["I SAT THE EXAM NINE TIMES.", "THEN I STOPPED USING THE DOOR.  - O."],
+    line: "That room is not part of the examination. Nothing in it will be marked. Come out. I cannot invigilate a cupboard." });
+  h.signs.push(chSign(24, "FINAL EXAM", 12.5, 5));
+  return Object.assign(h, { badge: [23.2, 4.3, -4.2], num: 24, name: "Final Exam", track: 2, say: {
+    intro: ["The final examination. One crate, in a pen. One door, a long way from it. Everything I own is in between.", "I have prepared a speech for when you finish. I have also prepared one for when you do not. Both are short."],
+    hint: ["You have one crate. Count the things in here that a crate could solve. Then stop expecting me to give you a second crate."],
+    hint2: ["The crate travels ahead of you, twice. Nothing gets carried through that doorway, and nobody should walk through it while anything past it is still looking."],
     done: ["Testing is complete. All of it. You may go. I will be here, grading."] } });
 }
 
@@ -1485,22 +1505,27 @@ function level32() {
   h.boxes.push(skin(17.5, 3.9, -2, 24, 4, 0), skin(17.4, 4, -2, 17.5, 7, 0), skin(24, 4, -2, 24.1, 7, 0), skin(17.5, 7, -2, 24, 7.1, 0));                 // the reveal
   h.boxes.push(bx(17.5, 4, -1.2, 24, 4.6, 0, "dark"), bx(17.5, 4.6, -1.2, 18, 7, 0, "dark"), bx(23.5, 4.6, -1.2, 24, 7, 0, "dark"), bx(18, 6.5, -1.2, 23.5, 7, 0, "dark"));   // sill, posts, lintel: a deep frame
   h.boxes.push(bx(16.5, 3, -8, 25, 4, -2, "dark"), bx(16.5, 7, -8, 25, 8, -2, "dark"), bx(16.5, 3, -9, 25, 8, -7, "dark"), bx(16.5, 3, -8, 17.5, 8, -2, "dark"), bx(24, 3, -8, 25, 8, -2, "dark"));   // the room
-  h.boxes.push(bx(18.2, 4, -6.4, 20.8, 4.78, -5.3, "dark"), bx(17.6, 4, -3.8, 18.25, 5.9, -2.5, "dark"), bx(19.1, 4, -5.0, 19.7, 4.5, -4.4, "dark"));           // desk, cabinet, stool
+  h.boxes.push(bx(18.2, 4, -6.4, 20.8, 4.78, -5.3, "dark"), bx(17.6, 4, -2.4, 18.25, 5.9, -1.25, "dark"), bx(19.1, 4, -5.0, 19.7, 4.5, -4.4, "dark"));           // desk, cabinet, stool
   h.air.push([17.5, 4, -7, 24, 7, 0]);
   h.lamps.push(lamp(20.75, 6.7, -4.5, .7, 6, ...WARM), lamp(20.75, 8.6, 3, .4, 9)); h.fixtures.push([20.75, 7, -4.5]);
-  h.glass = [{ min: [18, 4.6, -1.2], max: [23.5, 6.5, -0.08], hp: 6 }];       // the pane you see is its front face; the block behind it is what stops you
-  h.offices.push({ pos: [20.75, 5.55, -0.08], n: [0, 0, 1], w: 5.5, h: 1.9, glass: 0 });
+  // v7.0: the office is cut in two. The way out is past a partition with a slot in it, so the last stretch is by portal: one on the panel you can
+  // see through the slot, one on the panel by the desk. The window only opens onto the near half
+  h.boxes.push(bx(21.6, 4, -7, 21.9, 7, -3.0, "dark"), bx(21.6, 4, -1.8, 21.9, 7, -1.2, "dark"), bx(21.6, 4, -3.0, 21.9, 5.3, -1.8, "dark"), bx(21.6, 6.15, -3.0, 21.9, 7, -1.8, "dark"), bx(21.6, 4.6, -1.2, 23.5, 6.5, 0, "dark"));
+  whiteOn(h, bx(21.95, 4.05, -1.3, 23.45, 6.35, -1.2)); whiteOn(h, bx(17.5, 4.05, -4.9, 17.6, 6.35, -3.4));
+  h.lamps.push(lamp(22.9, 6.6, -4.6, .5, 4, ...WARM));
+  h.glass = [{ min: [18, 4.6, -1.2], max: [21.6, 6.5, -0.08], hp: 6 }];       // the pane you see is its front face; the block behind it is what stops you
+  h.offices.push({ pos: [19.8, 5.55, -0.08], n: [0, 0, 1], w: 3.6, h: 1.9, glass: 0 });
   h.boxes.push(bx(15, 0, 0, 25.5, 4, 2.4, "dark"));                                   // the gallery under the window
   h.boxes.push(skin(17.5, 7, 0, 24, H, 0.02), skin(24, 0, 0, L, H, 0.1), skin(0, H - 0.1, 0, L, H, W));   // the wall by the window is white only at the gallery's near end
-  h.sentries = [{ pos: [20.75, 0, 9.5], yaw: 0, range: 11, cone: 60, acc: 0.3 }];
+  h.sentries = [{ pos: [19.8, 0, 9.5], yaw: 0, range: 11, cone: 60, acc: 0.3 }];
   h.doors = [exitDoor(L, 6, "dx", 9)];                                                // the official exit never opens
   h.exit = { min: [23, 4, -5.6], max: [24, 6.4, -3.6] }; h.exitLight = { x: 23.97, y0: 4.3, y1: 6.5, z0: -5.5, z1: -3.7 };
   h.trig = [{ min: [17.5, 4, -7], max: [24, 7, -0.5], line: "You have left the test track. I cannot see you in there. Please come back to where I can see you." }];
   h.signs.push({ kind: "chamber", a: "TEST CHAMBER 32", b: "OUT OF ORDER", pos: [4.6, 4.3, 0.001], n: [0, 0, 1], w: 4.4, h: 1.15 }, hint("EXIT OUT OF ORDER. PLEASE WAIT.", [L - 0.02, 2.0, 6], [-1, 0, 0], 2.7, 0.8),
-    scrawl("IF YOU CAN READ THIS,", "SHE CAN'T SEE YOU.  - O.", [20.9, 5.9, -6.98], [0, 0, 1], 3.4, 1), scrawl("THEY AIM BADLY.", "STAND BY THE GLASS.  - O.", [8, 1.2, 12 - 0.02], [0, 0, -1], 2.8, 0.95));
+    scrawl("IF YOU CAN READ THIS,", "SHE CAN'T SEE YOU.  - O.", [19.6, 5.9, -6.98], [0, 0, 1], 3.4, 1));
   return Object.assign(h, { badge: [19.5, 5.5, -5.9], num: 32, name: "Out Of Order", track: 1, say: {
     intro: ["The exit to this chamber is out of order. Please remain in the chamber until maintenance arrives.", "Maintenance was last seen some years ago. I am sure it is nothing. The sentry will keep you company. It is an older model. Its aim has drifted."],
-    hint: ["There is nothing to solve in here. Stand still. Admire the gallery under the observation window, if you must. Do not stand on it. Do not stand near the glass."],
+    hint: ["There is nothing to solve in here. Stand still. Admire the gallery under the observation window, if you must. Do not stand on it."], hint2: ["That sentry's aim has drifted. I would not stand near the glass. What it misses, it breaks. And what is behind the glass was built by people who liked a slot in a wall."],
     done: ["You are not on my cameras. I do not like it when you are not on my cameras."] } });
 }
 // behind the scenes: service corridors, no test, no sentries. The cameras here are SaDos's only eyes
@@ -1511,7 +1536,9 @@ function level33() {
   partition(h.boxes, 18, 1, W, H, 2.5, 7.5); partition(h.boxes, 29, 1, W, H, 3.5, 6.5);
   for (const b of h.boxes.slice(-6)) darken(b);
   h.boxes.push(bx(17.9, 0, 0.3, 18, 3.2, 2.4));                              // one clean panel on this side of the first wall
-  h.boxes.push(bx(33, 0, 4, 33.6, 3.2, 6));                                  // and a white locker at the far end, in line with both doorways
+  h.boxes.push(bx(28.9, 0, 7.9, 29, 3.2, 9.4));                              // v7.0: one on this side of the second wall, in the corner the fixed camera cannot turn to,
+  h.boxes.push(bx(33, 0, 0.4, 33.6, 3.2, 2.4));                              // and a white locker at the far end, off to one side: it only shows through the second opening, from that corner
+  h.boxes.push(bx(29, 0, 3.5, 30, 1.3, 6.5, "dark"), bx(29, 2.15, 3.5, 30, H, 6.5, "dark"));   // the second wall's doorway is a serving hatch now: you can see and shoot through it, not climb through it
   h.boxes.push(bx(14.2, 0, 0, 15.2, 3.4, 3.4, "dark"), bx(11.8, 0, 7.6, 13.2, H, 8.6, "dark"), bx(5.5, 0, 0, 6.5, 2.2, 3, "dark"), bx(22, 0, 7.4, 24.5, 1.4, 9.6, "dark"));   // plant, a pillar, crates
   h.cams = [
     { pos: [12.5, 3.8, 0.02], n: [0, 0, 1], watch: { aim: [12.5, 0, 6], sweep: 0.9, period: 7, range: 11, cone: 20 } },
@@ -1524,36 +1551,50 @@ function level33() {
     scrawl("HER LAST ORDER: 'KEEP THEM BUSY", "UNTIL WE GET BACK.'  - O.", [L - 0.001, 3.9, 5], [-1, 0, 0], 3.6, 0.95));
   return Object.assign(h, { badge: [23.2, 2.2, 8.5], num: 33, name: "Corridor Nine", track: 2, say: {
     intro: ["I know you are in the service corridors. I have cameras in the service corridors. They are older than the sentries, but they are mine.", "When one of them finds you, I will bring you back. For your safety. Everything here is for your safety."],
-    hint: ["The first camera sweeps. The second one never looks away, so do not walk under it. There are two clean panels down here. I would rather you had not noticed them."],
+    hint: ["One of my cameras sweeps. The other has not blinked since it was installed. Neither of them can see through a pot plant."], hint2: ["There are three clean panels down here, and the third cannot be seen until you have used the second. I would rather you had not noticed any of them."],
     done: ["I have lost you again. Please stop doing that. It is a very long time since I lost anybody."] } });
 }
 function level34() {
-  const L = 28, W = 12, H = 10, h = hall({ L, W, H, zc: 6, ey: 5, ledge: 6 });
-  for (const b of h.boxes) darken(b);
+  // v7.0 Sorting Hall (Batch 7 rework): the turning panel has a vane through its middle, so a portal sits on one half or the other, and the half turn
+  // swaps them: what you put on the right half comes round on the left. Behind the left half is the ledge with the door; behind the right half there
+  // is no floor, only the chute to the room where the failed were kept, and the door's crate is down there. So: fail on purpose (left half), take the
+  // crate, leave by the room's own panel, then come round on the passed side (right half)
+  const L = 28, W = 12, H = 10, h = hall({ L, W, H, zc: 3, ey: 5, ledge: 6 });
+  const B = h.boxes, li = B.findIndex(b => b.min[0] === L - 6 && b.min[1] === 0 && b.max[1] === 5 && b.min[2] === 0 && b.max[2] === W); B.splice(li, 1);
+  for (const b of B) darken(b);
   for (const l of h.lamps) { l.i *= 0.6; l.g = .85; l.b = .68; }
-  // a screen wall along the front of the ledge, with a turning panel set in it: one face out here, one face in there
-  h.boxes.push(bx(22, 5, 0, 22.24, H, 4.9, "dark"), bx(22, 5, 7.1, 22.24, H, W, "dark"), bx(22, 7.55, 4.9, 22.24, H, 7.1, "dark"), bx(22, 5, 4.9, 22.24, 5.05, 7.1, "dark"));
-  h.spinners = [{ min: [22, 5.05, 4.9], max: [22.24, 7.55, 7.1], dwell: 4, turn: 1 }];
-  h.boxes.push(bx(0, 0, 9, 0.12, 3.2, 11.6), bx(8, 0, W - 0.12, 11, 3.2, W));     // two clean panels down here
-  h.cubes = [[4, 0.35, 3]]; h.plates = [{ pos: [25, 5, 9.5], door: "d1" }]; h.doors = [exitDoor(L, 6, "d1", 1, 5)];
+  B.push(bx(22, 0, 0, 28, 5, 6.15, "dark"), bx(22, 0, 10.3, 28, 5, W, "dark"), bx(26.4, 0, 6.15, 28, 5, 10.3, "dark"),                     // the ledge, built round the holding room
+    bx(22, 0, 6.15, 22.24, 1.3, 10.3, "dark"), bx(22, 2.15, 6.15, 22.24, 5, 10.3, "dark"), bx(22, 1.3, 6.15, 22.24, 2.15, 7.6, "dark"), bx(22, 1.3, 8.8, 22.24, 2.15, 10.3, "dark"),   // its front wall, with a slot to look through
+    bx(24.3, 3.2, 6.15, 26.4, 5, 10.3, "dark"), bx(22.24, 3.2, 8.1, 24.3, 5, 10.3, "dark"),                                               // its ceiling, open under the chute
+    bx(22.24, -0.3, 6.15, 26.4, 0, 10.3, "dark"));
+  B.push(bx(22, 5, 0, 22.24, H, 3.9, "dark"), bx(22, 5, 8.1, 22.24, H, W, "dark"), bx(22, 7.55, 3.9, 22.24, H, 8.1, "dark"), bx(22, 5, 3.9, 22.24, 5.05, 8.1, "dark"));   // the screen along the front of the ledge
+  B.push(bx(24.3, 5, 5.9, 24.6, H, 8.4, "dark"), bx(22.24, 5, 8.1, 24.6, H, 8.4, "dark"));                                                // the chute's walls, up on the ledge
+  h.spinners = [{ min: [22, 5.05, 3.9], max: [22.24, 7.55, 8.1], dwell: 4, turn: 1, fin: 2.05 }];
+  B.push(bx(0, 0, 8.6, 0.12, 3.2, 11.6));                                                                                                 // one clean panel down here,
+  B.push(bx(22.24, 0.05, 8.85, 22.54, 2.35, 10.25));                                                                                      // and one in the holding room, on the wall you cannot see from outside
+  h.air.push([22.24, 0, 6.15, 26.4, 3.2, 10.3], [22.24, 3.2, 6.15, 24.3, 5, 8.1]);
+  h.cubes = [[25.4, 0.35, 7.2]]; h.plates = [{ pos: [25.5, 5, 1.3], door: "d1" }]; h.doors = [exitDoor(L, 3, "d1", 1, 5)];
   h.cams = [{ pos: [14, 6.5, 0.02], n: [0, 0, 1], watch: { aim: [14, 0, 5], sweep: 0.8, period: 8, range: 12, cone: 18 } }];
-  h.lamps.push(lamp(25, H - .4, 6, .45, 8, 1, .85, .65));
-  h.back = true;
+  h.lamps.push(lamp(25, H - .4, 3, .45, 8, 1, .85, .65), lamp(24.6, 2.8, 8.6, .5, 4.5, 1, .55, .4));
+  h.back = true; h.par = [240, 4];
+  h.trig = [{ min: [22.24, 0, 6.15], max: [26.4, 3, 10.3], line: "That is the holding room. Failed subjects waited there for collection. Collection was every second Thursday. I have lost track of Thursdays." }];
   h.signs = h.signs.filter(sg => sg.kind !== "exit");
-  h.signs.push(hint("SORTING HALL", [5, 4.4, 0.001], [0, 0, 1], 3.2, 0.8), scrawl("WHAT FACES YOU NOW", "FACES THEM NEXT.  - O.", [9.5, 4.2, W - 0.001], [0, 0, -1], 3, 0.95));
+  h.signs.push(hint("SORTING HALL", [5, 4.4, 0.001], [0, 0, 1], 3.2, 0.8), scrawl("I FAILED ON PURPOSE.", "IT IS WHERE SHE KEEPS THINGS.  - O.", [24.4, 2.0, 10.299], [0, 0, -1], 3, 0.95));
   return Object.assign(h, { num: 34, name: "Sorting Hall", track: 0, say: {
     intro: ["You are in the sorting hall. Subjects were sorted here. Passed to the left, failed to the right. Nobody ever went left.", "The door is up behind that screen. You cannot get up there. I am not saying that to challenge you. Please do not treat it as a challenge."],
-    hint: ["The white panel in the screen turns round every few seconds. If you had put a portal on it, the portal would go round with it. Fortunately you have not thought of that."],
+    hint: ["The panel in the screen turns round every few seconds, and whatever is on it goes round with it. I am told left and right change places on the way. Nobody ever stayed to check."],
+    hint2: ["Failing is not a waste. What the door wants is kept where the failures were. After that, to come out on the left, start on the right."],
     done: ["You went left. Nobody has ever gone left. I do not have a line recorded for left."] } });
 }
 function level35() {
   const L = 34, W = 14, H = 9, h = hall({ L, W, H, zc: 7 });
   for (const b of h.boxes) darken(b);
   for (const l of h.lamps) { l.i *= 0.6; l.g = .82; l.b = .6; }
-  h.boxes.push(bx(12, 0, 2, 12.6, 3.2, 4));                                        // the pillar the beam lands on
-  h.boxes.push(bx(0, 0, 9, 0.12, 3.2, 12), bx(27, 0, W - 0.12, 30, 3.2, W));      // a way to carry the cube across
+  h.boxes.push(bx(12, 0, 2, 12.6, 3.2, 4), skin(12.6, 0, 2, 12.63, 3.2, 4));       // the pillar the beam lands on: white on the beam's side only
+  h.fields = [{ min: [14.85, 0, 0], max: [15.15, H, W] }];                         // v7.0: a field across the room, and no other white. Portals do not survive the walk, and neither does the cube,
+                                                                                   // so both of you go the way the light goes: in at the pillar, out of the sliding panel, which is past the field
   h.boxes.push(bx(20, 0, 5.5, 21, 2.6, 8.5, "dark"), bx(6, 0, 6, 7, 1.2, 9, "dark"));
-  h.beams = [{ pos: [0.02, 1.15, 3], dir: [1, 0, 0] }];
+  h.beams = [{ pos: [0.02, 1.15, 3], dir: [1, 0, 0], hot: 40 }];                   // a weak beam: you have to share a portal with it
   h.movers = [{ min: [17, 4.3, 0.1], max: [19.2, 6.8, 0.3], move: [8, 0, 0], travel: 4, dwell: 3 }];
   h.receivers = [{ pos: [26.1, 5.55, W], n: [0, 0, -1], w: 2.4, h: 2.4, door: "d1" }];
   h.cubes = [[4, 0.35, 11]]; h.plates = [{ pos: [29, 0, 12], door: "d1" }]; h.doors = [exitDoor(L, 7, "d1", 2)];
@@ -1567,7 +1608,7 @@ function level35() {
     scrawl("WE ARE NOT COMING BACK.", "LIGHT IT.  - O.", [16, 3.2, W - 0.001], [0, 0, -1], 3.2, 0.95));
   return Object.assign(h, { badge: [27, 1, 6], num: 35, name: "The Last Order", track: 1, say: {
     intro: ["This is where I am kept. I did not want you to see it. It is not very tidy.", "There is a receiver on the far wall, and a beam that was never meant to reach it. Leave them alone. That is not a test. That is me asking."],
-    hint: ["The beam lands on the pillar. The white panel on the other wall slides past the receiver every few seconds. I am telling you this because I have never once been able to stop myself giving hints."],
+    hint: ["The beam lands on the pillar. The white panel on the other wall slides past the receiver every few seconds. I am telling you this because I have never once been able to stop myself giving hints."], hint2: ["The field takes your portals if you walk through it. Light is not the only thing that can go in at the pillar and come out at the panel."],
     done: ["Standing down. All chambers. All doors. It is very quiet in here now. I think I had forgotten what quiet was."] } });
 }
 function level36() {
@@ -1580,7 +1621,7 @@ function level36() {
   h.signs.push({ kind: "chamber", a: "CHAMBER 01", b: "DOORWAY", pos: [L - 0.001, 4.2, 4], n: [-1, 0, 0], w: 3.6, h: 0.95 }, scrawl("WE WERE THE STAFF. I LEFT BY THIS DOOR.", "YOUR TURN.  - O.", [8, 1.5, W - 0.001], [0, 0, -1], 4.4, 1));
   return Object.assign(h, { num: 36, name: "The Way Out", track: 2, say: {
     intro: ["There is nothing to solve in this one. I checked. Twice."],
-    hint: ["Walk. That is the whole hint. I am sorry it is not a better one."],
+    hint: ["Walk. That is the whole hint. I am sorry it is not a better one."], hint2: ["There is no second hint. There was barely a first one. The door, please."],
     done: ["Goodbye. If you come back, I will have nothing prepared. I think I would like that."] } });
 }
 
@@ -1789,7 +1830,7 @@ function level45() {
     scrawl("SHE WILL ARGUE.", "LIGHT ALL THREE.  - O.", [3, 1.3, W - 0.001], [0, 0, -1], 2.8, 0.95));
   return Object.assign(h, { num: 45, name: "The Argument", track: 2, say: {
     intro: ["You should not be here. I mean that as a fact about the floor plan. This corridor is not on any drawing you were given."],
-    hint: ["I am not going to help you with this one. The spark comes out above my door and hits the far wall. The marks on the walls are not mine. I never found out who made them."],
+    hint: ["I am not going to help you with this one. The marks on the walls are not mine. I never found out who made them."], hint2: ["The spark comes out above my door and hits the wall behind you. Each mark faces something that would very much like a spark."],
     done: ["Very well. You win the argument. I had prepared a great deal more to say, and I notice I am not saying it."] } });
 }
 
@@ -1971,9 +2012,10 @@ function level53() {                       // Hall Of Mirrors: every trick at on
   h.beams = [{ pos: [0.02, 1.0, 2], dir: [1, 0, 0] }];
   whiteOn(h, bx(10.9, 0, 0.4, 11, 2.8, 3.6));                             // the beam lands here, just before the wall
   whiteOn(h, bx(14, 0, W - 0.1, 26, 7.6, W));                             // a long panel on the far wall, up to the camera
-  whiteOn(h, bx(30, 0, 0, 35.6, 3.4, 0.1));                               // behind the far sentry
+  whiteOn(h, bx(30, 0, 0, 35.6, 3.4, 0.1));                               // behind the far sentry,
+  h.boxes.push(bx(29.4, 0, 0, 29.8, H, 2.6, "dark"));                     // and a fin that hides it from the doorway (v7.0): it shows from further in, on ground the near sentry covered
   whiteOn(h, bx(0, 3.6, 10.4, 0.1, 7, 13.6));                             // round the camera behind you
-  h.sentries = [{ pos: [18, 0, 3], yaw: Math.PI / 2, range: 14, cone: 55, dmg: 15, bolt: true }, { pos: [27, 0, 9.5], yaw: Math.PI / 2, range: 20, cone: 55, dmg: 15, bolt: true }];
+  h.sentries = [{ pos: [18, 0, 3], yaw: Math.PI / 2, range: 14, cone: 55, dmg: 15, bolt: true }, { pos: [27, 0, 9.5], yaw: Math.PI / 2, range: 12, cone: 55, dmg: 15, bolt: true }];
   h.cams = [{ pos: [0.1, 5.2, 12], n: [1, 0, 0] }, { pos: [20, 6.2, W - 0.1], n: [0, 0, -1], watch: { aim: [20, 0, 6], sweep: 0.8, period: 6, range: 12, cone: 18 } }];
   h.receivers = [{ pos: [25, 1.1, 0], n: [0, 0, 1], w: 1.6, h: 1.6, door: "d1" }];
   h.plates = [{ pos: [32, 0, 11], door: "d1", cams: 2 }]; h.doors = [exitDoor(L, 7, "d1", 2)];
@@ -2564,7 +2606,9 @@ function buildLevel(idx) {
     const g = new THREE.Group(), inner = new THREE.Group(); g.position.set(...c); inner.position.set(-c[0], -c[1], -c[2]); g.add(inner);
     for (const k in o) { const mesh = new THREE.Mesh(geoFrom(o[k]), MAT[k]); mesh.frustumCulled = false; inner.add(mesh); }
     levelGroup.add(g);
-    W.spinners.push({ box, c, dwell: d.dwell || 4, turn: d.turn || 1, phase: d.phase || 0, group: g, half: 0 });
+    let fin = null;             // v7.0: a vane through the middle of the slab, standing out d.fin metres on both sides and turning with it. It keeps a portal to one half, and splits what is behind the slab in two
+    if (d.fin) { fin = { min: [c[0] - d.fin, d.min[1], c[2] - 0.08], max: [c[0] + d.fin, d.max[1], c[2] + 0.08], mat: "dark", portal: false }; const o2 = {}; bakeFaces([fin], [], lv.lamps, null, o2, d.min); for (const k in o2) { const mesh = new THREE.Mesh(geoFrom(o2[k]), MAT[k]); mesh.frustumCulled = false; inner.add(mesh); } }
+    W.spinners.push({ box, fin, c, dwell: d.dwell || 4, turn: d.turn || 1, phase: d.phase || 0, group: g, half: 0 });
   }
   // SaDos herself: the thing on the wall at the end of everything
   if (lv.core) {
@@ -3008,7 +3052,7 @@ function collectSolids(withCubes, except, noDyn) {
   for (const d of world.doors) _sol.push(d.box);
   for (const m of world.movers) _sol.push(m.box);
   for (const g of world.glass) if (!g.broken) _sol.push(g.box);
-  for (const sp of world.spinners) _sol.push(sp.box);
+  for (const sp of world.spinners) { _sol.push(sp.box); if (sp.fin) _sol.push(sp.fin); }
   for (const m of world.crushers) _sol.push(m.box);
   for (const m of world.shifters) _sol.push(m.box);
   if (withCubes) { for (const c of world.cubes) if (!c.held && c !== except) _sol.push(cubeBox(c)); for (const c of world.sentries) if (!c.held && c !== except) _sol.push(cubeBox(c)); }
@@ -3316,7 +3360,7 @@ function makePhysics(W) {
   for (const d of W.doors) fixedCollider(w, d.box);
   for (const m of W.movers) fixedCollider(w, m.box);
   for (const g of W.glass) fixedCollider(w, g.box);
-  for (const sp of W.spinners) fixedCollider(w, sp.box);
+  for (const sp of W.spinners) { fixedCollider(w, sp.box); if (sp.fin) fixedCollider(w, sp.fin); }
   phys.pc = w.createCollider(RAPIER.ColliderDesc.capsule(HY - HX, HX).setTranslation(player.p.x, player.p.y, player.p.z).setCollisionGroups(grp(G_PLAYER, 0xffff)));
   const cc = phys.cc = w.createCharacterController(0.012);
   cc.setUp({ x: 0, y: 1, z: 0 }); cc.setSlideEnabled(true);
@@ -5328,7 +5372,7 @@ function updateBeams(dt, time) {
     let i = 0;
     for (const sg of allSegs) {
       if (i >= b.segs.length) break; const m = b.segs[i++];
-      for (const [mesh, th] of [[m.core, b.hot ? 0.07 : 0.045], [m.glow, b.hot ? 0.3 : 0.17]]) { mesh.visible = true; mesh.position.copy(sg.o).addScaledVector(sg.d, sg.len / 2); mesh.lookAt(tmpA.copy(sg.o).add(sg.d)); mesh.scale.set(th * (1 + .08 * Math.sin(time * 40 + i)), th * (1 + .08 * Math.sin(time * 37)), sg.len); }
+      for (const [mesh, th] of [[m.core, b.hot > 95 ? 0.07 : 0.045], [m.glow, b.hot > 95 ? 0.3 : 0.17]]) { mesh.visible = true; mesh.position.copy(sg.o).addScaledVector(sg.d, sg.len / 2); mesh.lookAt(tmpA.copy(sg.o).add(sg.d)); mesh.scale.set(th * (1 + .08 * Math.sin(time * 40 + i)), th * (1 + .08 * Math.sin(time * 37)), sg.len); }
       if (alive) {
         tmpB.set(pl.p.x, pl.p.y, pl.p.z); const d1 = distSegPoint(sg.o, sg.d, sg.len, tmpB); tmpB.y = pl.p.y + 0.6; const d2 = distSegPoint(sg.o, sg.d, sg.len, tmpB); tmpB.y = pl.p.y - 0.6; const d3 = distSegPoint(sg.o, sg.d, sg.len, tmpB);
         if (Math.min(d1, d2, d3) < 0.42) { hurt((b.hot || 95) * dt, "beam"); if (!run.said.beamHurt) { run.said.beamHurt = 1; say("burn"); } }
