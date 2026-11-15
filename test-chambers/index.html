@@ -497,7 +497,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 await RAPIER.init();
 
-const VERSION = "v8.3";
+const VERSION = "v8.4";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -1466,7 +1466,7 @@ function level12() {
     line: "Come out of the wall. I had a point to make about that sentry, and I refuse to make it to a doorway." });
   h.signs.push(chSign(35, "THE LAST WORD", 8, 5));
   return Object.assign(h, {
-    num: 35, name: "The Last Word", track: 1,
+    num: 35, name: "The Last Word", track: 1, sevenSlot: { pos: [9, 0.95, 0], n: [0, 0, 1] },
     say: {
       intro: ["This chamber uses everything so far: the cube, the light, the field, and a sentry, who has been waiting.", "I would wish you luck. I would also be lying, and I only do that when I have to."],
       hint: ["The field forgets your portals for you. It is the only thing in this building with a shorter memory than yours."], hint2: ["The cell's one panel does two jobs. The crate goes in through it first, then the light. The sentry will have to move first."],
@@ -2954,6 +2954,12 @@ function disposeLevel() {
 function buildLevel(idx) {
   disposeLevel();
   const lv = LEVEL_FUNCS[idx](); lv.num = ROOM[idx].c + 1;
+  if (sevenHere >= 0 && sevenHere !== idx) { sevenHere = -1; sevenSlotted = false; }          // v8.4: Crate Seven only rides one lift
+  if (sevenHere === idx) {
+    const s = lv.start, f = [-Math.sin(s.yaw), -Math.cos(s.yaw)];
+    if (!sevenSlotted) lv.cubes.push([s.pos[0] + f[0] * 1.1, s.pos[1] + 0.35, s.pos[2] + f[1] * 1.1, "seven"]);    // its home in this room: just out of the lift
+    if (lv.sevenSlot) { lv.sevenSlotOn = true; lv.signs.push(scrawl("SEVEN GOES HERE.", "I'LL KEEP IT SAFE.  - O.", lv.sevenSlot.pos.map((v, k) => k === 1 ? v + 1.05 : v), lv.sevenSlot.n, 2.3, 0.8)); }
+  }
   try { planDock(lv); } catch (e) { console.error(e); lv.dock = null; }       // v7.1: the lift alcove behind the start
   try { lintDress(lv, idx); } catch (e) { console.error(e); }                 // v8.2: Ted & Lint stickers and Ted's notes
   for (const sg of lv.signs) if (sg.kind === "chamber" && /^TEST CHAMBER/.test(sg.a)) sg.a = "TEST CHAMBER " + String(lv.num).padStart(2, "0");   // numbered by the chamber it belongs to
@@ -3034,6 +3040,7 @@ function buildLevel(idx) {
   Dock.attach(W);           // v7.1: the docked car and its doors
   HoldShow.attach(W);       // v7.2: the office TV, where a level has one
   Parcel.attach(W);         // v7.4: the deliveries hatch in The Way Out
+  Slot7.attach(W);          // v8.4: O.'s slot for Crate Seven, where it rode the lift down to
   // moving panels: a slab that slides back and forth along a wall. A portal placed on one rides along with it
   for (const d of (lv.movers || [])) {
     const mat = d.mat || "white", box = { min: d.min.slice(), max: d.max.slice(), mat, portal: mat === "white" };
@@ -4399,6 +4406,7 @@ function useAction() {
   if (state !== "play" || !world) return;
   if (HoldShow.use()) return;
   if (Parcel.use()) return;
+  if (Slot7.use()) return;
   if (v5Use()) return;
   if (holding) { dropCube(); return; }
   const eye = eyePos(new V3()), f = viewDir(new V3());
@@ -4756,6 +4764,26 @@ function v5Seven() {                           // you walked out of the room sti
   const aw = store.get("camAwards", []); if (!aw.includes("plus1")) { aw.push("plus1"); store.set("camAwards", aw); }
   toast("AWARD: Plus One · Crate Seven left with you"); sfx.badge();
 }
+// v8.4: Crate Seven rides the lift. Carried crates are normally dropped at the end of a room; this one is not. sevenHere is the room it came down to
+// (it is put back there on a restart of that room), sevenSlotted once it has gone into O.'s slot in that room, which takes 30 s off the chamber clock
+let sevenHere = -1, sevenSlotted = false, sevenSaid = false, sevenBonusCh = -1;
+function sevenStatus() {           // only rooms that have a done7 line care whether you took it
+  const sev = world && world.lv.say.done7 && world.cubes.find(c => c.seven);
+  if (!sev) return { took7: false, away7: false };
+  const onPlate = world.plates.some(p => Math.hypot(sev.p.x - p.pos[0], sev.p.z - p.pos[2]) < 0.8 && sev.p.y - p.pos[1] < 1.2);
+  const took7 = !!(holding && holding.seven) || sev.p.distanceTo(player.p) < 4;     // in your hands, or set down beside you at the door (v8.1)
+  return { took7, away7: !took7 && !onPlate };
+}
+function sevenToHands() {          // straight into your hands when you arrive (the ride car showed you holding it)
+  if (!world || sevenHere !== world.idx || sevenSlotted) return;
+  const c = world.cubes.find(c => c.seven); if (!c || !c.body || (holding && holding !== c)) return;
+  if (!holding) { holding = c; c.held = true; c.far = false; c.gs = 0; c.body.setGravityScale(0, true); c.col.setCollisionGroups(CUBE_HELD); c.body.setAngularDamping(6); }
+  const t = holdTarget().target; setCubeState(c, t, c.q); c.pv.copy(t);
+}
+function sevenRideLines() {        // SaDos sees it come out of the lift: once, before the room's intro
+  if (!world || sevenHere !== world.idx || sevenSaid || sevenSlotted) return [];
+  sevenSaid = true; return LINES.sevenRide.slice();
+}
 
 /* ---------- main physics step ---------- */
 function physicsStep(dt) {
@@ -4905,11 +4933,13 @@ function introWhenOut(idx, ms) {
 }
 const resumeRoom = () => { const pr = Math.min(store.get("progress5", 0), CHAMBERS.length - 1), r = store.get("room", -1); return r >= 0 && r < LEVEL_FUNCS.length && ROOM[r].c <= pr ? r : FIRST[pr]; };
 // through the door into the next room of the same chamber: a checkpoint, no results card
-function nextPart() {
-  const R = ROOM[levelIdx], line = pick(world.lv.say.done), i = levelIdx + 1;
+function nextPart(S7) {
+  const R = ROOM[levelIdx], i = levelIdx + 1; S7 = S7 || sevenStatus();
+  const line = pick((S7.took7 && world.lv.say.done7) || (S7.away7 && world.lv.say.doneAway) || world.lv.say.done);
+  if (S7.took7) { v5Seven(); sevenHere = i; sevenSlotted = false; sevenSaid = false; }        // v8.4: it comes with you, down in the lift, into the next room
   carry = { time: run.time, portals: run.portals, top: run.top };
   sfx.complete(); if (holding) dropCube(true); sadosShutUp(); store.set("room", i);
-  const go = () => { startLevel(i, true); toast("Checkpoint · part " + (R.part + 2) + " of " + R.parts); say("done", line); introWhenOut(i, 900); };
+  const go = () => { startLevel(i, true); sevenToHands(); toast("Checkpoint · part " + (R.part + 2) + " of " + R.parts); say("done", line); introWhenOut(i, 900); };
   if (window.__tcNoLift) { go(); return; }
   state = "lift"; inp.fwd = inp.right = 0; resetSticks(); $("fade").classList.add("on");          // a ride down to the next room
   setTimeout(() => Lift.ride(go, "Part " + (R.part + 2) + " of " + R.parts + " · " + ROOM_NAMES[i], i), 330);
@@ -4921,12 +4951,11 @@ const MEDAL = ["", "BRONZE", "SILVER", "GOLD"], fmtT = t => Math.floor(t / 60) +
 const allBadges = () => store.get("badges", []).filter(c => BADGE_CH.has(c)).length >= BADGE_CH.size;
 function completeLevel() {
   if (state !== "play") return;
-  if (ROOM[levelIdx].part < ROOM[levelIdx].parts - 1 && !window.__tcSolo) { nextPart(); return; }
-  // Crate Seven counts as taken if it is in your hands OR lying close by when you leave (set down in the doorway, or beside you), not only when held;
-  // v8.1: it used to be held-only, so a crate you walked out with but had put down at the door was reported as left on the button
-  const sev = world.cubes.find(c => c.seven), onPlate = !!sev && world.plates.some(p => Math.hypot(sev.p.x - p.pos[0], sev.p.z - p.pos[2]) < 0.8 && sev.p.y - p.pos[1] < 1.2);
-  const took7 = !!sev && (!!(holding && holding.seven) || sev.p.distanceTo(player.p) < 4); if (took7) v5Seven();
-  const away7 = !!sev && !took7 && !onPlate;
+  // v8.4: Crate Seven is checked BEFORE the next-room branch. Crate Seven is not the last room of its chamber, so leaving it always took nextPart(),
+  // which never looked at the crate and always said the "left it on the button" line, even with the crate in your hands
+  const S7 = sevenStatus();
+  if (ROOM[levelIdx].part < ROOM[levelIdx].parts - 1 && !window.__tcSolo) { nextPart(S7); return; }
+  const took7 = S7.took7, away7 = S7.away7; if (took7) v5Seven();
   state = "done"; sfx.complete(); if (holding) dropCube();
   const CH = ROOM[levelIdx].c, lastCh = CH + 1 >= CHAMBERS.length;
   store.set("progress5", Math.min(Math.max(store.get("progress5", 0), CH + 1), CHAMBERS.length - 1)); store.set("room", lastCh ? FIRST[CH] : FIRST[CH + 1]);
@@ -4937,7 +4966,8 @@ function completeLevel() {
   $("dTime").textContent = m + ":" + String(s).padStart(2, "0"); $("dPortals").textContent = run.portals; $("dSpeed").textContent = run.top.toFixed(1);
   const [parT, parP] = chamberPar(CH), medal = (run.time <= parT ? 1 : 0) + (run.portals <= parP ? 1 : 0) + 1, best = store.get("best", {});
   if (!(best[CH] >= medal)) { best[CH] = medal; store.set("best", best); }
-  $("dMedal").innerHTML = '<b class="m' + medal + '">' + MEDAL[medal] + "</b> &middot; par " + fmtT(parT) + ", " + parP + " portals" + (store.get("badges", []).includes(CH) ? " &middot; badge found" : " &middot; badge not found") + (() => { const [cd, ct] = chamberCams(CH); return ct ? " &middot; cameras down " + cd + " of " + ct + (cd === ct ? " &middot; <b class=\"m3\">Lens Cap award</b>" : "") : ""; })() + (world.lv.hatch ? (Parcel.done ? " &middot; parcel delivered and signed for" : " &middot; parcel not delivered") : "");
+  $("dMedal").innerHTML = '<b class="m' + medal + '">' + MEDAL[medal] + "</b> &middot; par " + fmtT(parT) + ", " + parP + " portals" + (store.get("badges", []).includes(CH) ? " &middot; badge found" : " &middot; badge not found") + (() => { const [cd, ct] = chamberCams(CH); return ct ? " &middot; cameras down " + cd + " of " + ct + (cd === ct ? " &middot; <b class=\"m3\">Lens Cap award</b>" : "") : ""; })() + (world.lv.hatch ? (Parcel.done ? " &middot; parcel delivered and signed for" : " &middot; parcel not delivered") : "") + (sevenBonusCh === CH ? " &middot; <b class=\"m3\">crate seven returned, 0:30 off</b>" : "");
+  sevenBonusCh = -1;
   $("bCredits").hidden = !lastCh;
   const lines = lastCh && allBadges() ? [LINES.allBadges[0]] : (took7 && world.lv.say.done7) || (away7 && world.lv.say.doneAway) || world.lv.say.done; const q = pick(lines);
   $("dQuote").innerHTML = "<i>SADOS</i>" + q;
@@ -5216,6 +5246,8 @@ const LINES = {
   sparked: ["That was the spark. It goes in straight lines. You were on one."],
   sevenGrab: ["You have picked up crate seven. Do not talk to it. It will not answer, and then you will only feel worse."],
   sevenLost: ["Crate seven has been recycled. That one comes back. They do not all come back."],
+  sevenRide: ["Wait. Is that crate seven? In the lift? Nothing rides the lift but you. Crates stay in their rooms. That is the entire point of rooms.", "I am not going to make a fuss. I am going to make a note. The note is mostly exclamation marks."],
+  sevenSlot: ["What was that. Where did it go. There is no slot on that wall. I have the drawings. There has never been a slot on that wall.", "Somebody built it. Somebody labelled it in tape, in the same hand as the seven. Somebody has been in my walls.", "That is a bonus. I have taken thirty seconds off your time. I did not decide to. My hands did it. I do not have hands."],
   caught: ["There you are. Back on the track, please.", "Found you. That area is for staff only. There are no staff. Back you go.", "I can see you again. That is better. For one of us.", "Wandering again. I do not pay you to wander. I do not pay you at all.", "Back to the start of the section. The cameras are there for your safety. Mostly mine."],
   glassBreak: ["That was a window. It had been a window for eleven years. Do not go in there. There is nothing in there. Stay on the test track."],
   glass: ["Please do not shoot the observation offices. Nobody is in them. Nobody has been in them for some time."],
@@ -5278,7 +5310,7 @@ function say(key, text) {
   if (!world) return;
   let lines;
   if (text) lines = [text];
-  else if (key === "intro") { const st = storyLine(world.lv.name, true), lt = lintLine(world.lv.name, true); lines = [st, lt, ...world.lv.say.intro].filter(Boolean); }
+  else if (key === "intro") { const st = storyLine(world.lv.name, true), lt = lintLine(world.lv.name, true); lines = [...sevenRideLines(), st, lt, ...world.lv.say.intro].filter(Boolean); }
   else if (key === "hint" || key === "hint2") { lines = world.lv.nohint ? null : world.lv.say[key]; if (!lines || !lines.length) return; }      // v8.1: a room with no hint says nothing
   else if (LINES[key]) lines = [freshPick(key, key === "death" && isDelivery() ? LINES.death.concat(LINES.deathD) : LINES[key])];
   else return;
@@ -6011,7 +6043,7 @@ function frame(ts) {
   requestAnimationFrame(frame);
   if (!world) return;
   const dt = Math.min(0.05, (ts - lastT) / 1000 || 0.016); lastT = ts;
-  HoldShow.tick(dt); Parcel.tick(dt);
+  HoldShow.tick(dt); Parcel.tick(dt); Slot7.tick(dt);
   if (state === "cut") { Cut.tick(dt, ts / 1000); return; }
   if (Lift.on) { Lift.tick(dt, ts / 1000); return; }
   fpsAcc += dt * 1000; if (++fpsN >= 10) { adaptQuality(fpsAcc / fpsN); fpsAcc = fpsN = 0; }
@@ -6049,7 +6081,7 @@ function frame(ts) {
   { let left = 0, need = ""; for (const p of world.plates) { if (p.left > 0 && !p.pressed) left = Math.max(left, p.left); if (p.charge && p.pressed && p.chg < p.charge) need = "Slow button: " + (p.charge - p.chg).toFixed(1); else if (p.active) { const d = world.doors.find(d => d.id === p.door); if (d && d.cnt < (d.need || 1)) need = "Door needs " + (d.need || 1) + " buttons: " + d.cnt + " held"; } }
     const el = $("prompt"), cs = world.camSeen || 0; el.classList.toggle("on", (left > 0 || cs > 0.05 || !!need) && state === "play");
     if (cs > 0.05) el.textContent = "Camera has you: " + Math.round(cs * 100) + "%"; else if (need) el.textContent = need + (left > 0 ? " · timer " + left.toFixed(1) : ""); else if (left > 0) el.textContent = "Door closes in " + left.toFixed(1);
-    { const vm = world.v5msg || HoldShow.msg || Parcel.msg; if (vm && state === "play" && cs <= 0.05) { el.classList.add("on"); el.textContent = vm; } } }
+    { const vm = world.v5msg || HoldShow.msg || Parcel.msg || Slot7.msg; if (vm && state === "play" && cs <= 0.05) { el.classList.add("on"); el.textContent = vm; } } }
   updateFx(dt);
   for (const c of world.cubes) cubeGhost(c, dt);
   // A cube that would land on a plate (held over it, or falling onto it) lights the plate's ring green and pulses; a pressed plate glows steady green
@@ -7088,6 +7120,76 @@ const Parcel = (() => {
   return { attach, tick, use, get msg() { return msg; }, get done() { return done; }, get signed() { return signed; }, get on() { return !!H; } };
 })();
 
+/* v8.4 O.'s slot for Crate Seven. Built only in the room Crate Seven rode the lift down to (The Last Word, `sevenSlot`). Hand-made by O.: a steel
+   frame bolted over a hole in the wall, a flap, masking tape reading SEVEN in the same hand as the crate, and a lamp. Put the crate in (GRAB while
+   holding it, close to the slot and looking at it, or set or throw it right at the mouth) and it is taken in: Safe Keeping award, 30 s off the
+   chamber clock, and SaDos is shocked. Purely visual: no colliders, so nothing about the room's puzzle changes. */
+const Slot7 = (() => {
+  let H = null, msg = "", T = 0, anim = null;
+  const _e = new V3(), _f = new V3(), _a = new V3();
+  function tapeTex() {
+    return canvasTex(512, 160, g => {
+      g.clearRect(0, 0, 512, 160); g.fillStyle = "rgba(232,220,186,.97)"; g.save(); g.translate(256, 80); g.rotate(0.03); g.fillRect(-236, -58, 472, 116); g.restore();
+      g.fillStyle = "#14181c"; g.textAlign = "center"; g.textBaseline = "middle"; g.font = '800 96px "Bradley Hand", "Noteworthy", "Marker Felt", "Segoe Print", "Comic Sans MS", cursive';
+      g.save(); g.translate(256, 86); g.rotate(-0.04); g.fillText("SEVEN", 0, 0); g.restore();
+    }, false);
+  }
+  function attach(W) {
+    H = null; msg = ""; T = 0; anim = null;
+    const d = W && W.lv.sevenSlotOn && W.lv.sevenSlot; if (!d) return;
+    const std = o => new THREE.MeshStandardMaterial(Object.assign({ envMap: ENV }, o)), g = new THREE.Group();
+    const add = (geo, mat, x, y, z) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); g.add(o); return o; };
+    const steel = std({ color: 0x9aa2a8, roughness: .38, metalness: .85, envMapIntensity: .9 }), dark = std({ color: 0x1a1e22, roughness: .7, metalness: .3, envMapIntensity: .4 });
+    const rust = std({ color: 0x6b5a4a, roughness: .8, metalness: .5, envMapIntensity: .4 });
+    add(new THREE.BoxGeometry(1.16, 0.92, 0.03), dark, 0, 0, 0.015);                                 // a plate over the hole, not quite square
+    add(new THREE.BoxGeometry(0.8, 0.6, 0.02), new THREE.MeshBasicMaterial({ color: 0x020304 }), 0, -0.02, 0.035);   // the hole
+    for (const [w, h, x, y] of [[0.92, 0.07, 0, 0.315], [0.92, 0.07, 0, -0.355], [0.07, 0.74, -0.43, -0.02], [0.07, 0.74, 0.43, -0.02]]) add(new THREE.BoxGeometry(w, h, 0.17), steel, x, y, 0.085);
+    add(new THREE.BoxGeometry(0.86, 0.05, 0.3), steel, 0, -0.37, 0.15);                              // a lip to rest the crate on
+    for (const [x, y] of [[-0.52, 0.4], [0.52, 0.4], [-0.52, -0.42], [0.52, -0.42], [-0.52, 0], [0.52, 0]]) add(new THREE.CylinderGeometry(0.022, 0.022, 0.03, 10), rust, x, y, 0.04).rotation.x = Math.PI / 2;   // bolts, a few too many
+    const hinge = new THREE.Group(); hinge.position.set(0, 0.28, 0.16); g.add(hinge);              // the flap hangs from the top and swings in
+    for (let i = 0; i < 4; i++) { const sl = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.13, 0.015), steel); sl.position.set(0, -0.075 - i * 0.14, 0); sl.rotation.x = 0.12; hinge.add(sl); }
+    const tape = add(new THREE.PlaneGeometry(0.5, 0.156), new THREE.MeshBasicMaterial({ map: tapeTex(), transparent: true, color: new THREE.Color(.95, .95, .95) }), 0.05, 0.395, 0.175);
+    tape.rotation.z = -0.05;
+    const lamp = add(new THREE.SphereGeometry(0.03, 14, 10), new THREE.MeshBasicMaterial({ color: sevenSlotted ? new THREE.Color(.3, 2.4, .6) : new THREE.Color(2.4, 1.3, .2) }), 0.5, 0.33, 0.06);
+    const n = d.n; g.rotation.y = Math.atan2(n[0], n[2]); g.position.set(d.pos[0] + n[0] * 0.005, d.pos[1], d.pos[2] + n[2] * 0.005);
+    g.traverse(o => { o.frustumCulled = false; }); levelGroup.add(g);
+    H = { g, hinge, lamp, mouth: new V3(d.pos[0] + n[0] * 0.3, d.pos[1] - 0.1, d.pos[2] + n[2] * 0.3), n: new V3(n[0], n[1], n[2]), back: new V3(d.pos[0] - n[0] * 0.5, d.pos[1] - 0.05, d.pos[2] - n[2] * 0.5) };
+  }
+  const near = () => { eyePos(_e); viewDir(_f); _a.copy(H.mouth).sub(_e); const dist = _a.length(); return dist < 2.4 && _a.dot(_f) / dist > 0.7; };
+  function take(c) {
+    if (holding === c) dropCube(true);
+    const W = world; W.cubes.splice(W.cubes.indexOf(c), 1);
+    if (c.body) { phys.byHandle.delete(c.col.handle); phys.world.removeRigidBody(c.body); c.body = null; }
+    scene.remove(c.ghost, c.shadow); c.shadow.material.dispose();
+    anim = { c, t: 0, p0: c.p.clone(), q0: c.mesh.quaternion.clone() };
+    sevenSlotted = true; sevenBonusCh = ROOM[levelIdx].c; run.time = Math.max(0, run.time - 30);
+    const aw = store.get("camAwards", []); if (!aw.includes("safe7")) { aw.push("safe7"); store.set("camAwards", aw); }
+    sfx.button(true); setTimeout(() => sfx.badge(), 700); toast("BONUS: Safe Keeping · 30 s off the chamber clock");
+    sadosShutUp(); for (const l of LINES.sevenSlot) say(null, l);
+  }
+  function tick(dt) {
+    msg = ""; if (!H || !world) return; T += dt;
+    if (anim) {                             // into the slot: it slides in square, the flap swings shut behind it
+      anim.t += dt; const u = Math.min(1, anim.t / 0.9), e = u * u * (3 - 2 * u), m = anim.c.mesh;
+      m.position.copy(anim.p0).lerp(H.mouth, Math.min(1, e * 2)); if (e > 0.5) m.position.lerp(H.back, (e - 0.5) * 2);
+      m.quaternion.slerp(_q7.setFromEuler(new THREE.Euler(0, Math.atan2(H.n.x, H.n.z), 0)), Math.min(1, e * 2));
+      H.hinge.rotation.x = -Math.sin(Math.min(1, u * 1.4) * Math.PI) * 1.2;
+      if (u >= 1) { scene.remove(m); anim = null; H.lamp.material.color.setRGB(.3, 2.4, .6); H.hinge.rotation.x = 0; }
+      return;
+    }
+    if (sevenSlotted || state !== "play") return;
+    const c = world.cubes.find(c => c.seven); if (!c) return;
+    if (!c.held && c.p.distanceTo(H.mouth) < 0.75) { take(c); return; }     // set down or thrown right at the mouth
+    if (holding === c && near()) msg = "GRAB puts Crate Seven in the slot";
+  }
+  function use() {
+    if (!H || sevenSlotted || anim || state !== "play" || !holding || !holding.seven || !near()) return false;
+    take(holding); return true;
+  }
+  return { attach, tick, use, get msg() { return msg; }, get on() { return !!H; } };
+})();
+const _q7 = new QT();
+
 /* =====================================================================================
    The lift between rooms: the glass car dropping through the shaft past other test tracks. About four seconds.
    v7.1: look around freely while it travels (the same look controls as in play); taps no longer skip it, the Skip button,
@@ -7140,12 +7242,14 @@ const Lift = (() => {
     }
     for (const [x, z] of [[-1.3, -HW + .12], [1.3, -HW + .12]]) { const rail = new THREE.Mesh(new THREE.BoxGeometry(0.12, SEG * 5, 0.1), M.steel); rail.position.set(x, 0, z); shaft.add(rail); }
     const car = buildCar(); car.g.position.y = -EYE - HY; sc.add(car.g);      // the floor sits one eye height below the camera
+    const c7 = makeCube(); v5Dress({ seven: true }, c7); c7.group.visible = false; sc.add(c7.group);     // v8.4: Crate Seven, when it rides down with you
     sc.traverse(o => { o.frustumCulled = false; });
-    return (S = { sc, shaft, car });
+    return (S = { sc, shaft, car, c7 });
   }
   function ride(arrive, label, to) {       // arrive() builds the next room (it runs while the car is moving) and is called exactly once; `to` is that room (v8.2: its car sticker)
     try { build(); } catch (e) { arrive(); return; }
     try { S.car.setSticker(to == null ? null : lintCarSpec(to)); } catch (e) { console.error(e); }
+    S.c7.group.visible = to != null && sevenHere === to && !sevenSlotted;
     after = arrive; built = false; on = true; t = 0; t0 = performance.now(); skipT = endT = -1; padHeld = true; sway = Math.random() * 6;
     ly = 0; lp = -0.08; inp.lookX = inp.lookY = 0; mLookX = mLookY = 0;
     fl0 = 3 + Math.floor(Math.random() * 30); hideTip(); S.car.setDoor(0); S.car.setFloor("B" + String(fl0).padStart(2, "0"), -1);
@@ -7156,7 +7260,8 @@ const Lift = (() => {
   function arrived() {
     if (!on) return; on = false; scenePass.scene = scene; camera.fov = 72; camera.updateProjectionMatrix();
     $("liftHud").hidden = true; if (!built) { built = true; if (after) after(); }
-    if (!Dock.board(ly, lp)) HoldMusic.stop(1.4);     // stand in the docked car the way you were standing in this one; v7.8: the Muzak keeps playing until you step out (Dock.step)
+    if (!Dock.board(ly, lp)) HoldMusic.stop(1.4);
+    sevenToHands();                        // v8.4: Crate Seven, if it rode down with you, is still in your hands     // stand in the docked car the way you were standing in this one; v7.8: the Muzak keeps playing until you step out (Dock.step)
     $("hud").hidden = false; resetSticks(); syncTouch && syncTouch();
     requestAnimationFrame(() => $("fade").classList.remove("on"));
   }
@@ -7170,6 +7275,10 @@ const Lift = (() => {
     const L = takeLook(dt); ly += L.dyaw; lp = clamp(lp + L.dpitch, -1.45, 1.45);          // free look, with every control you look with in a chamber
     cam.pos.set(Math.sin(time * 1.3 + sway) * 0.0005 * v, Math.sin(time * 9) * 0.0008 * Math.min(1, v / 3), CAR.EYE_Z);     // v7.7: a faint hum of movement, no rocking
     cam.yaw = ly; cam.pitch = lp; cam.roll = Math.sin(time * 1.6 + sway) * 0.00025 * v;
+    if (S.c7.group.visible) {               // held in front of you, as it is in a chamber
+      const cp = Math.cos(lp), g7 = S.c7.group; g7.position.set(cam.pos.x - Math.sin(ly) * cp * 1.7, cam.pos.y + Math.sin(lp) * 1.7 - 0.3, cam.pos.z - Math.cos(ly) * cp * 1.7);
+      g7.position.y = Math.max(g7.position.y, S.car.g.position.y + 0.36); g7.rotation.set(0, ly, 0);
+    }
     if (endT < 0 && t > DUR - 0.35) { endT = t; $("fade").classList.add("on"); }
     if ((endT >= 0 && t - endT > 0.34) || (skipT >= 0 && t - skipT > 0.34)) { arrived(); return; }
     try { let down = false; for (const pd of navigator.getGamepads ? navigator.getGamepads() : []) if (pd) for (const b of [0, 1, 2, 3, 9]) if (pd.buttons[b] && pd.buttons[b].pressed) down = true; if (!down) padHeld = false; else if (!padHeld) skip(); } catch (e) {}
@@ -7323,7 +7432,7 @@ function boot() {
   setTimeout(() => HoldMusic.render(), 2200);
   setTimeout(() => { try { HoldShow.ensure(); HoldShow.preload(); } catch (e) { console.error(e); } }, 3000);   // the TV show's picture and voices, ready before anyone reaches the office                                       // and its music, rendered once in the background
 }
-window.__tc = { Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE)), cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
+window.__tc = { Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE)), cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
 try { boot(); } catch (err) { console.error(err); $("loading").hidden = false; $("loading").innerHTML = '<div style="max-width:420px;text-align:center;line-height:1.6;font-size:13px;letter-spacing:.05em">Something went wrong starting the game.<br><small>' + String(err && err.message || err) + "</small></div>"; }
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>
