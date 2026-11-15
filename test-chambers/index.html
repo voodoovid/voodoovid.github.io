@@ -39,6 +39,7 @@ html, body { margin: 0; height: 100%; background: #000; overflow: hidden; oversc
 .ibtn { width: 42px; height: 42px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,.55); background: rgba(10,14,18,.5); color: #fff;
   font: 700 17px/1 var(--font); display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
 .ibtn:active { transform: scale(.92); background: rgba(255,255,255,.25); }
+.ibtn.wide { width: auto; padding: 0 15px; border-radius: 21px; font-size: 15px; letter-spacing: .02em; }
 #ver { position: absolute; right: calc(env(safe-area-inset-right, 0px) + 14px); top: 58px; font-size: 10px; letter-spacing: .12em; color: rgba(255,255,255,.4); }
 #cross { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px; filter: drop-shadow(0 0 2px rgba(0,0,0,.7)); }
 #cross .a { fill: none; stroke-width: 3; stroke-linecap: round; }
@@ -261,7 +262,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
       <div id="hudName"><b id="chNum">CHAMBER 01</b><span id="chTitle">Doorway</span></div>
       <div id="hudSpeed"><span class="n" id="spdNum">0.0</span><small>M/S</small><i id="spdBar"><u></u></i></div>
       <div id="hudBtns">
-        <button class="ibtn" id="bHint" type="button" aria-label="Ask SaDos for a hint">&#9788;</button>
+        <button class="ibtn wide" id="bHint" type="button" aria-label="Ask SaDos for a hint">Hint</button>
         <button class="ibtn" id="bGuide" type="button" aria-label="Guide" title="How to play (H)">?</button>
         <button class="ibtn" id="bRestart" type="button" aria-label="Restart chamber" title="Restart chamber (R)">&#10227;</button>
         <button class="ibtn" id="bFull" type="button" aria-label="Full screen" title="Full screen (F)">&#9974;</button>
@@ -357,7 +358,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
             <li><b>Two-finger swipe up / down</b> to walk forward / back; sideways to sidestep.</li>
             <li><b>Click</b>: blue portal. <b>Two-finger click</b> (or right click): orange.</li>
             <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows walk &middot; <kbd>Space</kbd> jump &middot; <kbd>E</kbd> grab</li>
-            <li><kbd>Q</kbd> blue &middot; <kbd>X</kbd> orange &middot; <kbd>R</kbd> restart &middot; <kbd>H</kbd> this guide &middot; <kbd>T</kbd> ask for a hint &middot; <kbd>Esc</kbd> pause &middot; <kbd>F</kbd> full screen</li></ul></div>
+            <li><kbd>Q</kbd> blue &middot; <kbd>X</kbd> orange &middot; <kbd>R</kbd> restart &middot; <kbd>H</kbd> this guide &middot; <kbd>T</kbd> or <b>Hint</b> ask for a hint (again for a firmer one) &middot; <kbd>Esc</kbd> pause &middot; <kbd>F</kbd> full screen</li></ul></div>
           <div class="gsec"><h3>Controller</h3><ul>
             <li><b>Left stick</b> walk &middot; <b>right stick</b> look</li>
             <li><b>LT / LB</b> blue &middot; <b>RT / RB</b> orange</li>
@@ -473,7 +474,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 await RAPIER.init();
 
-const VERSION = "v6.7";
+const VERSION = "v6.8";
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -786,12 +787,12 @@ function level1() {
   h.boxes.push(bx(2.4, 0, 0, 3, 0.6, 10, "dark"));                                           // a low wall: the first thing to jump
   h.held = [{ idx: 0, pos: [5.5, 1.15, 0.1], n: [0, 0, 1] }, { idx: 1, pos: [17, 1.15, 0.1], n: [0, 0, 1] }];
   h.start = { pos: [1, 0, 5], yaw: -Math.PI / 2, pitch: -0.05 };
-  h.signs.push(chSign(1, "DOORWAY", 5.5), hint("WHITE PANELS HOLD PORTALS", [5, 3.4, 10], [0, 0, -1], 4.6, 1), hint("STEP INTO THE BLUE ONE", [14, 3.4, 10], [0, 0, -1], 4.2, .9));
+  h.signs.push(chSign(1, "DOORWAY", 5.5));
   return Object.assign(h, {
     num: 1, name: "Doorway", track: 0, par: [40, 1],
     say: {
-      intro: ["Welcome to the testing facility. I am SaDos. I will be supervising your performance and, more importantly, grading it.", "There is a pit ahead. It has acid in it. Fortunately, I have opened a doorway across it. Walk through the blue one."],
-      hint: ["The white panels hold portals. Everything else in this room is dark, and does not. Step into the blue one. It is the one that is not in the acid."],
+      intro: ["Welcome to the testing facility. I am SaDos. I will be supervising your performance and, more importantly, grading it.", "There is a pit ahead. It has acid in it. Fortunately, I have opened a doorway across it."],
+      hint: ["I have opened a doorway for you. I am told it is customary to walk through doorways."], hint2: ["Step into the blue one. It is the one that is not in the acid."],
       done: ["Chamber complete. I would call that adequate, but I try to avoid exaggeration."]
     }
   });
@@ -816,13 +817,11 @@ function level2() {
     cubes: [[2.2, 0.35, 8.4]], par: [110, 6],
     signs: [
       { kind: "chamber", a: "TEST CHAMBER 02", b: "DELIVERY", pos: [5.6, 4.3, 0], n: [0, 0, 1], w: 4.4, h: 1.15 },
-      { kind: "hint", a: "BUTTONS LIKE HEAVY THINGS", pos: [7.2, 3.0, 10], n: [0, 0, -1], w: 3.9, h: 1.0 },
-      { kind: "hint", a: "CUBES CAN GO THROUGH PORTALS", pos: [18, 3.4, 0], n: [0, 0, 1], w: 4.2, h: .85 },
       { kind: "exit", a: "EXIT", pos: [24, 4.4, 5], n: [-1, 0, 0], w: 2.2, h: .75 }
     ],
     say: {
       intro: ["This chamber contains a cube and a button. I am told some subjects find that exciting.", "The cube cannot cross the pit by itself. It lacks ambition."],
-      hint: ["Pick up the cube with the grab button. Carry it through a portal. It will not complain. It has never complained."],
+      hint: ["The cube cannot walk. You can. One of you will have to carry the other."], hint2: ["You can get into the cube's room by portal. The cube can leave it the same way, if somebody is holding it."],
       done: ["The cube did all the work, but I will put your name on it anyway."]
     }
   };
@@ -846,12 +845,11 @@ function level3() {
     doors: [], plates: [], cubes: [],
     signs: [
       { kind: "chamber", a: "TEST CHAMBER 03", b: "FREEFALL", pos: [15, 9.5, 0.11], n: [0, 0, 1], w: 5.2, h: 1.3 },
-      { kind: "hint", a: "WHAT GOES IN AT SPEED COMES OUT AT SPEED", pos: [0, 6.4, 8.5], n: [1, 0, 0], w: 4.8, h: 1.2 },
       { kind: "exit", a: "EXIT", pos: [30, 4.4, 6], n: [-1, 0, 0], w: 2.2, h: .75 }
     ],
     say: {
-      intro: ["Gravity is reliable. You, however, are the variable.", "Place a portal on the floor below you and another on the far wall. Then step off the ledge. Stepping off ledges is the one thing humans are good at."],
-      hint: ["Fall into the floor portal from up here, and the wall portal throws you at the same speed. Aim it higher if you keep ending up in the acid."],
+      intro: ["Gravity is reliable. You, however, are the variable.", "Speed is the one thing a portal never takes from you. I find that generous of it."],
+      hint: ["Speed in is speed out. I did not make the rule. I merely enforce it."], hint2: ["Falling is the fastest thing you do in here. Fall into something, and come out somewhere useful."],
       done: ["That was almost graceful. I have logged it as an accident."]
     }
   };
@@ -874,12 +872,11 @@ function level4() {
     doors: [], plates: [], cubes: [],
     signs: [
       { kind: "chamber", a: "TEST CHAMBER 04", b: "LIFT", pos: [8, 13, 0], n: [0, 0, 1], w: 4.2, h: 1.1 },
-      { kind: "hint", a: "WHAT YOU FALL, YOU CLIMB", pos: [5, 10.2, 0], n: [0, 0, 1], w: 3.6, h: .85 },
       { kind: "exit", a: "EXIT", pos: [14, 14.4, 4], n: [-1, 0, 0], w: 2.2, h: .75 }
     ],
     say: {
       intro: ["The exit is up there. You are down here. I admire the confidence of whoever designed this arrangement.", "Portals do not care which way is up. Neither, I suspect, do you."],
-      hint: ["Fall into a portal and you leave the other one at the same speed. If the other one faces up, you leave it going up. You are welcome."],
+      hint: ["Portals do not care which way is up. Neither, I suspect, do you."], hint2: ["You leave a portal the way it faces. Make one face up, and fall into the other."],
       done: ["Well done. I will be very surprised if this keeps happening."]
     }
   };
@@ -905,12 +902,11 @@ function level5() {
     cubes: [[6.6, 14.35, 1.8]],
     signs: [
       { kind: "chamber", a: "TEST CHAMBER 05", b: "SPECIAL DELIVERY", pos: [16, 9.5, 0.11], n: [0, 0, 1], w: 5.8, h: 1.3 },
-      { kind: "hint", a: "THE CUBE IS COMING WITH YOU", pos: [0, 6.4, 8.5], n: [1, 0, 0], w: 4.6, h: 1.0 },
       { kind: "exit", a: "EXIT", pos: [32, 4.4, 6], n: [-1, 0, 0], w: 2.2, h: .75 }
     ],
     say: {
       intro: ["Bring the cube. Do not lose the cube. You will lose the cube.", "The button is over there. You are over here. This is the whole test."],
-      hint: ["You can hold the cube while you fall. Put it down on the round button, and the door will open. I would applaud, but I am a ceiling."],
+      hint: ["The cube is coming with you. It has no say in the matter. Neither, really, do you."], hint2: ["You can hold the cube while you fall. It will not let go first."],
       done: ["Three chambers done. I would tell you how many are left, but it would only discourage you."]
     }
   };
@@ -956,12 +952,12 @@ function level6() {
   h.boxes.push(bx(8, 0, 0, 10, 7, 7), bx(16, 0, 5, 18, 7, 12), bx(23, 0, 5, 25, 7, 12));
   h.sentries = [{ pos: [14, 0, 3], yaw: Math.PI / 2, range: 7 }, { pos: [27.5, 0, 10.5], yaw: Math.PI / 2, range: 8 }];      // short-sighted, but they see wide: keep your distance or stay behind them
   h.cubes = [[3, 0.35, 9.5]]; h.plates = [{ pos: [27, 0, 2.5], door: "d1" }]; h.doors = [exitDoor(30, 6)]; h.par = [100, 2];
-  h.signs.push(chSign(10, "SENTRY DUTY", 4.6), hint("SENTRIES", [5, 3, 12], [0, 0, -1], 3.2, 1));
+  h.signs.push(chSign(10, "SENTRY DUTY", 4.6));
   return Object.assign(h, {
     badge: [28.9, 1, 11.2], num: 6, name: "Sentry Duty", track: 0,
     say: {
-      intro: ["Meet the sentries. They are friendly, in the sense that they are not yet shooting.", "They only see what is in front of them. Walk behind them. Or stand behind a wall. Or, as a last resort, do not be shot."],
-      hint: ["Hide behind a pillar and your health comes back. Reach a sentry from behind and you can pick it up. It sleeps while you carry it. It does not sleep for long afterwards."],
+      intro: ["Meet the sentries. They are friendly, in the sense that they are not yet shooting.", "They only see what is in front of them. I consider that their one flaw. Do not be shot."],
+      hint: ["They only see what is in front of them, and only so far."], hint2: ["Pillars hide you, and your health comes back behind them. The far wall is further from both of them than it looks."],
       done: ["You survived the sentries. I was not worried. That is a lie, I had a bet running."]
     }
   });
@@ -978,12 +974,12 @@ function level7() {
   h.receivers = [{ pos: [15, 1.5, 10], n: [-1, 0, 0], w: 2.2, h: 2.2, door: "d0" }, { pos: [L, 1.5, 10], n: [-1, 0, 0], w: 2.2, h: 2.2, door: "d1" }];
   h.doors = [exitDoor(15, 6, "d0"), exitDoor(L, 6)];
   h.lamps.push(lamp(22, H - .3, 6, .5, 10)); h.par = [70, 3];
-  h.signs.push(chSign(9, "REDIRECT", 4.6), hint("LASERS", [8, 3.2, 12 - 0.11], [0, 0, -1], 3.2, 1));
+  h.signs.push(chSign(9, "REDIRECT", 4.6));
   return Object.assign(h, {
     num: 9, name: "Redirect", track: 1,
     say: {
       intro: ["That is a laser. It burns. Please do not stand in it. I still have the cleaning records from the last one.", "Light goes through portals the way you do, only faster, and without complaining. The receivers on the walls want light. The doors want the receivers."],
-      hint: ["A beam goes into one portal and out of the other, and leaves the way that portal faces. Move a portal and the light goes with it. The receiver it was lighting will notice."],
+      hint: ["A beam goes into one portal and out of the other, and leaves the way that portal faces."], hint2: ["Two receivers. One beam. They do not both need it at the same time."],
       done: ["You have used light to open a door. Some civilizations call that engineering."]
     }
   });
@@ -997,12 +993,12 @@ function level8() {
   h.boxes.push(skin(19.5, 0, 3.5, 24.5, 0.02, 8.5));                                                // round the plate the floor is dark: nothing gets dropped onto it through a portal
   h.fields = [{ min: [14.35, 0, 5], max: [14.65, 3.2, 9] }];
   h.cubes = [[4, 0.35, 3]]; h.plates = [{ pos: [22, 0, 6], door: "d1" }]; h.doors = [exitDoor(L, 6)]; h.par = [80, 2];
-  h.signs.push(chSign(13, "RESET", 4.6), hint("RESET FIELD", [8, 4.6, W - 0.001], [0, 0, -1], 3.6, 1));
+  h.signs.push(chSign(13, "RESET", 4.6));
   return Object.assign(h, {
     num: 13, name: "Reset", track: 2,
     say: {
       intro: ["That blue field resets portals and recycles cubes. You, it merely resets.", "The plate is on the other side. The cube is on this side. This is called a challenge."],
-      hint: ["Carry a portal through a reset field and it closes. Carry a cube through and it is recycled. A portal shot, however, goes straight through. Nothing stops a portal shot, except a wall I paid extra for."],
+      hint: ["Carry a portal through a reset field and it closes. A portal shot, however, goes straight through."], hint2: ["The cube cannot go through the field. Nothing says it has to."],
       done: ["The cube is on the plate, and you are on the right side of the wall. A rare double."]
     }
   });
@@ -1027,7 +1023,7 @@ function level9() {
   h.signs.push(chSign(20, "TWO KEYS", 4, 4.6));
   return Object.assign(h, { num: 20, name: "Two Keys", track: 0, say: {
     intro: ["Two plates. Two crates. One sentry, in a booth, with a very good view of the lane. I paid extra for the view.", "The door will open only when both plates are pressed. I did not invent this rule. I merely enforce it."],
-    hint: ["That sentry sees the whole lane through one small window. It cannot see through crates. I mention these two facts for no reason at all."],
+    hint: ["That sentry sees the whole lane through one small window. It cannot see through crates. I mention these two facts for no reason at all."], hint2: ["A crate on the plate in the niche is a crate in the sentry's window."],
     done: ["You blindfolded it with a crate. It is still watching, in its way. I find that I respect it."] } });
 }
 function level10() {
@@ -1044,8 +1040,8 @@ function level10() {
   return Object.assign(h, {
     badge: [8.3, 15, 0.8], num: 23, name: "Gantry", track: 1,
     say: {
-      intro: ["You have done this before. I have since added a welcoming committee of one.", "The crate is coming with you. How it travels is up to you. I know which way I would send it."],
-      hint: ["You keep arriving in front of that sentry and leaving in a hurry. Something should arrive before you do. Something heavy, and in a hurry."],
+      intro: ["You have done this before. I have since added a welcoming committee of one.", "The crate is coming with you. How it travels is up to you."],
+      hint: ["You keep arriving in front of that sentry and leaving in a hurry. Something should arrive before you do. Something heavy, and in a hurry."], hint2: ["Drop the crate into the floor under the gantry first. It leaves the back wall faster than a sentry likes."],
       done: ["You threw a crate at a colleague and walked in after it. That is the exam. You passed. I will not be telling you by how much."]
     }
   });
@@ -1092,7 +1088,7 @@ function level12() {
     num: 35, name: "The Last Word", track: 1,
     say: {
       intro: ["This chamber uses everything so far: the cube, the light, the field, and a sentry, who has been waiting.", "I would wish you luck. I would also be lying, and I only do that when I have to."],
-      hint: ["The field forgets your portals for you. It is the only thing in this building with a shorter memory than yours."],
+      hint: ["The field forgets your portals for you. It is the only thing in this building with a shorter memory than yours."], hint2: ["The cell's one panel does two jobs. The crate goes in through it first, then the light. The sentry will have to move first."],
       done: ["That was the easy part. I did not mention there was a hard part. I am mentioning it now."]
     }
   });
@@ -1112,10 +1108,10 @@ function level13() {
   h.pads = [{ pos: [4.5, 0, 6], from: [4.5, 0.92, 6], to: [20.5, 0.92, 6], T: 1.15 }, { pos: [20, 0, 2.6], from: [20, 0.92, 2.6], to: [28.9, 4.12, 11.1], T: 1.25 }];
   h.cubes = [[3, 0.35, 9.5]]; h.plates = [{ pos: [29, 3.2, 11.2], door: "d1" }]; h.doors = [exitDoor(L, 6)];
   h.lamps.push(lamp(26.5, H - .3, 10.3, .5, 8)); h.badge = [24, 4.4, 11.3]; h.par = [60, 0];
-  h.signs.push(chSign(12, "AIR MAIL", 4.6), hint("LAUNCH PADS", [5, 3.2, W - 0.11], [0, 0, -1], 3.6, 1));
+  h.signs.push(chSign(12, "AIR MAIL", 4.6));
   return Object.assign(h, { num: 12, name: "Air Mail", track: 0, say: {
     intro: ["I have installed launch pads. They are like stairs, but faster and less forgiving.", "A launch pad throws whatever stands on it along the same arc, every time. It does not check what it is throwing."],
-    hint: ["Every pad has exactly one landing spot. Subjects, crates, the pad makes no distinction. Neither, frankly, do I."],
+    hint: ["Every pad has exactly one landing spot. Subjects, crates, the pad makes no distinction. Neither, frankly, do I."], hint2: ["There are two pads. One of them lands next to where the crate needs to be. The crate does not need you to ride with it."],
     done: ["You flew a cube across an acid pit. Somewhere, a postal service is weeping with envy."] } });
 }
 function level14() {
@@ -1141,7 +1137,7 @@ function level15() {
   h.signs.push(chSign(24, "LONG JUMP", 9, 5));
   return Object.assign(h, { badge: [1.6, 20.6, 6], num: 24, name: "Long Jump", track: 2, say: {
     intro: ["Two white surfaces. That is all you get. I had a third one, but it was being used to hold up the ceiling.", "The far side is twenty one metres away. I did not measure it with a subject this time. I measured it with a falling subject. The results were similar."],
-    hint: ["You have tried it once and arrived in the acid. You are welcome to keep the same plan and hope the acid changes."],
+    hint: ["You have tried it once and arrived in the acid. You are welcome to keep the same plan and hope the acid changes."], hint2: ["The higher the portal you fall out of, the further you fly. Use all of the strip."],
     done: ["Higher out, further across. Somebody should write that on a wall. Not me. I have walls to keep clean."] } });
 }
 function level16() {
@@ -1177,8 +1173,8 @@ function level17() {
   h.lamps.push(lamp(20, H - .3, 10.8, .45, 8), lamp(1.5, 6.5, 9.8, .4, 6)); h.fixtures.push([20, H, 10.8]);
   h.signs.push(chSign(18, "SKYLIGHT", 7, 4.6));
   return Object.assign(h, { num: 18, name: "Skylight", track: 1, say: {
-    intro: ["The receiver is in the roof of that tunnel. The laser is over there. They have never met. You are going to introduce them.", "The door also wants the crate on its plate. The plate is through the tunnel. I am sure that will not matter at all."],
-    hint: ["Most people do this room twice. The first time, they light the receiver and then remember the crate. You are welcome to join them."],
+    intro: ["The receiver is in the roof of that tunnel. The laser is over there. They have never met. You are going to introduce them.", "The door also wants the crate on its plate. The plate is through the tunnel."],
+    hint: ["Most people do this room twice. The first time, they light the receiver and then remember the crate. You are welcome to join them."], hint2: ["Fetch the crate before you aim the light. Otherwise you will be fetching it through the same portal twice."],
     done: ["You sent light up through the floor, and you thought of the crate first. I had a speech prepared about doing things in order. I will save it."] } });
 }
 function level18() {
@@ -1194,7 +1190,7 @@ function level18() {
   for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.02, sg.pos[1], sg.pos[2]];
   return Object.assign(h, { badge: [31.3, 5.5, 11.3], num: 19, name: "Field Trip", track: 2, say: {
     intro: ["The field runs wall to wall. You can walk through it. The crate cannot. Your portals will not survive it either.", "The crate is on the far side. The plate is on this side. The door is on a ledge. You see the difficulty. You see most of it."],
-    hint: ["You have been staring at this side of the room for some time. The other side has walls too. Some of them face the other way."],
+    hint: ["You have been staring at this side of the room for some time. The other side has walls too. Some of them face the other way."], hint2: ["The crate's panel faces away from you. That portal can only be set from the other side of the field."],
     done: ["The crate went through a wall without touching the field. That is called thinking with doors. I did not invent the phrase. I would have done better."] } });
 }
 function level19() {
@@ -1222,7 +1218,7 @@ function level19() {
   h.signs.push(chSign(38, "GAUNTLET", 4.6));
   return Object.assign(h, { num: 38, name: "Gauntlet", track: 0, say: {
     intro: ["Nine lasers, three sentries, one crate and a launch pad. I call it a gauntlet. The sentries call it lunch.", "Everything in this room has been explained to you at least once. I am therefore not going to explain any of it. Consider that a compliment, if it helps."],
-    hint: ["The pad does not care what it throws. One of you is more durable than the other. I will let you work out which."],
+    hint: ["The pad does not care what it throws. One of you is more durable than the other. I will let you work out which."], hint2: ["Crate on the pad first. Something is standing where the pad lands you."],
     done: ["You ran the gauntlet. It ran out of ideas before you did. That has not happened before, and I would like it not to happen again."] } });
 }
 function level20() {
@@ -1242,7 +1238,7 @@ function level20() {
   h.signs.push(chSign(26, "SECOND WIND", 10, 5));
   return Object.assign(h, { num: 26, name: "Second Wind", track: 1, say: {
     intro: ["Two pits. One island. One pad on the island, which throws you straight up and drops you back where it likes. I find that restful to watch.", "Get to the island. Then get off the island. In that order, ideally."],
-    hint: ["The pad always drops you on the same white square. It is very strong and very stupid. You are holding something that can change what the square is."],
+    hint: ["The pad always drops you on the same white square. It is very strong and very stupid. You are holding something that can change what the square is."], hint2: ["Put a portal on the square where the pad drops you. The fall that follows can come out somewhere else."],
     done: ["Two pits, no swimming, and the same portal twice. You are becoming difficult to impress, which makes two of us."] } });
 }
 function level21() {
@@ -1269,7 +1265,7 @@ function level21() {
   h.signs.push(chSign(37, "RETRIEVAL", 3.4, 3.8));
   return Object.assign(h, { num: 37, name: "Retrieval", track: 2, say: {
     intro: ["The crate is in the cell on the island. It has been there since the last subject left it there. They are not there. Draw whatever conclusion keeps you moving.", "The doorway has a field in it. Fields do not like portals, and they do not like luggage. They are indifferent to you. We have that in common."],
-    hint: ["Things that cannot leave by the door have been known to leave by the wall. I am not suggesting anything. I am a ceiling."],
+    hint: ["Things that cannot leave by the door have been known to leave by the wall. I am not suggesting anything. I am a ceiling."], hint2: ["The crate leaves the cell through the panel on the inside of its wall, not through the doorway. Only send the light after that."],
     done: ["You retrieved it. One crate, slightly travelled. I will put it back on the island for the next subject, when there is one."] } });
 }
 function level22() {
@@ -1301,8 +1297,8 @@ function level23() {
   h.signs.push(chSign(30, "TERMINAL VELOCITY", 4, 5.6));
   h.lamps.push(lamp(5, 14, 6, .5, 10));
   return Object.assign(h, { badge: [27, 6, 6, 2.4], num: 30, name: "Terminal Velocity", track: 1, say: {
-    intro: ["This pit is thirty four metres long. Nothing in here can throw you that far. Except gravity, if you let it practise.", "The door wants the crate. The crate is coming with you. I did not say it would enjoy it."],
-    hint: ["You are falling in circles. Some of my best subjects ended up doing that. Most of them are still at it."],
+    intro: ["This pit is thirty four metres long. Nothing in here can throw you that far.", "The door wants the crate. The crate is coming with you. I did not say it would enjoy it."],
+    hint: ["You are falling in circles. Some of my best subjects ended up doing that. Most of them are still at it."], hint2: ["A floor portal under a ceiling portal makes a fall that never stops. Once it is fast enough, move the exit."],
     done: ["Seventy metres a second, with luggage. You have never been more streamlined. Or more like a projectile."] } });
 }
 function level24() {
@@ -1314,10 +1310,10 @@ function level24() {
   h.receivers = [{ pos: [30, 7, 0], n: [0, 0, 1], w: 2.2, h: 2.2, door: "d1" }];
   h.cubes = [[2, 0.35, 11]]; h.plates = [{ pos: [31, 0, 10.5], door: "d1" }]; h.doors = [exitDoor(L, 7, "d1", 2)];
   h.sentries = [{ pos: [38.5, 0, 2], yaw: Math.PI / 2, cone: 40, range: 6 }, { pos: [38.5, 0, 12], yaw: Math.PI / 2, cone: 40, range: 6 }];   // they guard the corners: keep to the middle
-  h.signs.push(chSign(24, "FINAL EXAM", 9.6, 5), hint("PAD. FIELD. LIGHT. CUBE. DOOR.", [20, 3.4, 14], [0, 0, -1], 5, 1));
+  h.signs.push(chSign(24, "FINAL EXAM", 9.6, 5));
   return Object.assign(h, { num: 24, name: "Final Exam", track: 2, say: {
     intro: ["The final chamber. A pad, a pit, a field, a laser, a cube, two sentries, and a door that wants all of it.", "I have prepared a speech for when you finish. I have also prepared one for when you do not. Both are short."],
-    hint: ["Fly the cube over the pit, take it through the field by portal, put it on the plate. Then catch the light at the pillar and send it up to the target."],
+    hint: ["Cube first. The light can wait. It always has."], hint2: ["The pad will fly the cube over the pit. The field it can only cross by portal."],
     done: ["Testing is complete. All of it. You may go. I will be here, grading."] } });
 }
 
@@ -1343,10 +1339,10 @@ function level25() {
   h.lamps.push(lamp(9, H - .3, 9.3, .5, 9), lamp(22, H - .3, 9.3, .5, 9)); h.fixtures.push([9, H, 9.3], [22, H, 9.3]);
   h.start = { pos: [2, 0, 9.3], yaw: -Math.PI / 2, pitch: -0.05 }; h.par = [90, 1];
   for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.02, sg.pos[1], sg.pos[2]];
-  h.signs.push({ kind: "chamber", a: "TEST CHAMBER 11", b: "HEAVY LIFTING", pos: [5, 4.3, 6.6 + 0.001], n: [0, 0, 1], w: 4.6, h: 1.15 }, hint("CARRYING SENTRIES", [15, 5, W - 0.101], [0, 0, -1], 4.4, 1));
+  h.signs.push({ kind: "chamber", a: "TEST CHAMBER 11", b: "HEAVY LIFTING", pos: [5, 4.3, 6.6 + 0.001], n: [0, 0, 1], w: 4.6, h: 1.15 });
   return Object.assign(h, { num: 11, name: "Heavy Lifting", track: 0, say: {
-    intro: ["Now that you have met the sentries, I would like you to pick one up. Do not worry. It will do enough worrying for both of you.", "This door wants two weights. I have provided one crate and one sentry. The sentry does not know it is a weight yet.", "The door is on the other side of that wall. So is the sentry. I am holding a doorway open over there. The other end is up to you."],
-    hint: ["A sentry sleeps while you carry it, and wakes a moment after you put it down. Think about which way it will be facing when it does. It certainly will."],
+    intro: ["Now that you have met the sentries, I would like you to pick one up. Do not worry. It will do enough worrying for both of you.", "This door wants two weights. I have provided one crate and one sentry. The sentry does not know it is a weight yet.", "The door is on the other side of that wall. So is the sentry."],
+    hint: ["A sentry sleeps while you carry it, and wakes a moment after you put it down. Think about which way it will be facing when it does. It certainly will."], hint2: ["It wakes facing the way you faced when you put it down. A wall is very poor company. That is the point."],
     done: ["You used a guard as a paperweight. Its supervisor would be furious, if it still had one."] } });
 }
 function level26() {
@@ -1366,8 +1362,8 @@ function level26() {
   h.signs.push(chSign(16, "BORROWED COVER", 9.8, 4.4),
     scrawl("SHE COUNTS THE CORRIDOR.", "SHE NEVER COUNTS THE CHAMBERS.  - O.", [10.2, 1.3, 12], [0, 0, -1], 3.4, 1));
   return Object.assign(h, { badge: [16.4, 3.4, 9.5], num: 16, name: "Borrowed Cover", track: 1, say: {
-    intro: ["The corridor ahead is watched. Twenty metres of it. I counted, and so will the sentry at the far end.", "There is a second sentry in a cell over there, facing the wall. It is in disgrace. You may borrow it."],
-    hint: ["You keep walking down that corridor as if the sentry might change its mind. It will not. It has no mind. It has a colleague, though, and you know where that one is."],
+    intro: ["The corridor ahead is watched. Twenty metres of it. I counted, and so will the sentry at the far end.", "There is a second sentry in a cell over there, facing the wall. It is in disgrace."],
+    hint: ["You keep walking down that corridor as if the sentry might change its mind. It will not. It has no mind. It has a colleague, though, and you know where that one is."], hint2: ["A sleeping sentry blocks the view of a waking one. The cell has a window, and a white panel behind it."],
     done: ["It never saw you. It will file a report saying a colleague walked up to it and sat down on the button. Nobody will read it. Nobody reads any of them."] } });
 }
 function level27() {
@@ -1383,8 +1379,8 @@ function level27() {
   h.signs.push(chSign(17, "FRIENDLY FIRE", 4.6, 5));
   for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.02, sg.pos[1], sg.pos[2]];
   return Object.assign(h, { num: 17, name: "Friendly Fire", track: 2, say: {
-    intro: ["Two sentries, one lane each, and a wall in the middle for you to cower behind. I had the wall put in specially.", "They are bolted to the floor, so do not get ideas. The button is up on the ledge with the door. It wants something heavy. I am sure something heavy will turn up."],
-    hint: ["Those two have stared at those pillars every day for years. They have never once wondered what is on the other side. Neither, it seems, have you."],
+    intro: ["Two sentries, one lane each, and a wall in the middle for you to cower behind. I had the wall put in specially.", "They are bolted to the floor, so do not get ideas. The button is up on the ledge with the door. It wants something heavy."],
+    hint: ["Those two have stared at those pillars every day for years. They have never once wondered what is on the other side. Neither, it seems, have you."], hint2: ["Each of them would shoot the other on sight. All they lack is a view. You have the portals."],
     done: ["They shot each other, and you used one of them as a doorstop. I would report it, but that department was closed. Most of them were."] } });
 }
 function level28() {
@@ -1396,10 +1392,10 @@ function level28() {
   h.gravs = [{ pad: [9, 0, 6], min: [14.3, 0, 4.3], max: [17.7, H, 7.7] }];
   h.cubes = [[16, 0.4, 6]]; h.plates = [{ pos: [23, 0, 6], door: "d1" }]; h.doors = [exitDoor(L, 6)]; h.par = [80, 2];
   office(h, 19, 25, 4.6, 6.6, 0);
-  h.signs.push(chSign(15, "UPSIDE", 4.6), hint("GRAVITY PANEL", [9, 4.6, W - 0.11], [0, 0, -1], 3.6, 1), scrawl("ASK HER WHO READS", "THE REPORTS.  - O.", [20.5, 1.2, 12], [0, 0, -1], 2.8, 0.95));
+  h.signs.push(chSign(15, "UPSIDE", 4.6), scrawl("ASK HER WHO READS", "THE REPORTS.  - O.", [20.5, 1.2, 12], [0, 0, -1], 2.8, 0.95));
   return Object.assign(h, { num: 15, name: "Upside", track: 0, say: {
     intro: ["The crate is in a pen. The pen has no door. I designed it that way, and then I lost the drawings.", "The purple panel reverses gravity inside the pen. For crates. Not for you. You stay where I can see you."],
-    hint: ["Inside the pen, the panel turns gravity round for anything loose. Things that fall up keep going until something stops them. A portal counts as something. Step on the panel again and down is down."],
+    hint: ["Inside the pen, loose things fall up. You do not. I made sure."], hint2: ["Things that fall up keep going until something stops them. A portal counts as something."],
     done: ["The crate fell up, then sideways, then down. It has now seen more of this facility than you have. Let us keep it that way."] } });
 }
 function level29() {
@@ -1417,7 +1413,7 @@ function level29() {
   for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.02, sg.pos[1], sg.pos[2]];
   return Object.assign(h, { badge: [20.5, 5.6, 11.2], num: 28, name: "Short Notice", track: 1, say: {
     intro: ["The plate with the amber ring is on a relay. When the weight comes off it, the door stays open for three more seconds. Three. I was feeling generous.", "The door wants both plates. The plain one across the acid does not wait for anybody. Neither do I, as a rule."],
-    hint: ["Three seconds is not long enough to do anything you should have done before. It is just long enough to regret it."],
+    hint: ["Three seconds is not long enough to do anything you should have done before. It is just long enough to regret it."], hint2: ["Set every portal you need before you step off the amber plate. The three seconds are for walking, not shooting."],
     done: ["Three seconds, and you had most of them to spare. Do not look so pleased. The offices are empty. Nobody saw."] } });
 }
 function level30() {
@@ -1450,7 +1446,7 @@ function level30() {
     scrawl("THE EXIT SIGN IS HONEST.", "THE EXIT IS NOT.  - O.", [24, 1.2, 12 - 0.001], [0, 0, -1], 3.2, 0.95));
   return Object.assign(h, { badge: [26.3, 1, 0.6], num: 36, name: "Cold Storage", track: 2, say: {
     intro: ["That channel is coolant. It keeps me at a comfortable temperature, and you at a fatal one. Things float in it. You are not one of the things.", "The amber plate runs the pump. Step on it again and the pump runs the other way. The door over there wants a weight, and the field recycles anything you carry. I do enjoy it when the rules agree with each other."],
-    hint: ["Your passenger will spend the whole voyage looking at whatever you were looking at when you said goodbye. Choose it a view."],
+    hint: ["Your passenger will spend the whole voyage looking at whatever you were looking at when you said goodbye. Choose it a view."], hint2: ["The hatch is not the only way onto the float. The booth faces somewhere much more restful."],
     done: ["You sent a sentry on a cruise. It is the only holiday anyone here has had in a very long time. Including me. Especially me."] } });
 }
 /* ---------- after the final exam: the way out is "being serviced". A moving panel, an office window that breaks, and what is behind it ---------- */
@@ -1476,7 +1472,7 @@ function level31() {
   for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.02, sg.pos[1], sg.pos[2]];
   return Object.assign(h, { num: 29, name: "Moving Target", track: 0, say: {
     intro: ["About leaving. The way out is being serviced. It has been being serviced for some time.", "While we wait, here is a chamber I had been saving. The white panel moves. A portal on it moves too. Do try to keep up."],
-    hint: ["The panel spends three seconds in each place. You spend a little under one second falling. I will let you do the arithmetic. You have nothing else on."],
+    hint: ["The panel spends three seconds in each place. You spend a little under one second falling. I will let you do the arithmetic. You have nothing else on."], hint2: ["The panel's portal is only useful while it is over the gantry. Time your step for that, both ways."],
     done: ["You caught a moving wall twice, once with a crate. Most subjects only manage it the other way round."] } });
 }
 function level32() {
@@ -1542,7 +1538,7 @@ function level34() {
   h.lamps.push(lamp(25, H - .4, 6, .45, 8, 1, .85, .65));
   h.back = true;
   h.signs = h.signs.filter(sg => sg.kind !== "exit");
-  h.signs.push(hint("SORTING HALL - PANEL TURNS EVERY 5 S", [5, 4.4, 0.001], [0, 0, 1], 4.8, 0.8), scrawl("WHAT FACES YOU NOW", "FACES THEM NEXT.  - O.", [9.5, 4.2, W - 0.001], [0, 0, -1], 3, 0.95));
+  h.signs.push(hint("SORTING HALL", [5, 4.4, 0.001], [0, 0, 1], 3.2, 0.8), scrawl("WHAT FACES YOU NOW", "FACES THEM NEXT.  - O.", [9.5, 4.2, W - 0.001], [0, 0, -1], 3, 0.95));
   return Object.assign(h, { num: 34, name: "Sorting Hall", track: 0, say: {
     intro: ["You are in the sorting hall. Subjects were sorted here. Passed to the left, failed to the right. Nobody ever went left.", "The door is up behind that screen. You cannot get up there. I am not saying that to challenge you. Please do not treat it as a challenge."],
     hint: ["The white panel in the screen turns round every few seconds. If you had put a portal on it, the portal would go round with it. Fortunately you have not thought of that."],
@@ -1619,7 +1615,7 @@ function level37() {
   h.signs.push(chSign(31, "WALKWAY", 3.4, 3.6));
   return Object.assign(h, { num: 31, name: "Walkway", track: 0, say: {
     intro: ["That strip of light on the floor is a walkway. It is solid. The physics department assured me of this shortly before they stopped answering their telephone.", "It goes in a straight line until something stops it. Over the acid, a number of things stop it. I had them put there."],
-    hint: ["The light does not mind where you are standing when it moves. Find out whether you do."],
+    hint: ["The light does not mind where you are standing when it moves. Find out whether you do."], hint2: ["Each next panel can only be seen from the end of the walkway before it. Stand on the light, and aim it again."],
     done: ["You have walked on light. Do not tell the others. There are no others. Do not tell them anyway."] } });
 }
 function level38() {
@@ -1643,7 +1639,7 @@ function level38() {
   for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.02, sg.pos[1], sg.pos[2]];
   return Object.assign(h, { badge: [22, 5, 11.2], num: 32, name: "Updraft", track: 1, say: {
     intro: ["This is a carrier stream. Anything that steps into it stops falling and drifts along with it. Crates. Sentries. You.", "It currently carries things to the ceiling and leaves them there. I find that restful. You may not."],
-    hint: ["The crate is smaller than you are. I mention it because the building was designed by someone who had noticed."],
+    hint: ["The crate is smaller than you are. I mention it because the building was designed by someone who had noticed."], hint2: ["Send the crate up first. Then follow it, and look around from where it went."],
     done: ["You drifted the whole way with your arms out. I have a recording. I am keeping it."] } });
 }
 function level39() {
@@ -1659,8 +1655,8 @@ function level39() {
   h.par = [100, 3];
   h.signs.push(chSign(25, "REBOUND", 4.6, 3.6));
   return Object.assign(h, { num: 25, name: "Rebound", track: 2, say: {
-    intro: ["Two pastes. The green one throws back whatever lands on it. The pink one removes friction, which is the only thing that has ever held you back.", "Both nozzles drip on the floor by the door, where they can do no harm. Try them. Then think about why they are not over there."],
-    hint: ["Paste is not clever. It goes where it is sent, as fast as it was falling. You could learn a lot from paste."],
+    intro: ["Two pastes. The green one throws back whatever lands on it. The pink one removes friction, which is the only thing that has ever held you back.", "Both nozzles drip on the floor by the door, where they can do no harm. Try them."],
+    hint: ["Paste is not clever. It goes where it is sent, as fast as it was falling. You could learn a lot from paste."], hint2: ["Paste goes through portals at the speed it fell. Send the pink across. Put the green where you will need a way up."],
     done: ["You crossed ten metres of acid on a floor I had made slippery. In any other building that would be a lawsuit."] } });
 }
 function level40() {
@@ -1683,7 +1679,7 @@ function level40() {
   for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.02, sg.pos[1], sg.pos[2]];
   return Object.assign(h, { num: 33, name: "Primer", track: 0, say: {
     intro: ["That white drip is primer. One coat, and bare board takes a portal. You have just watched it do the floor.", "The rest of the bare board is across the acid. The primer is not. I would call that an oversight, but I signed the drawing."],
-    hint: ["Paint goes where it is thrown, and it stays there. Choose your first wall the way you would choose a tattoo."],
+    hint: ["Paint goes where it is thrown, and it stays there. Choose your first wall the way you would choose a tattoo."], hint2: ["Your first primed board decides what you can see next. Pick the one that looks at the most bare board."],
     done: ["You painted my wall and then walked through it. I have had contractors who did less damage."] } });
 }
 function level41() {
@@ -1708,7 +1704,7 @@ function level41() {
   h.signs.push(chSign(40, "PRISM", 8, 3.6));
   return Object.assign(h, { num: 40, name: "Prism", track: 1, say: {
     intro: ["This crate has a lens in one face. Light that goes into the crate comes out of the lens. Somebody patented that. I have their badge somewhere.", "At present it is lighting a wall. The wall is not grateful. The receivers might be."],
-    hint: ["The crate cannot be in two places. I have checked. The light, on the other hand, has never been particular about where it comes from."],
+    hint: ["The crate cannot be in two places. I have checked. The light, on the other hand, has never been particular about where it comes from."], hint2: ["Put both portals up while the inner door is open. Then go and get the crate."],
     done: ["One beam, three receivers, and a crate that did the thinking. I have put it forward for your job."] } });
 }
 function level42() {
@@ -1735,7 +1731,7 @@ function level42() {
   h.signs.push(chSign(44, "LIVE WIRE", 4.6, 3.6));
   return Object.assign(h, { num: 44, name: "Live Wire", track: 2, say: {
     intro: ["That is a spark. It travels in a straight line, bounces off whatever it meets, and gives up after a while. I have worked with people like that.", "The socket would like it. The socket is past the field, behind a shutter, at the end of a flue. I did not want it to be easy for the spark either."],
-    hint: ["The field takes your portals away. It has never once taken anything from the spark. Think about which of you is better off."],
+    hint: ["The field takes your portals away. It has never once taken anything from the spark. Think about which of you is better off."], hint2: ["The crate goes round the field by portal first, to lift the shutter. Then send the spark, and catch it from the far side."],
     done: ["The socket has its spark, and you still have your eyebrows. I had a small bet with myself. I have lost it."] } });
 }
 function level43() {
@@ -1750,7 +1746,7 @@ function level43() {
   h.signs.push(chSign(27, "PRESS", 4.6, 3.6));
   return Object.assign(h, { num: 27, name: "Press", track: 0, say: {
     intro: ["The switch on the wall opens the door for three seconds. The door is at the far end. Between you and it are three presses that used to flatten sheet steel.", "They still flatten things. They are not particular about what. They are also not in time with each other. Nobody here has been able to fix that, because of the flattening."],
-    hint: ["The presses are almost never all up at the same time. Almost."],
+    hint: ["The presses are almost never all up at the same time. Almost."], hint2: ["The panel by the door can only be seen when all three presses are up. Wait for that before you touch the switch."],
     done: ["Three seconds was plenty. I said it would be. I did not say it to you, but I said it."] } });
 }
 function level44() {
@@ -1768,7 +1764,7 @@ function level44() {
   for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.02, sg.pos[1], sg.pos[2]];
   return Object.assign(h, { badge: [14.5, 1, 11.4], num: 34, name: "Crate Seven", track: 1, say: {
     intro: ["This is crate number seven. Somebody on the staff put tape on it and wrote the number by hand. That is against regulations. So is talking to it. They did both.", "It is equipment. You will carry it to the buttons, and you will not become attached to it. I mention this because of what happened last time."],
-    hint: ["The buttons are slow to wake and quick to sleep. You are the other way round. Plan accordingly."],
+    hint: ["The buttons are slow to wake and quick to sleep. You are the other way round. Plan accordingly."], hint2: ["Open the way up before you step off the second slow button. After that, you will only have three seconds."],
     done: ["You left crate seven on the button. Correct. It is equipment. It is sitting there now, on its own, in the dark, and that is completely fine."],
     done7: ["You have taken crate seven with you. That is theft of facility property. I have filed the report. Nobody will read it. Keep the crate."] } });
 }
@@ -1787,7 +1783,7 @@ function level45() {
   h.evs = [{ min: [5, 0, 0], max: [L, H, W], ev: "enter", line: "Stop there. This is not a test chamber. This is the lock on my door. Three interlocks, and a spark to keep people away from them. It has kept everyone away. There was nobody to keep." }];
   h.doors = [exitDoor(L, 8, "d1", 3)]; h.back = true; h.par = [240, 6];
   h.signs = h.signs.filter(sg => sg.kind !== "exit");
-  h.signs.push(hint("INTERLOCK HALL - THREE SOCKETS OPEN THE DOOR", [9, 6.6, W - 0.001], [0, 0, -1], 6, 0.85), scrawl("X", "", [10, 3.9, W - 0.001], [0, 0, -1], 1.4, 1.4), scrawl("X", "", [18, 3.9, 0.001], [0, 0, 1], 1.4, 1.4), scrawl("X", "", [14, 0.001, 8], [0, 1, 0], 1.4, 1.4),
+  h.signs.push(hint("INTERLOCK HALL", [9, 6.6, W - 0.001], [0, 0, -1], 3.4, 0.85), scrawl("X", "", [10, 3.9, W - 0.001], [0, 0, -1], 1.4, 1.4), scrawl("X", "", [18, 3.9, 0.001], [0, 0, 1], 1.4, 1.4), scrawl("X", "", [14, 0.001, 8], [0, 1, 0], 1.4, 1.4),
     scrawl("SHE WILL ARGUE.", "LIGHT ALL THREE.  - O.", [3, 1.3, W - 0.001], [0, 0, -1], 2.8, 0.95));
   return Object.assign(h, { num: 45, name: "The Argument", track: 2, say: {
     intro: ["You should not be here. I mean that as a fact about the floor plan. This corridor is not on any drawing you were given."],
@@ -1812,7 +1808,7 @@ function level57() {
   h.signs.push(chSign(22, "DEAD DROP", 6, 4.6), scrawl("WHAT GOES UP", "STAYS UP. ASK HER.  - O.", [24, 1.3, 0.001], [0, 0, 1], 3, 0.95));
   return Object.assign(h, { num: 22, name: "Dead Drop", track: 2, say: {
     intro: ["The plate is past the field. The crate is not. The crate cannot go through the field. I have explained this to the crate.", "The purple panel works for the whole room this time. I am feeling generous. It will not last."],
-    hint: ["Anything loose that falls up will go on falling up until something stops it. You know what that something is. You are holding the tool."],
+    hint: ["Anything loose that falls up will go on falling up until something stops it. You know what that something is. You are holding the tool."], hint2: ["The crate can fall up into one ceiling portal and out of the other. Preferably the one past the field."],
     done: ["The crate fell up, came down somewhere else, and you caught it at the right moment. That is called timing. It is rarer than you would think."] } });
 }
 function darkAll(h) { for (const b of h.boxes) darken(b); }
@@ -1860,7 +1856,7 @@ function level46() {                       // Mirror Test: show the bolted sentr
     scrawl("SHE NEVER BUILT A MIRROR.", "WONDER WHY.  - O.", [8, 1.3, 0.001], [0, 0, 1], 3.2, 0.95));
   return Object.assign(h, { badge: [29.5, 1, 11.4], num: 46, name: "Mirror Test", track: 0, say: {
     intro: ["This sentry is bolted down. I had to. The last subject kept carrying them off to quiet corners. It was undignified for everyone.", "It shoots anything it can see. I have never been able to get it to make an exception."],
-    hint: ["It has spent its whole life looking at everything except itself. Some of my best people were like that. Show it the view."],
+    hint: ["It has spent its whole life looking at everything except itself. Some of my best people were like that. Show it the view."], hint2: ["Give it a portal to look into, and put the other one behind it."],
     done: ["It shot itself in the back. Do not tell the others. They are all the same model. They will take it personally."] } });
 }
 function level47() {
@@ -1880,7 +1876,7 @@ function level47() {
   h.signs.push(chSign(39, "SECOND OPINION", 3.4, 4.8));
   return Object.assign(h, { badge: [9.3, 4.1, -4.8], num: 39, name: "Second Opinion", track: 1, say: {
     intro: ["Two bolted sentries. The far one has the good lenses. I ordered one set. It seemed enough at the time.", "You will notice that nothing in front of the near one takes a portal. I noticed first. That is why."],
-    hint: ["It will never see itself. That does not mean nobody has an opinion of it."],
+    hint: ["It will never see itself. That does not mean nobody has an opinion of it."], hint2: ["The far sentry can see the near one, given the right two walls. After that, look for a panel you could not see before."],
     done: ["One of them shot the other, and then itself. I have seen committees end the same way."] } });
 }
 function level48() {                       // v6.1 Scales: one camera, and it is watching the floor. Knock it down and it is the weight the scale wants
@@ -1891,11 +1887,11 @@ function level48() {                       // v6.1 Scales: one camera, and it is
   h.cams = [{ pos: [12, 5.6, W - 0.1], n: [0, 0, -1], watch: { aim: [12, 0, 6], sweep: 0.9, period: 6, range: 11, cone: 18 } }];
   h.plates = [{ pos: [L - 1.6, 4, 11.5], door: "d1", cams: 1 }]; h.doors = [exitDoor(L, 7, "d1", 1, 4)];
   h.badge = [L - 0.7, 4.9, 13.3]; h.par = [100, 3];
-  h.signs.push(chSign(14, "SCALES", 4.6, 3.6), { kind: "hint", a: "CAMERA SCALE", pos: [L - 5 - 0.001, 2.2, 11.5], n: [-1, 0, 0], w: 2.8, h: .7 });
+  h.signs.push(chSign(14, "SCALES", 4.6, 3.6));
   for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.02, sg.pos[1], sg.pos[2]];
   return Object.assign(h, { num: 14, name: "Scales", track: 2, say: {
     intro: ["The door up there is on a camera scale. It wants one camera. Not a person. Not a crate. A camera.", "There is exactly one camera in this room, and it is watching the floor. If it watches you for long enough, I start you again."],
-    hint: ["Open a portal on the wall a camera hangs from, and the wall stops holding it. A fallen camera can be carried, and it goes through portals like anything else."],
+    hint: ["The camera is the weight. It just does not know it yet."], hint2: ["Cameras hang on walls. Walls, in here, can be made to stop holding things."],
     done: ["You weighed my camera. On a scale. I have been reduced to a unit of measurement."] } });
 }
 function level49() {                       // v6.6 Paperweight (kept, trimmed): the camera that watches the landing is also the weight you need
@@ -1910,7 +1906,7 @@ function level49() {                       // v6.6 Paperweight (kept, trimmed): 
   h.signs.push(chSign(45, "PAPERWEIGHT", 4.6, 4.4));
   return Object.assign(h, { num: 45, name: "Paperweight", track: 0, say: {
     intro: ["The door is on a camera scale. It wants two. Over there, past the acid. The launch pad will take anything you give it.", "The camera across the pit watches the landing. If it sees you arrive, you start again. I do like a welcome committee."],
-    hint: ["Count the cameras in this room. Now count the ones the door wants. I did the sum before you came in. It is why I am not worried about my cameras. I should be."],
+    hint: ["Count the cameras in this room. Now count the ones the door wants. I did the sum before you came in. It is why I am not worried about my cameras. I should be."], hint2: ["Knock both cameras down. One goes over on the pad. The other one goes with you."],
     done: ["You knocked down the only camera watching you and used it as a paperweight. I have stopped being surprised. I have not stopped being offended."] } });
 }
 function level50() {
@@ -1931,8 +1927,8 @@ function level50() {
   h.signs.push(chSign(41, "HOT SEAT", 4.6, 3.8),
     scrawl("SHE THINKS THE LASERS", "ARE FOR THE DOORS.  - O.", [12, 1.3, 0.001], [0, 0, 1], 3.2, 0.95));
   return Object.assign(h, { badge: [31, 1, 11.3], num: 41, name: "Hot Seat", track: 1, say: {
-    intro: ["The door wants light on the receiver and a sentry on the plate. Both sentries are bolted down. The laser is behind you. I have had it turned up. It does not care who is in the way. I have always admired that about it.", "Please do not burn the sentries. Those are the instructions. I am required to give them."],
-    hint: ["A bolt holds a sentry for exactly as long as the sentry is worth bolting down. I will say no more. I have already been told off for saying that."],
+    intro: ["The door wants light on the receiver and a sentry on the plate. Both sentries are bolted down. The laser is behind you. I have had it turned up. It does not care who is in the way. I have always admired that about it."],
+    hint: ["A bolt holds a sentry for exactly as long as the sentry is worth bolting down. I will say no more. I have already been told off for saying that."], hint2: ["Only a burned-out sentry comes off its bolts. The beam can do the burning, from the short panel on the other wall."],
     done: ["You burned out two sentries with a laser I installed to open doors, and then you weighed the door down with one of them. The list of things you have repurposed is getting longer."] } });
 }
 function level51() {                       // Heavy Hat (kept in v6.6, hints trimmed): crates from the ceiling, and the same crate twice
@@ -1946,8 +1942,8 @@ function level51() {                       // Heavy Hat (kept in v6.6, hints tri
   h.par = [120, 6];
   h.signs.push(chSign(42, "HEAVY HAT", 4.6, 3.8));
   return Object.assign(h, { num: 51, name: "Heavy Hat", track: 2, say: {
-    intro: ["Two bolted sentries, one crate, and a very high ceiling. I had the ceiling raised. I cannot remember why. Something about morale.", "The door wants the crate. You may find the crate has other duties first."],
-    hint: ["They watch the door. They watch each other's backs. In all the years they have stood there, neither has once looked up. I find that very relatable."],
+    intro: ["Two bolted sentries, one crate, and a very high ceiling. I had the ceiling raised. I cannot remember why. Something about morale.", "The door wants the crate."],
+    hint: ["They watch the door. They watch each other's backs. In all the years they have stood there, neither has once looked up. I find that very relatable."], hint2: ["A crate dropped from the ceiling onto a sentry knocks it over. The same crate can do it twice."],
     done: ["You hit two sentries on the head with the same crate. Twice is not a coincidence. Twice is a technique."] } });
 }
 function level52() {                       // Lift Off (kept in v6.6, hints trimmed): flip gravity under two sentries and let the ceiling do the rest
@@ -1963,8 +1959,8 @@ function level52() {                       // Lift Off (kept in v6.6, hints trim
     line: "You have found the maintenance bunk. Maintenance never did. I stopped sending the reminders some years ago." });
   h.signs.push(chSign(43, "LIFT OFF", 4.6, 3.6));
   return Object.assign(h, { badge: [10.5, 1, 11.3], num: 52, name: "Lift Off", track: 0, say: {
-    intro: ["Two sentries stand in a gravity zone. A third, bolted down, is further on. The panel by you turns their gravity upside down. Yours stays where it is. I am not a monster.", "Sentries are built to stand up. Nobody built them to land."],
-    hint: ["Two of them are only standing there out of habit. The third I bolted down myself, and it has never thanked me. Bolts do nothing about what arrives from above."],
+    intro: ["Two sentries stand in a gravity zone. A third, bolted down, is further on. The panel by you turns their gravity upside down. Yours stays where it is. I am not a monster."],
+    hint: ["Two of them are only standing there out of habit. The third I bolted down myself, and it has never thanked me. Bolts do nothing about what arrives from above."], hint2: ["Flip gravity and the loose two fall up, then come down hard. The bolted one needs a crate from above."],
     done: ["They fell up, then down, and the last one was hit by a crate from above. I have never seen sentries so thoroughly informed about gravity."] } });
 }
 function level53() {                       // Hall Of Mirrors: every trick at once
@@ -1980,11 +1976,11 @@ function level53() {                       // Hall Of Mirrors: every trick at on
   h.receivers = [{ pos: [25, 1.1, 0], n: [0, 0, 1], w: 1.6, h: 1.6, door: "d1" }];
   h.plates = [{ pos: [32, 0, 11], door: "d1", cams: 2 }]; h.doors = [exitDoor(L, 7, "d1", 2)];
   h.par = [200, 9];
-  h.signs.push(chSign(53, "HALL OF MIRRORS", 4.6, 5), hint("EVERYTHING YOU HAVE LEARNED. ALL AT ONCE.", [7, 3.4, W], [0, 0, -1], 5.6, 1), { kind: "hint", a: "CAMERA SCALE: 2", pos: [L - 0.02, 3.6, 11], n: [-1, 0, 0], w: 2.6, h: .6 },
+  h.signs.push(chSign(53, "HALL OF MIRRORS", 4.6, 5),
     scrawl("I COUNTED HER CAMERAS.", "I STOPPED AT A HUNDRED.  - O.", [6, 1.3, 0.001], [0, 0, 1], 3.4, 1));
   return Object.assign(h, { num: 53, name: "Hall Of Mirrors", track: 2, say: {
     intro: ["This is the last room I built before the staff left. It has a little of everything. They said it was too much. They were right, and they are gone, and it is still here.", "The door wants the receiver lit and two cameras on the scale. Between you and all of that are two bolted sentries and a camera that never blinks."],
-    hint: ["Light first: the block by the doorway, the long panel opposite the near sentry. Then the panel behind the far sentry shows it to itself through the long one. The camera on the far wall comes down with a portal beside it, and the one behind you is the second weight."],
+    hint: ["Light first. Everything else in here waits on it."], hint2: ["The far sentry can be shown itself. A camera comes down when its wall opens beside it."],
     done: ["You took apart my best room with my own equipment. I would be furious, if I were not so tired. Go on. There is more."] } });
 }
 
@@ -1995,12 +1991,12 @@ function level54() {
   darkAll(h);
   whiteOn(h, bx(3, 0, 0, 8, 3.2, 0.1)); whiteOn(h, bx(17.5, 0, 0, 19.5, 2.4, 0.1));         // the far panel is only as wide as the held portal
   h.held = [{ idx: 1, pos: [18.5, 1.15, 0.1], n: [0, 0, 1] }];
-  h.signs.push(chSign(1, "ONE WAY", 5.5), hint("ONE END IS HELD OPEN. PLACE THE OTHER.", [8, 3.4, 10], [0, 0, -1], 6, 1));
+  h.signs.push(chSign(1, "ONE WAY", 5.5));
   return Object.assign(h, {
     num: 2, name: "One Way", track: 1, par: [50, 1],
     say: {
-      intro: ["Another pit. I have opened one end of a doorway on the far side. The other end, I am told, is your department.", "The blue button on your gun puts a portal on a white panel. There is only one panel on this side. I would not overthink it."],
-      hint: ["Aim at the white panel on this side and fire blue. Then walk into it. You will come out of the one I am holding open."],
+      intro: ["Another pit. I have opened one end of a doorway on the far side. The other end, I am told, is your department.", "The blue button on your gun puts a portal on a white panel. I would not overthink it."],
+      hint: ["One end is mine. The other end is yours. You are holding the tool for it."], hint2: ["There is one white panel on this side. Put a portal on it, and find out where it leads."],
       done: ["You made a portal and used it. Somewhere, a very patient scientist is weeping with pride."]
     }
   });
@@ -2012,12 +2008,12 @@ function level55() {
   h.boxes.push(bx(12, 0, 0, 12.5, 1.25, 10, "dark"), bx(12, 2.65, 0, 12.5, 7, 10, "dark"), bx(12, 1.25, 0, 12.5, 2.65, 3.6, "dark"), bx(12, 1.25, 6.4, 12.5, 2.65, 10, "dark"));   // a wall with a window too high to climb through
   whiteOn(h, bx(4, 0, 0, 9, 3.2, 0.1)); whiteOn(h, bx(20.4, 0, 0.6, 22, 3.2, 3.2));         // a panel on this side, one white pillar beyond the wall
   h.badge = [20.6, 0.9, 9.3];
-  h.signs.push(chSign(1, "LINE OF SIGHT", 5.5, 5), hint("YOU CAN PLACE A PORTAL ANYWHERE YOU CAN SEE", [6, 3.4, 10], [0, 0, -1], 6.6, 1));
+  h.signs.push(chSign(1, "LINE OF SIGHT", 5.5, 5));
   return Object.assign(h, {
     num: 3, name: "Line Of Sight", track: 2, par: [70, 2],
     say: {
-      intro: ["No doorway this time. Both portals are yours. I have taken the liberty of removing every white surface on the other side of that wall, except one.", "You can see it through the window. You can put a portal on anything you can see. This is the entire technique."],
-      hint: ["Portal on the panel beside you. Portal on the white pillar, through the window. Then walk into the first one."],
+      intro: ["No doorway this time. Both portals are yours. I have taken the liberty of removing nearly every white surface on the other side of that wall.", "You can put a portal on anything you can see. That is the entire technique."],
+      hint: ["You can put a portal on anything you can see. Anything. Glass has never stopped anybody looking."], hint2: ["There is one white surface past that wall. You will have to look through something to find it."],
       done: ["You shot a portal through a window. I will note that the window survived. Most subjects do not manage that."]
     }
   });
@@ -2035,12 +2031,12 @@ function level56() {
   h.cubes = [[3, 0.35, 3]]; h.plates = [{ pos: [17, 0, 8.3], door: "d1" }]; h.doors = [exitDoor(26, 5)];
   h.lamps.push(lamp(17, 2.3, 8.3, .5, 5));
   h.badge = [24.8, 0.9, 9.3];
-  h.signs.push(chSign(2, "DROP BOX", 5.5), hint("THINGS FALL THROUGH PORTALS TOO", [6, 3.4, 10], [0, 0, -1], 5.2, 1), hint("THE BUTTON IS BEHIND BARS", [17.5, 4.4, 10], [0, 0, -1], 4.4, .9));
+  h.signs.push(chSign(2, "DROP BOX", 5.5));
   return Object.assign(h, {
     num: 5, name: "Drop Box", track: 0, par: [70, 1],
     say: {
-      intro: ["The button is in a cell. The cell has bars. You will not be going in. The cube, however, has no dignity to lose.", "I have opened a portal in the floor. What you need is the other end, above the button."],
-      hint: ["Look through the bars at the ceiling of the cell. It is white. Fire orange at it. Then pick up the cube and drop it into the floor portal. It will do the rest."],
+      intro: ["The button is in a cell. The cell has bars. You will not be going in. The cube, however, has no dignity to lose.", "I have opened a portal in the floor. Where the other end goes is your department."],
+      hint: ["The cube does not need you to come with it. It can fall perfectly well on its own."], hint2: ["The cell has a ceiling. Ceilings, in this building, are sometimes white."],
       done: ["A cube fell through a hole and a door opened. I have seen less impressive things win awards."]
     }
   });
@@ -4116,7 +4112,7 @@ function respawn() {
 }
 function resetLevelState() {
   run.deaths = 0; run.roomT = 0;
-  run.time = 0; run.portals = 0; run.top = 0; run.idle = 0; run.hinted = 0; run.said = {}; run.deadT = 0; holding = null; run.caught = 0; run.used = 0; run.hintAt = -1e9;
+  run.time = 0; run.portals = 0; run.top = 0; run.idle = 0; run.hinted = 0; run.said = {}; run.deadT = 0; holding = null; run.caught = 0; run.used = 0; run.hintAt = -1e9; run.hintLv = 0;
   clearPortals(true); updateCross();
 }
 function startLevel(idx, quiet) {
@@ -4125,7 +4121,7 @@ function startLevel(idx, quiet) {
   if (carry) { run.time = carry.time; run.portals = carry.portals; run.top = carry.top; carry = null; }      // a later room of the same chamber: the clock runs on
   { const R = ROOM[idx]; $("chNum").textContent = (world.lv.back ? "OFF THE TEST TRACK" : "CHAMBER " + String(R.c + 1).padStart(2, "0")) + (R.parts > 1 ? " · PART " + (R.part + 1) + " OF " + R.parts : ""); $("chTitle").textContent = world.lv.name; }
   Music.set(world.lv.track); Music.kick(); setVoiceRoom(roomSize());
-  preloadVoice([...(world.lv.say.intro || []), ...(world.lv.say.hint || []), ...(world.lv.say.done || [])]);
+  preloadVoice([...(world.lv.say.intro || []), ...(world.lv.say.hint || []), ...(world.lv.say.hint2 || []), ...(world.lv.say.done || [])]);
   state = "play";
   if (!quiet) setTimeout(() => { if (state === "play" && levelIdx === idx) say("intro"); }, 1400);
   if (idx === 0 && !quiet && !store.get("tipDone", 0)) setTimeout(() => {
@@ -4458,7 +4454,7 @@ function say(key, text) {
   if (!world) return;
   let lines;
   if (text) lines = [text];
-  else if (key === "intro" || key === "hint") lines = world.lv.say[key];
+  else if (key === "intro" || key === "hint" || key === "hint2") lines = world.lv.say[key];
   else if (LINES[key]) lines = [freshPick(key, LINES[key])];
   else return;
   const now = performance.now();
@@ -4534,7 +4530,7 @@ function unlockPointer() { try { if (document.pointerLockElement) document.exitP
 
 /* ---------- hover hints: every button says what it does when the pointer rests on it ---------- */
 const TIPS = {
-  bHint: "Ask SaDos for a hint (T)", bCredits: "Who and what made this", bCreditsBack: "Back to the results", oChal: "After finishing the game: only a few portals per room",
+  bHint: "Ask SaDos for a hint (T). Press again for a firmer one", bCredits: "Who and what made this", bCreditsBack: "Back to the results", oChal: "After finishing the game: only a few portals per room",
   bGuide: "How to play (H)", bRestart: "Restart from the last checkpoint (R)", bFull: "Full screen on or off (F)", bPause: "Pause (Esc)",
   bPlay: "Start, or carry on from the last chamber you reached", bChambers: "Choose any chamber you have reached", bOptions: "Sound, look speed, picture quality, progress", bHow: "Controls, and everything you will meet",
   bChBack: "Back to where you were", bOptBack: "Back to where you were", bHowBack: "Back to where you were",
@@ -4602,7 +4598,10 @@ function openGuide() {
 }
 click("bHow", () => { howFrom = "ovTitle"; showOv("ovHow"); });
 click("bGuide", openGuide);
-function askHint() { if (state !== "play") return; const now = performance.now(); if (now - run.hintAt < 6000) return; run.hintAt = now; run.hinted = Math.max(run.hinted, 1); sadosShutUp(); say("hint"); }
+function askHint() { if (state !== "play") return; const now = performance.now(); if (now - run.hintAt < 6000) return; run.hintAt = now; run.hinted = Math.max(run.hinted, 1); sadosShutUp();
+  // v6.8: two levels. The first press is a nudge; the second and later presses give the firmer one (never the whole route)
+  const two = !!(world.lv.say.hint2 && world.lv.say.hint2.length); run.hintLv = two ? Math.min(run.hintLv + 1, 2) : 1;
+  if (two) toast("Hint " + run.hintLv + " of 2"); say(run.hintLv === 2 ? "hint2" : "hint"); }
 click("bHint", askHint);
 click("bPauseGuide", () => { howFrom = "ovPause"; showOv("ovHow"); });
 click("bHowBack", () => showOv(howFrom));
