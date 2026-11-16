@@ -576,7 +576,7 @@ import { Furn } from "./furniture.js";
 import { GLYPHS as HAND_GLYPHS, handWrite, handBlock, handWidth } from "./hand.js";      // v8.19: hand-lettering                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.24";
+const VERSION = "v8.25";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const IT_TEST = /[?&]itemtest\b/.test(location.search), SPFX = IT_TEST ? "testchambers.itest." : "testchambers.";
 const $ = id => document.getElementById(id);
@@ -3219,7 +3219,7 @@ const DEN_SPEC = {
   "Crate Seven": { type: "store", v: 6, type2: "office", v2: 7, crate: true, items: [{ id: "stk-7", kind: "sticker", sticker: "seven", space: 1 }] },
   "The Last Word": { type: "office2", v: 1, type2: "break2", v2: 2, crate: true, timed: 1, items: [{ id: "clock", kind: "clock", space: 1 }] },
   "Cold Storage": { type: "server", v: 1, type2: "office", v2: 8, crate: true, items: [denCard(1), Object.assign({ id: "page6", kind: "page" }, O_PAGES[6])] },
-  "Retrieval": { type: "break2", v: 3, type2: "server", v2: 2, crate: true, timed: 1,
+  "Retrieval": { type: "break2", v: 3, type2: "server", v2: 2, crate: true, timed: 1, items: [{ id: "spool", kind: "pickup", look: "spool", name: "A reel of computer tape, labelled DO NOT ERASE", space: 1 }],      // v8.25: a small find in the inner room, so the den rewards you without 14 cards
     staff: { cards: 14, type: "lost", items: [{ id: "stk-lost", kind: "sticker", sticker: "lost" }, Object.assign({ id: "lint5", kind: "pickup" }, LINT_TRACES[5])] },
     lines: [[2, "The lost-and-found back room. Everything in here is lost. Nothing in here has been found. I named it in a hopeful year."]] },
   "Gauntlet": { type: "office2", v: 2, type2: "server", v2: 3, crate: true, grille: true, items: [{ id: "clock", kind: "clock" }],
@@ -3384,14 +3384,14 @@ const BS_TRACE6 = { name: "A visitor lanyard, hung on a nail by the kettle", loo
 const BS_DEN = {
   "Second Opinion": { old: true, weigh: 1, finds: [[1, "card"]] },                                   // inner room: a dead sentry on the plate
   "Prism": { side: 0, x: 9, two: 1, key: { receiver: { pos: [0, 0.75, 2.5], n: [1, 0, 0], w: 1.5, h: 1.5 } }, finds: [[0, { id: "clock", kind: "clock" }], [1, Object.assign({ id: "page7", kind: "page" }, BS_PAGE7)]] },      // the lens crate, set down a third way
-  "Hot Seat": { side: 1, x: 3, two: 1, key: { plate: { pos: [1.5, 0, 10.4], only: "sentry" } }, finds: [[1, { breaker: { id: "dark", label: "Work lights", fx: "dark", toggle: true, offToast: "Work lights back on", offHint: "GRAB switches the work lights back on" } }]] },     // a burned-out sentry on the scale by the shutter
-  "Heavy Hat": { side: 1, x: 2.6, two: 1, key: { plate: { pos: [1.2, 0, 10.7], only: "cube" } }, finds: [[1, "card"]] },                 // the crate on the scale by the shutter
-  "Lift Off": { old: true, finds: [[1, "card"]] },
+  "Hot Seat": { side: 1, x: 3, two: 1, key: { plate: { pos: [1.5, 0, 10.4], only: "sentry" } }, finds: [[0, { id: "lens", kind: "pickup", look: "lens", name: "A sentry's eye, burned out and still warm" }], [1, { breaker: { id: "dark", label: "Work lights", fx: "dark", toggle: true, offToast: "Work lights back on", offHint: "GRAB switches the work lights back on" } }]] },     // a burned-out sentry on the scale by the shutter
+  "Heavy Hat": { side: 1, x: 2.6, two: 1, key: { plate: { pos: [1.2, 0, 10.7], only: "cube" } }, finds: [[0, { id: "hat", kind: "pickup", look: "hat", name: "A hard hat, size HEAVY, dented" }], [1, "card"]] },                 // the crate on the scale by the shutter
+  "Lift Off": { old: true, finds: [[0, { id: "callbtn", kind: "pickup", look: "button", name: "A lift call button, prised off its panel" }], [1, "card"]] },
   "Live Wire": { side: 0, x: 9.5, two: -1, key: { socket: { pos: [5.5, 1.5, 12], n: [0, 0, -1], spare: true } }, finds: [[1, { monitor: { id: "mon", room: "Paperweight" } }]] },      // a second socket, in the spark's own lane
   "Paperweight": { side: 0, x: 5, two: 1, key: { plate: { pos: [2.6, 0, 1.7], cams: 1 } }, finds: [[0, { monitor: { id: "mon", room: "Hall Of Mirrors" } }]],          // a camera on the little scale by the shutter
     staff: { cards: 17, items: [Object.assign({ id: "tape5", kind: "tape" }, BS_TAPE5), Object.assign({ id: "lint6", kind: "pickup" }, BS_TRACE6)] } },     // O.'s home base
   // v8.17 (Batch 5)
-  "Hall Of Mirrors": { side: 1, x: 3, two: 1, key: { plate: { pos: [1.3, 0, 12.5], only: "sentry" } }, finds: [[1, { id: "stk-brb", kind: "sticker", sticker: "brb" }]] },      // one for the pile: a dead sentry on the scale by the shutter
+  "Hall Of Mirrors": { side: 1, x: 3, two: 1, key: { plate: { pos: [1.3, 0, 12.5], only: "sentry" } }, finds: [[0, { id: "mirror", kind: "pickup", look: "mirror", name: "A pocket mirror, cracked down the middle" }], [1, { id: "stk-brb", kind: "sticker", sticker: "brb" }]] },      // one for the pile: a dead sentry on the scale by the shutter
   "Final Exam": { old: true, finds: [[0, "card"], [1, Object.assign({ id: "page8", kind: "page" }, BS_PAGE8)]] }
 };
 // v8.20: the furniture of the backstage dens: [main room, inner room, the inner room's wall (B back by default; F where a monitor or the staff door is in the back wall)]
@@ -5513,7 +5513,7 @@ const courierParts = (() => {
       const flap = add(rbox(0.31, 0.15, 0.012, 0.006), bagM, bag); at(flap, 0, 0.04, -0.054);
       for (const sx of [-1, 1]) { at(add(new THREE.BoxGeometry(0.024, 0.09, 0.006), strapM, bag), sx * 0.08, -0.02, -0.061); at(add(rbox(0.032, 0.022, 0.008, 0.003), buckle, bag), sx * 0.08, -0.05, -0.064); }
       at(add(new THREE.BoxGeometry(0.24, 0.006, 0.004), reflect, bag), 0, 0.105, -0.06);
-      const box = add(new THREE.BoxGeometry(0.17, 0.12, 0.085), parcel, bag); at(box, 0.04, 0.13, 0.004); box.rotation.z = -0.22;
+      const box = add(new THREE.BoxGeometry(0.17, 0.12, 0.085), parcel, bag); at(box, -0.045, 0.13, 0.004); box.rotation.z = 0.22;      // v8.25: moved along to make room for Lint at the front end
     }
 
     /* ===== head: face, ears, hair ===== */
@@ -5624,6 +5624,7 @@ const Self = (() => {
   const UP = new V3(0, 1, 0), _a = new V3(), _b = new V3(), _c = new V3(), _d = new V3(), _e2 = new V3(), _hd = [new V3(), new V3()];
   const L1 = 0.44, L2 = 0.44, A1 = 0.27, A2 = 0.25, HIP = 0.93, HIPX = 0.105, SHY = 1.42, SHX = 0.2, GS = 0.8;
   const st = { active: false, ghost: false, walk: 0, air: 0, ph: 0, vf: 0, vr: 0, pitch: 0, breath: 0 };
+  let lintIn = false, lintChk = 0;
   function makeRig() {
     const mats = [], pairs = [];
     const S = o => { const m = new THREE.MeshStandardMaterial(o); mats.push(m); return m; };
@@ -5634,6 +5635,12 @@ const Self = (() => {
     R.gun = gun.clone(true); R.gun.position.set(0.13, -0.15, -0.36); R.gun.rotation.set(0, 0.1, 0); R.gun.scale.setScalar(GS); R.aim.add(R.gun);
     const seen = new Map();
     R.gun.traverse(o => { if (o.userData.gunStkPivot) GUN_STK.push(o); if (!o.material) return; let m = seen.get(o.material); if (!m) { m = o.material.clone(); seen.set(o.material, m); mats.push(m); pairs.push([o.material, m]); } o.material = m; });
+    // v8.25: Lint, once found, rides in the messenger bag with his head out (seen only through a portal, like the rest of you). His materials are
+    // his own copies, so a portal's cut plane never reaches the Lint on the desk in The Way Out
+    { const LP = lintPuppet(), own = new Map(), cl = m => { let c = own.get(m); if (!c) { c = m.clone(); own.set(m, c); mats.push(c); } return c; };
+      LP.g.traverse(o => { if (o.material) o.material = Array.isArray(o.material) ? o.material.map(cl) : cl(o.material); });
+      const bagG = new THREE.Group(); bagG.position.set(-0.13, 0.88, 0.15); bagG.rotation.set(0.05, 2.55, 0.04); R.body.add(bagG);      // the bag's own frame (courierParts)
+      LP.g.scale.setScalar(0.6); LP.g.position.set(0.085, 0.03, -0.004); LP.g.rotation.set(0, 2.21, 0.12); LP.g.visible = false; bagG.add(LP.g); R.lint = LP; }      // at the front end of the bag, beside the parcel, looking out to your left
     // soft contact shadow, as the crates have
     R.shadow = new THREE.Mesh(SHADOW_GEO, new THREE.MeshBasicMaterial({ map: SHADOW_TEX, transparent: true, depthWrite: false, opacity: .5, polygonOffset: true, polygonOffsetFactor: -2 }));
     R.shadow.visible = false; R.shadow.frustumCulled = false; R.shadow.renderOrder = 2;
@@ -5662,6 +5669,7 @@ const Self = (() => {
     R.aim.position.y = 1.36 + bobY; R.aim.rotation.set(lean * 0.9, 0, 0); R.aim.updateMatrix(); R.gun.updateMatrix();
     for (let i = 0; i < R.gun.children.length; i++) { const s = gun.children[i], d = R.gun.children[i]; d.quaternion.copy(s.quaternion); d.scale.copy(s.scale); }
     for (const [s, d] of R.pairs) { d.color.copy(s.color); d.opacity = s.opacity; }
+    if (R.lint) { R.lint.g.visible = lintIn; if (lintIn) { const t = st.breath * 0.6; R.lint.set(0, Math.sin(t * 0.7) * 0.8, 0.1 + Math.sin(t * 0.43) * 0.3, t, 0.4 + 0.6 * w); R.lint.head.rotation.x = -0.08 - Math.abs(Math.sin(st.ph)) * 0.12 * w; } }      // he looks about, and his head bobs as you walk
     for (const L of R.leg) {
       const ph = st.ph + (L.sx > 0 ? Math.PI : 0), sw = Math.sin(ph), lift = Math.max(0, Math.cos(ph));
       S0.set(L.sx * HIPX, HIP + bobY, 0);
@@ -5687,6 +5695,7 @@ const Self = (() => {
   }
   function update(dt) {
     if (!rigs) { rigs = [makeRig(), makeRig()]; parcel(hasParcel); }
+    if ((lintChk -= dt) <= 0) { lintChk = 0.5; lintIn = !!store.get("lintFound", 0) && !(LintRoom.on && !LintRoom.taken); }      // v8.25: in the bag once found, except while he is still on his desk
     const pl = player;
     st.active = (state === "play" || state === "paused") && !!world; st.ghost = false;
     for (const R of rigs) { for (const m of R.mats) m.clippingPlanes = null; R.shadow.visible = false; }
@@ -5728,7 +5737,7 @@ const Self = (() => {
   function hide() { if (!rigs) return; for (const R of rigs) { R.root.visible = false; R.shadow.visible = false; } }
   let hasParcel = true;
   function parcel(v) { hasParcel = v; if (rigs) for (const R of rigs) if (R.parcelMesh) R.parcelMesh.visible = v; }
-  return { update, forView, forMain, hide, parcel, st, get rigs() { return rigs; } };
+  return { update, forView, forMain, hide, parcel, st, get rigs() { return rigs; }, get lint() { return lintIn; }, recheckLint() { lintChk = 0; } };
 })();
 function angDiff(a, b) { let d = a - b; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2; return d; }
 
@@ -8857,6 +8866,39 @@ const Items = (() => {
       const st = std({ color: 0xc9ced3, roughness: .3, metalness: .9 });
       g.add(new THREE.Mesh(new THREE.TorusGeometry(0.03, 0.007, 8, 20), st)); const hk = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.08, 0.012), st); hk.position.y = -0.06; g.add(hk);
       const tag = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.02, 0.01), std({ color: 0xe8c21e, roughness: .8 })); tag.position.y = 0.04; g.add(tag);
+    } else if (it.look === "spool") {               // v8.25: a reel of computer tape (Retrieval's server room)
+      const al = std({ color: 0xb9c0c6, roughness: .35, metalness: .85 }), tp = std({ color: 0x3a2a1e, roughness: .55, metalness: .2 });
+      for (const z of [-0.022, 0.022]) { const f = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.006, 36), al); f.rotation.x = Math.PI / 2; f.position.z = z; g.add(f); }
+      const w = new THREE.Mesh(new THREE.CylinderGeometry(0.095, 0.095, 0.04, 36), tp); w.rotation.x = Math.PI / 2; g.add(w);
+      const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.05, 20), std({ color: 0x23272b, roughness: .5 })); hub.rotation.x = Math.PI / 2; g.add(hub);
+      const lab = canvasTex(256, 64, c => { c.fillStyle = "#e9e1c9"; c.fillRect(0, 0, 256, 64); handWrite(c, "DO NOT ERASE", 128, 40, 30, { color: "#14181c", pen: .1, seed: 7, mess: .5, align: "center" }); }, false);
+      for (const sd of [1, -1]) { const q = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.03), std({ map: lab, roughness: .9 })); q.position.set(0, 0.07, sd * 0.0255); if (sd < 0) q.rotation.y = Math.PI; q.userData.ownMap = 1; g.add(q); }
+    } else if (it.look === "lens") {                // v8.25: a sentry's eye, burned out (Hot Seat)
+      const rim = std({ color: 0x2a2f34, roughness: .4, metalness: .8 });
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.055, 0.016, 10, 28), rim); g.add(ring);
+      const gl = new THREE.Mesh(new THREE.SphereGeometry(0.05, 24, 14), new THREE.MeshStandardMaterial({ color: 0x4a0c0c, roughness: .08, metalness: .1, envMap: ENV, envMapIntensity: 1.1, emissive: 0x2a0402 })); gl.scale.z = 0.45; g.add(gl);
+      const soot = new THREE.Mesh(new THREE.CircleGeometry(0.02, 16), new THREE.MeshBasicMaterial({ color: 0x0a0a0a, transparent: true, opacity: .7 })); soot.position.set(0.012, 0.01, 0.0235); g.add(soot);
+      const wire = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new V3(0, -0.06, -0.01), new V3(0.02, -0.1, -0.02), new V3(-0.01, -0.14, -0.01)]), 20, 0.004, 5), std({ color: 0xc8262c, roughness: .6 })); g.add(wire);
+    } else if (it.look === "hat") {                 // v8.25: a hard hat (Heavy Hat), dented
+      const sh = std({ color: 0xe2b93b, roughness: .45, metalness: 0 });
+      const dome = new THREE.Mesh(new THREE.SphereGeometry(0.1, 28, 14, 0, Math.PI * 2, 0, Math.PI / 2), sh); dome.scale.set(1, 0.85, 1.12); g.add(dome);
+      const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.008, 32), sh); brim.scale.z = 1.12; brim.position.set(0, 0.002, 0.012); g.add(brim);
+      const rib = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.012, 0.2), sh); rib.position.y = 0.083; g.add(rib);
+      const dent = new THREE.Mesh(new THREE.SphereGeometry(0.022, 12, 8), std({ color: 0x9a7a22, roughness: .7 })); dent.position.set(0.05, 0.06, 0.04); dent.scale.set(1, 0.4, 1); g.add(dent);
+    } else if (it.look === "button") {              // v8.25: a lift call button, prised off its panel (Lift Off)
+      const pl2 = std({ color: 0x8d969e, roughness: .3, metalness: .85 });
+      g.add(new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.16, 0.014), pl2));
+      for (const [y, up] of [[0.035, 1], [-0.035, -1]]) {
+        const b = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.012, 20), new THREE.MeshStandardMaterial({ color: 0x2a2f34, roughness: .4, metalness: .5, emissive: up > 0 ? 0xff9a2a : 0x000000, emissiveIntensity: up > 0 ? .9 : 0 })); b.rotation.x = Math.PI / 2; b.position.set(0, y, 0.01); g.add(b);
+        const ar = new THREE.Mesh(new THREE.ConeGeometry(0.008, 0.012, 3), std({ color: 0xe9e1c9, roughness: .5 })); ar.position.set(0, y, 0.017); ar.rotation.z = up > 0 ? 0 : Math.PI; g.add(ar);
+      }
+      for (let i = 0; i < 3; i++) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.0025, 0.0025, 0.05, 5), std({ color: [0xc8262c, 0x2f7fc0, 0xe8c21e][i], roughness: .6 })); w.position.set(-0.02 + i * 0.02, -0.1, -0.006 + i * 0.002); w.rotation.z = (i - 1) * 0.35; g.add(w); }
+    } else if (it.look === "mirror") {              // v8.25: a pocket mirror, cracked down the middle (Hall Of Mirrors)
+      const cs = std({ color: 0xc9a24a, roughness: .3, metalness: .9 });
+      const back = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.012, 32), cs); back.rotation.x = Math.PI / 2; g.add(back);
+      const gl = new THREE.Mesh(new THREE.CircleGeometry(0.058, 32), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .02, metalness: 1, envMap: ENV, envMapIntensity: 1.4 })); gl.position.z = 0.0065; g.add(gl);
+      const crack = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([new V3(-0.04, 0.042, 0.0072), new V3(-0.01, 0.012, 0.0072), new V3(0.006, -0.004, 0.0072), new V3(0.03, -0.035, 0.0072), new V3(0.038, -0.045, 0.0072)]), 24, 0.0012, 4), new THREE.MeshBasicMaterial({ color: 0x1a1c1f })); g.add(crack);
+      const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.01, 32), cs); lid.rotation.x = Math.PI / 2; lid.position.set(0, 0.066, -0.03); lid.rotation.x = Math.PI / 2 + 1.1; g.add(lid);
     } else {
       g.add(new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.14, 0.12), std({ color: it.color || 0xb08a58, roughness: .85, metalness: 0 })));
     }
@@ -9230,7 +9272,7 @@ const LintRoom = (() => {
   }
   function use() {
     if (!look || !L || taken) return false;
-    taken = true; L.P.g.visible = false; msg = ""; look = false; sfx.badge();
+    taken = true; L.P.g.visible = false; msg = ""; look = false; sfx.badge(); Self.recheckLint();
     const first = !store.get("lintFound", 0); store.set("lintFound", 1); if (first) Bonus.mark();
     toast("Lint is coming with you"); subQ = subQ.filter(q => (q.text || q) !== LINT_LINES.hello && q !== LINT_LINES.sadosHello); if (first) subQ.unshift(LINT_LINES.sadosTake); sayAs("LINT", LINT_LINES.take, true);
     return true;
