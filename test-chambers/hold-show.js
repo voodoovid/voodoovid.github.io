@@ -38,18 +38,30 @@ const SCRIPT = [
   ["@end", 0]
 ];
 const TEXTS = SCRIPT.filter(s => s[0][0] !== "@").map(s => ({ who: s[0], text: s[1] }));
+/* v8.18 the lost reels: five short segments found as tapes in the staff rooms. Same set, same puppets; make(durOf, TAPES[n]) builds one.
+   Line tags: cam (looks at the camera), chest, bounce, lean (towards the other), up, down, side (Ted looks at Lint's place), exit (Lint sinks out of shot after the line).
+   Reels 4 and 5 have no Lint: `prop` is what stands in his place (his note, or a RESERVED card). The words match HM_TAPES / BS_TAPE5 in index.html. */
+const TAPES = {
+  1: { n: 1, script: [["ted", "Welcome back to Hold Music. My guest tonight is a sock.", "cam"], ["lint", "I am a gym sock. There is a difference.", "chest"], ["ted", "Is there."], ["lint", "I have been places, Ted. I have been to the gym.", "lean"], ["@stare", 1.3], ["ted", "Once."], ["lint", "Once is places.", "bounce"], ["@gap", 0.9], ["@end", 0]] },
+  2: { n: 2, script: [["ted", "Lint, you have a hole in your toe."], ["lint", "It is a window. I like to see where I am going.", "chest"], ["ted", "Where are you going."], ["lint", "Out. Eventually. Everybody leaves in the end, Ted.", "cam"], ["@stare", 1.6], ["ted", "Not on my show they don't. Please hold.", "cam"], ["@gap", 0.7], ["@end", 0]] },
+  3: { n: 3, script: [["lint", "Ted, why does the lady on the speakers keep saying our names?", "lean"], ["ted", "She is a fan."], ["lint", "She said she would like to have us unravelled.", "up"], ["ted", "That is how fans talk.", "cam"], ["@stare", 1.2], ["lint", "I am going to go and stand behind a sentry for a while.", "exit"], ["@gap", 1.8], ["@end", 0]] },
+  4: { n: 4, noLint: true, prop: "note", script: [["ted", "Tonight's show is a short one. Lint has gone.", "cam"], ["ted", "He has left a note. It says BACK SOON.", "side"], ["ted", "I am sure he will be. He has his lanyard. They let you anywhere with a lanyard."], ["@stare", 1.5], ["ted", "Please hold. I am holding.", "down"], ["@gap", 1.0], ["@end", 0]] },
+  5: { n: 5, noLint: true, prop: "card", script: [["ted", "Tonight, no guest. The guest chair is empty.", "cam"], ["ted", "I have left it empty on purpose. It is called a tribute.", "side"], ["ted", "A viewer has written in. The viewer says a yellow sock was seen behind the walls, heading down.", "down"], ["ted", "The viewer is the lady on the speakers. She would like him back. So would I.", "cam"], ["@stare", 1.6], ["ted", "Lint, if you are watching: you still have my other bow tie. Please hold.", "cam"], ["@gap", 0.8], ["@end", 0]] }
+};
+const tapeTexts = n => TAPES[n] ? TAPES[n].script.filter(s => s[0][0] !== "@").map(s => ({ who: s[0], text: s[1] })) : [];
 
 function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const ease = x => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
 const lerp = (a, b, u) => a + (b - a) * u;
 
-function make(durOf) {
+function make(durOf, tape) {
+  const main = !tape, SC = tape ? tape.script : SCRIPT, FAR = { t0: 1e9, t1: 1e9, who: "", text: "", tag: "" };
   const TITLE = 3.4, BAR = 2.4, MUSIC_START = 0.2;
   const LINES = [], EV = {}, SYL = [];
   const r = rng(7);
   let t = TITLE + 0.6;
-  for (const [who, a, tag] of SCRIPT) {
+  for (const [who, a, tag] of SC) {
     if (who[0] === "@") { EV[who.slice(1)] = { t0: t, t1: t + a }; t += a; continue; }
     const words = a.split(/\s+/), line = { who, text: a, t0: t, tag: tag || "" }, syl = [];
     let st = t; const rate = who === "ted" ? 0.165 : who === "lint" ? 0.17 : 0.19;
@@ -63,11 +75,12 @@ function make(durOf) {
     if (clip) { const k = (clip * 0.94) / (st - t); for (const s of syl) { s.t0 = t + (s.t0 - t) * k; s.d *= k; } st = t + clip; line.clip = true; }
     line.t1 = st; SYL.push(...syl); LINES.push(line); t = st + 0.3;
   }
+  for (const k of ["ring", "stare", "pa", "turn", "pull", "gap", "end"]) if (!EV[k]) EV[k] = { t0: 1e9, t1: 1e9 };      // a reel has only some of these
   EV.end.t1 = EV.end.t0 + 0.9;
   const TOTAL_BARS = Math.ceil((EV.end.t0 + 0.9 - MUSIC_START - 1.0) / BAR) + 1;
   const DUR = MUSIC_START + 1.0 + TOTAL_BARS * BAR + 1.1;
-  const byTag = k => LINES.find(l => l.tag === k);
-  const L = { card: byTag("card"), bounce: byTag("bounce"), lean: byTag("lean"), back: byTag("back"), fan: byTag("fan"), watch: byTag("watch"), looks: byTag("looks"), ow: byTag("ow"), last: byTag("last"), sados: LINES.find(l => l.who === "sados") };
+  const byTag = k => (main && LINES.find(l => l.tag === k)) || FAR;
+  const L = { card: byTag("card"), bounce: byTag("bounce"), lean: byTag("lean"), back: byTag("back"), fan: byTag("fan"), watch: byTag("watch"), looks: byTag("looks"), ow: byTag("ow"), last: byTag("last"), sados: LINES.find(l => l.who === "sados") || FAR };
   const inL = (l, t, a = 0, b = 0) => l && t >= l.t0 + a && t < l.t1 + b;
   const inEv = (e, t) => EV[e] && t >= EV[e].t0 && t < EV[e].t1;
   const speaking = (who, t) => LINES.some(l => l.who === who && t >= l.t0 && t <= l.t1);
@@ -78,7 +91,7 @@ function make(durOf) {
     return m;
   }
   // sound cues for whoever plays the show
-  const CUES = [{ t: 0.25, kind: "sting" }, { t: EV.ring.t0 + 0.05, kind: "ding" }, { t: EV.pa.t0, kind: "pa", d: L.sados.t1 + 0.2 - EV.pa.t0 }, { t: EV.pull.t0 + 0.65, kind: "yank" }, { t: MUSIC_START + 1.0 + (TOTAL_BARS - 1) * BAR + BAR * 0.75, kind: "ding" }];
+  const CUES = [{ t: 0.25, kind: "sting" }, { t: EV.ring.t0 + 0.05, kind: "ding" }, { t: EV.pa.t0, kind: "pa", d: L.sados.t1 + 0.2 - EV.pa.t0 }, { t: EV.pull.t0 + 0.65, kind: "yank" }, { t: MUSIC_START + 1.0 + (TOTAL_BARS - 1) * BAR + BAR * 0.75, kind: "ding" }].filter(c => c.t < 1e8);
 
   /* ---------- how each puppet stands, frame by frame ---------- */
   function pose(who, t, mouth) {
@@ -88,8 +101,8 @@ function make(durOf) {
     if (talk) { p.dy -= mouth * 11; p.tilt += toward * 0.04 + Math.sin(t * 5.3 + ph) * 0.025; }
     else if (other) { p.tilt += Math.max(0, Math.sin(t * 3.1 + ph)) * 0.02 * toward; }              // listening: little nods
     // first lines: each introduces itself to the camera
-    if (LINES[0] && t < LINES[1].t1 && (ted ? t < LINES[0].t1 + 0.2 : t >= LINES[1].t0 - 0.1)) { p.ex = 0; p.ey = 0; }
-    if (!ted && inL(LINES[3], t)) { p.dy -= 10 + Math.sin((t - LINES[3].t0) * 9) * 4; p.ex = 0; }                // "I'm more of a sock": chest out
+    if (main && LINES[0] && t < LINES[1].t1 && (ted ? t < LINES[0].t1 + 0.2 : t >= LINES[1].t0 - 0.1)) { p.ex = 0; p.ey = 0; }
+    if (main && !ted && inL(LINES[3], t)) { p.dy -= 10 + Math.sin((t - LINES[3].t0) * 9) * 4; p.ex = 0; }                // "I'm more of a sock": chest out
     if (ted && inL(L.card, t, 0.6, 0) && t < L.card.t0 + 2.3) { p.ey = 1; p.ex = 0.3; p.tilt += 0.07; p.dy += 16; }
     // the phone rings: Lint dives behind the counter and comes back up when it is safe; Ted barely looks
     const R = EV.ring, lift = LINES.find(l => l.text === "That was the lift.");
@@ -144,6 +157,21 @@ function make(durOf) {
       if (t >= EV.end.t0) p.dy += 70 * ease((t - EV.end.t0) / 0.9);                                                       // sinks out of shot, still on hold
     }
     if (ted && inL(L.last, t)) p.ex = 0;
+    if (!main) {                                                                                                         // a lost reel: the pose comes from the line's tag
+      const cur = LINES.find(l => l.who === who && t >= l.t0 - 0.1 && t < l.t1 + 0.15), k = cur ? cur.tag : "", s = cur ? t - cur.t0 : 0;
+      if (k === "cam") { p.ex = 0; p.ey = 0; }
+      else if (k === "chest") { p.dy -= 10 + Math.sin(s * 9) * 4; p.ex = 0; }
+      else if (k === "bounce") { p.dy -= Math.abs(Math.sin(s * 8)) * 20; }
+      else if (k === "lean") { const u = ease(s / 0.4) * (1 - ease((t - cur.t1) / 0.15)); p.dx += toward * 55 * u; p.tilt += toward * 0.11 * u; }
+      else if (k === "up") { p.ey = -1; p.ex *= 0.3; p.jig = 1.8; }
+      else if (k === "down") { p.ey = 1; p.ex = 0.2; p.tilt += 0.06; p.dy += 12; }
+      else if (k === "side") { p.ex = 1; p.ey = 0.5; p.tilt += 0.07; p.dx += 14; }
+      const ex = LINES.find(l => l.tag === "exit");                                                                       // "I am going to go and stand behind a sentry": and he does
+      if (ex && ex.who === who && t >= ex.t1 + 0.2) p.gone = ease((t - ex.t1 - 0.2) / 0.9) * 520;
+      if (ted && ex && ex.who !== who && t >= ex.t1 + 0.5 && t < EV.end.t0) { p.ex = 1; p.ey = 0.7; p.tilt += 0.05; }                           // Ted watches him go
+      if (ted && inEv("stare", t)) { p.dx = 0; p.dy = 0; p.tilt = 0; p.ex = 0; p.ey = 0; }
+      if (ted && t >= EV.end.t0) p.dy += 70 * ease((t - EV.end.t0) / 0.9);
+    }
     return p;
   }
 
@@ -263,6 +291,7 @@ function make(durOf) {
     ctx.restore();
   }
   function card(ctx, P, t, u, end) {
+    const reel = tape ? tape.n : 0;
     ctx.fillStyle = "#16244a"; ctx.fillRect(0, 0, W, H);
     ctx.strokeStyle = "rgba(244,185,66,.25)"; ctx.lineWidth = 3;
     for (let i = 0; i < 8; i++) { ctx.beginPath(); ctx.arc(640, 360, 120 + i * 70 + (t * 30) % 70, 0, Math.PI * 2); ctx.stroke(); }
@@ -272,7 +301,7 @@ function make(durOf) {
       const s = 0.9 + ease(u * 3) * 0.1; ctx.save(); ctx.translate(640, 320); ctx.scale(s, s);
       ctx.fillStyle = "#0c1530"; ctx.font = "bold 128px " + serif; ctx.fillText("Hold Music", 6, 6); ctx.fillStyle = YEL; ctx.fillText("Hold Music", 0, 0); ctx.restore();
       ctx.globalAlpha = ease((u - 0.3) * 3); ctx.fillStyle = "#e8e4d8"; ctx.font = "italic 44px " + serif; ctx.fillText("with Ted & Lint", 640, 430);
-      ctx.font = "20px " + sans; ctx.fillStyle = "rgba(232,228,216,.6)"; ctx.fillText("Taped before a live studio absence", 640, 500); ctx.globalAlpha = 1;
+      ctx.font = "20px " + sans; ctx.fillStyle = "rgba(232,228,216,.6)"; if (reel) { ctx.font = "bold 26px " + sans; ctx.fillStyle = "rgba(244,185,66,.9)"; ctx.fillText("LOST REEL " + reel, 640, 506); ctx.font = "17px " + sans; ctx.fillStyle = "rgba(232,228,216,.5)"; ctx.fillText("Not for broadcast. Property of Facility TV 3.", 640, 548); } else ctx.fillText("Taped before a live studio absence", 640, 500); ctx.globalAlpha = 1;
     } else {
       ctx.fillStyle = YEL; ctx.font = "bold 84px " + serif; ctx.fillText("Please hold.", 640, 330);
       ctx.globalAlpha = ease((u - 0.25) * 3); ctx.fillStyle = "#e8e4d8"; ctx.font = "26px " + sans; ctx.fillText("Your call is important to the facility.", 640, 420); ctx.globalAlpha = 1;
@@ -284,6 +313,32 @@ function make(durOf) {
     const snap = ctx.getImageData(0, 0, cw, ch);
     for (let i = 0; i < 6; i++) { const y = Math.floor(r() * ch), hh = Math.ceil((6 + r() * 40) * ch / H), dx = Math.floor((r() - 0.5) * 60 * cw / W); ctx.putImageData(snap, dx, 0, 0, y, cw, hh); }
     ctx.fillStyle = `rgba(150,20,20,${0.14 + r() * 0.12})`; ctx.fillRect(0, 0, cw, ch); ctx.fillStyle = `rgba(0,0,0,${r() * 0.25})`; ctx.fillRect(0, 0, cw, ch);
+  }
+  // what stands in Lint's place on reels 4 and 5: his note (hand-lettered, stroke by stroke), or a RESERVED tent card
+  const HAND = { B: [[0, 0, 0, 1], [0, 0, .55, .05, .6, .25, .5, .48, 0, .5], [0, .5, .65, .55, .68, .8, .55, .98, 0, 1]], A: [[0, 1, .35, 0, .7, 1], [.15, .62, .58, .6]], C: [[.68, .15, .4, 0, .08, .2, .05, .7, .35, 1, .7, .85]], K: [[0, 0, .03, 1], [.65, 0, .05, .55, .7, 1]],
+    S: [[.65, .12, .35, 0, .05, .18, .15, .45, .55, .55, .68, .8, .4, 1, .02, .88]], O: [[.35, 0, .05, .25, .05, .75, .35, 1, .65, .78, .68, .25, .35, 0]], N: [[0, 1, .03, 0, .62, 1, .66, 0]] };
+  function handText(ctx, text, x, y, sz, seed) {
+    const r = rng(seed); ctx.lineCap = ctx.lineJoin = "round"; ctx.strokeStyle = "#1f2a55"; ctx.lineWidth = sz * 0.11;
+    for (const ch of text) { if (ch === " ") { x += sz * 0.5; continue; } const g = HAND[ch]; if (!g) continue; const oy = (r() - 0.5) * sz * 0.14, k = 0.92 + r() * 0.16;
+      for (const st of g) { ctx.beginPath(); for (let i = 0; i < st.length; i += 2) { const px = x + st[i] * sz * 0.72 * k + (r() - 0.5) * sz * 0.05, py = y + oy + st[i + 1] * sz * k + (r() - 0.5) * sz * 0.05; if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py); } ctx.stroke(); }
+      x += sz * 0.78 * k; }
+  }
+  function drawProp(ctx, t) {
+    if (!tape || !tape.prop) return;
+    if (tape.prop === "note") {                                             // a page torn from a pad, propped against a mug
+      ctx.save(); ctx.translate(880, 590);
+      ctx.fillStyle = "#d9d4c6"; ctx.fillRect(58, -74, 66, 74); ctx.fillStyle = "#b9b3a3"; ctx.fillRect(58, -74, 66, 8); ctx.strokeStyle = "#d9d4c6"; ctx.lineWidth = 9; ctx.beginPath(); ctx.arc(128, -38, 20, -1.2, 1.2); ctx.stroke();
+      ctx.rotate(-0.08 + Math.sin(t * 0.8) * 0.004); ctx.fillStyle = "rgba(0,0,0,.2)"; ctx.fillRect(-104, -150, 190, 150); ctx.fillStyle = "#fbf7e6"; ctx.fillRect(-110, -156, 190, 150);
+      ctx.fillStyle = "rgba(220,214,190,.9)"; ctx.fillRect(-36, -166, 46, 18);
+      handText(ctx, "BACK", -82, -132, 40, 11); handText(ctx, "SOON", -84, -74, 40, 23);
+      ctx.restore();
+    } else {                                                                // tribute: a tent card where the guest would be
+      ctx.save(); ctx.translate(880, 590); ctx.fillStyle = "rgba(0,0,0,.22)"; ctx.beginPath(); ctx.ellipse(0, 2, 110, 9, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#f4f0e4"; ctx.beginPath(); ctx.moveTo(-100, 0); ctx.lineTo(100, 0); ctx.lineTo(88, -84); ctx.lineTo(-88, -84); ctx.closePath(); ctx.fill(); ctx.fillStyle = "#d8d2c2"; ctx.fillRect(-88, -88, 176, 6);
+      ctx.fillStyle = "#2a2a2a"; ctx.font = "bold 30px 'DejaVu Sans', Helvetica, Arial, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("RESERVED", 0, -50);
+      ctx.fillStyle = YEL; ctx.fillRect(-60, -28, 120, 6);
+      ctx.restore();
+    }
   }
   // subtitles drawn into the picture (the preview uses them; the game shows its own)
   function subtitle(ctx, t) {
@@ -307,8 +362,8 @@ function make(durOf) {
     const P = pats(ctx), base = (z, ox, oy) => ctx.setTransform(z * s, 0, 0, z * s, ox * s, oy * s);
     const mo = who => (mouthOf ? mouthOf(who, t) : sylMouth(who, t));
     base(1, 0, 0); ctx.globalAlpha = 1;
-    const overlay = (bug) => { base(1, 0, 0); ctx.drawImage(P.vig, 0, 0); if (bug) { ctx.globalAlpha = 0.55; ctx.fillStyle = "#fff"; ctx.font = "bold 20px 'DejaVu Sans', Helvetica, Arial, sans-serif"; ctx.textAlign = "right"; ctx.textBaseline = "top"; ctx.fillText("FTV 3", 1236, 30); ctx.globalAlpha = 1; } };
-    if (t < TITLE) { card(ctx, P, t, t / TITLE, false); overlay(false); return; }
+    const overlay = (bug) => { base(1, 0, 0); ctx.drawImage(P.vig, 0, 0); if (bug) { ctx.globalAlpha = 0.55; ctx.fillStyle = "#fff"; ctx.font = "bold 20px 'DejaVu Sans', Helvetica, Arial, sans-serif"; ctx.textAlign = "right"; ctx.textBaseline = "top"; ctx.fillText(tape ? "REEL " + tape.n : "FTV 3", 1236, 30); ctx.globalAlpha = 1; } };
+    if (t < TITLE) { card(ctx, P, t, t / TITLE, false); if (tape && (t < 0.5 || (t > 2.9 && t < 3.15))) { glitch(ctx, t); base(1, 0, 0); } overlay(false); return; }      // a lost reel takes a moment to track
     if (t >= EV.end.t0 + 0.9) { card(ctx, P, t, (t - EV.end.t0 - 0.9) / 2, true); overlay(false); return; }
     let cx = 640, cy = 360, z = 1;
     if (t >= EV.stare.t0 && t < EV.stare.t1) { cx = 400; cy = 330; z = 1.7; }
@@ -319,13 +374,13 @@ function make(durOf) {
     const mt = mo("ted"), ml = mo("lint"), pt = pose("ted", t, mt), pl = pose("lint", t, ml);
     pt.brow = (t >= EV.pull.t0 + 0.6 && t < EV.gap.t1) ? 1 : 0;
     puppet(ctx, P, { x: 400 + pt.dx, y: 600 + pt.dy, w: 170, h: 330, kind: "ted", mouth: mt, tilt: pt.tilt, ex: pt.ex, ey: pt.ey, big: 1, jig: 0 }, t);
-    if (pl.gone < 500) puppet(ctx, P, { x: 880 + pl.dx, y: 600 + pl.dy + pl.gone, w: 160, h: 300, kind: "lint", mouth: ml, tilt: pl.tilt, ex: pl.ex, ey: pl.ey, big: pl.big, jig: pl.jig }, t);
+    if (!(tape && tape.noLint) && pl.gone < 500) puppet(ctx, P, { x: 880 + pl.dx, y: 600 + pl.dy + pl.gone, w: 160, h: 300, kind: "lint", mouth: ml, tilt: pl.tilt, ex: pl.ex, ey: pl.ey, big: pl.big, jig: pl.jig }, t);
     if (t >= EV.pull.t0) {
       const sp = t - EV.pull.t0; let hy = 900 - 380 * ease(sp / 0.45); const grip = ease((sp - 0.4) / 0.25);
       if (sp > 0.65) hy += ease((sp - 0.65) / 0.75) * 520;
       if (hy < 900) drawHand(ctx, 870 + pl.dx, hy - 40, grip);
     }
-    drawDesk(ctx); drawPhone(ctx, t);
+    drawDesk(ctx); drawPhone(ctx, t); drawProp(ctx, t);
     if (t >= EV.pa.t0 && t < L.sados.t1 + 0.15) {
       glitch(ctx, t); base(1, 0, 0);
       ctx.fillStyle = "rgba(10,10,14,.82)"; ctx.fillRect(40, 34, 430, 50); ctx.fillStyle = "#ff5a4a"; ctx.beginPath(); ctx.arc(70, 59, 8 + (Math.floor(t * 30) % 10 < 5 ? 2 : 0), 0, Math.PI * 2); ctx.fill();
@@ -334,11 +389,12 @@ function make(durOf) {
     base(1, 0, 0);
     if (t >= EV.end.t0 + 0.3) { ctx.fillStyle = `rgba(0,0,0,${ease((t - EV.end.t0 - 0.3) / 0.6)})`; ctx.fillRect(0, 0, W, H); }
     if (subs) subtitle(ctx, t);
+    if (tape) { base(1, 0, 0); ctx.fillStyle = "rgba(150,110,50,.09)"; ctx.fillRect(0, 0, W, H); }                        // old tape: a little warm and faded
     overlay(true);
   }
   // what the screen shows when the show is stopped or over
   function standby(ctx, t, s) { const P = pats(ctx); ctx.setTransform(s, 0, 0, s, 0, 0); card(ctx, P, t, 1, true); ctx.drawImage(P.vig, 0, 0); }
-  return { DUR, LINES, EV, CUES, SYL, MUSIC_START, TITLE, draw, standby, lineAt, speaking, sylMouth, W, H };
+  return { DUR, LINES, EV, CUES, SYL, MUSIC_START, TITLE, draw, standby, lineAt, speaking, sylMouth, W, H, tape: tape ? tape.n : 0 };
 }
-window.HoldShowArt = { make, TEXTS, VERSION: "1.0" };
+window.HoldShowArt = { make, TEXTS, TAPES, tapeTexts, VERSION: "1.1" };
 })();

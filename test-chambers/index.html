@@ -83,6 +83,7 @@ body.emerg #vig { background: radial-gradient(ellipse 75% 70% at 50% 50%, rgba(1
 #showSub i.lint { color: #f4b942; } #showSub i.sados { color: #ff8a7a; }
 #sentrySub i { font-style: normal; color: #ff5a4a; font-weight: 800; letter-spacing: .14em; font-size: 11px; display: block; margin-bottom: 2px; }
 #sub i { font-style: normal; color: var(--orange); font-weight: 800; letter-spacing: .14em; font-size: 12px; display: block; margin-bottom: 2px; }
+#sub i.lint, #cutSub i.lint { color: #f4b942; }
 #hurt { position: absolute; inset: 0; pointer-events: none; opacity: 0; background: radial-gradient(ellipse at 50% 50%, rgba(160,0,0,0) 38%, rgba(190,10,10,.78) 100%); transition: opacity .18s; }
 #hpBar { position: absolute; left: 50%; top: 58px; width: 120px; height: 3px; margin-left: -60px; background: rgba(255,255,255,.14); border-radius: 2px; overflow: hidden; opacity: 0; transition: opacity .3s; }
 #hpBar u { display: block; height: 100%; width: 100%; background: #ff5d4a; }
@@ -351,7 +352,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
   <!-- options -->
   <div class="ov" id="ovShow" hidden>
     <div class="card wide">
-      <h2 class="ttl">Hold Music</h2>
+      <h2 class="ttl" id="showTtl">Hold Music</h2>
       <canvas id="showCv" width="1280" height="720"></canvas>
       <p id="showPvSub"></p>
       <div class="showBtns"><button class="btn" id="bShowBack" type="button">&lsaquo; Back</button><button class="btn" id="bShowAgain" type="button">Play again</button></div>
@@ -547,7 +548,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { Furn } from "./furniture.js";                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.17";
+const VERSION = "v8.18";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const IT_TEST = /[?&]itemtest\b/.test(location.search), SPFX = IT_TEST ? "testchambers.itest." : "testchambers.";
 const $ = id => document.getElementById(id);
@@ -2949,7 +2950,16 @@ const BS5 = {
   "Sorting Hall": h => { const P = bsNook(h, { ax: 2, dir: -1, face: 6.15, c: 25, y: 0, thick: 0.6 }); (h.items = h.items || []).push({ id: "clock", kind: "clock", pos: P(-0.9, 0, 1.5) }); },      // off the holding room, inside the ledge (its side wall: a slot in the wall facing the hall's own slot could be seen from the hall)
   "The Argument": h => { const P = bsNook(h, { ax: 2, dir: -1, face: 0, c: 2.6, y: 0, thick: 2 }); h.badge = P(0.9, 0.95, 1.5); },                      // by the way in, before the lock on her door
   "The Last Order": h => { delete h.badge; },                                                                                                           // chamber 23's card is in The Argument's hidden room now
-  "The Way Out": h => { bonusRoom(h, { W: 8, side: 0, x: 11, id: "staff", cards: 23 }); }                                                               // the last staff door: every card. (Who is behind it comes with Batch 6)
+  "The Way Out": h => {                                                                                                                                // the last staff door: every card. v8.18: Lint is behind it, on hold at a desk
+    bonusRoom(h, { W: 8, side: 0, x: 11, id: "staff", cards: 23 });
+    h.furn = (h.furn || []).concat([{ k: "floor", at: [11, 0.001, -3.8], ry: 0, w: 4, d: 3.6, type: "carpet" }, { k: "desk", at: [11, 0, -5.22], ry: 0 }, { k: "desklamp", at: [11.52, 0.75, -5.3], ry: -0.5 },
+      { k: "phone", at: [10.5, 0.75, -5.25], ry: 0.35 }, { k: "mug", at: [10.42, 0.75, -4.98], ry: 1, red: true }, { k: "flipclock", at: [11.5, 0.75, -4.98], ry: -0.25 },
+      { k: "stackchair", at: [10.1, 0, -3.5], ry: 0.9 }, { k: "coatstand", at: [12.55, 0, -5.15], ry: 0.6 }, { k: "plant", at: [9.45, 0, -5.15], ry: 0 }, { k: "bin", at: [12.2, 0, -4.2], ry: 0 }]);
+    h.furnGrime = 0.15;
+    h.signs.push({ kind: "sticker", spec: { t: "tl", stage: 0, grime: 0, seed: 53 }, pos: [11, 1.95, -5.599], n: [0, 0, 1], w: 0.6, h: 0.514, rot: 0.09 });      // both socks, whole and clean: the only one in the building
+    (h.denAir = h.denAir || []).push([9, -0.2, -5.6, 13, 2.8, -2]);                                                                                     // the Muzak, faintly: he is on hold
+    h.lint = { pos: [11, 0.75, -5.2], yaw: 0, zone: [9, 0, -5.6, 13, 2.8, -2.2] };
+  }
 };
 // the look of a backstage room. Nothing here moves, adds or removes a solid box, and no box's `mat` or `portal` changes
 function bsDress(lv, idx) {
@@ -3804,6 +3814,7 @@ function buildLevel(idx) {
   HoldShow.attach(W);       // v7.2: the office TV, where a level has one
   Parcel.attach(W);         // v7.4: the deliveries hatch in The Way Out
   Slot7.attach(W);          // v8.4: O.'s slot for Crate Seven, where it rode the lift down to
+  LintRoom.attach(W);       // v8.18: Lint, behind the last staff door
   Items.attach(W);          // v8.5: pick-ups, breakers and locked bonus doors (the Item Engine)
   // moving panels: a slab that slides back and forth along a wall. A portal placed on one rides along with it
   for (const d of (lv.movers || [])) {
@@ -5174,6 +5185,7 @@ function useAction() {
   if (HoldShow.use()) return;
   if (Parcel.use()) return;
   if (Slot7.use()) return;
+  if (LintRoom.use()) return;
   if (Items.use()) return;
   if (v5Use()) return;
   if (holding) { dropCube(); return; }
@@ -5736,7 +5748,7 @@ function completeLevel() {
   $("dTime").textContent = m + ":" + String(s).padStart(2, "0"); $("dPortals").textContent = run.portals; $("dSpeed").textContent = run.top.toFixed(1);
   const [parT, parP] = chamberPar(CH), medal = (run.time <= parT ? 1 : 0) + (run.portals <= parP ? 1 : 0) + 1, best = store.get("best", {});
   if (!run.ventSkip && !(best[CH] >= medal)) { best[CH] = medal; store.set("best", best); }       // v8.14: a run that skipped a room through a vent gets no medal
-  $("dMedal").innerHTML = (run.ventSkip ? "<b>No medal</b> &middot; " + run.ventSkip + " skipped through a vent" : '<b class="m' + medal + '">' + MEDAL[medal] + "</b>") + " &middot; par " + fmtT(parT) + ", " + parP + " portals" + (store.get("badges", []).includes(CH) ? " &middot; key card found" : " &middot; key card not found") + (() => { const [cd, ct] = chamberCams(CH); return ct ? " &middot; cameras down " + cd + " of " + ct + (cd === ct ? " &middot; <b class=\"m3\">Lens Cap award</b>" : "") : ""; })() + (world.lv.hatch ? (Parcel.done ? " &middot; parcel delivered and signed for" : " &middot; parcel not delivered") : "") + (sevenBonusCh === CH ? " &middot; <b class=\"m3\">crate seven returned, 0:30 off</b>" : "");
+  $("dMedal").innerHTML = (run.ventSkip ? "<b>No medal</b> &middot; " + run.ventSkip + " skipped through a vent" : '<b class="m' + medal + '">' + MEDAL[medal] + "</b>") + " &middot; par " + fmtT(parT) + ", " + parP + " portals" + (store.get("badges", []).includes(CH) ? " &middot; key card found" : " &middot; key card not found") + (() => { const [cd, ct] = chamberCams(CH); return ct ? " &middot; cameras down " + cd + " of " + ct + (cd === ct ? " &middot; <b class=\"m3\">Lens Cap award</b>" : "") : ""; })() + (world.lv.hatch ? (Parcel.done ? " &middot; parcel delivered and signed for" : " &middot; parcel not delivered") : "") + (world.lv.lint && LintRoom.taken ? " &middot; <b class=\"m3\">Lint found</b>" : "") + (sevenBonusCh === CH ? " &middot; <b class=\"m3\">crate seven returned, 0:30 off</b>" : "");
   sevenBonusCh = -1;
   { const F = findsOf(CH), el = $("dFinds"); el.hidden = !F.all.length;          // v8.5: the chamber's finds, found ones named, the rest "?"
     if (F.all.length) { $("dMedal").innerHTML += " &middot; finds " + F.got.length + " of " + F.all.length; el.innerHTML = F.all.map(f => F.got.includes(f) ? '<span class="got">' + f.name.replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</span>" : "<span>?</span>").join(""); } }
@@ -6060,6 +6072,7 @@ const LINES = {
 };
 const sadosEl = $("sub");
 let subQ = [], subBusy = false, subTimer = 0, lastSay = 0, voiceSrc = null;
+let lintTalk = false;                 // v8.18: true while a LINT subtitle is up (his mouth moves)
 // SaDos is pre-recorded: voice/<hash of the line>.mp3, listed in lines.js (window.TC_VOICE = { hash: seconds }). No computer voice.
 function lineHash(t) { let h = 0x811c9dc5; for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16).padStart(8, "0"); }
 const voiceBufs = new Map();
@@ -6074,10 +6087,10 @@ let liftMute = false;                 // v7.8: in the lift (the ride and the doc
 function duckMusic(on) { if (showDuck) on = true; if (actx && musicBus) musicBus.gain.setTargetAtTime(opts.music && !liftMute ? (on ? 0.2 : 0.55) : 0, actx.currentTime, liftMute ? 0.15 : on ? 0.08 : 0.5); }
 function nextSub() {
   if (subBusy || !subQ.length) return;
-  const text = subQ.shift(); subBusy = true;
-  sadosEl.innerHTML = "<i>SADOS</i>" + text; sadosEl.classList.add("on");
+  const it = subQ.shift(), text = it.text || it, who = it.who || ""; subBusy = true; lintTalk = who === "LINT";       // v8.18: a line can have its own speaker ({ who, text }); everything else is SaDos
+  sadosEl.innerHTML = (who ? '<i class="lint">' + who + "</i>" : "<i>SADOS</i>") + text; sadosEl.classList.add("on");
   const dur = Math.max(2.6, text.length * 0.065) * 1000; let finished = false;
-  const fin = () => { if (finished) return; finished = true; clearTimeout(subTimer); duckMusic(false); sadosEl.classList.remove("on"); setTimeout(() => { subBusy = false; nextSub(); }, 450); };
+  const fin = () => { if (finished) return; finished = true; lintTalk = false; clearTimeout(subTimer); duckMusic(false); sadosEl.classList.remove("on"); setTimeout(() => { subBusy = false; nextSub(); }, 450); };
   subTimer = setTimeout(fin, dur + 6000);
   let waitMs = dur;
   if (opts.voice && actx) {
@@ -6125,7 +6138,7 @@ function chatter(key, chance = 0.16, delay = 0) {
   run.said[key] = 1; chatAt = performance.now();
   if (delay) { const tw = world; setTimeout(() => { if (world === tw && state === "play") say(key); }, delay); } else say(key);
 }
-function sadosShutUp() { subQ.length = 0; subBusy = false; clearTimeout(subTimer); sadosEl.classList.remove("on"); if (voiceSrc) { try { voiceSrc.onended = null; voiceSrc.stop(); } catch (e) {} voiceSrc = null; } duckMusic(false); }
+function sadosShutUp() { subQ.length = 0; subBusy = false; lintTalk = false; clearTimeout(subTimer); sadosEl.classList.remove("on"); if (voiceSrc) { try { voiceSrc.onended = null; voiceSrc.stop(); } catch (e) {} voiceSrc = null; } duckMusic(false); }
 let nextBanter = 70;
 function sadosTick(dt) {
   if (state !== "play") return;
@@ -6234,8 +6247,10 @@ click("bPlay", () => { const r = resumeRoom(); if (r === 0 && !store.get("seenOp
 click("oStory", () => Cut.play(() => { syncOpts(); showOv("ovOptions"); }));
 click("oEnding", () => Cut.playEnding(() => { syncOpts(); showOv("ovOptions"); }));
 // v8.0 (temporary): Options > Hold Music plays the TV show full size in a pop-up, with its sound, so it can be checked without walking to the office
-function showClose() { HoldShow.unwatch(); syncOpts(); showOv("ovOptions"); }
-function showStart() { HoldShow.watch($("showCv"), $("showPvSub")); }
+let showReel = 0, showBack = null;       // v8.18: the same pop-up plays a lost reel (showTape); `showBack` is where Back goes then
+function showClose() { HoldShow.unwatch(); const b = showBack; showReel = 0; showBack = null; $("showTtl").textContent = "Hold Music"; if (b) b(); else { syncOpts(); showOv("ovOptions"); } }
+function showStart() { HoldShow.watch($("showCv"), $("showPvSub"), showReel); }
+function showTape(n, back) { showReel = n; showBack = back || null; $("showTtl").textContent = "Hold Music · lost reel " + n; showOv("ovShow"); showStart(); }
 click("oShow", () => { showOv("ovShow"); showStart(); });
 click("oSticker", () => { GunSticker.build(); showOv("ovStickers"); });          // v8.5: the gun sticker picker
 click("bStkBack", () => { syncOpts(); showOv("ovOptions"); });
@@ -6245,7 +6260,7 @@ click("bLogBack", () => Log.back());
 click("bMonBack", () => Log.close());
 click("bShowAgain", showStart);
 click("bShowBack", showClose);
-document.addEventListener("visibilitychange", () => { if (document.hidden && HoldShow.watching) showClose(); });     // leaving the app stops it, like the TV
+document.addEventListener("visibilitychange", () => { if (document.hidden && HoldShow.watching) { if (showBack) HoldShow.unwatch(); else showClose(); } });     // leaving the app stops it, like the TV
 click("bChambers", () => { chFrom = "ovTitle"; buildChambers(); showOv("ovChambers"); });
 click("bChBack", () => showOv(chFrom));
 click("bOptions", () => { optsFrom = "ovTitle"; syncOpts(); showOv("ovOptions"); });
@@ -6288,7 +6303,7 @@ click("bPause", pause);
 click("bFull", toggleFull); click("oFull", toggleFull);
 click("oReset", () => showOv("ovReset"));
 click("bResetNo", () => { syncOpts(); showOv("ovOptions"); });
-click("bResetYes", () => { for (const k of ["progress5", "finished5", "room", "best", "badges", "saidBadge", "tipDone", "saidFirst", "taught", "seenOpening", "story", "parcel", "lint", "finds", "keys", "power", "bopen", "stickers", "sticker", "saidFind", "clocks", "log_pages", "log_tapes", "ventSkip", "saidSafe"]) { try { localStorage.removeItem(SPFX + k); } catch (e) {} } GunSticker.apply(); optsFrom = "ovTitle"; goTitle(); toast("Progress reset"); });
+click("bResetYes", () => { for (const k of ["progress5", "finished5", "room", "best", "badges", "saidBadge", "tipDone", "saidFirst", "taught", "seenOpening", "story", "parcel", "lint", "lintFound", "finds", "keys", "power", "bopen", "stickers", "sticker", "saidFind", "clocks", "log_pages", "log_tapes", "ventSkip", "saidSafe"]) { try { localStorage.removeItem(SPFX + k); } catch (e) {} } GunSticker.apply(); optsFrom = "ovTitle"; goTitle(); toast("Progress reset"); });
 if (store.get("progress5", null) === null) store.set("progress5", Math.min(Math.floor(store.get("progress4", 0) / 2), CHAMBERS.length - 1));     // v4.3 groups rooms into chambers: keep roughly how far you had got
 function syncOpts() {
   const on = (id, v) => { const b = $(id); b.textContent = v ? "On" : "Off"; b.classList.toggle("on", !!v); };
@@ -6847,7 +6862,7 @@ function frame(ts) {
   requestAnimationFrame(frame);
   if (!world) return;
   const dt = Math.min(0.05, (ts - lastT) / 1000 || 0.016); lastT = ts;
-  HoldShow.tick(dt); Parcel.tick(dt); Slot7.tick(dt); Items.tick(dt);
+  HoldShow.tick(dt); Parcel.tick(dt); Slot7.tick(dt); Items.tick(dt); LintRoom.tick(dt);
   if (state === "cut") { Cut.tick(dt, ts / 1000); return; }
   if (Lift.on) { Lift.tick(dt, ts / 1000); return; }
   fpsAcc += dt * 1000; if (++fpsN >= 10) { adaptQuality(fpsAcc / fpsN); fpsAcc = fpsN = 0; }
@@ -6885,7 +6900,7 @@ function frame(ts) {
   { let left = 0, need = ""; for (const p of world.plates) { if (p.left > 0 && !p.pressed) left = Math.max(left, p.left); if (p.charge && p.pressed && p.chg < p.charge) need = "Slow button: " + (p.charge - p.chg).toFixed(1); else if (p.active) { const d = world.doors.find(d => d.id === p.door); if (d && d.cnt < (d.need || 1)) need = "Door needs " + (d.need || 1) + " buttons: " + d.cnt + " held"; } }
     const el = $("prompt"), cs = world.camSeen || 0; el.classList.toggle("on", (left > 0 || cs > 0.05 || !!need) && state === "play");
     if (cs > 0.05) el.textContent = "Camera has you: " + Math.round(cs * 100) + "%"; else if (need) el.textContent = need + (left > 0 ? " · timer " + left.toFixed(1) : ""); else if (left > 0) el.textContent = "Door closes in " + left.toFixed(1);
-    { const vm = world.v5msg || HoldShow.msg || Parcel.msg || Slot7.msg || Items.msg; if (vm && state === "play" && cs <= 0.05) { el.classList.add("on"); el.textContent = vm; } } }
+    { const vm = world.v5msg || HoldShow.msg || Parcel.msg || Slot7.msg || LintRoom.msg || Items.msg; if (vm && state === "play" && cs <= 0.05) { el.classList.add("on"); el.textContent = vm; } } }
   updateFx(dt);
   for (const c of world.cubes) cubeGhost(c, dt);
   // A cube that would land on a plate (held over it, or falling onto it) lights the plate's ring green and pulses; a pressed plate glows steady green
@@ -6929,6 +6944,7 @@ const CUT_END_LINES = [
 const Cut = (() => {
   const el = $("cut"), subEl = $("cutSub"), fadeEl = $("cutFade"), PI = Math.PI;
   let S = null, t = 0, after = null, gen = 0, queue = [], talking = false, said = 0, vsrc = null, vTimer = 0, endT = -1, skipT = -1, padHeld = true;
+  let lintOn = false, lintSays = false;           // v8.18: the closing film has Lint in it once he has been found (`lintFound`)
   let mode = "open", lineSet = CUT_LINES, sigLast = -1, sigOn = false, nextChirp = 0, windS = null, cue = 0, stepPh = 0, floorNo = -1, banks = 0, hudWas = true, backState = "title", loops = [], doorSaid = 0, lastStep = 0;
   const lastP = new V3(); let prBefore = 0;
   const grainEl = $("cutGrain"); { const c = document.createElement("canvas"); c.width = c.height = 192; const g = c.getContext("2d"), im = g.createImageData(192, 192); for (let i = 0; i < im.data.length; i += 4) { const v = Math.random() * 255 | 0; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = 255; } g.putImageData(im, 0, 0); grainEl.style.backgroundImage = "url(" + c.toDataURL() + ")"; }
@@ -6948,13 +6964,21 @@ const Cut = (() => {
     [18.6, 0.2, 1.62, 5.2, -PI, 0.04, 0], [21.0, 0.35, 1.65, 6.2, -PI * 0.5, 0.02, 0], [24.0, 0.3, 1.8, 7.0, 0.0, 0.06, 0], [29, 0.2, 2.6, 8.2, 0.0, 0.14, 1], [60, 0.2, 2.8, 8.5, 0.0, 0.14, 1]
   ];
   const SIGPTS = []; for (let k = 0; k < 60; k++) SIGPTS.push([80 + k * (210 / 59), 885 + Math.sin(k * .8) * 12 + Math.sin(k * .31 + 1.2) * 8]);
-  const E = { s0: 1.6, s1: 4.6, t0: 5.2, t1: 6.6, sign: 24.6 };
+  const E = { s0: 1.6, s1: 4.6, t0: 5.2, t1: 6.6, sign: 24.6, l0: 5.3, l1: 6.7, ride: 8.3, lsay: 27.4 };      // l0..l1: Lint writes his name under yours; ride: he comes along
+  const LINT_AT = [2.3, 1.05, -5.07];            // where he stands on the reception desk, beside the sheet
+  const CRAYON = [[[0, 0, .04, 1, .62, .96]], [[.3, .02, .32, 1]], [[0, 1, .03, 0, .6, 1, .64, .02]], [[0, .04, .72, 0], [.36, .02, .34, 1]]];      // L I N T, a wobbly hand
   const tipW = (px, py) => [2.45 + .2335 - py / 1086 * .467, -5.4 - .165 + px / 768 * .33];
   const clockStr = () => { const d = new Date(); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
-  function drawSig(f1, f2) {
+  function drawSig(f1, f2, f3) {
     const c = S.sheet.image, g = c.getContext("2d"); g.drawImage(S.sheetBase, 0, 0); g.lineCap = g.lineJoin = "round"; g.strokeStyle = g.fillStyle = "#1b2a6b";
     const m = Math.floor((SIGPTS.length - 1) * f1) + 1; if (m > 1) { g.lineWidth = 3.4; g.beginPath(); g.moveTo(SIGPTS[0][0], SIGPTS[0][1]); for (let i = 1; i < m; i++) g.lineTo(SIGPTS[i][0], SIGPTS[i][1]); g.stroke(); }
     if (f2 > 0) { g.save(); g.beginPath(); g.rect(590, 860, 130 * f2, 64); g.clip(); g.font = "italic 600 34px Georgia, 'Times New Roman', serif"; g.fillText(clockStr(), 596, 902); g.restore(); }
+    if (f3 > 0) {                                    // the next line down, in yellow crayon, pressed hard
+      g.strokeStyle = "#d9960f"; g.lineWidth = 8; const segs = []; let x = 96;
+      CRAYON.forEach((gl, k) => { const sz = 50, oy = 936 + [3, -2, 4, 0][k]; for (const st of gl) for (let i = 2; i < st.length; i += 2) segs.push([x + st[i - 2] * sz * .7, oy + st[i - 1] * sz, x + st[i] * sz * .7, oy + st[i + 1] * sz]); x += 52; });
+      const n = f3 * segs.length; for (let i = 0; i < segs.length && i < n; i++) { const q = segs[i], u = Math.min(1, n - i); g.beginPath(); g.moveTo(q[0], q[1]); g.lineTo(q[0] + (q[2] - q[0]) * u, q[1] + (q[3] - q[1]) * u); g.stroke(); }
+      g.strokeStyle = "rgba(255,214,110,.5)"; g.lineWidth = 2.5; for (let i = 0; i < segs.length && i < n - 1; i++) { const q = segs[i]; g.beginPath(); g.moveTo(q[0] + 1, q[1] + 1); g.lineTo(q[2] + 1, q[3] + 1); g.stroke(); }
+    }
     S.sheet.needsUpdate = true;
   }
   function pathAt(time, out, keys) {
@@ -7238,6 +7262,7 @@ const Cut = (() => {
   function prep() {
     if (S) return;
     S = build();
+    S.lint = lintPuppet(); S.lint.g.visible = false; S.lint.g.rotation.order = "YXZ"; S.sc.add(S.lint.g);
     { const c = S.sheet.image; S.sheetBase = document.createElement("canvas"); S.sheetBase.width = c.width; S.sheetBase.height = c.height; S.sheetBase.getContext("2d").drawImage(c, 0, 0); }
     try {                                               // compile the shaders and upload the textures now, so nothing hitches when the film starts
       S.gHall.visible = true; S.day.g.visible = true; renderer.setRenderTarget(composer.renderTarget1); renderer.compile(S.sc, camera); renderer.setRenderTarget(null); S.gHall.visible = false; S.day.g.visible = false;
@@ -7281,9 +7306,9 @@ const Cut = (() => {
   function speak(i) { queue.push(lineSet[i]); nextLine(); }
   function nextLine() {
     if (talking || !queue.length) return;
-    const text = queue.shift(), g = gen; talking = true; said++;
-    subEl.innerHTML = "<i>SADOS</i>" + text; subEl.classList.add("on");
-    const fin = () => { if (g !== gen || !talking) return; clearTimeout(vTimer); talking = false; vsrc = null; subEl.classList.remove("on"); vTimer = setTimeout(() => { if (g === gen) nextLine(); }, 500); };
+    const it = queue.shift(), text = it.text || it, g = gen; talking = true; said++; lintSays = !!it.who;
+    subEl.innerHTML = (it.who ? '<i class="lint">' + it.who + "</i>" : "<i>SADOS</i>") + text; subEl.classList.add("on");
+    const fin = () => { if (g !== gen || !talking) return; clearTimeout(vTimer); talking = false; lintSays = false; vsrc = null; subEl.classList.remove("on"); vTimer = setTimeout(() => { if (g === gen) nextLine(); }, 500); };
     const dur = Math.max(2.6, text.length * 0.065) * 1000; vTimer = setTimeout(fin, dur + 6000);
     if (opts.voice && actx) loadVoice(text).then(buf => {
       if (g !== gen) return;
@@ -7292,7 +7317,7 @@ const Cut = (() => {
       catch (e) { clearTimeout(vTimer); vTimer = setTimeout(fin, dur); }
     }); else { clearTimeout(vTimer); vTimer = setTimeout(fin, dur); }
   }
-  function hush() { gen++; queue = []; talking = false; clearTimeout(vTimer); subEl.classList.remove("on"); if (vsrc) { try { vsrc.onended = null; vsrc.stop(); } catch (e) {} vsrc = null; } }
+  function hush() { gen++; queue = []; talking = false; lintSays = false; clearTimeout(vTimer); subEl.classList.remove("on"); if (vsrc) { try { vsrc.onended = null; vsrc.stop(); } catch (e) {} vsrc = null; } }
 
   /* ---------- running it ---------- */
   let rainS = null, humS = null;
@@ -7323,6 +7348,7 @@ const Cut = (() => {
     S.gTop.visible = true; S.gHall.visible = false; S.setFloor(0, false);
     S.edoor[0].position.x = -0.65; S.edoor[1].position.x = 0.65; S.bar.color.setRGB(3.2, .45, .25); for (const m of S.bankM) m.color.setRGB(.05, .055, .06); for (const l of S.bankL) l.intensity = 0;
     if (mode === "end") setDay(); else setNight();
+    lintOn = mode === "end" && !!store.get("lintFound", 0); lintSays = false; S.lint.g.visible = lintOn; if (lintOn && actx && opts.voice) loadVoice(CUT_LINT_LINE);
     scenePass.scene = S.sc; camera.fov = 58; camera.updateProjectionMatrix(); cam.roll = 0;
     prBefore = QUAL.pr; QUAL.pr = Math.min(window.devicePixelRatio || 1, 2); resize();     // films get the full-resolution picture; the game's own setting comes back after
     document.body.classList.add("cutting"); el.hidden = false; el.classList.remove("out"); fadeEl.style.transition = "none"; fadeEl.style.background = "#000"; fadeEl.style.opacity = 1;
@@ -7359,8 +7385,22 @@ const Cut = (() => {
     const dp = D.dp; for (let i = 0; i < D.NDUST; i++) { const o = i * 3; dp[o] += Math.sin(time * .3 + i) * dt * .02; dp[o + 1] += (Math.sin(time * .5 + i * 1.7) * .02 - .006) * dt * 3; dp[o + 2] += dt * .02; if (dp[o + 1] < .1) dp[o + 1] = 2.9; if (dp[o + 2] > -.6) dp[o + 2] = -9; }
     D.dust.geometry.attributes.position.needsUpdate = true;
     // the desk lamp, still on; the sign-in sheet and the pen
-    const f1 = clamp((t - E.s0) / (E.s1 - E.s0), 0, 1), f2 = clamp((t - E.t0) / (E.t1 - E.t0), 0, 1), fs = f1 + f2;
-    if (t < E.t1 + 0.3 && (Math.abs(fs - sigLast) > 0.035 || (fs >= 2 && sigLast < 2))) { sigLast = fs; drawSig(f1, f2); if (fs > 0 && fs < 2) fx.pen(); }
+    const f1 = clamp((t - E.s0) / (E.s1 - E.s0), 0, 1), f2 = clamp((t - E.t0) / (E.t1 - E.t0), 0, 1), f3 = lintOn ? clamp((t - E.l0) / (E.l1 - E.l0), 0, 1) : 0, fs = f1 + f2 + f3, fAll = lintOn ? 3 : 2;
+    if (t < E.t1 + 0.3 && (Math.abs(fs - sigLast) > 0.035 || (fs >= fAll && sigLast < fAll))) { sigLast = fs; drawSig(f1, f2, f3); if (fs > 0 && fs < fAll) fx.pen(); }
+    if (lintOn) {                                    // Lint: on the desk while you sign (he signs too), then along for the walk out, in at the corner of your eye
+      const Lp = s.lint, g = Lp.g, m = lintSays ? Math.abs(Math.sin(time * 11)) * (0.55 + 0.45 * Math.sin(time * 3.7 + 1)) : 0;
+      if (t < E.ride) {
+        const hop = Math.sin(clamp((t - (E.ride - 0.6)) / 0.6, 0, 1) * PI) * 0.1, wr = f3 > 0 && f3 < 1;
+        g.position.set(LINT_AT[0], LINT_AT[1] + hop + (wr ? Math.abs(Math.sin(time * 9)) * 0.006 : 0), LINT_AT[2]); g.scale.setScalar(0.78); g.rotation.set(-0.62 + Math.sin(time * 1.3) * 0.03, -PI / 2 - 0.22 + Math.sin(time * 0.8) * 0.05, wr ? Math.sin(time * 9) * 0.04 : 0);      // leaning back to look up at you
+        const dn = t > E.s0 - 0.6 && t < E.l1 + 0.3; Lp.set(m, dn ? 0.25 : -0.1, dn ? -0.8 : 0.75, time, wr ? 1.6 : 0.6);
+      } else {
+        g.scale.setScalar(1); const u = ss((t - E.ride - 1.9) / 1.3), k = lintSays ? 1 : 0, cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw), fxv = -sy, fzv = -cy, rx = cy, rz = -sy;
+        g.position.set(cam.pos.x + fxv * 0.56 + rx * 0.33, cam.pos.y - 0.66 + 0.33 * u + Math.sin(stepPh * 2 + 1) * 0.007 * walk + (lintSays ? Math.abs(Math.sin(time * 5.5)) * 0.008 : 0), cam.pos.z + fzv * 0.56 + rz * 0.33);
+        const tk = g.userData.tk = (g.userData.tk || 0) + (k - (g.userData.tk || 0)) * Math.min(1, dt * 5), dx = -rx * (0.9 - 0.6 * tk) - fxv * (0.45 + 0.5 * tk), dz = -rz * (0.9 - 0.6 * tk) - fzv * (0.45 + 0.5 * tk);
+        g.rotation.set(0, Math.atan2(dx, dz), Math.sin(stepPh) * 0.03 * walk);
+        Lp.set(m, lintSays ? 0.35 : -0.5 + 0.3 * Math.sin(time * 0.6), lintSays ? 0.45 : 0.35, time, lintSays ? 1.5 : 0.7 + walk * 0.6);
+      }
+    }
     { const pen = s.pen; let tx = 2.5, ty = 1.062, tz = -5.13, lift = 0;
       const startP = tipW(SIGPTS[0][0], SIGPTS[0][1]), m = Math.min(SIGPTS.length - 1, Math.floor((SIGPTS.length - 1) * f1)), endName = tipW(SIGPTS[SIGPTS.length - 1][0], SIGPTS[SIGPTS.length - 1][1]), tStart = tipW(596, 902);
       if (t < E.s0) { const u = ss((t - (E.s0 - 1.1)) / 1.1); const a = tipW(SIGPTS[0][0], SIGPTS[0][1]); tx = 2.5 + (a[0] + .036 - 2.5) * u; tz = -5.13 + (a[1] + .066 + 5.13) * u; lift = Math.sin(u * PI) * .05; ty = 1.082; }
@@ -7374,6 +7414,7 @@ const Cut = (() => {
     if (cue < 2 && t >= 6.8) { cue = 2; speak(1); }
     if (cue < 3 && t >= 12.0) { cue = 3; speak(2); }
     if (cue < 4 && t >= 23.0) { cue = 4; speak(3); }
+    if (lintOn && cue === 4 && t >= E.lsay && !talking && !queue.length) { cue = 5; queue.push({ who: "LINT", text: CUT_LINT_LINE }); nextLine(); }
     // birds and the breeze once the door is behind us
     if (windS) vol(windS, 0.012 + 0.03 * out + 0.008 * Math.sin(time * .4), 0.4);
     if (out > 0.5 && time > nextChirp) { nextChirp = time + 0.7 + Math.random() * 2.4; fx.chirp(); }
@@ -7382,7 +7423,7 @@ const Cut = (() => {
     const led = talking ? 1.6 + Math.sin(time * 31) * 0.8 : 0.12; for (const m of s.spkLed) m.color.setRGB(led, led * 0.5, led * 0.12);
     // fades: in from black, out to black once she has finished and the sign has come on
     let op = 1 - ss(t / 1.4);
-    if (endT < 0 && t >= E.sign + 3.2 && cue >= 4 && !talking && !queue.length) endT = t;
+    if (endT < 0 && t >= E.sign + 3.2 && cue >= (lintOn ? 5 : 4) && !talking && !queue.length) endT = t;
     if (endT >= 0) { op = ss((t - endT) / 2.2); if (t - endT > 2.6) { finish(); return; } }
     if (skipT >= 0) { op = Math.max(op, ss((t - skipT) / 0.35)); if (t - skipT > 0.4) { finish(); return; } }
     fadeEl.style.background = "#000"; fadeEl.style.opacity = op.toFixed(3);
@@ -7453,7 +7494,7 @@ const Cut = (() => {
   }
   $("cutSkip").addEventListener("click", e => { e.stopPropagation(); skip(); });
   addEventListener("keydown", e => { if (state !== "cut" || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return; const k = e.key.toLowerCase(); if (k === "escape" || k === "enter" || k === " ") { e.preventDefault(); skip(); } });
-  return { prep, play, playEnding: then => play(then, "end"), tick, skip, get t() { return t; }, set t(v) { t = v; }, get S() { return S; } };
+  return { prep, play, playEnding: then => play(then, "end"), tick, skip, get t() { return t; }, set t(v) { t = v; }, get S() { return S; }, get lint() { return lintOn; }, E };
 })();
 
 /* =====================================================================================
@@ -7681,13 +7722,23 @@ const HoldShow = (() => {
   let art = null, cv = null, cx = null, tex = null, tv = null, T = 0, mode = "idle", acc = 0, waitT = 0, wasIn = false, inside = false, look = false, painted = "";
   let out = null, mus = null, voc = null, fx = null, ana = null, anaBuf = null, nodes = [], schedTo = 0, live = false, t0 = 0, rms = 0, msg = "", fetched = false;
   const bufs = new Map(), sc = new V3(), sn = new V3(), _e = new V3(), _f = new V3();
+  // v8.18 the lost reels: `art` is whatever is on (the show, or a reel made from HoldShowArt.TAPES); the office TV plays the show, then each found reel in turn
+  let mainArt = null, cur = 0; const reels = {};
+  function artOf(n) {
+    if (!n || !HoldShowArt.TAPES || !HoldShowArt.TAPES[n]) return mainArt;
+    if (!reels[n]) reels[n] = HoldShowArt.make(durOf, HoldShowArt.TAPES[n]);
+    if (actx) for (const l of reels[n].LINES) if (!bufs.has(l.text)) loadVoice(l.text).then(b => { if (b) bufs.set(l.text, b); });
+    return reels[n];
+  }
+  const foundReels = () => { try { return [...new Set(Object.values(Log.get("tapes")).map(d => reelOf(d.title)).filter(Boolean))].sort(); } catch (e) { return []; } };
+  const nextUp = () => { if (mode !== "done") return cur; const l = [0, ...foundReels()]; return l[(l.indexOf(cur) + 1) % l.length]; };
   const durOf = text => (window.TC_VOICE && window.TC_VOICE[lineHash(text)]) || 0;
   const subEl = () => $("showSub");
   function ensure() {
     if (cv) return true;
     if (!window.HoldShowArt) return false;
     try {
-      art = HoldShowArt.make(durOf);
+      art = mainArt = HoldShowArt.make(durOf);
       cv = document.createElement("canvas"); cv.width = CW; cv.height = CHh; cx = cv.getContext("2d");
       tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.generateMipmaps = true; tex.minFilter = THREE.LinearMipmapLinearFilter; tex.magFilter = THREE.LinearFilter; tex.anisotropy = MAXANISO;      // v8.6: mipmapped + anisotropic, so nothing on the screen can moiré
       art.draw(cx, 8, SC); art.standby(cx, 0, SC); tex.needsUpdate = true;            // builds the patterns now, so the first real frame is quick
@@ -7708,7 +7759,7 @@ const HoldShow = (() => {
   }
   // the set: a beige CRT with a dark bezel, two dials and rabbit-ear aerials. Its box is in the level (dark, solid)
   function attach(W) {
-    stopAudio(); tv = null; mode = "idle"; T = 0; wasIn = false; inside = false; msg = ""; painted = ""; hideSub();
+    stopAudio(); tv = null; mode = "idle"; T = 0; wasIn = false; cur = 0; if (mainArt) art = mainArt; inside = false; msg = ""; painted = ""; hideSub();
     preload();
     const d = W && W.lv.tv; if (!d || !ensure()) return;
     const m = mats(), g = new THREE.Group(), add = (geo, mat, x, y, z) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); g.add(o); return o; };
@@ -7826,7 +7877,7 @@ const HoldShow = (() => {
     if (running) {
       inside = inZone(_e);
       if (inside && !wasIn && mode !== "off") { mode = "wait"; waitT = 0; }
-      if (!inside && wasIn) { if (mode !== "off") mode = "idle"; }
+      if (!inside && wasIn) { if (mode !== "off") mode = "idle"; if (cur) { cur = 0; art = mainArt; if (mode === "off") paint(true); } }      // a reel does not carry on once you leave: the set goes back to the show
       wasIn = inside;
       if (mode === "wait" && (!subBusy || (waitT += dt) > 6)) { mode = "show"; T = 0; }      // let SaDos finish, but not for ever
       if (mode === "show") { T += dt; if (T >= art.DUR) { mode = "done"; T = 0; } }
@@ -7842,20 +7893,20 @@ const HoldShow = (() => {
     showSub();
     const dist = _e.distanceTo(sc), faces = _f.dot(tmpA.copy(sc).sub(_e).normalize());
     look = running && inside && dist < 3.4 && faces > 0.82;
-    if (look) msg = mode === "show" ? "GRAB stops the show" : "GRAB plays Hold Music";
+    if (look) { const n = nextUp(); msg = mode === "show" ? "GRAB stops the show" : n ? "GRAB plays lost reel " + n : "GRAB plays Hold Music"; }
     if (dist < 24 && running) { acc += dt; if (acc >= 1 / FPS) { acc = 0; paint(); } }
   }
   function use() {
     if (!look) return false;
     if (mode === "show") { mode = "off"; stopAudio(); hideSub(); toast("Show stopped"); }
-    else { mode = "show"; T = 0; }
+    else { const n = nextUp(); cur = n; art = artOf(n); mode = "show"; T = 0; }
     paint(true); return true;
   }
   /* v8.0 (temporary): play the show in the Options pop-up, full size and full volume (Music, Voice and Sound effects settings still apply) */
   let pv = null;
-  function watch(canvas, sub) {
+  function watch(canvas, sub, reel) {
     if (!ensure()) return false;
-    unwatch(true); stopAudio(); hideSub(); preload();
+    unwatch(true); stopAudio(); hideSub(); preload(); cur = reel || 0; art = artOf(cur);
     if (actx && actx.state !== "running") actx.resume();
     T = 0; mode = "show"; rms = 0;
     pv = { c: canvas.getContext("2d"), cw: canvas.width, sub, last: performance.now(), raf: 0, k: "" };
@@ -7864,7 +7915,7 @@ const HoldShow = (() => {
       const dt = Math.min(0.1, (now - pv.last) / 1000); pv.last = now;
       if (!live && actx && actx.state === "running") startAudio();
       T = live ? actx.currentTime - t0 : T + dt;             // on the sound's clock once it plays, so picture and sound stay together
-      if (T >= art.DUR) { stopAudio(); art.standby(pv.c, 0, pv.cw / 1280); pv.sub.textContent = ""; pv = null; mode = "idle"; T = 0; return; }
+      if (T >= art.DUR) { stopAudio(); art.standby(pv.c, 0, pv.cw / 1280); pv.sub.textContent = ""; pv = null; mode = "idle"; T = 0; cur = 0; art = mainArt; return; }
       if (live) { schedule(); levels(false); ana.getFloatTimeDomainData(anaBuf); let q = 0; for (let i = 0; i < anaBuf.length; i++) q += anaBuf[i] * anaBuf[i]; rms = Math.sqrt(q / anaBuf.length); }
       art.draw(pv.c, T, pv.cw / 1280, live ? mouthOf : null, false);
       const l = art.lineAt(T), key = l ? l.text : "";
@@ -7875,9 +7926,9 @@ const HoldShow = (() => {
     return true;
   }
   function unwatch(quiet) {
-    if (!pv) return; cancelAnimationFrame(pv.raf); pv.sub.textContent = ""; pv = null; stopAudio(); mode = "idle"; T = 0; if (!quiet) paint(true);
+    if (!pv) return; cancelAnimationFrame(pv.raf); pv.sub.textContent = ""; pv = null; stopAudio(); mode = "idle"; T = 0; cur = 0; art = mainArt; if (!quiet) paint(true);
   }
-  return { attach, tick, use, ensure, preload, watch, unwatch, get watching() { return !!pv; }, get msg() { return msg; }, get mode() { return mode; }, get T() { return T; }, get live() { return live; }, get art() { return art; }, get on() { return !!tv; }, set T(v) { T = v; } };
+  return { attach, tick, use, ensure, preload, watch, unwatch, get watching() { return !!pv; }, get msg() { return msg; }, get mode() { return mode; }, get T() { return T; }, get live() { return live; }, get art() { return art; }, get reel() { return cur; }, artOf, get on() { return !!tv; }, set T(v) { T = v; } };
 })();
 
 /* =====================================================================================
@@ -8365,7 +8416,7 @@ const Items = (() => {
     const it = e.it; levelGroup.remove(e.g); L.splice(L.indexOf(e), 1); add("finds", e.gid); sfx.badge();
     if (it.kind === "card") { add("keys", it.key); toast("Key card: " + (it.label || it.key) + " · on your key ring"); }
     else if (it.kind === "sticker") { add("stickers", it.sticker); toast("Gun sticker: " + GunSticker.nameOf(it.sticker) + " · put it on in Options"); }
-    else if (it.kind === "tape") { toast("Tape: " + (it.title || "untitled")); Log.save("tapes", e.gid, { title: it.title || "Tape", lines: it.lines || [] }); playTape(it); }
+    else if (it.kind === "tape") { toast("Tape: " + (it.title || "untitled")); Log.save("tapes", e.gid, { title: it.title || "Tape", lines: it.lines || [] }); Log.open("tapes", e.gid, "play"); }       // v8.18: a found reel plays straight away, as a Hold Music segment
     else if (it.kind === "page") { toast("Page: " + (it.title || "a page")); Log.save("pages", e.gid, { title: it.title || "Page", text: it.text || [] }); Log.open("pages", e.gid, "play"); }
     else if (it.kind === "clock") { run.time = Math.max(0, run.time - 30); toast("BONUS: Punch clock · 30 s off the chamber clock"); setTimeout(() => sfx.badge(), 400); add("clocks", e.gid); }
     else toast("Found: " + (it.name || "something"));
@@ -8426,8 +8477,120 @@ const Items = (() => {
   return { attach, tick, use, doors, stopTape, playTape, get msg() { return msg; }, get items() { return L; }, get breakers() { return BR; }, get bdoors() { return BD; }, get monitors() { return MO; }, get vents() { return VE; } };
 })();
 
+/* =====================================================================================
+   v8.18 Lint (dens plan Batch 6, the payoff). The one place Lint can be found: the room behind the 23-key-card staff door in
+   The Way Out (`lv.lint = { pos, yaw, zone }`, set by BS5). `lintPuppet()` is the 3D sock (also used by the closing film):
+   yellow ribbed gym sock, two googly eyes of different sizes, the toe hole, a striped cuff and the visitor lanyard.
+   He greets you (his own voice, `"voice": "lint"` in voice-todo.json; subtitle label LINT), his eyes follow you, and GRAB takes
+   him with you: `lintFound` is saved, the results card says so, and the closing film (`Cut`) then has Lint in it.
+   ===================================================================================== */
+const LINT_LINES = {
+  hello: "Oh. Hello. Are you the next caller? I have been holding.",
+  sadosHello: "That is not Lint. I do not know a Lint. I filed him under L, and then I lost the file. Those are two separate facts.",
+  take: "You have a lanyard. I have a lanyard. We are practically staff. Lead on.",
+  sadosTake: "Put him back. No. Take him. He looks thin. He was always thin. Somebody should leave here with somebody."
+};
+const CUT_LINT_LINE = "Tell Ted I'll be right back. I mean it this time.";
+function sayAs(who, text, first) { if (first) subQ.unshift({ who, text }); else subQ.push({ who, text }); nextSub(); }       // `first`: next, ahead of whatever SaDos has queued
+let LINT_M = null;
+function lintPuppet() {
+  if (!LINT_M) {
+    const std = o => new THREE.MeshStandardMaterial(Object.assign({ envMap: ENV, metalness: 0 }, o));
+    const rib = canvasTex(256, 64, (g, w, h) => { g.fillStyle = "#f4b942"; g.fillRect(0, 0, w, h);                      // 8 broad soft ribs round the sock (nothing fine enough to moiré)
+      for (let i = 0; i < 8; i++) { const x = i * 32, gr = g.createLinearGradient(x, 0, x + 32, 0); gr.addColorStop(0, "rgba(150,95,10,.34)"); gr.addColorStop(.3, "rgba(255,225,150,.2)"); gr.addColorStop(.75, "rgba(150,95,10,0)"); gr.addColorStop(1, "rgba(150,95,10,.34)"); g.fillStyle = gr; g.fillRect(x, 0, 32, h); }
+      for (let i = 0; i < 500; i++) { g.fillStyle = i % 2 ? "rgba(255,240,190,.10)" : "rgba(120,80,10,.10)"; g.fillRect((i * 97.13) % w, (i * 57.71) % h, 3, 2); } });
+    const pass = canvasTex(200, 144, (g, w, h) => { g.fillStyle = "#fdfdf8"; g.fillRect(0, 0, w, h); g.fillStyle = "#f4b942"; g.fillRect(0, 0, w, 44); g.fillStyle = "#2b2b2b"; g.font = "800 38px Helvetica, Arial, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("VISITOR", w / 2, 92);
+      g.fillStyle = "#999"; g.fillRect(40, 122, 120, 5); g.strokeStyle = "#888"; g.lineWidth = 3; g.strokeRect(1.5, 1.5, w - 3, h - 3); }, false);
+    LINT_M = { sock: std({ map: rib, roughness: .95, envMapIntensity: .25 }), in: std({ color: 0x7c2018, roughness: .9, envMapIntensity: .1 }), tongue: std({ color: 0xd0675a, roughness: .8, envMapIntensity: .15 }), lip: std({ color: 0xc88a1c, roughness: .95, envMapIntensity: .2 }),
+      white: std({ color: 0xfbfbf6, roughness: .5, envMapIntensity: .5 }), eye: std({ color: 0xffffff, roughness: .18, envMapIntensity: .9 }), black: std({ color: 0x0c0c0c, roughness: .25, envMapIntensity: .8 }),
+      red: std({ color: 0xc2303a, roughness: .9, envMapIntensity: .2 }), blue: std({ color: 0x2f7fc0, roughness: .9, envMapIntensity: .2 }), hole: std({ color: 0xc89a5a, roughness: .95, envMapIntensity: .15 }), thread: std({ color: 0x6b5432, roughness: .9, envMapIntensity: .1 }),
+      cord: std({ color: 0x222428, roughness: .7, envMapIntensity: .3 }), pass: std({ map: pass, roughness: .6, envMapIntensity: .3 }) };
+  }
+  const M = LINT_M, g = new THREE.Group(), R = 0.07, YM = 0.2, PI = Math.PI;
+  const add = (par, geo, mat, x, y, z) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); par.add(o); return o; };
+  // the body up to the mouth, the cuff with its two stripes
+  add(g, new THREE.CylinderGeometry(R, R * 1.03, YM, 28, 1, true), M.sock, 0, YM / 2, 0);
+  add(g, new THREE.CylinderGeometry(R * 1.07, R * 1.09, 0.062, 28), M.white, 0, 0.031, 0);
+  add(g, new THREE.CylinderGeometry(R * 1.085, R * 1.085, 0.011, 28), M.red, 0, 0.042, 0); add(g, new THREE.CylinderGeometry(R * 1.092, R * 1.092, 0.011, 28), M.blue, 0, 0.022, 0);
+  // the inside of the mouth: lower jaw floor and a tongue
+  const fl = add(g, new THREE.CircleGeometry(R * 0.97, 28), M.in, 0, YM - 0.002, 0); fl.rotation.x = -PI / 2;
+  const tg = add(g, new THREE.SphereGeometry(R * 0.5, 16, 8, 0, PI * 2, 0, PI / 2), M.tongue, 0, YM - 0.003, R * 0.25); tg.scale.set(1, 0.22, 1.25);
+  add(g, new THREE.TorusGeometry(R * 0.995, 0.005, 6, 28), M.lip, 0, YM, 0).rotation.x = PI / 2;
+  // the head: hinged at the back, so the mouth opens like a hand in a sock
+  const head = new THREE.Group(); head.position.set(0, YM, -R); g.add(head);
+  const hp = new THREE.Group(); hp.position.set(0, 0, R); head.add(hp);
+  add(hp, new THREE.CylinderGeometry(R, R, 0.075, 28, 1, true), M.sock, 0, 0.0375, 0);
+  const dome = add(hp, new THREE.SphereGeometry(R, 28, 14, 0, PI * 2, 0, PI / 2), M.sock, 0, 0.075, 0); dome.scale.y = 0.92;
+  const roof = add(hp, new THREE.CircleGeometry(R * 0.97, 28), M.in, 0, 0.002, 0); roof.rotation.x = PI / 2;
+  add(hp, new THREE.TorusGeometry(R * 0.995, 0.005, 6, 28), M.lip, 0, 0.001, 0).rotation.x = PI / 2;
+  // googly eyes: a big one and a smaller one, set a little differently; the pupils roll about inside
+  const eyes = [];
+  for (const [ex, ey, er, pr] of [[-0.03, 0.062, 0.03, 0.0135], [0.031, 0.074, 0.022, 0.0098]]) {
+    const ez = Math.sqrt(Math.max(0, R * R - ex * ex)) - 0.004, eg = new THREE.Group(); eg.position.set(ex, ey, ez); eg.rotation.y = ex * 6; hp.add(eg);
+    add(eg, new THREE.CylinderGeometry(er * 1.06, er * 1.06, 0.006, 24), M.black, 0, 0, 0.001).rotation.x = PI / 2;
+    const w = add(eg, new THREE.SphereGeometry(er, 20, 12), M.eye, 0, 0, 0.004); w.scale.z = 0.42;
+    const p = add(eg, new THREE.SphereGeometry(pr, 14, 10), M.black, 0, 0, er * 0.42 + 0.003); p.scale.z = 0.4;
+    eyes.push({ p, lim: er - pr - 0.002, z: er * 0.42 + 0.003, ph: ex * 40 });
+  }
+  // the hole in his toe ("it is a window") and its loose threads
+  { const hx = -0.02, hz = 0.022, hy = 0.075 + Math.sqrt(Math.max(0, R * R - hx * hx - hz * hz)) * 0.92;
+    const h = add(hp, new THREE.SphereGeometry(0.021, 14, 8), M.hole, hx, hy - 0.004, hz); h.scale.set(1, 0.35, 0.8);
+    for (const [a, l, tx, tz] of [[0.5, 0.03, -0.6, 0.2], [-0.4, 0.038, 0.1, -0.5], [0.2, 0.026, 0.5, 0.4], [-0.6, 0.032, -0.3, -0.3]]) { const t = add(hp, new THREE.CylinderGeometry(0.0012, 0.0016, l, 5), M.thread, hx + tx * 0.014, hy + l * 0.45, hz + tz * 0.012); t.rotation.set(tz * 0.7, 0, -tx * 0.8 + a * 0.2); } }
+  // the visitor lanyard: a cord round his neck and the pass hanging at the front
+  const cord = add(g, new THREE.TorusGeometry(R * 1.06, 0.0035, 6, 28), M.cord, 0, 0.142, 0.002); cord.rotation.x = PI / 2 - 0.42;
+  const pg = new THREE.Group(); pg.position.set(0, 0.11, R * 1.04 + 0.004); g.add(pg);
+  add(pg, new THREE.BoxGeometry(0.004, 0.022, 0.002), M.cord, 0, -0.008, 0);
+  const pc = add(pg, new THREE.BoxGeometry(0.056, 0.04, 0.002), [M.white, M.white, M.white, M.white, M.pass, M.white], 0, -0.039, 0.001);
+  g.traverse(o => { o.frustumCulled = false; });
+  // pose: m = mouth 0..1, (lx, ly) = where the eyes look (-1..1, +x his left... in his own frame), time for the jiggle, jig = how lively
+  const set = (m, lx, ly, time, jig = 1) => {
+    head.rotation.x = -m * 0.62;
+    for (const e of eyes) { const jx = Math.sin(time * 11 + e.ph) * 0.18 * jig, jy = Math.cos(time * 9 + e.ph) * 0.14 * jig - 0.25; let x = lx + jx, y = ly + jy; const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; } e.p.position.set(x * e.lim, y * e.lim, e.z); }
+    pg.rotation.z = Math.sin(time * 1.3) * 0.05 * (1 + jig); pg.rotation.x = 0.06 + Math.sin(time * 1.7) * 0.02;
+  };
+  set(0, 0, 0, 0, 0);
+  return { g, head, set, H: 0.34 };
+}
+const LintRoom = (() => {
+  let L = null, msg = "", look = false, T = 0, met = false, taken = false, hop = 0;
+  const _e = new V3(), _f = new V3(), _a = new V3(), SC = 1.5;
+  function attach(W) {
+    L = null; msg = ""; look = false; T = 0; met = taken = false; hop = 0;
+    const d = W && W.lv.lint; if (!d) return;
+    const P = lintPuppet(); P.g.scale.setScalar(SC); P.g.position.set(d.pos[0], d.pos[1], d.pos[2]); P.g.rotation.y = d.yaw || 0; levelGroup.add(P.g);
+    L = { P, d, pos: new V3(d.pos[0], d.pos[1] + 0.22 * SC, d.pos[2]) };
+    if (actx && opts.voice) for (const k in LINT_LINES) loadVoice(LINT_LINES[k]);
+  }
+  const inZone = p => { const z = L.d.zone; return p.x > z[0] && p.y > z[1] && p.z > z[2] && p.x < z[3] && p.y < z[4] && p.z < z[5]; };
+  function tick(dt) {
+    msg = ""; look = false; if (!L || !world || !world.lv.lint || taken) return;
+    T += dt; eyePos(_e); viewDir(_f);
+    const P = L.P, yaw = L.d.yaw || 0;
+    // his eyes follow you (in his own frame), he sways, and bounces when he talks
+    _a.copy(_e).sub(L.pos); const dist = _a.length(), c = Math.cos(yaw), s = Math.sin(yaw), lx = (_a.x * c - _a.z * s) / Math.max(dist, 0.3), ly = _a.y / Math.max(dist, 0.3);
+    const m = lintTalk ? Math.abs(Math.sin(T * 11)) * (0.55 + 0.45 * Math.sin(T * 3.7 + 1)) : 0;
+    P.set(m, clamp(lx * 1.6, -1, 1), clamp(ly * 1.6 + 0.2, -1, 1), T, lintTalk ? 1.6 : 0.5);
+    hop = Math.max(0, hop - dt * 2.2);
+    P.g.position.y = L.d.pos[1] + (lintTalk ? Math.abs(Math.sin(T * 5.5)) * 0.012 : 0) + Math.sin(hop * Math.PI) * 0.06;
+    P.g.rotation.y = yaw + clamp(Math.atan2(lx, 0.8) * 0.5, -0.5, 0.5) + Math.sin(T * 0.9) * 0.03; P.g.rotation.z = Math.sin(T * 1.1) * 0.025;
+    if (state !== "play") return;
+    if (!met && inZone(_e)) { met = true; hop = 1; if (!store.get("lintFound", 0)) subQ.unshift(LINT_LINES.sadosHello); sayAs("LINT", LINT_LINES.hello, true); }
+    look = dist < 2.4 && _f.dot(_a.multiplyScalar(-1 / Math.max(dist, 1e-3))) > 0.85 && inZone(_e);
+    if (look) msg = "GRAB: take Lint with you";
+  }
+  function use() {
+    if (!look || !L || taken) return false;
+    taken = true; L.P.g.visible = false; msg = ""; look = false; sfx.badge();
+    const first = !store.get("lintFound", 0); store.set("lintFound", 1);
+    toast("Lint is coming with you"); subQ = subQ.filter(q => (q.text || q) !== LINT_LINES.hello && q !== LINT_LINES.sadosHello); if (first) subQ.unshift(LINT_LINES.sadosTake); sayAs("LINT", LINT_LINES.take, true);
+    return true;
+  }
+  return { attach, tick, use, get msg() { return msg; }, get on() { return !!L; }, get taken() { return taken; }, get met() { return met; }, get found() { return !!store.get("lintFound", 0); }, get pos() { return L && L.pos; } };
+})();
+
 /* v8.12 the reading pop-ups: O.'s pages and the Tapes (both keep what was found in `log_pages` / `log_tapes`, so Options can open them later),
    and the monitor (a top-down picture of another room drawn from its level data: floor and walls only, nothing that shows a route). */
+const reelOf = title => { const n = +((/reel (\d)/.exec(title || "") || [])[1] || 0); return n && window.HoldShowArt && HoldShowArt.TAPES && HoldShowArt.TAPES[n] ? n : 0; };
 const Log = (() => {
   let mode = "pages", from = "ovOptions", fromPlay = false, list = false;
   const get = k => store.get("log_" + k, {});
@@ -8438,13 +8601,18 @@ const Log = (() => {
     $("logTtl").textContent = k === "pages" ? "O.'s pages" : "Tapes";
     const r = get(k), ids = Object.keys(r), g = $("logList"); g.innerHTML = "";
     for (const id of ids) { const b = document.createElement("button"); b.type = "button"; b.className = "chbtn"; const sp = document.createElement("span"); sp.textContent = r[id].title; b.dataset.tip = k === "pages" ? "Read this page" : "Play this tape"; b.appendChild(sp); b.addEventListener("click", () => show(id)); g.appendChild(b); }
-    $("logNote").textContent = ids.length ? (k === "pages" ? "Pages found: " + ids.length + ". Pick one to read." : "Tapes found: " + ids.length + ". Pick one to play.") : (k === "pages" ? "You have not found any of O.'s pages yet." : "You have not found any tapes yet.");
+    $("logNote").textContent = ids.length ? (k === "pages" ? "Pages found: " + ids.length + ". Pick one to read." : "Lost reels found: " + ids.length + " of 5. Pick one to watch.") : (k === "pages" ? "You have not found any of O.'s pages yet." : "You have not found any tapes yet.");
     $("logPage").hidden = true; g.hidden = false; list = true;
-    if (gid && r[gid]) show(gid, true);
+    if (gid && r[gid] && show(gid, true)) return;
     showOv("ovLog");
   }
   function show(id, direct) {
-    const d = get(mode)[id]; if (!d) return; const el = $("logPage"); el.innerHTML = "";
+    const d = get(mode)[id]; if (!d) return;
+    if (mode === "tapes") {                                  // v8.18: a lost reel is a Hold Music segment, played in the show's own pop-up (as on the office TV)
+      const n = reelOf(d.title);
+      if (n) { const fp = fromPlay, fr = from; showTape(n, () => { if (direct && fp) { fromPlay = false; resume(); } else open("tapes", null, fp ? "play" : fr); }); return true; }
+    }
+    const el = $("logPage"); el.innerHTML = "";
     const h = document.createElement("h3"); h.textContent = (mode === "pages" ? "PAGE · " : "TAPE · ") + d.title; el.appendChild(h);
     const body = document.createElement("div"); body.textContent = (mode === "pages" ? d.text : d.lines).join("\n\n"); el.appendChild(body);
     el.hidden = false; $("logList").hidden = true; list = !direct; $("logNote").textContent = mode === "pages" ? "" : "Playing on the TV speaker when you go back, as subtitles until it is recorded.";
@@ -8801,7 +8969,7 @@ function boot() {
   setTimeout(() => HoldMusic.render(), 2200);
   setTimeout(() => { try { HoldShow.ensure(); HoldShow.preload(); } catch (e) { console.error(e); } }, 3000);   // the TV show's picture and voices, ready before anyone reaches the office                                       // and its music, rendered once in the background
 }
-window.__tc = { bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE)), cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
+window.__tc = { bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
 try { boot(); } catch (err) { console.error(err); $("loading").hidden = false; $("loading").innerHTML = '<div style="max-width:420px;text-align:center;line-height:1.6;font-size:13px;letter-spacing:.05em">Something went wrong starting the game.<br><small>' + String(err && err.message || err) + "</small></div>"; }
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>
