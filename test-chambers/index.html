@@ -130,6 +130,7 @@ body.cutting .games-pill, body.cutting #gpChip { display: none !important; }
 
 /* ---- touch controls ---- */
 #touch { position: absolute; inset: 0; pointer-events: none; }
+#touch.lift .tbtn { display: none; }      /* v8.22: in the moving lift only the walk stick shows */
 #stickBase { position: absolute; width: 132px; height: 132px; margin: -66px 0 0 -66px; border-radius: 50%; border: 2px solid rgba(255,255,255,.4); background: rgba(255,255,255,.07); display: none; }
 #stickKnob { position: absolute; left: 50%; top: 50%; width: 58px; height: 58px; margin: -29px 0 0 -29px; border-radius: 50%; background: rgba(255,255,255,.5); border: 2px solid rgba(255,255,255,.85); }
 #stickHint { position: absolute; left: calc(env(safe-area-inset-left, 0px) + 40px); bottom: calc(env(safe-area-inset-bottom, 0px) + 36px); width: 108px; height: 108px; border-radius: 50%;
@@ -436,7 +437,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
         </div>
         <div class="gtwo">
           <div class="gsec"><h3>What you will meet</h3><ul>
-            <li><b>The lift</b> between rooms: look around as it goes down. <b>Skip</b> (or <kbd>Space</kbd>, or A) ends the ride early. When the doors open, walk out into the next room yourself.</li>
+            <li><b>The lift</b> between rooms: walk about the car and look around as it goes down. <b>Skip</b> (or <kbd>Space</kbd>, or A) ends the ride early. When the doors open, walk out into the next room yourself.</li>
             <li><b>Acid</b>: do not touch. SaDos finds this funny.</li>
             <li><b>Cubes</b> sit on the round <b>buttons</b> to open <b>doors</b>. Cubes cannot pass a reset field.</li>
             <li><b>Sentries</b> see in front of them and shoot after a moment's warning. A live one <b>jams portals</b> inside its red ring. Come at one from behind or the side and <b>GRAB</b> picks it up: it sleeps while carried, shields you from other sentries, weighs down a button, and wakes a moment after you put it down, facing the way you were. It cannot be pushed over: only a falling cube, or another sentry's fire, puts one out for good.</li>
@@ -550,7 +551,7 @@ import { Furn } from "./furniture.js";
 import { GLYPHS as HAND_GLYPHS, handWrite, handBlock, handWidth } from "./hand.js";      // v8.19: hand-lettering                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.21";
+const VERSION = "v8.22";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const IT_TEST = /[?&]itemtest\b/.test(location.search), SPFX = IT_TEST ? "testchambers.itest." : "testchambers.";
 const $ = id => document.getElementById(id);
@@ -6700,7 +6701,7 @@ function showOv(id) {
 }
 function hideOv() { for (const o of OVS) $(o).hidden = true; syncTouch(); }
 function anyOv() { return OVS.find(o => !$(o).hidden) || null; }
-function syncTouch() { $("touch").hidden = !(isTouch && state === "play" && !anyOv() && !(typeof Lift !== "undefined" && Lift.on)); }     // v7.1: no walk stick or buttons in the lift
+function syncTouch() { const inLift = typeof Lift !== "undefined" && Lift.on; $("touch").hidden = !(isTouch && !anyOv() && (inLift || state === "play")); $("touch").classList.toggle("lift", inLift); }     // v8.22: in the moving lift the walk stick shows (no portal, jump or grab buttons)
 $("ver").textContent = VERSION; for (const id of ["vTitle", "vOpt", "vPause"]) $(id).textContent = "Test Chambers " + VERSION;
 
 function inFull() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
@@ -6887,6 +6888,7 @@ addEventListener("keydown", e => {
     return;
   }
   if (anyOv()) { if (k === "escape") { if (state === "paused" && anyOv() === "ovPause") resume(); else if (anyOv() === "ovChambers") showOv(chFrom); else if (anyOv() === "ovOptions") showOv(optsFrom); else if (anyOv() === "ovHow") showOv(howFrom); else if (anyOv() === "ovReset") showOv("ovOptions"); else if (anyOv() === "ovShow") showClose(); else if (anyOv() === "ovStickers") { syncOpts(); showOv("ovOptions"); } else if (anyOv() === "ovLog" || anyOv() === "ovMonitor") Log.close(); else if (anyOv() === "ovCredits") showOv("ovDone"); } else if ((k === "h" || k === "?") && anyOv() === "ovHow") showOv(howFrom); return; }
+  if (Lift.on) { if (["arrowup", "arrowdown", "arrowleft", "arrowright"].includes(k)) e.preventDefault(); setKey(e, true); return; }      // v8.22: in the moving lift you can walk about the car; nothing else (Space, Return and Esc are Skip)
   if (state !== "play" && state !== "dead") return;
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(k)) e.preventDefault();
   setKey(e, true);
@@ -6944,7 +6946,7 @@ addEventListener("mouseleave", () => { edgeX = edgeY = 0; lastMX = -1; });
 // two-finger swipe on the trackpad: forward / back (and sideways)
 let wheelS = 0;
 addEventListener("wheel", e => {
-  if (state !== "play" || anyOv()) return; e.preventDefault(); enterMouseMode();
+  if ((state !== "play" && !Lift.on) || anyOv()) return; e.preventDefault(); enterMouseMode();      // v8.22: the swipe walks you about the moving lift too
   const k = e.deltaMode === 1 ? 0.04 : 0.0042, dir = opts.scrollInv ? -1 : 1;
   let wy = e.deltaY, wx = e.deltaX;
   if (Math.abs(wy) < 1.2) wy = 0; if (Math.abs(wx) < 1.2) wx = 0;            // dead zone: finger resting on the pad
@@ -6957,7 +6959,7 @@ const stick = { id: null, ox: 0, oy: 0, x: 0, y: 0 }, looks = new Map();
 const base = $("stickBase"), knob = $("stickKnob"), STICK_R = 62;
 function blockedTarget(t) { return !!(t.closest && t.closest(".ov,.ibtn,.tbtn,#gamesPill,[data-pill],#hudBtns,button")); }
 stageEl.addEventListener("pointerdown", e => {
-  if (e.pointerType === "touch" && Lift.on && !anyOv()) { if (!blockedTarget(e.target) && !e.target.closest("#liftSkip")) { looks.set(e.pointerId, { x: e.clientX, y: e.clientY }); e.preventDefault(); } return; }   // v7.1: in the lift, any finger looks around
+  if (e.pointerType === "touch" && Lift.on && !anyOv()) { if (!blockedTarget(e.target) && !e.target.closest("#liftSkip")) { if (e.clientX < innerWidth * 0.46) startStick(e); else looks.set(e.pointerId, { x: e.clientX, y: e.clientY }); e.preventDefault(); } return; }   // v8.22: in the lift, the left thumb walks (as in a chamber), any other finger looks around
   if (e.pointerType !== "touch" || state !== "play" || anyOv()) return;
   const tb = e.target.closest && e.target.closest(".tbtn");
   if (tb) {
@@ -6967,10 +6969,8 @@ stageEl.addEventListener("pointerdown", e => {
   }
   if (blockedTarget(e.target)) return;
   const left = e.clientX < innerWidth * 0.46;
-  if (left) {               // a new left thumb always takes the stick: if an old one is still listed, its lift was never reported
-    stick.id = e.pointerId; try { stageEl.setPointerCapture(e.pointerId); } catch (er) {} stick.ox = e.clientX; stick.oy = e.clientY; stick.x = stick.y = 0;
-    const r = stageEl.getBoundingClientRect(); base.style.left = (e.clientX - r.left) + "px"; base.style.top = (e.clientY - r.top) + "px"; base.style.display = "block"; knob.style.transform = ""; $("stickHint").style.opacity = 0;
-  } else if (!left) looks.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (left) startStick(e);  // a new left thumb always takes the stick: if an old one is still listed, its lift was never reported
+  else looks.set(e.pointerId, { x: e.clientX, y: e.clientY });
   e.preventDefault();
 });
 stageEl.addEventListener("pointermove", e => {
@@ -6984,6 +6984,10 @@ stageEl.addEventListener("pointermove", e => {
     inp.lookX += (e.clientX - l.x) * k; inp.lookY += (e.clientY - l.y) * k * (opts.invert ? -1 : 1); l.x = e.clientX; l.y = e.clientY;
   }
 });
+function startStick(e) {
+  stick.id = e.pointerId; try { stageEl.setPointerCapture(e.pointerId); } catch (er) {} stick.ox = e.clientX; stick.oy = e.clientY; stick.x = stick.y = 0;
+  const r = stageEl.getBoundingClientRect(); base.style.left = (e.clientX - r.left) + "px"; base.style.top = (e.clientY - r.top) + "px"; base.style.display = "block"; knob.style.transform = ""; $("stickHint").style.opacity = 0;
+}
 function endTouch(e) {
   if (e.pointerId === stick.id) { stick.id = null; stick.x = stick.y = 0; base.style.display = "none"; $("stickHint").style.opacity = ""; }
   looks.delete(e.pointerId);
@@ -9302,8 +9306,27 @@ function levelItemTest() {
    ===================================================================================== */
 const Lift = (() => {
   let S = null, t = 0, t0 = 0, on = false, after = null, built = null, skipT = -1, endT = -1, fl0 = 0, padHeld = true, sway = 0, ly = 0, lp = 0, stall = false, stallAt = 0;
+  let px = 0, pz = 0, vx = 0, vz = 0, bob = 0, stepAcc = 0;          // v8.22: where you stand in the car (car floor centre at 0, doors on -z) and how fast you are walking
   const DUR = 4.2, SEG = 24, DROP = 40, HW = 4.4, ST0 = 2.3, ST_END = 8.4;      // v8.16: the ride that stalls (after Gauntlet) stops at ST0 and ends at ST_END
   const ease = x => { x = clamp(x, 0, 1); return x * x * x * (x * (x * 6 - 15) + 10); };
+  // v8.22: the room you have in the car. Your body (HX) stops at the side and back handrails (0.16 m in from the glass) and at the door leaves;
+  // with Crate Seven in your hands you keep a crate's length further in, so the crate never goes through the glass or the doors
+  const XM = CAR.W / 2 - 0.16 - 0.03 - HX, ZB = CAR.D / 2 - 0.16 - 0.03 - HX, ZF = -CAR.D / 2 + 0.13 + 0.03 + HX, HOLD_M = 0.9, C7H = 0.36;
+  function walk(dt, pad) {
+    wheelV *= Math.exp(-dt * 9); wheelS *= Math.exp(-dt * 9); if (Math.abs(wheelV) < 0.04) wheelV = 0; if (Math.abs(wheelS) < 0.04) wheelS = 0;
+    const fwd = clamp((keys.f ? 1 : 0) - (keys.b ? 1 : 0) - stick.y - pad.my + wheelV, -1, 1), rt = clamp((keys.r ? 1 : 0) - (keys.l ? 1 : 0) + stick.x + pad.mx + wheelS, -1, 1);
+    const sy = Math.sin(ly), cy = Math.cos(ly); let wx = -sy * fwd + cy * rt, wz = -cy * fwd - sy * rt;
+    const wl = Math.hypot(wx, wz); if (wl > 1) { wx /= wl; wz /= wl; } const wish = Math.min(1, Math.hypot(wx, wz));
+    const sp = Math.hypot(vx, vz);                                                // the same ground feel as in a chamber: friction, then accelerate toward the wish
+    if (sp > 0.01) { const ns = Math.max(0, sp - Math.max(sp, 1.5) * 9 * dt) / sp; vx *= ns; vz *= ns; }
+    if (wish > 0.01) { const dx = wx / wish, dz = wz / wish, add = WALK * wish - (vx * dx + vz * dz); if (add > 0) { const a = Math.min(add, 10 * dt * WALK); vx += dx * a; vz += dz * a; } }
+    const m = S && S.c7.group.visible ? HOLD_M : 0, x0 = -XM + m, x1 = XM - m, z0 = ZF + m, z1 = ZB - m;
+    px += vx * dt; pz += vz * dt;
+    if (px < x0) { px = x0; vx = Math.max(0, vx); } else if (px > x1) { px = x1; vx = Math.min(0, vx); }
+    if (pz < z0) { pz = z0; vz = Math.max(0, vz); } else if (pz > z1) { pz = z1; vz = Math.min(0, vz); }
+    const s2 = Math.hypot(vx, vz); bob += dt * Math.min(s2, 7) * 1.6; stepAcc += s2 * dt; if (stepAcc > 2.3) { stepAcc = 0; sfx.step(); }
+    return Math.sin(bob * 2) * Math.min(s2, 6) * 0.0035;
+  }
   function build() {
     if (S) return S;
     const sc = new THREE.Scene(); sc.background = new THREE.Color(0x0b0d10); sc.fog = new THREE.Fog(0x0b0d10, 16, 56);
@@ -9373,7 +9396,7 @@ const Lift = (() => {
     try { S.car.setSticker(to == null ? null : lintCarSpec(to)); } catch (e) { console.error(e); }
     S.c7.group.visible = to != null && sevenHere === to && !sevenSlotted;
     after = arrive; built = false; on = true; t = 0; t0 = performance.now(); skipT = endT = -1; padHeld = true; sway = Math.random() * 6;
-    ly = 0; lp = -0.08; inp.lookX = inp.lookY = 0; mLookX = mLookY = 0;
+    ly = 0; lp = -0.08; inp.lookX = inp.lookY = 0; mLookX = mLookY = 0; px = 0; pz = CAR.EYE_Z; vx = vz = 0; stepAcc = 0;
     fl0 = 3 + Math.floor(Math.random() * 30); hideTip(); S.car.setDoor(0); S.car.setFloor("B" + String(fl0).padStart(2, "0"), -1);
     scenePass.scene = S.sc; camera.fov = 72; camera.updateProjectionMatrix();
     $("liftTo").textContent = label || ""; $("liftHud").hidden = false; $("hud").hidden = true; syncTouch && syncTouch();
@@ -9382,7 +9405,7 @@ const Lift = (() => {
   function arrived() {
     if (!on) return; on = false; scenePass.scene = scene; camera.fov = 72; camera.updateProjectionMatrix();
     $("liftHud").hidden = true; if (!built) { built = true; if (after) after(); }
-    if (stall || (world && (world.lv.bs || world.lv.noCar)) || !Dock.board(ly, lp)) HoldMusic.stop(stall ? 0.05 : 1.4);      // v8.16: backstage you arrive on foot (no car to stand in)
+    if (stall || (world && (world.lv.bs || world.lv.noCar)) || !Dock.board(ly, lp, px, pz, vx, vz)) HoldMusic.stop(stall ? 0.05 : 1.4);      // v8.16: backstage you arrive on foot (no car to stand in)
     stall = false;
     sevenToHands();                        // v8.4: Crate Seven, if it rode down with you, is still in your hands     // stand in the docked car the way you were standing in this one; v7.8: the Muzak keeps playing until you step out (Dock.step)
     $("hud").hidden = false; resetSticks(); syncTouch && syncTouch();
@@ -9415,11 +9438,14 @@ const Lift = (() => {
     S.shaft.position.y = ((s % SEG) + SEG) % SEG;
     liftFloorTxt = stall && stallAt ? "B--" : "B" + String(fl0 + Math.floor(s / 6)).padStart(2, "0"); S.car.setFloor(liftFloorTxt, v > 0.6 ? -1 : 0);
     const L = takeLook(dt); ly += L.dyaw; lp = clamp(lp + L.dpitch, -1.45, 1.45);          // free look, with every control you look with in a chamber
-    cam.pos.set(Math.sin(time * 1.3 + sway) * 0.0005 * v, Math.sin(time * 9) * 0.0008 * Math.min(1, v / 3) + jolt, CAR.EYE_Z);     // v7.7: a faint hum of movement, no rocking
+    const bb = walk(Math.min(dt, 0.05), L.pad);                                             // v8.22: and walk about the car, with every control you walk with
+    cam.pos.set(px + Math.sin(time * 1.3 + sway) * 0.0005 * v, bb + Math.sin(time * 9) * 0.0008 * Math.min(1, v / 3) + jolt, pz);     // v7.7: a faint hum of movement, no rocking
     cam.yaw = ly; cam.pitch = lp; cam.roll = Math.sin(time * 1.6 + sway) * 0.00025 * v;
     if (S.c7.group.visible) {               // held in front of you, as it is in a chamber
       const cp = Math.cos(lp), g7 = S.c7.group; g7.position.set(cam.pos.x - Math.sin(ly) * cp * 1.7, cam.pos.y + Math.sin(lp) * 1.7 - 0.3, cam.pos.z - Math.cos(ly) * cp * 1.7);
-      g7.position.y = Math.max(g7.position.y, S.car.g.position.y + 0.36); g7.rotation.set(0, ly, 0);
+      const fy = S.car.g.position.y; g7.position.y = clamp(g7.position.y, fy + C7H, fy + CAR.H - C7H - 0.12); g7.rotation.set(0, ly, 0);      // v8.22: never through the floor or the ceiling
+      const gx = CAR.W / 2 - 0.2 - C7H, gz0 = -CAR.D / 2 + 0.2 + C7H, gz1 = CAR.D / 2 - 0.2 - C7H;      // nor the glass, the rails or the doors
+      g7.position.x = clamp(g7.position.x, -gx, gx); g7.position.z = clamp(g7.position.z, gz0, gz1);
     }
     if (!stall && endT < 0 && t > DUR - 0.35) { endT = t; $("fade").classList.add("on"); }
     if ((endT >= 0 && t - endT > 0.34) || (skipT >= 0 && t - skipT > 0.34)) { arrived(); return; }
@@ -9544,10 +9570,11 @@ const Dock = (() => {
     if (strip) strip.material = x > 0.5 ? carMats().green : carMats().amber;
   }
   const depth = () => (player.p[d.ax === 0 ? "x" : "z"] - d.wall) * d.sg;   // how far into the room you are (negative: still in the car)
-  function board(yaw, pitch) {             // after a ride: put the player in the car, the way they were standing in the ride's car
+  function board(yaw, pitch, lx, lz, lvx, lvz) {             // after a ride: put the player in the car, the way (v8.22: and where, and walking as) they were in the ride's car
     if (!d || !world || world.lv.dock !== d) return false;
-    const pl = player, f = d.f;
-    pl.p.set(d.C[0] - f[0] * CAR.EYE_Z, d.y0 + HY, d.C[2] - f[1] * CAR.EYE_Z); pl.v.set(0, 0, 0);
+    const pl = player, f = d.f, cy = Math.cos(d.yaw), sy = Math.sin(d.yaw);
+    if (lx == null) { lx = 0; lz = CAR.EYE_Z; } lvx = lvx || 0; lvz = lvz || 0;                  // car space (doors on -z) to the room: turned by the car's yaw
+    pl.p.set(d.C[0] + lx * cy + lz * sy, d.y0 + HY, d.C[2] - lx * sy + lz * cy); pl.v.set(lvx * cy + lvz * sy, 0, -lvx * sy + lvz * cy);
     pl.yaw = d.yaw + yaw; pl.pitch = pitch; pl.ground = false; pl.safe = pl.p.clone(); pl.outT = 0; _pPrev.copy(pl.p);
     if (phys) phys.pc.setTranslation(pl.p);
     camOffset.set(0, 0, 0); eyePos(prevEye); cam.yaw = pl.yaw; cam.pitch = pl.pitch;
