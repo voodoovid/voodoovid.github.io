@@ -523,7 +523,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 await RAPIER.init();
 
-const VERSION = "v8.5";
+const VERSION = "v8.6";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const IT_TEST = /[?&]itemtest\b/.test(location.search), SPFX = IT_TEST ? "testchambers.itest." : "testchambers.";
 const $ = id => document.getElementById(id);
@@ -1000,7 +1000,7 @@ const LINT_DRESS = {
   "Prism": [{ note: "Are you more of a sock?", at: [[12.6, 1.5, 0], [0, 0, 1]] }, { t: "tl", at: [[14.3, 1.05, 0], [0, 0, 1]] }],
   "Lift Off": [{ t: "tl", at: [[8.6, 1.15, 0], [0, 0, 1]] }],
   "Hall Of Mirrors": [{ note: "Where's Lint?", small: true, at: [[6, 1.25, 11.4], [-1, 0, 0]] }, { t: "tl", at: [[2.6, 1.1, 0], [0, 0, 1]] }],      // the last time it is written small
-  "Out Of Order": [{ note: "Will they be right back?", at: [[24, 5.45, -2.87], [-1, 0, 0]] }, { t: "bumper", scale: 0.7, at: [[19.99, 5.07, -5.82], [-1, 0, 0]] }],   // by the office door; on the side of the television
+  "Out Of Order": [{ note: "Will they be right back?", at: [[24, 5.45, -2.87], [-1, 0, 0]] }, { t: "bumper", scale: 0.7, at: [[19.604, 5.1, -5.72], [-1, 0, 0]] }],   // by the office door; on the side of the television
   "Sorting Hall": [{ t: "tl", at: [[8.4, 1.1, 0], [0, 0, 1]] }],
   "The Way Out": [{ note: "Where's Lint?", big: true, under: true, at: [[16, 1.7, 6.75], [-1, 0, 0]] }]                 // once more, large, on the dark end wall beside the door out
 };
@@ -1949,8 +1949,8 @@ function level32() {
   whiteOn(h, bx(21.95, 4.05, -1.3, 23.45, 6.35, -1.2)); whiteOn(h, bx(17.5, 4.05, -4.9, 17.6, 6.35, -3.4));
   h.lamps.push(lamp(22.9, 6.6, -4.6, .5, 4, ...WARM));
   // v7.2: the office TV, left on, playing Hold Music (HoldShow). It sits on the desk, off the route; its box is dark and solid
-  h.boxes.push(bx(19.99, 4.78, -6.27, 20.81, 5.34, -5.64, "dark"));
-  h.tv = { pos: [20.4, 4.78, -5.64], yaw: 0, zone: [17.5, 3.9, -7, 21.6, 7.5, -0.6] };
+  h.boxes.push(bx(19.62, 4.78, -6.33, 20.78, 5.58, -5.47, "dark"));          // v8.6: a bigger set (1.45x), still at the desk's right end
+  h.tv = { pos: [20.2, 4.78, -5.45], yaw: 0, scale: 1.45, zone: [17.5, 3.9, -7, 21.6, 7.5, -0.6] };
   h.glass = [{ min: [18, 4.6, -1.2], max: [21.6, 6.5, -0.08], hp: 6 }];       // the pane you see is its front face; the block behind it is what stops you
   h.offices.push({ pos: [19.8, 5.55, -0.08], n: [0, 0, 1], w: 3.6, h: 1.9, glass: 0 });
   h.boxes.push(bx(15, 0, 0, 25.5, 4, 2.4, "dark"));                                   // the gallery under the window
@@ -1958,10 +1958,9 @@ function level32() {
   h.sentries = [{ pos: [19.8, 0, 9.5], yaw: 0, range: 11, cone: 60, acc: 0.3 }];
   h.doors = [exitDoor(L, 6, "dx", 9)];                                                // the official exit never opens
   h.exit = { min: [23, 4, -5.6], max: [24, 6.4, -3.6] }; h.exitLight = { x: 23.97, y0: 4.3, y1: 6.5, z0: -5.5, z1: -3.7 };
-  h.trig = [{ min: [17.5, 4, -7], max: [24, 7, -0.5], line: "You have left the test track. I cannot see you in there. Please come back to where I can see you." }];
   h.signs.push({ kind: "chamber", a: "TEST CHAMBER 32", b: "OUT OF ORDER", pos: [4.6, 4.3, 0.001], n: [0, 0, 1], w: 4.4, h: 1.15 }, hint("EXIT OUT OF ORDER. PLEASE WAIT.", [L - 0.02, 2.0, 6], [-1, 0, 0], 2.7, 0.8),
     scrawl("IF YOU CAN READ THIS,", "SHE CAN'T SEE YOU.  - O.", [19.6, 5.9, -6.98], [0, 0, 1], 3.4, 1));
-  return Object.assign(h, { badge: [19.5, 5.5, -5.9], num: 32, name: "Out Of Order", track: 1, say: {
+  return Object.assign(h, { badge: [18.9, 5.5, -5.9], num: 32, name: "Out Of Order", track: 1, silent: true, nohint: true, say: {
     intro: ["The exit to this chamber is out of order. Please remain in the chamber until maintenance arrives.", "Maintenance was last seen some years ago. I am sure it is nothing. The sentry will keep you company. It is an older model. Its aim has drifted."],
     hint: ["There is nothing to solve in here. Stand still. Admire the gallery under the observation window, if you must. Do not stand on it."], hint2: ["That sentry's aim has drifted. I would not stand near the glass. What it misses, it breaks. And what is behind the glass was built by people who liked a slot in a wall."],
     done: ["You are not on my cameras. I do not like it when you are not on my cameras."] } });
@@ -4955,7 +4954,7 @@ function startLevel(idx, quiet) {
   if (carry) { run.time = carry.time; run.portals = carry.portals; run.top = carry.top; carry = null; }      // a later room of the same chamber: the clock runs on
   { const R = ROOM[idx]; $("chNum").textContent = (world.lv.back ? "OFF THE TEST TRACK" : "CHAMBER " + String(R.c + 1).padStart(2, "0")) + (R.parts > 1 ? " · PART " + (R.part + 1) + " OF " + R.parts : ""); $("chTitle").textContent = world.lv.name; }
   Music.set(world.lv.track); Music.kick(); setVoiceRoom(roomSize());
-  preloadVoice([...(world.lv.say.intro || []), ...(world.lv.say.hint || []), ...(world.lv.say.hint2 || []), ...(world.lv.say.done || []), ...(storyLine(world.lv.name) ? [STORY[world.lv.name]] : []), ...(lintLine(world.lv.name) ? [LINT_ASIDE[world.lv.name]] : []), ...(world.lv.hatch ? PARCEL_LINES : [])]);
+  if (!world.lv.silent) preloadVoice([...(world.lv.say.intro || []), ...(world.lv.say.hint || []), ...(world.lv.say.hint2 || []), ...(world.lv.say.done || []), ...(storyLine(world.lv.name) ? [STORY[world.lv.name]] : []), ...(lintLine(world.lv.name) ? [LINT_ASIDE[world.lv.name]] : []), ...(world.lv.hatch ? PARCEL_LINES : [])]);
   state = "play";
   if (!quiet) introWhenOut(idx, 1400);
   if (idx === 0 && !quiet && !store.get("tipDone", 0)) setTimeout(() => {
@@ -5253,8 +5252,7 @@ const LINT_ASIDE = {
   "Rebound": "There is no program. There was never a program. If you have seen a program, you saw it in a different facility.",
   "Crate Seven": "Ted? I do not know a Ted. There is a sock in storage. That is all.",                                  // v8.3: rooms 31 to 53
   "Retrieval": "Lost and found has no sock. I checked. Twice. Professionally.",
-  "Heavy Hat": "Someone keeps asking me about forty-one years. It has not been forty-one years. It has been forty-one years and some months.",
-  "Out Of Order": "That television is not on. You did not turn it on. Nobody turned it on."
+  "Heavy Hat": "Someone keeps asking me about forty-one years. It has not been forty-one years. It has been forty-one years and some months."
 };
 function lintLine(name, mark) {
   const l = LINT_ASIDE[name]; if (!l) return null;
@@ -5361,7 +5359,7 @@ function nextSub() {
   } else subTimer = setTimeout(fin, waitMs);
 }
 function say(key, text) {
-  if (!world) return;
+  if (!world || world.lv.silent) return;           // v8.6: Out Of Order is silent; the TV video is the only speech there
   let lines;
   if (text) lines = [text];
   else if (key === "intro") { const st = storyLine(world.lv.name, true), lt = lintLine(world.lv.name, true); lines = [...sevenRideLines(), st, lt, ...world.lv.say.intro].filter(Boolean); }
@@ -5874,6 +5872,7 @@ const SENTRY_QUIPS = {
 };
 const sentrySubEl = $("sentrySub"); let sentrySubT = 0, lastQuip = "";
 function sentryQuip(s, why, alive) {
+  if (world && world.lv.silent) return 0;
   if (alive && performance.now() - (s.quipAt || 0) < 6000) return 0; s.quipAt = performance.now();
   const pool = (SENTRY_QUIPS[why] || []).concat(!alive && Math.random() < 0.5 ? SENTRY_QUIPS.any : []), list = pool.length ? pool : SENTRY_QUIPS.any;
   let text = pick(list); if (text === lastQuip && list.length > 1) text = pick(list); lastQuip = text;
@@ -6909,8 +6908,22 @@ const HoldMusic = (() => {
    Action ("voice": "ted"/"lint" in voice-todo.json); a line with no clip yet is played as puppet babble with a subtitle.
    The music is the lift's own "Please Hold" (HoldMusic). The clips are fetched when any room is built, so nothing waits.
    ===================================================================================== */
+// v8.6: the TV glass. Barrel distortion (the picture bulges like a curved CRT tube), rounded corners, soft edge falloff, a faint sheen. No scanlines or masks (they moiré).
+const CRT_VS = "varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }";
+const CRT_FS = `uniform sampler2D map; uniform float gain; varying vec2 vUv;
+void main() {
+  vec2 c = vUv * 2.0 - 1.0;
+  float k = 0.10;
+  vec2 sp = c * (1.0 + k * dot(c, c)) / (1.0 + k);
+  vec3 col = texture2D(map, clamp(sp * 0.5 + 0.5, 0.0, 1.0)).rgb;
+  vec2 q = abs(c) - (1.0 - 0.16); float sdf = length(max(q, 0.0)) - 0.16;
+  float mask = 1.0 - smoothstep(-0.035, 0.0, sdf);
+  float edge = 1.0 - 0.5 * smoothstep(0.45, 1.3, length(c * vec2(0.85, 1.0)));
+  float sheen = 0.05 * (1.0 - smoothstep(0.0, 0.9, length(c - vec2(-0.5, 0.55))));
+  gl_FragColor = vec4((col * gain * edge + vec3(sheen)) * mask, 1.0);
+}`;
 const HoldShow = (() => {
-  const CW = 640, CHh = 360, SC = CW / 1280, FPS = 15;
+  const CW = 800, CHh = 450, SC = CW / 1280, FPS = 15;
   let art = null, cv = null, cx = null, tex = null, tv = null, T = 0, mode = "idle", acc = 0, waitT = 0, wasIn = false, inside = false, look = false, painted = "";
   let out = null, mus = null, voc = null, fx = null, ana = null, anaBuf = null, nodes = [], schedTo = 0, live = false, t0 = 0, rms = 0, msg = "", fetched = false;
   const bufs = new Map(), sc = new V3(), sn = new V3(), _e = new V3(), _f = new V3();
@@ -6922,7 +6935,7 @@ const HoldShow = (() => {
     try {
       art = HoldShowArt.make(durOf);
       cv = document.createElement("canvas"); cv.width = CW; cv.height = CHh; cx = cv.getContext("2d");
-      tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.generateMipmaps = false; tex.minFilter = THREE.LinearFilter;
+      tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.generateMipmaps = true; tex.minFilter = THREE.LinearMipmapLinearFilter; tex.magFilter = THREE.LinearFilter; tex.anisotropy = MAXANISO;      // v8.6: mipmapped + anisotropic, so nothing on the screen can moiré
       art.draw(cx, 8, SC); art.standby(cx, 0, SC); tex.needsUpdate = true;            // builds the patterns now, so the first real frame is quick
     } catch (e) { console.error(e); cv = null; return false; }
     return true;
@@ -6936,7 +6949,7 @@ const HoldShow = (() => {
     if (M) return M;
     const std = o => new THREE.MeshStandardMaterial(Object.assign({ envMap: ENV }, o));
     M = { shell: std({ color: 0x8d877a, roughness: .62, metalness: 0, envMapIntensity: .35 }), dark: std({ color: 0x17181b, roughness: .45, metalness: .1, envMapIntensity: .6 }),
-      metal: std({ color: 0xb8bec4, roughness: .3, metalness: .9, envMapIntensity: 1 }), screen: new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(1.35, 1.35, 1.35) }), led: new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, .4, .2) }) };
+      metal: std({ color: 0xb8bec4, roughness: .3, metalness: .9, envMapIntensity: 1 }), screen: new THREE.ShaderMaterial({ uniforms: { map: { value: tex }, gain: { value: 1.35 } }, vertexShader: CRT_VS, fragmentShader: CRT_FS }), led: new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, .4, .2) }) };
     return M;
   }
   // the set: a beige CRT with a dark bezel, two dials and rabbit-ear aerials. Its box is in the level (dark, solid)
@@ -6945,16 +6958,19 @@ const HoldShow = (() => {
     preload();
     const d = W && W.lv.tv; if (!d || !ensure()) return;
     const m = mats(), g = new THREE.Group(), add = (geo, mat, x, y, z) => { const o = new THREE.Mesh(geo, mat); o.position.set(x, y, z); g.add(o); return o; };
-    const BW = 0.82, BH = 0.56, BD = 0.62;
+    const BW = 0.82, BH = 0.56, BD = 0.62, SW = 0.62, SH = SW * 9 / 16;
     add(new THREE.BoxGeometry(BW, BH, BD * 0.55), m.shell, 0, BH / 2, -BD * 0.275);                                   // the front of the cabinet
     add(new THREE.BoxGeometry(BW * 0.7, BH * 0.78, BD * 0.45), m.shell, 0, BH * 0.45, -BD * 0.75);                     // the tube's back
-    add(new THREE.BoxGeometry(0.62, 0.38, 0.02), m.dark, -0.07, BH / 2 + 0.02, 0.006);                                  // bezel
-    const scr = add(new THREE.PlaneGeometry(0.576, 0.324), m.screen, -0.07, BH / 2 + 0.02, 0.018);
+    add(new THREE.BoxGeometry(SW + 0.05, SH + 0.06, 0.02), m.dark, -0.07, BH / 2 + 0.02, 0.006);                          // bezel (v8.6: a bigger tube)
+    const gg = new THREE.PlaneGeometry(SW, SH, 24, 14), gp = gg.attributes.position;
+    for (let i = 0; i < gp.count; i++) { const u = gp.getX(i) / (SW / 2), v = gp.getY(i) / (SH / 2); gp.setZ(i, 0.03 * (1 - 0.5 * (u * u + v * v))); }      // the glass bulges out in the middle
+    gg.computeVertexNormals();
+    const scr = add(gg, m.screen, -0.07, BH / 2 + 0.02, 0.016);
     for (const y of [0.36, 0.22]) { const k = add(new THREE.CylinderGeometry(0.028, 0.028, 0.03, 16), m.dark, 0.32, y, 0.012); k.rotation.x = Math.PI / 2; }
     add(new THREE.BoxGeometry(0.06, 0.012, 0.012), m.led, 0.32, 0.1, 0.006);
     for (const s of [-1, 1]) { const a = add(new THREE.CylinderGeometry(0.006, 0.008, 0.5, 6), m.metal, 0.08 * s, BH + 0.22, -BD * 0.5); a.rotation.z = -s * 0.5; }
     add(new THREE.SphereGeometry(0.05, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2), m.dark, 0, BH, -BD * 0.5);
-    g.position.set(d.pos[0], d.pos[1], d.pos[2]); g.rotation.y = d.yaw || 0; levelGroup.add(g); g.updateMatrixWorld(true);
+    g.position.set(d.pos[0], d.pos[1], d.pos[2]); g.rotation.y = d.yaw || 0; g.scale.setScalar(d.scale || 1); levelGroup.add(g); g.updateMatrixWorld(true);
     scr.getWorldPosition(sc); sn.set(0, 0, 1).applyAxisAngle(new V3(0, 1, 0), d.yaw || 0);
     tv = { g, d }; paint(true);
   }

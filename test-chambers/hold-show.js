@@ -153,13 +153,13 @@ function make(durOf) {
     if (PAT.has(ctx)) return PAT.get(ctx);
     const patt = (w, h, fn) => { const c = document.createElement("canvas"); c.width = w; c.height = h; fn(c.getContext("2d"), w, h); return ctx.createPattern(c, "repeat"); };
     const P = {
-      argyle: patt(56, 56, (g, w, h) => { g.fillStyle = "#22325a"; g.fillRect(0, 0, w, h); g.fillStyle = "#2e4478"; g.beginPath(); g.moveTo(w / 2, 0); g.lineTo(w, h / 2); g.lineTo(w / 2, h); g.lineTo(0, h / 2); g.closePath(); g.fill(); g.strokeStyle = "#9a3040"; g.lineWidth = 2; g.beginPath(); g.moveTo(0, 0); g.lineTo(w, h); g.moveTo(w, 0); g.lineTo(0, h); g.stroke(); g.fillStyle = "rgba(255,255,255,.04)"; for (let y = 0; y < h; y += 3) g.fillRect(0, y, w, 1); }),
+      argyle: patt(56, 56, (g, w, h) => { g.fillStyle = "#22325a"; g.fillRect(0, 0, w, h); g.fillStyle = "#2e4478"; g.beginPath(); g.moveTo(w / 2, 0); g.lineTo(w, h / 2); g.lineTo(w / 2, h); g.lineTo(0, h / 2); g.closePath(); g.fill(); g.strokeStyle = "#9a3040"; g.lineWidth = 2; g.beginPath(); g.moveTo(0, 0); g.lineTo(w, h); g.moveTo(w, 0); g.lineTo(0, h); g.stroke(); }),
       rib: patt(14, 14, (g, w, h) => { g.fillStyle = YEL; g.fillRect(0, 0, w, h); g.fillStyle = "#e0a52e"; g.fillRect(0, 0, 4, h); g.fillStyle = "#f8c95e"; g.fillRect(8, 0, 2, h); }),
       wood: patt(160, 720, (g, w, h) => { g.fillStyle = "#6a482c"; g.fillRect(0, 0, w, h); const r = rng(3); for (let i = 0; i < 70; i++) { g.strokeStyle = `rgba(${40 + r() * 30},${25 + r() * 20},10,${0.15 + r() * 0.2})`; g.lineWidth = 1 + r() * 2; const x = r() * w; g.beginPath(); g.moveTo(x, 0); g.bezierCurveTo(x + r() * 10 - 5, h / 3, x + r() * 10 - 5, h * 2 / 3, x + r() * 8 - 4, h); g.stroke(); } g.fillStyle = "#4a321e"; g.fillRect(w - 5, 0, 5, h); g.fillStyle = "rgba(255,220,170,.08)"; g.fillRect(0, 0, 3, h); })
     };
     const v = document.createElement("canvas"); v.width = W; v.height = H; const g = v.getContext("2d");
     const gr = g.createRadialGradient(640, 360, 300, 640, 360, 800); gr.addColorStop(0, "rgba(0,0,0,0)"); gr.addColorStop(1, "rgba(0,0,0,.55)"); g.fillStyle = gr; g.fillRect(0, 0, W, H);
-    g.fillStyle = "rgba(0,0,0,.07)"; for (let y = 0; y < H; y += 3) g.fillRect(0, y, W, 1); P.vig = v;
+    P.vig = v;                                          // v8.6: no scanline overlay (a 3 px stripe pattern was the moiré)
     PAT.set(ctx, P); return P;
   }
 
@@ -184,7 +184,6 @@ function make(durOf) {
   }
   function drawDesk(ctx) {
     ctx.fillStyle = "#86888a"; ctx.fillRect(0, 590, W, 130); ctx.fillStyle = "#a4a6a8"; ctx.fillRect(0, 590, W, 10); ctx.fillStyle = "#6c6e70"; ctx.fillRect(0, 600, W, 4);
-    ctx.fillStyle = "rgba(0,0,0,.08)"; for (let x = 0; x < W; x += 6) ctx.fillRect(x, 604, 1, 116);
     ctx.save(); ctx.translate(640, 660); ctx.rotate(0.02); ctx.fillStyle = "#dcd3b2"; ctx.fillRect(-90, -14, 180, 28);
     ctx.fillStyle = "#3a3a3a"; ctx.font = "bold 16px 'Courier New', Courier, monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("FACILITY TV 3", 0, 1); ctx.restore();
   }
