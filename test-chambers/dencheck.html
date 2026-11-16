@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Den Check</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#07090c">
+<style>
+/* Test Chambers Den Check: green/red checks of every den's furniture (clipping, real heights, clear ways through, no two dens alike).
+   It runs the game's own denAudit() in a hidden frame, so it checks exactly what the game builds. Everything starts below the status bar. */
+:root { color-scheme: dark; --bg: #07090c; --panel: #0e1318; --line: rgba(255,255,255,.08); --ink: #eef2f5; --dim: rgba(238,242,245,.58);
+  --blue: #2fa4ff; --orange: #ff9d2e; --pass: #2fd47a; --fail: #ff4d5e; --warn: #f4b942; --run: #7fb6ff;
+  --font: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--font); -webkit-text-size-adjust: 100%; }
+body { overflow: hidden; }
+#page { position: fixed; inset: 0; display: flex; flex-direction: column;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) calc(env(safe-area-inset-right, 0px) + 16px) calc(env(safe-area-inset-bottom, 0px) + 12px) calc(env(safe-area-inset-left, 0px) + 16px); }
+header { display: flex; align-items: center; gap: 14px; padding: 4px 2px 12px; border-bottom: 1px solid var(--line); flex: none; flex-wrap: wrap; }
+.logo { width: 34px; height: 34px; border-radius: 50%; flex: none;
+  background: radial-gradient(circle at 35% 50%, var(--blue) 0 34%, transparent 35%), radial-gradient(circle at 65% 50%, var(--orange) 0 34%, transparent 35%), #111820;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.12) inset; }
+.title b { display: block; font-size: 11px; letter-spacing: .26em; color: var(--dim); font-weight: 700; }
+.title span { display: block; font-size: 20px; font-weight: 700; letter-spacing: .05em; }
+#summary { margin-left: auto; text-align: right; font-size: 13px; color: var(--dim); line-height: 1.35; }
+#summary strong { display: block; font-size: 15px; color: var(--ink); letter-spacing: .02em; }
+.pill { flex: none; border: 0; border-radius: 22px; padding: 11px 18px; font: 700 15px/1 var(--font); letter-spacing: .04em; color: #071018;
+  background: linear-gradient(180deg, #59baff, #2b8fe0); cursor: pointer; box-shadow: 0 6px 18px rgba(47,164,255,.25); }
+.pill.ghost { background: rgba(255,255,255,.07); color: var(--ink); box-shadow: none; border: 1px solid rgba(255,255,255,.16); padding: 10px 14px; text-decoration: none; }
+.pill:disabled { opacity: .45; cursor: default; }
+main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(300px, 0.9fr) 1.3fr; gap: 16px; padding-top: 14px; }
+@media (max-width: 760px) { main { grid-template-columns: 1fr; overflow-y: auto; -webkit-overflow-scrolling: touch; } .col { overflow: visible !important; } }
+.col { overflow-y: auto; -webkit-overflow-scrolling: touch; padding-right: 4px; min-height: 0; }
+h4 { margin: 4px 2px 8px; font-size: 11px; letter-spacing: .22em; color: var(--dim); font-weight: 800; }
+.row { display: grid; grid-template-columns: 74px 1fr; gap: 12px; align-items: start; padding: 10px 12px; margin-bottom: 7px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+.chip { font: 800 11px/1 var(--font); letter-spacing: .12em; text-align: center; padding: 7px 0; border-radius: 6px; margin-top: 1px; background: rgba(255,255,255,.06); color: var(--dim); }
+.row[data-s="run"] .chip { background: rgba(127,182,255,.14); color: var(--run); }
+.row[data-s="pass"] .chip { background: rgba(47,212,122,.16); color: var(--pass); }
+.row[data-s="fail"] .chip { background: rgba(255,77,94,.16); color: var(--fail); }
+.row[data-s="pass"] { border-color: rgba(47,212,122,.28); }
+.row[data-s="fail"] { border-color: rgba(255,77,94,.35); }
+.row h3 { margin: 0; font-size: 14.5px; font-weight: 700; }
+.row p { margin: 3px 0 0; font-size: 12.5px; color: var(--dim); line-height: 1.4; }
+.row .det { color: var(--ink); opacity: .86; }
+.row .bad { color: var(--fail); opacity: 1; }
+.row small { color: var(--dim); font-weight: 600; letter-spacing: .04em; }
+#ver { position: fixed; right: calc(env(safe-area-inset-right, 0px) + 12px); bottom: calc(env(safe-area-inset-bottom, 0px) + 6px); font-size: 11px; color: var(--dim); letter-spacing: .08em; pointer-events: none; }
+#tip { position: fixed; z-index: 9; max-width: 260px; padding: 7px 10px; border-radius: 8px; background: #1b232c; border: 1px solid rgba(255,255,255,.16); font-size: 12.5px; line-height: 1.35; pointer-events: none; box-shadow: 0 8px 22px rgba(0,0,0,.5); }
+iframe { position: fixed; left: -9999px; top: 0; width: 640px; height: 400px; border: 0; visibility: hidden; }
+</style>
+</head>
+<body>
+<div id="page">
+  <header>
+    <div class="logo"></div>
+    <div class="title"><b>TEST CHAMBERS</b><span>Den Check</span></div>
+    <div id="summary"><strong id="sumHead">Starting</strong><span id="sumText">Loading the game in the background.</span></div>
+    <button class="pill" id="bRun" data-tip="Build every den again and repeat all the checks." disabled>Run again</button>
+    <a class="pill ghost" id="bGame" href="./" data-tip="Back to Test Chambers.">Game</a>
+  </header>
+  <main>
+    <div class="col"><h4>CHECKS</h4><div id="checks"></div></div>
+    <div class="col"><h4>DENS, ROOM BY ROOM</h4><div id="rooms"></div></div>
+  </main>
+</div>
+<div id="ver"></div>
+<div id="tip" hidden></div>
+<script>
+const VERSION = "v1.0";
+const $ = id => document.getElementById(id), esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+$("ver").textContent = "Den Check " + VERSION;
+// what each check looks for in the audit's findings
+const CHECKS = [
+  ["build", "Every den builds", "Each room's den and furniture is built with no error.", /failed to build|ERR /],
+  ["wall", "Nothing in a wall", "No piece of furniture goes into a wall or sticks out of its room.", /into a wall|sticks out of its room/],
+  ["clip", "Nothing inside another piece", "No two pieces stand in each other (a chair may be tucked under a desk).", /overlap/],
+  ["height", "Real heights", "Whatever stands on a desk, shelf, cabinet, bench, rack or table stands at its real height, with room above it.", /stands on nothing|real surface|through the shelf/],
+  ["finds", "Finds are clear", "No key card, page, tape, sticker or clock is inside furniture or out of reach.", /is inside the|out of reach/],
+  ["ways", "Ways through are clear", "Nothing stands in front of a white panel, a doorway, a hatch or a slot, on a button, over O.'s writing or over a wall fitting.", /in front of|on a button|hides O|covers a wall/],
+  ["gaps", "No trap gaps", "No gap between 2 cm and 75 cm between two solid things.", /^gap:/],
+  ["loose", "Loose clutter is out of reach", "Anything in a den that is not solid is on top of something solid or up out of reach.", /within reach/],
+  ["twins", "No two dens alike", "No two den rooms in the game hold the same things.", null],
+  ["empty", "Every den room has something in it", "Only the two joke dens (Friendly Fire and Field Trip) may be empty of finds, and only Friendly Fire is bare.", null]
+];
+const OK_BARE = ["Friendly Fire", "Field Trip"];
+function row(host, id, title, text) { const d = document.createElement("div"); d.className = "row"; d.id = id; d.dataset.s = "run"; d.innerHTML = '<div class="chip">...</div><div><h3>' + title + '</h3><p>' + text + '</p><p class="det"></p></div>'; host.appendChild(d); return d; }
+function set(d, ok, det) { d.dataset.s = ok ? "pass" : "fail"; d.querySelector(".chip").textContent = ok ? "PASS" : "FAIL"; const e = d.querySelector(".det"); e.innerHTML = det || ""; e.classList.toggle("bad", !ok); }
+let frame = null;
+function start() {
+  $("bRun").disabled = true; $("checks").innerHTML = ""; $("rooms").innerHTML = ""; $("sumHead").textContent = "Running"; $("sumText").textContent = "Loading the game in the background.";
+  for (const [id, title, text] of CHECKS) row($("checks"), "c-" + id, title, text);
+  if (frame) frame.remove();
+  frame = document.createElement("iframe"); frame.src = "./index.html?dencheck=" + Date.now(); document.body.appendChild(frame);
+  const t0 = Date.now(), wait = setInterval(() => {
+    let tc = null; try { tc = frame.contentWindow.__tc; } catch (e) {}
+    if (tc && tc.denAudit && tc.names) { clearInterval(wait); setTimeout(() => run(tc), 50); }
+    else if (Date.now() - t0 > 90000) { clearInterval(wait); for (const [id] of CHECKS) set($("c-" + id), false, "The game did not start within 90 seconds."); $("sumHead").textContent = "Could not run"; $("sumText").textContent = "The game did not load."; $("bRun").disabled = false; }
+  }, 250);
+}
+function run(tc) {
+  let a; try { a = tc.denAudit(); } catch (e) { for (const [id] of CHECKS) set($("c-" + id), false, esc(e)); $("bRun").disabled = false; return; }
+  const all = a.rows.flatMap(r => r.err ? [r.name + ": ERR " + r.err] : r.bad.map(b => /^gap:/.test(b) ? b + " (" + r.name + ")" : b));
+  let fails = 0;
+  for (const [id, , , re] of CHECKS) {
+    let bad = [];
+    if (re) bad = all.filter(b => re.test(b));
+    else if (id === "twins") bad = a.twins.map(t => t.a + " and " + t.b + ": " + t.why);
+    else bad = a.emptyRooms.filter(n => !/^Friendly Fire/.test(n)).map(n => n + " is unfurnished").concat(a.bare.filter(n => !OK_BARE.includes(n)).map(n => n + " holds nothing"));
+    if (bad.length) fails++;
+    set($("c-" + id), !bad.length, bad.length ? bad.slice(0, 12).map(esc).join("<br>") + (bad.length > 12 ? "<br>and " + (bad.length - 12) + " more" : "") : id === "twins" ? a.rows.reduce((n, r) => n + (r.spaces || []).length, 0) + " den rooms compared." : "");
+  }
+  const twinOf = {}; for (const t of a.twins) { (twinOf[t.ai] = twinOf[t.ai] || []).push(t.b); (twinOf[t.bi] = twinOf[t.bi] || []).push(t.a); }
+  let badRooms = 0;
+  for (const r of a.rows) {
+    const probs = r.err ? ["ERR " + r.err] : r.bad.slice();
+    for (const t of twinOf[r.i] || []) probs.push("same contents as " + t);
+    for (const s of r.spaces || []) if (s.pieces < 2 && r.name !== "Friendly Fire") probs.push("room " + (s.n + 1) + " of the den is unfurnished");
+    if (probs.length) badRooms++;
+    const d = row($("rooms"), "r-" + r.i, "Chamber " + r.ch + " Room " + r.part + " [" + (r.i + 1) + "] <small>" + esc(r.name) + "</small>",
+      (r.spaces || []).map((s, k) => "<b>" + (k + 1) + ".</b> " + esc(s.what || "(nothing)") + (s.finds.length ? " <small>+ " + s.finds.length + " find" + (s.finds.length > 1 ? "s" : "") + "</small>" : "")).join("<br>"));
+    set(d, !probs.length, probs.map(esc).join("<br>"));
+  }
+  $("sumHead").textContent = fails ? fails + " of " + CHECKS.length + " checks failed" : "All " + CHECKS.length + " checks pass";
+  $("sumText").textContent = "Game " + a.version + ". " + a.rows.length + " rooms with dens, " + badRooms + " with a problem.";
+  $("bRun").disabled = false; window.__dencheck = { fails, badRooms, audit: a };
+  frame.remove(); frame = null;
+}
+$("bRun").addEventListener("click", start);
+// hover hints
+const tip = $("tip");
+document.addEventListener("pointerover", e => { const b = e.target.closest("[data-tip]"); if (!b) { tip.hidden = true; return; } tip.textContent = b.dataset.tip; tip.hidden = false; const r = b.getBoundingClientRect(); tip.style.left = Math.max(8, Math.min(innerWidth - 270, r.left)) + "px"; tip.style.top = (r.bottom + 8) + "px"; });
+document.addEventListener("pointerout", e => { if (e.target.closest("[data-tip]")) tip.hidden = true; });
+start();
+</script>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>
+</body></html>

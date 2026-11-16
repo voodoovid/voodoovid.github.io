@@ -549,7 +549,7 @@ import { Furn } from "./furniture.js";
 import { GLYPHS as HAND_GLYPHS, handWrite, handBlock, handWidth } from "./hand.js";      // v8.19: hand-lettering                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.19";
+const VERSION = "v8.20";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const IT_TEST = /[?&]itemtest\b/.test(location.search), SPFX = IT_TEST ? "testchambers.itest." : "testchambers.";
 const $ = id => document.getElementById(id);
@@ -2530,6 +2530,118 @@ function denLayout(K, type, R, wall, lo, o = {}) {
   const onTop = (k, a, dc, off, y, opt = {}) => top(k, a.c + dir * dc, off, y, 0, opt);
   const faceTo = (f, t) => Math.atan2(t[0] - f[0], t[2] - f[2]);
   const perp = (k, opt = {}) => { const [Wd, D] = KIT_WD[k]; const c = s + dir * D / 2; K.F.push(Object.assign({ k, at: K.front(R, wall, c, Wd / 2, 0), ry: ryW + dir * Math.PI / 2 }, opt)); s += dir * (D + 0.01); return { c, D: Wd, w: D }; };
+  // v8.20: Act 5 (rooms 31 to 38) and the backstage dens (rooms 39 to 51). Every den room has its own layout and its own contents, as Acts 1 to 4
+  // got in v8.19. Act 5 keeps its three kinds (larger office, server closet, break room) and gains a telephone room; backstage, the clean rooms
+  // are hers (spare pieces of test, kept clean: `bs-` layouts, no grime), each a different store, bench or desk, and the two O. hid in show it.
+  { const key = /^bs-/.test(type) ? type : type + ":" + v, chairAt = (k, c, off, tilt) => K.F.push({ k, at: K.front(R, wall, c, off, 0), ry: ryW + Math.PI + tilt }), cartonTop = sz => Furn.template("carton", { size: sz }).box.max.y;
+    const huskLie = (c, off, y) => { const p0 = K.front(R, wall, c - dir * 0.6, off, y + 0.17), p1 = K.front(R, wall, c + dir * 0.6, off, y + 0.17); (S.loose = S.loose || []).push(["sentry", p0[0], p0[1], p0[2], Math.atan2(p1[0] - p0[0], p1[2] - p0[2]), Math.PI / 2]); };      // one lying along the wall
+    const husk = (c, off, y, turn) => { const p = K.front(R, wall, c, off, y); (S.loose = S.loose || []).push(["sentry", p[0], p[1], p[2], ryW + Math.PI + turn, 0]); };      // a dead sentry: loose, so it only ever stands on something solid
+    let done = true;
+    if (key === "office2:1") {                    // The Last Word: binders, then the desk; a coat still on the stand
+      const b = seq("shelving", { seed: 81, w: 0.9, shelves: 4 }), a = seq("desk"); top("computer", a.c + 0.3 * dir, 0.31, DESK_TOP, 0, { seed: 14 }); top("keyboard", a.c + 0.3 * dir, 0.6, DESK_TOP); top("phone", a.c - 0.15 * dir, 0.28, DESK_TOP); top("intray", a.c - 0.52 * dir, 0.3, DESK_TOP);
+      chairAt("chair", a.c + 0.2 * dir, 1.05, 0.3); onTop("carton", b, 0, 0.25, SHELF_TOP, { size: "mid", seed: 5 }); hang("clock", a.c, 2.1); fl("coatstand", 0.4, 0.45, 0.8);
+      S.push(K.front(R, wall, a.c - 0.2 * dir, 0.55, DESK_TOP), floorAt(1.1, 0.9));
+    } else if (key === "office2:2") {             // Gauntlet: two desks pushed end to end, one chair each, the sums still on the board
+      const a = seq("desk"), b = seq("desk", { w: 1.5 }); top("computer", a.c - 0.3 * dir, 0.31, DESK_TOP, 0, { seed: 21 }); top("keyboard", a.c - 0.3 * dir, 0.6, DESK_TOP); top("flipclock", a.c + 0.45 * dir, 0.3, DESK_TOP);
+      top("computer", b.c + 0.3 * dir, 0.31, DESK_TOP, 0, { seed: 22 }); top("intray", b.c - 0.45 * dir, 0.3, DESK_TOP); top("mug", b.c - 0.1 * dir, 0.25, DESK_TOP);
+      chairAt("chair", a.c - 0.2 * dir, 1.05, -0.3); chairAt("chair", b.c + 0.2 * dir, 1.1, 0.5); hang("whiteboard", (a.c + b.c) / 2, 1.75); fl("bin", 0.3, 0.3);
+      S.push(K.front(R, wall, a.c + 0.12 * dir, 0.55, DESK_TOP), floorAt(0.5, 1.0));
+    } else if (key === "break2:1") {              // Primer: the canteen end: a vending machine, a table, two chairs
+      const a = seq("vending"), b = seq("table"); top("mug", b.c - 0.32 * dir, 0.3, TABLE_TOP, 0, { red: true }); top("mug", b.c + 0.3 * dir, 0.55, TABLE_TOP);
+      chairAt("stackchair", b.c - 0.35 * dir, 0.95, 0.3); chairAt("stackchair", b.c + 0.1 * dir, 0.95, -0.4); hang("ledclock", b.c, 2.2); fl("bin", 0.3, 0.3);      // (tucked in: the way-out button is in front of this wall)
+      S.push(K.front(R, wall, b.c, 0.4, TABLE_TOP), floorAt(0.8, 0.9));
+    } else if (key === "break2:2") {              // The Last Word: a sofa and a fridge, a box for a table
+      const a = seq("sofa"), b = seq("fridge"); hang("noticeboard", a.c, 1.85); K.F.push({ k: "coatstand", at: K.front(R, wall, a.c + 0.55 * dir, 1.5, 0), ry: 0.7 });
+      K.F.push({ k: "carton", at: K.front(R, wall, a.c - 0.1 * dir, 1.4, 0), ry: ryW + 0.2, size: "mid", seed: 4 }, { k: "mug", at: K.front(R, wall, a.c - 0.1 * dir, 1.4, cartonTop("mid")), ry: 1, red: true });
+      S.push(K.front(R, wall, a.c + 0.35 * dir, 0.5, 0.62), floorAt(0.9, 0.9));
+    } else if (key === "break2:3") {              // Retrieval: tea table, the cooler, a cabinet of forms nobody filled in
+      const a = seq("table"), b = seq("cooler"), c = seq("cabinet"); top("kettle", a.c + 0.32 * dir, 0.3, TABLE_TOP); top("mug", a.c - 0.25 * dir, 0.35, TABLE_TOP); top("intray", c.c, 0.3, CAB_TOP);
+      chairAt("stackchair", a.c - 0.3 * dir, 1.2, 0.3); chairAt("stackchair", a.c + 0.3 * dir, 1.15, -0.25); hang("noticeboard", a.c, 1.95); fl("sack", 0.45, 0.45, 0.6);
+      S.push(K.front(R, wall, a.c, 0.5, TABLE_TOP), floorAt(1.2, 0.9));
+    } else if (key === "server:1") {              // Cold Storage: one rack and the console desk that watched it
+      const a = seq("shelving", { w: 1.2, seed: 43, shelves: 4, clear: [2] }), b = seq("desk"); top("computer", a.c - 0.28, 0.31, SHELF(2, 4), 0, { seed: 3 }); top("computer", a.c + 0.28, 0.31, SHELF(2, 4), 0, { seed: 8 });
+      top("computer", b.c - 0.3 * dir, 0.31, DESK_TOP, 0, { seed: 13 }); top("keyboard", b.c - 0.3 * dir, 0.6, DESK_TOP); top("desklamp", b.c + 0.58 * dir, 0.28, DESK_TOP);
+      chairAt("chair", b.c - 0.2 * dir, 1.05, 0.4); hang("ledclock", b.c, 2.25); fl("bin", 0.3, 0.3);
+      S.push(K.front(R, wall, b.c + 0.15 * dir, 0.5, DESK_TOP), floorAt(0.8, 0.9));
+    } else if (key === "server:2") {              // Retrieval: one machine left on its rack, two cabinets of tapes
+      const a = seq("shelving", { w: 1.2, seed: 44, shelves: 4, clear: [2] }), b = seq("cabinet"), c = seq("cabinet"); top("computer", a.c, 0.31, SHELF(2, 4), 0, { seed: 15 }); top("flipclock", b.c, 0.3, CAB_TOP); top("intray", c.c, 0.3, CAB_TOP);
+      hang("noticeboard", (b.c + c.c) / 2 + 0.5 * dir, 2.0); S.push(floorAt(0.6, 0.9), K.front(R, wall, a.c, 0.25, SHELF_TOP));
+    } else if (key === "server:3") {              // Gauntlet: the bench where the machines were opened up, spares on a rack
+      const a = seq("workbench", { w: 1.5 }), b = seq("shelving", { w: 0.9, seed: 45, shelves: 4 }); top("computer", a.c - 0.38 * dir, 0.33, BENCH_TOP, 0, { seed: 17 }); top("computer", a.c + 0.2 * dir, 0.33, BENCH_TOP, 0, { seed: 18 });
+      onTop("carton", b, 0, 0.25, SHELF_TOP, { size: "small" }); hang("ledclock", a.c, 2.3); chairAt("stackchair", a.c + 0.55 * dir, 1.2, 0.25);
+      S.push(floorAt(0.7, 0.85), K.front(R, wall, b.c, 0.25, SHELF_TOP));
+    } else if (key === "comms:0") {               // Updraft: the telephone room: three telephones, none of them rings
+      const a = seq("desk"), b = seq("cabinet"); for (const q of [-0.5, 0, 0.5]) top("phone", a.c + q * dir, 0.3 - Math.abs(q) * 0.08, DESK_TOP); top("intray", b.c, 0.3, CAB_TOP);
+      chairAt("chair", a.c + 0.1 * dir, 1.05, -0.3); hang("noticeboard", a.c, 1.9);
+      S.push(K.front(R, wall, a.c - 0.25 * dir, 0.58, DESK_TOP), floorAt(0.7, 0.9));
+    } else if (key === "workshop:4") {            // Primer: the paint bench, with the kettle on it
+      const a = seq("workbench"), c = seq("cabinet"); hang("toolboard", a.c, 1.45); top("kettle", a.c + 0.5 * dir, 0.3, BENCH_TOP); top("mug", a.c + 0.2 * dir, 0.42, BENCH_TOP, 0, { red: true }); top("flipclock", c.c, 0.3, CAB_TOP);
+      fl("bin", 0.3, 0.3); K.F.push({ k: "carton", at: K.front(R, wall, a.c - 0.35 * dir, 1.15, 0), ry: ryW + 0.3, size: "mid", seed: 6 }, { k: "mop", at: K.front(R, wall, a.c + 0.55 * dir, 1.22, 0), ry: ryW - 0.4 });
+      S.push(K.front(R, wall, a.c - 0.3 * dir, 0.35, BENCH_TOP), floorAt(0.9, 0.9));
+    } else if (key === "store:6") {               // Crate Seven: a cabinet of dockets and two racks, a chair for the long counts
+      const a = seq("cabinet"), b = seq("shelving", { seed: 83 }), c = seq("shelving", { seed: 84, w: 0.9, shelves: 4 }); top("intray", a.c, 0.3, CAB_TOP); onTop("carton", b, -0.28, 0.25, SHELF_TOP, { size: "mid", seed: 3 }); onTop("carton", b, 0.32, 0.25, SHELF_TOP, { size: "small" });
+      onTop("carton", c, 0, 0.25, SHELF_TOP, { size: "small", seed: 2 }); chairAt("stackchair", b.c, 1.1, 0.35); hang("ledclock", a.c, 2.25);
+      S.push(floorAt(0.5, 1.0), K.front(R, wall, c.c, 0.25, SHELF_TOP));
+    } else if (key === "office:7") {              // Crate Seven: a desk between two cabinets
+      const b = seq("cabinet"), a = seq("desk"), c = seq("cabinet"); top("computer", a.c - 0.25 * dir, 0.31, DESK_TOP, 0, { seed: 19 }); top("keyboard", a.c - 0.25 * dir, 0.6, DESK_TOP); top("mug", a.c + 0.5 * dir, 0.3, DESK_TOP);
+      top("flipclock", b.c, 0.3, CAB_TOP); top("intray", c.c, 0.3, CAB_TOP); chairAt("chair", a.c + 0.3 * dir, 1.05, 0.2); hang("noticeboard", a.c, 1.9); K.F.push({ k: "bin", at: K.front(R, wall, a.c - 0.55 * dir, 0.95, 0), ry: 0 });
+      S.push(K.front(R, wall, a.c + 0.15 * dir, 0.55, DESK_TOP), floorAt(0.6, 0.9));
+    } else if (key === "office:8") {              // Cold Storage: lockers for the cold-room coats, and the desk that signed them out
+      const a = seq("lockers", { n: 2, seed: 23 }), b = seq("desk"); top("computer", b.c + 0.25 * dir, 0.31, DESK_TOP, 0, { seed: 9 }); top("keyboard", b.c + 0.25 * dir, 0.6, DESK_TOP); top("desklamp", b.c - 0.58 * dir, 0.28, DESK_TOP); top("phone", b.c - 0.22 * dir, 0.3, DESK_TOP);
+      chairAt("chair", b.c, 1.05, -0.35); hang("clock", b.c, 2.1); K.F.push({ k: "bin", at: K.front(R, wall, b.c + 0.55 * dir, 0.95, 0), ry: 0 });
+      S.push(K.front(R, wall, b.c - 0.2 * dir, 0.6, DESK_TOP), floorAt(0.5, 0.9));
+    }
+    // backstage: the clean rooms
+    else if (key === "bs-cradle") {               // Second Opinion: a cradle bench, a sentry left on it mid-repair
+      const a = seq("workbench", { w: 1.5 }), b = seq("cabinet"); top("desklamp", a.c - 0.62 * dir, 0.2, BENCH_TOP); top("intray", b.c, 0.3, CAB_TOP); huskLie(a.c + 0.08 * dir, 0.42, BENCH_TOP);      // (everything low: O.'s writing is on this wall)
+    } else if (key === "bs-lockers") {            // Second Opinion: three lockers and the chair you change your boots on
+      const a = seq("lockers", { n: 3, seed: 31 }); chairAt("stackchair", a.c, 1.0, 0.2); hang("ledclock", a.c, 2.3);
+    } else if (key === "bs-lens") {               // Prism: lens boxes, set out on a table to be counted
+      const a = seq("shelving", { w: 0.9, seed: 33 }), b = seq("table"); onTop("carton", a, 0, 0.25, SHELF_TOP, { size: "mid", seed: 8 });
+      top("carton", b.c - 0.36 * dir, 0.3, TABLE_TOP, 0, { size: "small" }); top("carton", b.c, 0.5, TABLE_TOP, 0, { size: "small", seed: 2 }); top("carton", b.c + 0.36 * dir, 0.3, TABLE_TOP, 0, { size: "small", seed: 5 });
+    } else if (key === "bs-hide") {               // Prism: where O. hid: a table, his kettle, his sack, his coat
+      s += dir * 0.6; const a = seq("table"); top("kettle", a.c + 0.3 * dir, 0.3, TABLE_TOP); top("mug", a.c - 0.22 * dir, 0.4, TABLE_TOP, 0, { red: true }); chairAt("stackchair", a.c + 0.05 * dir, 1.2, 0.3); fl("sack", 0.5, 0.45, 0.7); fl("coatstand", 1.25, 0.45, 0.4);
+    } else if (key === "bs-logs") {               // Hot Seat: three cabinets of burn-in logs
+      const a = seq("cabinet"), b = seq("cabinet"), c = seq("cabinet"); top("intray", a.c, 0.3, CAB_TOP); top("flipclock", c.c, 0.3, CAB_TOP); chairAt("stackchair", s + dir * 0.45, 0.4, -0.3);
+    } else if (key === "bs-switch") {             // Hot Seat: by the breaker: lockers, two cabinets, a mug somebody meant to come back for
+      const a = seq("lockers", { n: 2, seed: 35 }), b = seq("cabinet"), c = seq("cabinet"); hang("ledclock", (b.c + c.c) / 2, 2.2); top("mug", c.c, 0.3, CAB_TOP); fl("bin", 0.3, 0.3);
+    } else if (key === "bs-racks") {              // Heavy Hat: overhead stores, brought down to two racks
+      const a = seq("shelving", { seed: 37 }), b = seq("shelving", { seed: 38, w: 0.9, shelves: 4 }); onTop("carton", a, -0.28, 0.25, SHELF_TOP, { size: "mid" }); onTop("carton", a, 0.3, 0.25, SHELF_TOP, { size: "mid", seed: 7 }); onTop("carton", b, 0, 0.25, SHELF_TOP, { size: "small" });
+    } else if (key === "bs-sort") {               // Heavy Hat: a sorting rack and a packing table
+      const a = seq("sortrack"), b = seq("table"); top("carton", b.c - 0.3 * dir, 0.32, TABLE_TOP, 0, { size: "small" }); top("carton", b.c + 0.3 * dir, 0.45, TABLE_TOP, 0, { size: "small", seed: 4 }); fl("carton", 0.45, 0.4, 0.2, { size: "big" }); hang("ledclock", b.c, 2.2);
+    } else if (key === "bs-calc") {               // Lift Off: the desk the gravity sums were done at
+      s += dir * 0.95; const a = seq("desk"); top("computer", a.c - 0.3 * dir, 0.31, DESK_TOP, 0, { seed: 25 }); top("keyboard", a.c - 0.3 * dir, 0.6, DESK_TOP); top("mug", a.c + 0.42 * dir, 0.4, DESK_TOP); top("intray", a.c + 0.1 * dir, 0.25, DESK_TOP); chairAt("chair", a.c - 0.1 * dir, 1.05, 0.3); fl("bin", 0.3, 0.3);      // (nothing on the wall: O.'s writing is there)
+    } else if (key === "bs-brief") {              // Lift Off: a briefing table, three chairs, three mugs, the cooler
+      s += dir * 0.6; const a = seq("table"), b = seq("cooler"); for (const q of [-0.38, 0, 0.38]) top("mug", a.c + q * dir, 0.3 + Math.abs(q) * 0.5, TABLE_TOP, 0, { red: q === 0 });
+      chairAt("stackchair", a.c, 1.2, 0.25); chairAt("stackchair", a.c + 0.6 * dir, 1.15, -0.3); chairAt("stackchair", s + dir * 0.45, 0.4, 0.1);
+    } else if (key === "bs-bench") {              // Live Wire: a test bench with a scope on it
+      s += dir * 0.85; const a = seq("workbench", { w: 1.5 }); hang("toolboard", a.c, 1.45); top("computer", a.c - 0.35 * dir, 0.33, BENCH_TOP, 0, { seed: 27 }); top("desklamp", a.c + 0.5 * dir, 0.28, BENCH_TOP); chairAt("stackchair", a.c, 1.2, -0.2); fl("bin", 0.3, 0.3);
+    } else if (key === "bs-control") {            // Live Wire: the control desk under the monitor's wall
+      const a = seq("desk"), b = seq("cabinet"); top("computer", a.c - 0.38 * dir, 0.31, DESK_TOP, 0, { seed: 28 }); top("computer", a.c + 0.32 * dir, 0.31, DESK_TOP, 0, { seed: 29 }); top("keyboard", a.c - 0.03 * dir, 0.6, DESK_TOP); top("flipclock", b.c, 0.3, CAB_TOP); chairAt("chair", a.c + 0.6 * dir, 1.05, 0.15);
+    } else if (key === "bs-camtable") {           // Paperweight: camera boxes on a table, an in-tray of returns
+      const a = seq("table"); top("carton", a.c - 0.36 * dir, 0.3, TABLE_TOP, 0, { size: "small" }); top("carton", a.c - 0.02 * dir, 0.5, TABLE_TOP, 0, { size: "small", seed: 6 }); top("intray", a.c + 0.38 * dir, 0.3, TABLE_TOP); chairAt("stackchair", s + dir * 0.4, 0.4, 0.3);
+    } else if (key === "bs-reels") {              // Paperweight: two full racks of cable reels and spares
+      const a = seq("shelving", { seed: 39 }), b = seq("shelving", { seed: 40 }); onTop("carton", a, 0.25, 0.25, SHELF_TOP, { size: "mid" }); onTop("carton", b, -0.25, 0.25, SHELF_TOP, { size: "mid", seed: 9 }); chairAt("stackchair", (a.c + b.c) / 2, 1.0, 0.4); hang("ledclock", b.c, 2.35);
+    } else if (key === "bs-morgue") {             // Hall Of Mirrors: two from the pile, stood on a bench to be looked at; nobody looked
+      const a = seq("lockers", { n: 2, seed: 41 }), b = seq("workbench", { w: 1.2 }); hang("toolboard", b.c, 1.45); husk(b.c - 0.28 * dir, 0.4, BENCH_TOP, -0.35); husk(b.c + 0.3 * dir, 0.36, BENCH_TOP, 0.5);
+    } else if (key === "bs-brb") {                // Hall Of Mirrors: a desk left in the middle of something
+      s += dir * 0.5; const a = seq("desk"); top("phone", a.c + 0.4 * dir, 0.3, DESK_TOP); top("desklamp", a.c - 0.55 * dir, 0.28, DESK_TOP); top("mug", a.c - 0.05 * dir, 0.5, DESK_TOP, 0, { red: true }); top("flipclock", a.c + 0.05 * dir, 0.22, DESK_TOP);
+      chairAt("chair", a.c + 0.25 * dir, 1.3, 1.2); hang("noticeboard", a.c, 1.9); fl("coatstand", 0.45, 0.45, 0.6);
+    } else if (key === "bs-sofa") {               // Final Exam: a sofa under O.'s writing, a box for a table
+      s += dir * 0.9; const a = seq("sofa"); K.F.push({ k: "carton", at: K.front(R, wall, a.c + 0.1 * dir, 1.2, 0), ry: ryW - 0.25, size: "mid", seed: 11 }, { k: "mug", at: K.front(R, wall, a.c + 0.1 * dir, 1.2, cartonTop("mid")), ry: 2 }); fl("bin", 0.3, 0.3);
+    } else if (key === "bs-last") {               // Final Exam: the last desk: two full in-trays, out of paper
+      const a = seq("desk"), b = seq("shelving", { w: 0.9, seed: 47, shelves: 4 }); top("intray", a.c - 0.45 * dir, 0.3, DESK_TOP); top("intray", a.c + 0.45 * dir, 0.3, DESK_TOP); top("desklamp", a.c, 0.26, DESK_TOP); chairAt("chair", a.c + 0.5 * dir, 1.05, -0.2);
+      onTop("carton", b, 0, 0.25, SHELF_TOP, { size: "small", seed: 3 }); hang("clock", a.c, 2.15);
+    } else if (key === "bs-n48") {                // Out Of Order: the office's overflow: two cabinets and a plant somebody watered
+      const a = seq("cabinet"), b = seq("cabinet"); top("intray", a.c, 0.3, CAB_TOP); fl("plant", 0.4, 0.4, 0, { seed: 5 });
+    } else if (key === "bs-n49") {                // Corridor Nine: the cleaner's corner
+      const a = seq("lockers", { n: 2, seed: 49 }); fl("mop", 0.45, 0.4, -0.3); chairAt("stackchair", a.c, 0.95, 0.3);
+    } else if (key === "bs-n50") {                // Sorting Hall: one last rack of pigeonholes
+      const a = seq("sortrack"); top("carton", a.c - 0.35 * dir, 0.3, SORT_TOP, 0, { size: "small" }); top("carton", a.c + 0.3 * dir, 0.3, SORT_TOP, 0, { size: "small", seed: 7 }); hang("ledclock", a.c, 2.3);
+    } else if (key === "bs-n51") {                // The Argument: a table, a clock stopped at 8:38, one chair facing the wall she is behind
+      const a = seq("table"); top("flipclock", a.c + 0.2 * dir, 0.35, TABLE_TOP); top("mug", a.c - 0.3 * dir, 0.4, TABLE_TOP); chairAt("stackchair", a.c, 1.15, 0);
+    } else done = false;
+    if (done) return S; }
   if (type === "store") {                         // stock rooms: racks of boxes, each a different mix
     if (v === 0) { const a = seq("shelving", { seed: 3 }), b = seq("shelving", { seed: 7 }); onTop("carton", a, -0.3, 0.25, SHELF_TOP, { size: "mid", seed: 2 }); onTop("carton", b, 0.35, 0.28, SHELF_TOP, { size: "small" });
       fl("carton", 0.45, 0.35, 0.3, { size: "big" }); fl("carton", 0.42, 0.33, -0.2, { size: "mid", y: 0.42 }); S.push(floorAt(0.6, 1.05), K.front(R, wall, a.c + dir * 0.3, 0.25, SHELF_TOP)); }
@@ -2543,7 +2655,7 @@ function denLayout(K, type, R, wall, lo, o = {}) {
       S.push(floorAt(0.35, 1.25), K.front(R, wall, a.c, 0.25, SHELF_TOP)); }
     else if (v === 4) { const a = seq("shelving", { seed: 31, shelves: 4 }); s += dir * 0.4; const b = seq("cooler");
       for (const [ds, off, yy, ry] of [[0.45, 0.3, 0, 0.1], [0.45, 0.75, 0, -0.1], [0.45, 0.52, 0.42, 0.25]]) fl("carton", ds, off, ry, { size: "big", y: yy });
-      fl("sack", 0.6, 0.5, 0.8); onTop("carton", a, 0, 0.25, SHELF_TOP, { size: "small" }); hang("clock", b.c, 2.25);
+      fl("sack", 1.2, 0.45, 0.8); onTop("carton", a, 0, 0.25, SHELF_TOP, { size: "small" }); hang("clock", b.c, 2.25);      // v8.20: the sack was inside the stack of boxes
       S.push(K.front(R, wall, a.c, 0.25, SHELF_TOP), floorAt(0.75, 1.1)); }
     else { const a = seq("lockers", { n: 3, seed: 9 }), b = seq("shelving", { seed: 37, w: 0.9 }); onTop("carton", b, 0, 0.25, SHELF_TOP, { size: "mid" });
       fl("stackchair", 0.4, 0.6, 2.4); fl("carton", 0.55, 1.15, 0.5, { size: "mid" }); fl("bin", 0.95, 0.3); hang("whiteboard", a.c, 2.05);
@@ -2589,22 +2701,22 @@ function denLayout(K, type, R, wall, lo, o = {}) {
       S.push(K.front(R, wall, b.c, 0.95, 0), floorAt(0.8, 0.9)); }
   } else if (type === "mail") {
     if (v === 0) { const a = seq("sortrack"), b = seq("shelving", { seed: 8 }); onTop("carton", b, 0, 0.25, SHELF_TOP, { size: "small" }); hang("ledclock", a.c, 2.25);
-      fl("sack", 0.45, 0.45, 0.5); fl("sack", 0.95, 0.45, -0.7); K.F.push({ k: "carton", at: K.front(R, wall, a.c, 0.8, 0), ry: ryW + 0.2, size: "mid" });
+      fl("sack", 0.4, 0.45, 0.5); fl("sack", -0.6, 0.98, -0.7); K.F.push({ k: "carton", at: K.front(R, wall, a.c, 0.8, 0), ry: ryW + 0.2, size: "mid" });
       S.push(K.front(R, wall, a.c, 0.3, SORT_TOP), floorAt(1.3, 0.8)); }
     else if (v === 1) { const b = seq("shelving", { seed: 12, shelves: 4 }), a = seq("sortrack"); onTop("carton", b, 0.2, 0.25, SHELF_TOP, { size: "mid" });
-      for (const [ds, off, ry] of [[0.45, 0.45, 0.4], [0.9, 0.5, -0.5], [0.6, 1.0, 2.1]]) fl("sack", ds, off, ry); hang("clock", a.c, 2.3);
+      for (const [ds, off, ry] of [[0.4, 0.42, 0.4], [0.45, 1.08, -0.5], [-0.5, 1.1, 2.1]]) fl("sack", ds, off, ry);      // v8.20: three sacks, no longer one inside another hang("clock", a.c, 2.3);
       S.push(K.front(R, wall, a.c + 0.3 * dir, 0.3, SORT_TOP), floorAt(1.2, 0.9)); }
     else if (v === 2) { const a = seq("sortrack"); s += dir * 0.25; const t = seq("table"); top("carton", t.c - 0.3 * dir, 0.35, TABLE_TOP, 0, { size: "small" }); top("carton", t.c + 0.1 * dir, 0.4, TABLE_TOP, 0, { size: "mid" }); top("intray", t.c + 0.45 * dir, 0.3, TABLE_TOP);
       K.F.push({ k: "stackchair", at: K.front(R, wall, t.c, 1.05, 0), ry: ryW + Math.PI + 0.25 }); fl("sack", -2.0, 1.2, 1.3); hang("noticeboard", t.c, 1.8);
       S.push(K.front(R, wall, a.c - 0.3 * dir, 0.3, SORT_TOP), K.front(R, wall, t.c - 0.2 * dir, 0.6, TABLE_TOP)); }
-    else { const a = seq("sortrack", { w: 1.2 }), b = seq("sortrack", { w: 1.2 }); for (const [ds, off, ry] of [[0.4, 0.45, 0.2], [0.4, 0.9, 1.4]]) fl("sack", ds, off, ry); fl("carton", -1.2, 1.0, 0.5, { size: "big" }); hang("ledclock", b.c, 2.3);
+    else { const a = seq("sortrack", { w: 1.2 }), b = seq("sortrack", { w: 1.2 }); for (const [ds, off, ry] of [[0.4, 0.45, 0.2], [-0.35, 1.02, 1.4]]) fl("sack", ds, off, ry); fl("carton", -1.2, 1.0, 0.5, { size: "big" }); hang("ledclock", b.c, 2.3);
       S.push(K.front(R, wall, b.c, 0.3, SORT_TOP), floorAt(0.4, 1.35)); }
   } else if (type === "workshop") {
     if (v === 0) { const a = seq("workbench"), b = seq("shelving", { seed: 11 }); hang("toolboard", a.c, 1.45); onTop("carton", b, 0, 0.25, SHELF_TOP, { size: "mid" }); top("desklamp", a.c + 0.6 * dir, 0.28, BENCH_TOP);
       fl("carton", 0.4, 0.3, 0.2, { size: "big" }); S.push(K.front(R, wall, a.c - 0.2 * dir, 0.35, BENCH_TOP), floorAt(1.1, 0.8)); }
     else if (v === 1) { const b = seq("shelving", { seed: 15, shelves: 4 }), a = seq("workbench", { w: 1.5 }); hang("toolboard", a.c, 1.5); top("carton", a.c - 0.45 * dir, 0.3, BENCH_TOP, 0, { size: "small" }); onTop("carton", b, 0, 0.25, SHELF_TOP, { size: "small" });
       fl("bin", 0.35, 0.3); K.F.push({ k: "stackchair", at: K.front(R, wall, a.c + 0.1 * dir, 1.2, 0), ry: ryW + Math.PI + 0.5 }); S.push(K.front(R, wall, a.c + 0.3 * dir, 0.35, BENCH_TOP), floorAt(0.6, 1.0)); }
-    else if (v === 2) { const a = seq("workbench"), c = seq("lockers", { n: 2, seed: 13 }); hang("toolboard", a.c - 0.2 * dir, 1.45); top("desklamp", a.c + 0.65 * dir, 0.28, BENCH_TOP); fl("sack", 0.4, 0.45, -0.4); fl("carton", -2.4, 1.0, 0.7, { size: "big" });
+    else if (v === 2) { const a = seq("workbench"), c = seq("lockers", { n: 2, seed: 13 }); hang("toolboard", a.c - 0.2 * dir, 1.45); top("desklamp", a.c + Math.min(0.65, a.w / 2 - 0.18) * dir, 0.28, BENCH_TOP); K.F.push({ k: "sack", at: K.front(R, wall, c.c, 1.08, 0), ry: ryW - 0.4 });      // v8.20: the lamp was inside the lockers, the sack on the timed button fl("carton", -2.4, 1.0, 0.7, { size: "big" });
       S.push(K.front(R, wall, a.c, 0.35, BENCH_TOP), K.front(R, wall, c.c, 0.95, 0)); }
     else { const a = seq("workbench", { w: 1.5 }), c = seq("cabinet"); seq("mop"); hang("toolboard", a.c, 1.45); top("intray", c.c, 0.3, CAB_TOP); top("carton", a.c + 0.4 * dir, 0.3, BENCH_TOP, 0, { size: "mid" }); fl("carton", -1.0, 1.0, 0.3, { size: "small" });
       S.push(K.front(R, wall, a.c - 0.3 * dir, 0.35, BENCH_TOP), floorAt(0.5, 1.0)); }
@@ -2617,9 +2729,11 @@ function denLayout(K, type, R, wall, lo, o = {}) {
       for (const [ds, off, yy, ry] of [[0.4, 0.35, 0, 0.15], [0.4, 0.35, 0.42, -0.3], [0.4, 0.82, 0, 0.5]]) fl("carton", ds, off, ry, { size: yy ? "mid" : "big", y: yy }); hang("clock", a.c, 2.3);
       S.push(K.front(R, wall, a.c, 0.25, SHELF_TOP), floorAt(0.4, 1.3)); }
     else if (v === 3) { const c = seq("cabinet"), a = seq("shelving", { seed: 27 }), d = seq("cabinet"); top("intray", c.c, 0.3, CAB_TOP); top("mug", d.c, 0.3, CAB_TOP, 0, { red: true });
-      K.F.push({ k: "table", at: K.front(R, wall, a.c, 1.65, 0), ry: ryW }, { k: "stackchair", at: K.front(R, wall, a.c + 0.2 * dir, 2.3, 0), ry: ryW + Math.PI + 0.2 });
-      top("intray", a.c - 0.3 * dir, 1.5, TABLE_TOP); top("carton", a.c + 0.3 * dir, 1.65, TABLE_TOP, 0, { size: "small" });
-      S.push(K.front(R, wall, a.c, 1.75, TABLE_TOP), K.front(R, wall, d.c, 0.3, CAB_TOP)); }
+      // v8.20: in a timed den the run starts at the back, which put the reading table in front of the way-in panel. There it stands against the opposite wall, in the back corner
+      const tc = o.timed ? s0 + dir * 0.605 : a.c, to = o.timed ? (wall === "L" || wall === "R" ? R.x1 - R.x0 : R.d1 - R.d0) - 0.405 : 1.65;
+      K.F.push({ k: "table", at: K.front(R, wall, tc, to, 0), ry: ryW }, o.timed ? { k: "stackchair", at: K.front(R, wall, tc, to - 0.5, 0), ry: ryW + 0.2 } : { k: "stackchair", at: K.front(R, wall, a.c + 0.2 * dir, 2.3, 0), ry: ryW + Math.PI + 0.2 });
+      top("intray", tc - 0.3 * dir, to - 0.15, TABLE_TOP); top("carton", tc + 0.3 * dir, to, TABLE_TOP, 0, { size: "small" });
+      S.push(K.front(R, wall, tc, to + 0.1, TABLE_TOP), K.front(R, wall, d.c, 0.3, CAB_TOP)); }
     else { const a = seq("shelving", { seed: 33, w: 0.9 }), c = seq("cabinet"), d = seq("cabinet"); onTop("carton", a, 0, 0.25, SHELF_TOP, { size: "mid" }); top("intray", d.c, 0.3, CAB_TOP);
       hang("whiteboard", (c.c + d.c) / 2, 2.0); fl("plant", 0.4, 0.4, 0, { seed: 13 }); S.push(K.front(R, wall, c.c, 0.3, CAB_TOP), floorAt(0.4, 1.2)); }
   } else if (type === "supply") {                // stationery: paper by the box, a few too many in-trays
@@ -2640,7 +2754,7 @@ function denLayout(K, type, R, wall, lo, o = {}) {
     const t = seq("table"), b = seq("shelving", { seed: 63, shelves: 4 }); for (let i = 0; i < 3; i++) top("carton", t.c + (i - 1) * 0.35 * dir, 0.3 + (i % 2) * 0.12, TABLE_TOP, 0, { size: "small" });
     fl("sack", 0.5, 0.45, 1.0); fl("mop", 1.05, 0.35, -0.4); hang("clock", t.c, 2.2); S.push(K.front(R, wall, t.c, 0.55, TABLE_TOP), K.front(R, wall, b.c, 0.25, SHELF_TOP));
   } else if (type === "uniform") {               // overalls and coats nobody came back for
-    const a = seq("lockers", { n: 3, seed: 19 }); fl("coatstand", 0.35, 0.45, 0.3); fl("coatstand", 1.2, 0.45, 1.9); fl("sack", 0.7, 1.15, -0.6); K.F.push({ k: "stackchair", at: K.front(R, wall, a.c, 1.05, 0), ry: ryW + Math.PI + 0.3 });
+    const a = seq("lockers", { n: 3, seed: 19 }); fl("coatstand", 0.35, 0.45, 0.3); fl("coatstand", 1.25, 0.45, 1.9); fl("sack", 2.0, 0.45, -0.6);      // v8.20: the sack lay on the way-out button K.F.push({ k: "stackchair", at: K.front(R, wall, a.c, 1.05, 0), ry: ryW + Math.PI + 0.3 });
     hang("ledclock", a.c, 2.25); S.push(floorAt(0.7, 0.45 + 0.45), K.front(R, wall, a.c - 0.3 * dir, 1.2, 0));
   } else if (type === "av") {                    // the old audio-visual room: two machines, a rack of tapes nobody labelled
     const a = seq("desk"), b = seq("shelving", { seed: 67, w: 0.9, shelves: 4 }); top("computer", a.c - 0.35 * dir, 0.31, DESK_TOP, 0, { seed: 11 }); top("computer", a.c + 0.3 * dir, 0.31, DESK_TOP, 0, { seed: 12 }); top("keyboard", a.c, 0.62, DESK_TOP);
@@ -2692,7 +2806,7 @@ function denLayout(K, type, R, wall, lo, o = {}) {
     const a = seq("shelving", { w: 1.2, seed: 61 }), b = seq("shelving", { w: 1.2, seed: 62 }), c = seq("cabinet");
     top("carton", a.c - 0.3, 0.25, SHELF_TOP, 0, { size: "mid" }); top("carton", b.c - 0.3, 0.25, SHELF_TOP, 0, { size: "mid", seed: 7 }); top("carton", b.c + 0.3, 0.25, SHELF_TOP, 0, { size: "small" }); top("mug", c.c, 0.3, 1.32);
     hang("noticeboard", s + dir * 0.85, 1.6);
-    K.F.push({ k: "coatstand", at: floorAt(0.45, 0.35), ry: 0.6 }, { k: "sack", at: floorAt(1.25, 0.4), ry: ryW + 0.4 }, { k: "carton", at: K.front(R, wall, a.c, 0.8, 0), ry: ryW + 0.3, size: "big" });
+    K.F.push({ k: "coatstand", at: K.front(R, wall, a.c - dir * 0.15, 3.45, 0), ry: 0.6 }, { k: "sack", at: K.front(R, wall, b.c + dir * 0.2, 0.85, 0), ry: ryW + 0.4 }, { k: "carton", at: K.front(R, wall, a.c, 0.8, 0), ry: ryW + 0.3, size: "big" });      // v8.20: the coat stand stood in O.'s writing with the sack inside it
     S.push(K.front(R, wall, a.c + 0.3, 0.25, SHELF_TOP), floorAt(0.9, 1.0));
   } else if (type === "home") {                  // v8.16 O.'s home base: the sofa he sleeps on, his noticeboard, a table with the kettle, shelves of what he kept
     const a = seq("sofa"); hang("noticeboard", a.c, 1.75);
@@ -2700,7 +2814,7 @@ function denLayout(K, type, R, wall, lo, o = {}) {
     top("carton", b.c + 0.3, 0.25, SHELF_TOP, 0, { size: "small" }); top("mug", b.c - 0.3, 0.25, SHELF(1), 0, { red: true }); top("carton", b.c + 0.2, 0.25, SHELF(1), 0, { size: "mid", seed: 5 });
     K.F.push({ k: "table", at: K.front(R, wall, a.c, 2.0, 0), ry: ryW }, { k: "stackchair", at: K.front(R, wall, a.c + 0.4, 2.65, 0), ry: ryW + Math.PI + 0.25 });
     K.F.push({ k: "kettle", at: K.front(R, wall, a.c + 0.35, 2.05, 0.74), ry: ryW + 0.5 }, { k: "mug", at: K.front(R, wall, a.c - 0.3, 2.15, 0.74), ry: 1 }, { k: "flipclock", at: K.front(R, wall, a.c - 0.05, 1.8, 0.74), ry: ryW + Math.PI });
-    K.F.push({ k: "sack", at: floorAt(0.6, 0.45), ry: ryW + 0.5 }, { k: "coatstand", at: K.front(R, wall, a.c - dir * 0.95, 3.3, 0), ry: 0.5 });
+    K.F.push({ k: "sack", at: floorAt(0.6, 0.45), ry: ryW + 0.5 }, { k: "coatstand", at: K.front(R, wall, a.c + dir * 1.23, 0.4, 0), ry: 0.5 });      // v8.20: between the sofa and the shelves, off O.'s writing
     S.push(K.front(R, wall, a.c + 0.05, 2.25, 0.74), K.front(R, wall, a.c, 0.5, 0.62));
   } else if (type === "bare") {
     S.push(floorAt(1.5, 1.5));
@@ -2740,7 +2854,7 @@ function denDress(h, sp, idx) {
   denShell(K, R1, sp.type, 0);
   // back corners of the main room (beside the panel): a plant or a box, never in front of the panel
   const cs = -freeSide, cx = xa + cs * 1.45;
-  if (!sp.crate && !(sp.items || []).some(it => it.kind === "vent")) {              // v8.19: the corner piece suits the room and differs from den to den
+  if (!sp.crate && !sp.nocorner && !(sp.items || []).some(it => it.kind === "vent")) {              // v8.19: the corner piece suits the room and differs from den to den
     const cp = sp.type === "office" ? ["plant", "plant", "coatstand", "bin", "plant", "coatstand", "bin"][(sp.v || 0) % 7] : sp.type === "mail" ? "sack" : sp.type === "locker" ? ["bin", "sack", "carton"][(sp.v || 0) % 3] : ["carton", "bin", "carton", "sack", "carton", "bin"][(sp.v || 0) % 6];
     K.F.push({ k: cp, at: K.at(cx, cp === "coatstand" ? 5.45 : 5.6), ry: 0.4 + idx * 0.7, size: (sp.v || 0) % 2 ? "big" : "mid", seed: idx });
   }
@@ -2838,6 +2952,7 @@ function denDress(h, sp, idx) {
   // O.'s scrawl (den() put it on the -(t || 1) side wall): where furniture now stands in front of it, it moves to a bare wall further in
   const sg = h.signs.find(g => g.kind === "scrawl" && Math.abs(g.pos[1] - (sy + 1.75)) < 0.01 && Math.abs(g.pos[2] - Z(4.3)) < 0.01 && Math.abs(Math.abs(g.pos[0] - xa) - 1.999) < 0.01);
   if (sg && Math.sign(sg.pos[0] - xa) === freeSide && sp.crate && rec.t) { sg.pos = [sg.pos[0], sy + 1.5, Z(5.3)]; sg.w = 1.3; sg.h = 0.42; }      // v8.15: Act 5 slot dens have a second scrawl on the inner room's front wall, so this one stays, small, past the furniture
+  else if (sg && Math.sign(sg.pos[0] - xa) === cs && !t && !ws) { const tall = K.F.find(f => /^(plant|coatstand)$/.test(f.k) && Math.abs(f.at[0] - cx) < 0.01 && Math.abs(f.at[1] - sy) < 0.01); if (tall) tall.at = K.at(cx, 2.45); }      // v8.20: a tall corner piece stood in front of the end of O.'s writing; it goes to the front corner
   else if (sg && Math.sign(sg.pos[0] - xa) === freeSide) {
     const R = R3 && !R2 ? R3 : R2 && !R3 ? R2 : R3;
     if (R && R.d0 === 2) { sg.pos = [(R.x0 + R.x1) / 2, sy + 1.6, Z(2) + out * 0.001]; sg.n = [0, 0, out]; }
@@ -3015,21 +3130,22 @@ const DEN_SPEC = {
   "Second Wind": { type: "workshop", v: 1, timed: 1, type2: "uniform", items: [Object.assign({ id: "page4", kind: "page", space: 1 }, O_PAGES[4]), { id: "clock", kind: "clock" }] },
   "Press": { type: "workshop", v: 2, timed: 1, type2: "store", v2: 5, items: [{ id: "lights", kind: "breaker", label: "Emergency lights", space: 1, fx: "lights" }] },
   "Short Notice": { type: "records", v: 2, timed: 1, type2: "av", items: [denCard(1)] },
-  "Moving Target": { type: "records", v: 3, timed: 1, type2: "supply", v2: 1, items: [denCard(1)] },
+  "Moving Target": { type: "records", v: 3, timed: 1, nocorner: true, type2: "supply", v2: 1, items: [denCard(1)] },
   "Terminal Velocity": { type: "workshop", v: 3, timed: 1, type2: "records", v2: 4, items: [{ id: "clock", kind: "clock" }], art: "scream",
     staff: { cards: 11, type: "recoff", items: [Object.assign({ id: "lint4", kind: "pickup" }, LINT_TRACES[4]), { kind: "safe", art: "scream", item: Object.assign({ id: "tape4", kind: "tape" }, HM_TAPES[4]) }] },
     lines: [[2, "The Records office. Everything that ever happened here is in this room, in alphabetical order. I am filed under S. Nobody has ever opened S."]] },
+  // v8.20: every Act 5 den room has its own variant (`v` / `v2`), as rooms 3 to 30 got in v8.19
   // v8.15 (dens plan Batch 3): Act 5, rooms 31 to 38. `crate`: the inner room opens while the den's own crate is on the plate behind the floor hatch
   "Walkway": { type: "office2", type2: "server", crate: true, items: [{ id: "mic", kind: "breaker", label: "Microphone", fx: "mic" }, Object.assign({ id: "page5", kind: "page", space: 1 }, O_PAGES[5])] },
-  "Updraft": { type: "break2", type2: "server", crate: true, timed: 1, items: [denCard(1)] },
-  "Primer": { type: "workshop", type2: "break2", crate: true, timed: 1, items: [denCard(1), { id: "vent", kind: "vent", to: "The Last Word", skip: "Crate Seven" }] },
-  "Crate Seven": { type: "store", type2: "office", crate: true, items: [{ id: "stk-7", kind: "sticker", sticker: "seven", space: 1 }] },
-  "The Last Word": { type: "office2", type2: "break2", crate: true, timed: 1, items: [{ id: "clock", kind: "clock", space: 1 }] },
-  "Cold Storage": { type: "server", type2: "office", crate: true, items: [denCard(1), Object.assign({ id: "page6", kind: "page" }, O_PAGES[6])] },
-  "Retrieval": { type: "break2", type2: "server", crate: true, timed: 1,
+  "Updraft": { type: "break2", type2: "comms", v2: 0, crate: true, timed: 1, items: [denCard(1)] },
+  "Primer": { type: "workshop", v: 4, type2: "break2", v2: 1, crate: true, timed: 1, items: [denCard(1), { id: "vent", kind: "vent", to: "The Last Word", skip: "Crate Seven" }] },
+  "Crate Seven": { type: "store", v: 6, type2: "office", v2: 7, crate: true, items: [{ id: "stk-7", kind: "sticker", sticker: "seven", space: 1 }] },
+  "The Last Word": { type: "office2", v: 1, type2: "break2", v2: 2, crate: true, timed: 1, items: [{ id: "clock", kind: "clock", space: 1 }] },
+  "Cold Storage": { type: "server", v: 1, type2: "office", v2: 8, crate: true, items: [denCard(1), Object.assign({ id: "page6", kind: "page" }, O_PAGES[6])] },
+  "Retrieval": { type: "break2", v: 3, type2: "server", v2: 2, crate: true, timed: 1,
     staff: { cards: 14, type: "lost", items: [{ id: "stk-lost", kind: "sticker", sticker: "lost" }, Object.assign({ id: "lint5", kind: "pickup" }, LINT_TRACES[5])] },
     lines: [[2, "The lost-and-found back room. Everything in here is lost. Nothing in here has been found. I named it in a hopeful year."]] },
-  "Gauntlet": { type: "office2", type2: "server", crate: true, grille: true, items: [{ id: "clock", kind: "clock" }],
+  "Gauntlet": { type: "office2", v: 2, type2: "server", v2: 3, crate: true, grille: true, items: [{ id: "clock", kind: "clock" }],
     lines: [[1, "Do not look through that grille. There is nothing under this facility except more facility, and none of it is finished, and none of it is yours."]] }
 };
 // LEVEL_FUNCS wraps each room function with this: a room in this batch has its den dressed, and its chamber card goes where DEN_SPEC says
@@ -3052,6 +3168,100 @@ function denWrap(f, i) {
     }
     return l;
   };
+}
+/* v8.20: the den audit (test page dencheck.html). Builds each room's data the way buildLevel does, as far as the furniture pass, and checks every
+   den space: nothing in a wall, nothing inside another piece, everything that stands on something stands at a real height with room above it,
+   no find inside furniture, the ways through (doorway strip, panels, slots, hatches, doors, buttons) clear, no trap gaps, loose clutter out of
+   reach, and no two dens alike (contents and layout). Returns one row per room. */
+function denAudit(only) {
+  const rows = [], sigs = [], skip = /^(floor|ceillight|striplight|skirting)$/, TOPS = { desk: [DESK_TOP], cabinet: [CAB_TOP], table: [TABLE_TOP], workbench: [BENCH_TOP], sortrack: [SORT_TOP], sofa: [0.62] };
+  const ov = (A, B) => [0, 1, 2].map(k => Math.min(A.max[k], B.max[k]) - Math.max(A.min[k], B.min[k]));
+  for (let i = 0; i < LEVEL_FUNCS.length; i++) {
+    if (only != null && only !== i) continue;
+    let lv; try { lv = LEVEL_FUNCS[i](); } catch (e) { rows.push({ i, name: ROOM_NAMES[i], err: String(e) }); continue; }
+    const rec = lv.dens && lv.dens[0], spaces = [];
+    if (rec && lv.denSpaces) for (const R of lv.denSpaces) spaces.push({ x0: R.x0, x1: R.x1, z0: Math.min(rec.zs + rec.out * R.d0, rec.zs + rec.out * R.d1), z1: Math.max(rec.zs + rec.out * R.d0, rec.zs + rec.out * R.d1), y: rec.sy });
+    for (const n of lv.nooks || []) spaces.push({ x0: n.room[0], x1: n.room[3], z0: n.room[2] + (n.room[5] - n.room[2] > 3.5 ? 0 : 0), z1: n.room[5], y: n.room[1], nook: 1, inner: n.inner });
+    if (lv.lint) spaces.push({ x0: lv.lint.zone[0], x1: lv.lint.zone[3], z0: lv.lint.zone[2], z1: lv.lint.zone[5], y: lv.lint.zone[1] });
+    if (!spaces.length) continue;
+    const F = lv.furn = lv.furn || [], bad = [], row = { i, name: lv.name, ch: ROOM[i].c + 1, part: ROOM[i].part + 1, spaces: [], bad };
+    let warns = [];
+    try { Furn.room(F, { shadows: false }).group.traverse(o => o.geometry && o.geometry.dispose()); furnUnclip(lv); const r = Furn.room(F, { shadows: false, walls: lv.boxes }); warns = r.warnings; r.group.traverse(o => o.geometry && o.geometry.dispose());
+      for (const b of r.solids) b._f = 1; lv._solids = r.solids; } catch (e) { bad.push("furniture failed to build: " + e); }
+    for (const w of warns) bad.push("gap: " + w);
+    const walls = lv.boxes.filter(b => !b.furn && b.mat !== "glass");
+    const P = F.filter(it => !skip.test(it.k)).map(it => { const A = furnAABB(it), t = Furn.template(it.k, it), b = t.box, yaw = it.ry !== undefined ? it.ry : (it.turn || 0) * Math.PI / 2, c = Math.cos(yaw), sn = Math.sin(yaw);
+      const R = [[b.min.x, b.min.z], [b.max.x, b.min.z], [b.max.x, b.max.z], [b.min.x, b.max.z]].map(([X, Zz]) => [it.at[0] + X * c + Zz * sn, it.at[2] - X * sn + Zz * c]);
+      return { it, A, R, wall: !!t.P.wall, solid: t.solid.length > 0, cx: (A.min[0] + A.max[0]) / 2, cz: (A.min[2] + A.max[2]) / 2 }; });
+    const sat = (A, B) => { let best = 9; for (const Q of [A, B]) for (let e = 0; e < 2; e++) { const ax = [Q[e + 1][0] - Q[e][0], Q[e + 1][1] - Q[e][1]], l = Math.hypot(...ax), n = [ax[0] / l, ax[1] / l]; const pa = A.map(p => p[0] * n[0] + p[1] * n[1]), pb = B.map(p => p[0] * n[0] + p[1] * n[1]); best = Math.min(best, Math.min(Math.max(...pa), Math.max(...pb)) - Math.max(Math.min(...pa), Math.min(...pb))); } return best; };      // how far two turned footprints overlap (negative: apart)
+    const inSp = (S, x, y, z, m = 0) => x > S.x0 - m && x < S.x1 + m && z > S.z0 - m && z < S.z1 + m && y > S.y - 0.3 && y < S.y + 2.9;
+    for (const S of spaces) {
+      const mine = P.filter(p => inSp(S, p.wall ? p.it.at[0] : p.cx, p.it.at[1], p.wall ? p.it.at[2] : p.cz, p.wall ? 0.1 : 0)), nm = k => lv.name + ": " + k;
+      const floorP = mine.filter(p => !p.wall && Math.abs(p.it.at[1] - S.y) < 0.03), upP = mine.filter(p => !p.wall && p.it.at[1] - S.y >= 0.03);
+      // 1. nothing in a wall (a wall piece may touch its own wall, nothing more)
+      for (const p of mine) for (const W of walls) { const o = ov(p.A, W); if (Math.min(...o) > (p.wall ? 0.03 : 0.006) && !(p.A.min[1] >= W.max[1] - 0.06)) { bad.push(nm(p.it.k + " is " + Math.min(...o).toFixed(2) + " m into a wall")); break; } }
+      // 2. nothing outside its room
+      for (const p of mine) if (!p.wall && (p.A.min[0] < S.x0 - 0.006 || p.A.max[0] > S.x1 + 0.006 || p.A.min[2] < S.z0 - 0.006 || p.A.max[2] > S.z1 + 0.006) && !S.nook) bad.push(nm(p.it.k + " sticks out of its room"));
+      // 3. floor pieces do not stand in each other (a chair may be tucked under a desk, table or bench)
+      for (let a = 0; a < floorP.length; a++) for (let b = a + 1; b < floorP.length; b++) { const A = floorP[a], B = floorP[b], o = ov(A.A, B.A); if (Math.min(...o) <= 0.012) continue; const d = sat(A.R, B.R); if (d <= 0.03) continue;
+        const ks = [A.it.k, B.it.k], chair = ks.some(k => /chair/.test(k)) && ks.some(k => /^(desk|table|workbench)$/.test(k)); if (chair && d < 0.4) continue;
+        if (ks.every(k => /^(sack|coatstand|mop|plant)$/.test(k)) && d < 0.2) continue;                      // soft or spindly things may lean together
+        bad.push(nm(A.it.k + " and " + B.it.k + " overlap by " + d.toFixed(2) + " m")); }
+      // 4. whatever stands on something stands at a real height, over it, with room above
+      for (const p of upP) { const y = p.it.at[1] - S.y, x = p.it.at[0], z = p.it.at[2];
+        const under = mine.filter(q => q !== p && !q.wall && q.it.at[1] < p.it.at[1] - 0.02 && x > q.A.min[0] - 0.02 && x < q.A.max[0] + 0.02 && z > q.A.min[2] - 0.02 && z < q.A.max[2] + 0.02);
+        const sup = under.find(q => Math.abs(p.it.at[1] - q.A.max[1]) < 0.03 && !/^(shelving|desk|table|cabinet|workbench|sortrack)$/.test(q.it.k)) || under.filter(q => Math.abs(q.it.at[1] - S.y) < 0.03).sort((a, b) => (b.solid ? 1 : 0) - (a.solid ? 1 : 0))[0];
+        if (!sup) { bad.push(nm(p.it.k + " at " + y.toFixed(2) + " m stands on nothing")); continue; }
+        const base = sup.it.at[1] - S.y, k = sup.it.k; let ok = false, head = 9;
+        if (k === "shelving") { const n = sup.it.shelves || 5, cl = sup.it.clear || []; if (Math.abs(y - SHELF_TOP) < 0.02) ok = true; for (const c of cl) if (Math.abs(y - SHELF(c, n)) < 0.02) { ok = true; head = SHELF(c + 1, n) - 0.04 - y; } }
+        else if (TOPS[k]) ok = TOPS[k].some(t => Math.abs(y - base - t) < 0.02);
+        else ok = Math.abs(p.it.at[1] - sup.A.max[1]) < 0.03;
+        if (!ok) bad.push(nm(p.it.k + " at " + y.toFixed(2) + " m is not on a real surface of the " + k));
+        else if (p.A.max[1] - p.A.min[1] > head + 0.005) bad.push(nm(p.it.k + " goes through the shelf above it"));
+        for (const q of upP) if (q !== p && upP.indexOf(q) > upP.indexOf(p) && Math.abs(q.it.at[1] - p.it.at[1]) < 0.05) { const o = ov(p.A, q.A), d = Math.min(...o) > 0.03 ? sat(p.R, q.R) : 0; if (d > 0.03 && !/keyboard|desklamp/.test(p.it.k + q.it.k)) bad.push(nm(p.it.k + " and " + q.it.k + " overlap on the " + k)); }
+      }
+      // 5. no find inside furniture, every find inside the room
+      const finds = (lv.items || []).filter(it => it.pos && inSp(S, it.pos[0], it.pos[1], it.pos[2])).map(it => ({ id: it.id, c: [it.pos[0], it.pos[1] + (it.still ? 0 : it.hover != null ? it.hover : 0.34), it.pos[2]] }));
+      if (lv.badge && inSp(S, lv.badge[0], lv.badge[1], lv.badge[2])) finds.push({ id: "key card", c: lv.badge });
+      for (const f of finds) { for (const p of mine) if (!p.wall && f.c[0] + 0.2 > p.A.min[0] && f.c[0] - 0.2 < p.A.max[0] && f.c[2] + 0.2 > p.A.min[2] && f.c[2] - 0.2 < p.A.max[2] && f.c[1] + 0.2 > p.A.min[1] + 0.02 && f.c[1] - 0.2 < p.A.max[1] - 0.02) { bad.push(nm("the " + f.id + " is inside the " + p.it.k)); break; }
+        if (f.c[1] - S.y > 2.5) bad.push(nm("the " + f.id + " is out of reach")); }
+      // 6. the ways through stay clear: openings in the walls (air boxes through a wall), white panels, buttons
+      const keep = [];
+      for (const b of lv.boxes) if (b.portal && b.max[1] > S.y && b.min[1] < S.y + 2.7) { const g = 0.8;                                 // 0.8 m in front of a panel that faces this room
+        if (b.max[0] - b.min[0] < 0.25 && b.max[2] > S.z0 && b.min[2] < S.z1 && (Math.abs(b.min[0] - S.x1) < 0.15 || Math.abs(b.max[0] - S.x0) < 0.15)) keep.push({ why: "a white panel", min: [Math.abs(b.min[0] - S.x1) < 0.15 ? b.min[0] - g : b.max[0], S.y, b.min[2]], max: [Math.abs(b.min[0] - S.x1) < 0.15 ? b.min[0] : b.max[0] + g, S.y + 2.3, b.max[2]] });
+        if (b.max[2] - b.min[2] < 0.25 && b.max[0] > S.x0 && b.min[0] < S.x1 && (Math.abs(b.min[2] - S.z1) < 0.15 || Math.abs(b.max[2] - S.z0) < 0.15)) keep.push({ why: "a white panel", min: [b.min[0], S.y, Math.abs(b.min[2] - S.z1) < 0.15 ? b.min[2] - g : b.max[2]], max: [b.max[0], S.y + 2.3, Math.abs(b.min[2] - S.z1) < 0.15 ? b.min[2] : b.max[2] + g] }); }
+      for (const a of lv.air) { const w = a[3] - a[0], d = a[5] - a[2]; if (a[1] > S.y + 1.4 || a[4] < S.y + 0.3 || (w > 2.2 && d > 2.2)) continue;                 // a doorway, hatch or recess: 0.7 m clear on the room side
+        const tx = a[3] > S.x0 - 0.6 && a[0] < S.x1 + 0.6, tz = a[5] > S.z0 - 0.6 && a[2] < S.z1 + 0.6; if (!tx || !tz) continue;
+        const inside = a[0] >= S.x0 - 0.01 && a[3] <= S.x1 + 0.01 && a[2] >= S.z0 - 0.01 && a[5] <= S.z1 + 0.01; if (inside) continue;
+        keep.push({ why: "an opening", min: [a[0] - (w < 1 ? 0.7 : 0), S.y, a[2] - (d < 1 ? 0.7 : 0)], max: [a[3] + (w < 1 ? 0.7 : 0), Math.min(a[4], S.y + 2.3), a[5] + (d < 1 ? 0.7 : 0)] }); }
+      for (const z of keep) for (const p of mine) { if (p.wall) continue; const o = ov(p.A, z); if (Math.min(...o) > 0.02) bad.push(nm(p.it.k + " stands in front of " + z.why + " (" + z.min.map(v => v.toFixed(1)) + ")")); }
+      for (const pl of lv.plates || []) if (inSp(S, pl.pos[0], pl.pos[1] + 0.1, pl.pos[2], 0.3)) for (const p of floorP) { const d = Math.hypot(Math.max(p.A.min[0] - pl.pos[0], 0, pl.pos[0] - p.A.max[0]), Math.max(p.A.min[2] - pl.pos[2], 0, pl.pos[2] - p.A.max[2])); if (d < 0.8) bad.push(nm(p.it.k + " stands on a button")); }
+      for (const g of lv.signs || []) if (g.kind === "scrawl" && inSp(S, g.pos[0], g.pos[1], g.pos[2], 0.05)) { const hw = (g.w || 2) / 2, hh = (g.h || 0.6) / 2, nx = Math.abs(g.n[0]) > 0.5;                   // nothing tall in front of O.'s writing
+        const z = { min: [nx ? g.pos[0] + Math.min(0, g.n[0] * 0.9) : g.pos[0] - hw, g.pos[1] - hh, nx ? g.pos[2] - hw : g.pos[2] + Math.min(0, g.n[2] * 0.9)], max: [nx ? g.pos[0] + Math.max(0, g.n[0] * 0.9) : g.pos[0] + hw, g.pos[1] + hh, nx ? g.pos[2] + hw : g.pos[2] + Math.max(0, g.n[2] * 0.9)] };
+        for (const p of mine) { const o = ov(p.A, z); if (Math.min(...o) > 0.05 && (nx ? o[2] : o[0]) > 0.4) bad.push(nm(p.it.k + " hides O.'s writing")); } }
+      for (const m of [...(lv.monitors || []), ...(lv.breakers || []), ...(lv.vents || [])]) if (inSp(S, m.pos[0], m.pos[1], m.pos[2], 0.05)) { const z = { min: [m.pos[0] - 0.3 + Math.min(0, m.n[0] * 0.7), m.pos[1] - 0.3, m.pos[2] - 0.3 + Math.min(0, m.n[2] * 0.7)], max: [m.pos[0] + 0.3 + Math.max(0, m.n[0] * 0.7), m.pos[1] + 0.3, m.pos[2] + 0.3 + Math.max(0, m.n[2] * 0.7)] };
+        for (const p of mine) { const o = ov(p.A, z); if (Math.min(...o) > 0.03) bad.push(nm(p.it.k + " covers a wall fitting")); } }
+      // 7. loose clutter (not solid) in a den: on something solid, or out of reach
+      for (const L of lv.loose || []) { const [kind, x, y, z] = L; if (!inSp(S, x, y, z)) continue; if (y - S.y > 2.05) continue; if (y < S.y) continue;
+        const flat = kind === "box" && (Math.min(L[4], L[6]) < 0.02 || L[5] < 0.07);                                                               // a patch on a wall, a grille bar
+        const on = (lv._solids || []).concat(walls).some(b => x > b.min[0] - 0.05 && x < b.max[0] + 0.05 && z > b.min[2] - 0.05 && z < b.max[2] + 0.05 && b.max[1] <= y + 0.05 && b.max[1] > S.y + 0.3);
+        if (!flat && !on) bad.push(nm("a loose " + kind + " at " + (y - S.y).toFixed(2) + " m is within reach and not solid")); }
+      // the room's signature: what is in it, and where
+      const kinds = {}; for (const p of mine) { const k = p.it.k + (p.it.k === "carton" ? ":" + (p.it.size || "mid") : p.it.k === "shelving" ? ":" + (p.it.shelves || 5) + (p.it.w ? "n" : "") : p.it.k === "lockers" ? ":" + (p.it.n || 3) : p.it.k === "desk" && p.it.w ? ":w" : ""); kinds[k] = (kinds[k] || 0) + 1; }
+      for (const L of lv.loose || []) if (inSp(S, L[1], L[2], L[3]) && L[0] === "sentry") kinds["dead sentry"] = (kinds["dead sentry"] || 0) + 1;
+      const what = Object.keys(kinds).sort().map(k => k + (kinds[k] > 1 ? "x" + kinds[k] : "")).join(", ");
+      const where = floorP.filter(p => p.solid).map(p => p.it.k[0] + Math.round((p.cx - S.x0) / (S.x1 - S.x0) * 4) + Math.round((p.cz - S.z0) / (S.z1 - S.z0) * 4)).sort().join(" ");
+      row.spaces.push({ n: row.spaces.length, what, where, pieces: mine.length, finds: finds.map(f => f.id) }); sigs.push({ i, name: lv.name, n: row.spaces.length - 1, what, where, pieces: mine.length });
+    }
+    row.finds = (lv.items || []).length + (lv.badge ? 1 : 0) + (lv.breakers || []).length + (lv.monitors || []).length + (lv.vents || []).length + (lv.bdoors || []).length + (lv.lint ? 1 : 0);
+    rows.push(row);
+  }
+  // no two den rooms alike: the same things, or the same solid pieces in the same places with nearly the same things
+  const twins = [];
+  for (let a = 0; a < sigs.length; a++) for (let b = a + 1; b < sigs.length; b++) { const A = sigs[a], B = sigs[b]; if (A.pieces < 2 && B.pieces < 2) continue; if (A.what === B.what) twins.push([A, B, "the same contents"]); }
+  const bare = rows.filter(r => !r.err && r.spaces.every(s => s.pieces < 3) && !(r.finds > 0)).map(r => r.name);
+  const emptyRooms = sigs.filter(s => s.pieces < 2).map(s => s.name + " (room " + (s.n + 1) + " of the den)");
+  return { rows, twins: twins.map(([A, B, why]) => ({ a: A.name + " #" + (A.n + 1), b: B.name + " #" + (B.n + 1), ai: A.i, bi: B.i, why, what: A.what })), bare, emptyRooms, version: VERSION };
 }
 /* =====================================================================================
    v8.16 Batch 4 of the dens plan: BACKSTAGE, rooms 39 to 45.
@@ -3107,6 +3317,14 @@ const BS_DEN = {
   "Hall Of Mirrors": { side: 1, x: 3, two: 1, key: { plate: { pos: [1.3, 0, 12.5], only: "sentry" } }, finds: [[1, { id: "stk-brb", kind: "sticker", sticker: "brb" }]] },      // one for the pile: a dead sentry on the scale by the shutter
   "Final Exam": { old: true, finds: [[0, "card"], [1, Object.assign({ id: "page8", kind: "page" }, BS_PAGE8)]] }
 };
+// v8.20: the furniture of the backstage dens: [main room, inner room, the inner room's wall (B back by default; F where a monitor or the staff door is in the back wall)]
+const BS_LAYOUT = { "Second Opinion": ["bs-cradle", "bs-lockers"], "Prism": ["bs-lens", "bs-hide"], "Hot Seat": ["bs-logs", "bs-switch"], "Heavy Hat": ["bs-racks", "bs-sort"], "Lift Off": ["bs-calc", "bs-brief"],
+  "Live Wire": ["bs-bench", "bs-control", "F"], "Paperweight": ["bs-camtable", "bs-reels", "F"], "Hall Of Mirrors": ["bs-morgue", "bs-brb"], "Final Exam": ["bs-sofa", "bs-last"] };
+// a hidden room (bsNook) gets one short run along a side wall, clear of its panel, its slot and its find
+function nookDress(h, o, type, side) {
+  const th = o.thick || 2, rec = { sy: o.y, zs: o.face, out: o.dir }, K = denKit(rec); K.out = o.dir; const R = { x0: o.c - 1.7, x1: o.c + 1.7, d0: th + 0.1, d1: th + 3.1 };
+  denLayout(K, type, R, side, true); for (const f of K.F) f.grime = 0.08; denSettle(h, K.F, [R], rec); h.furn = (h.furn || []).concat(K.F);
+}
 function bsDen(h, sp, idx) {
   const A = h.air[0], Wd = A[5], B = h.boxes, id = "den" + idx;
   if (!sp.old) den(h, { W: Wd, side: sp.side, x: sp.x, y: 0, two: sp.two });
@@ -3147,6 +3365,15 @@ function bsDen(h, sp, idx) {
     if (f.monitor) { (h.monitors = h.monitors || []).push(Object.assign({ pos: n && R2 ? [(R2.x0 + R2.x1) / 2, sy + 1.45, Z(6) - out * 0.001] : [xa - (t || 1) * 1.999, sy + 1.45, Z(4)], n: n && R2 ? [0, 0, -out] : [t || 1, 0, 0] }, f.monitor)); continue; }
     if (f.breaker) { (h.breakers = h.breakers || []).push(Object.assign({ pos: [n && R2 ? (R2.x0 + R2.x1) / 2 + 0.6 : xa + (t || 1) * 0.2, sy + 1.45, Z(2.0)], n: [0, 0, out] }, f.breaker)); continue; }
     items.push(Object.assign({ pos: spot(n) }, f));
+  }
+  // v8.20: every clean room is furnished, each its own way (BS_LAYOUT: main room, inner room, the inner room's wall). The main room's run starts at
+  // the back wall, on the side away from the slot, so it stays off the button by the shutter; an inner room's runs from its far end
+  const lay = BS_LAYOUT[h.name];
+  if (lay) { const K = denKit(rec); K.out = out; let loose = [];
+    const s1 = denLayout(K, lay[0], R1, t > 0 ? "L" : "R", false); loose = loose.concat(s1.loose || []);
+    if (R2) { const s2 = denLayout(K, lay[1], R2, lay[2] || "B", t < 0); loose = loose.concat(s2.loose || []); }
+    for (const f of K.F) f.grime = 0.08;                                                                // kept clean
+    denSettle(h, K.F, spaces, rec); h.furn = (h.furn || []).concat(K.F); if (loose.length) h.loose = (h.loose || []).concat(loose);
   }
   // O.'s home base: behind a key-card door in the inner room's back wall, and furnished (the one lived-in room back here)
   if (sp.staff && R2) {
@@ -3193,10 +3420,10 @@ function bsNook(h, o) {
 }
 // the hidden spaces of rooms 48 to 51 and the last staff door. Chamber cards 21, 22 and 23 live in them (20 is in Final Exam's den)
 const BS5 = {
-  "Out Of Order": h => { const P = bsNook(h, { ax: 2, dir: -1, face: -7, c: 22.75, y: 4, thick: 2, muzak: false }); h.badge = P(0.9, 0.95, 1.5); },      // behind the office's far half: the slot is in its back wall, the other portal goes on the panel you came out of. No Muzak: this room is silent
-  "Corridor Nine": h => { const P = bsNook(h, { ax: 2, dir: 1, face: 10, c: 31.5, y: 0, thick: 2 }); h.badge = P(0.9, 0.95, 1.5); },                      // past the second wall, across from the locker (which is the other panel)
-  "Sorting Hall": h => { const P = bsNook(h, { ax: 2, dir: -1, face: 6.15, c: 25, y: 0, thick: 0.6 }); (h.items = h.items || []).push({ id: "clock", kind: "clock", pos: P(-0.9, 0, 1.5) }); },      // off the holding room, inside the ledge (its side wall: a slot in the wall facing the hall's own slot could be seen from the hall)
-  "The Argument": h => { const P = bsNook(h, { ax: 2, dir: -1, face: 0, c: 2.6, y: 0, thick: 2 }); h.badge = P(0.9, 0.95, 1.5); },                      // by the way in, before the lock on her door
+  "Out Of Order": h => { const o = { ax: 2, dir: -1, face: -7, c: 22.75, y: 4, thick: 2, muzak: false }, P = bsNook(h, o); h.badge = P(0.9, 0.95, 1.5); nookDress(h, o, "bs-n48", "L"); },      // behind the office's far half: the slot is in its back wall, the other portal goes on the panel you came out of. No Muzak: this room is silent
+  "Corridor Nine": h => { const o = { ax: 2, dir: 1, face: 10, c: 31.5, y: 0, thick: 2 }, P = bsNook(h, o); h.badge = P(0.9, 0.95, 1.5); nookDress(h, o, "bs-n49", "L"); },                      // past the second wall, across from the locker (which is the other panel)
+  "Sorting Hall": h => { const o = { ax: 2, dir: -1, face: 6.15, c: 25, y: 0, thick: 0.6 }, P = bsNook(h, o); (h.items = h.items || []).push({ id: "clock", kind: "clock", pos: P(-0.9, 0, 1.5) }); nookDress(h, o, "bs-n50", "R"); },      // off the holding room, inside the ledge (its side wall: a slot in the wall facing the hall's own slot could be seen from the hall)
+  "The Argument": h => { const o = { ax: 2, dir: -1, face: 0, c: 2.6, y: 0, thick: 2 }, P = bsNook(h, o); h.badge = P(0.9, 0.95, 1.5); nookDress(h, o, "bs-n51", "L"); },                      // by the way in, before the lock on her door
   "The Last Order": h => { delete h.badge; },                                                                                                           // chamber 23's card is in The Argument's hidden room now
   "The Way Out": h => {                                                                                                                                // the last staff door: every card. v8.18: Lint is behind it, on hold at a desk
     bonusRoom(h, { W: 8, side: 0, x: 11, id: "staff", cards: 23 });
@@ -9286,7 +9513,7 @@ function boot() {
   setTimeout(() => HoldMusic.render(), 2200);
   setTimeout(() => { try { HoldShow.ensure(); HoldShow.preload(); } catch (e) { console.error(e); } }, 3000);   // the TV show's picture and voices, ready before anyone reaches the office                                       // and its music, rendered once in the background
 }
-window.__tc = { bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
+window.__tc = { denAudit, LEVEL_FUNCS, bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
 try { boot(); } catch (err) { console.error(err); $("loading").hidden = false; $("loading").innerHTML = '<div style="max-width:420px;text-align:center;line-height:1.6;font-size:13px;letter-spacing:.05em">Something went wrong starting the game.<br><small>' + String(err && err.message || err) + "</small></div>"; }
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>

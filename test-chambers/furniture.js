@@ -18,7 +18,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { paint, PAINTINGS } from "./painting.js";
 import { handWrite } from "./hand.js";               // v8.19: hand-written labels
 
-export const KIT_VERSION = "kit 1.5";
+export const KIT_VERSION = "kit 1.6";
 const TAU = Math.PI * 2, PLAYER_W = 0.6, CATCH = 0.75;      // a gap between 2 cm and 75 cm is one a body can wedge into
 
 // ---------- textures (canvas, made once) ----------
@@ -840,8 +840,9 @@ function room(list, opts = {}) {
   for (const it of list) {
     const t = template(it.k, it), pm = placeMatrix(it);
     if (t.solid.length && it.ry !== undefined && Math.abs(Math.round(it.ry / (Math.PI / 2)) * Math.PI / 2 - it.ry) > 1e-3) warnings.push(`${it.k} at ${it.at}: a solid piece turned off the quarter; its box is the box round it`);
-    if (t.P.door) { const p = makePiece(it.k, it, opts.grime, true); p.applyMatrix4(pm.m); group.add(p); opens.push(p); for (const b of t.solid) solids.push(solidWorld(b, pm)); tris += t.tris; continue; }      // v8.19: its own group, so its door can swing
-    if (t.P.hinge || it.own) { const p = makePiece(it.k, it, opts.grime, true); p.applyMatrix4(pm.m); group.add(p); paintings.push(p); tris += t.tris; continue; }
+    if (t.P.door) { const p = makePiece(it.k, it, it.grime !== undefined ? it.grime : opts.grime, true); p.applyMatrix4(pm.m); group.add(p); opens.push(p); for (const b of t.solid) solids.push(solidWorld(b, pm)); tris += t.tris; continue; }      // v8.19: its own group, so its door can swing
+    if (t.P.hinge || it.own) { const p = makePiece(it.k, it, it.grime !== undefined ? it.grime : opts.grime, true); p.applyMatrix4(pm.m); group.add(p); paintings.push(p); tris += t.tris; continue; }
+    const st = it.grime !== undefined ? grimeStep(it.grime) : step;      // kit 1.6: a piece may carry its own grime (the clean backstage rooms)
     let lo = null, hi = null;
     if (opts.shade) {                     // the room's baked light at the foot and the top of the piece, blended up each vertex
       const b = t.box, c = new THREE.Vector3((b.min.x + b.max.x) / 2, 0, (b.min.z + b.max.z) / 2).applyMatrix4(pm.m);
@@ -853,7 +854,7 @@ function room(list, opts = {}) {
       if (lo) { const pos = g.attributes.position, base = g.attributes.color, col = new Float32Array(pos.count * 3), span = Math.max(0.01, hi.y - lo.y);
         for (let i = 0; i < pos.count; i++) { const f = Math.max(0, Math.min(1, (pos.getY(i) - lo.y) / span)); for (let k = 0; k < 3; k++) col[i * 3 + k] = (lo.c[k] + (hi.c[k] - lo.c[k]) * f) * (base ? base.array[i * 3 + k] : 1); }
         g.setAttribute("color", new THREE.BufferAttribute(col, 3)); }
-      (byMat[p.mk] = byMat[p.mk] || []).push(g);
+      (byMat[p.mk + "#" + st] = byMat[p.mk + "#" + st] || []).push(g);
     }
     if (PLATE[it.k]) { const pl = plateMesh(PLATE[it.k](it)); pl.applyMatrix4(pm.m); group.add(pl); }
     if (opts.shadows !== false) for (const [w, d] of t.blobs) { const b = new THREE.PlaneGeometry(w, d); b.rotateX(-Math.PI / 2); b.translate(0, 0.003, 0); blobGeos.push(b.applyMatrix4(pm.m)); }
@@ -861,7 +862,7 @@ function room(list, opts = {}) {
     if (t.light) { const [lx, ly, lz, ...rest] = t.light, v = new THREE.Vector3(lx, ly, lz).applyMatrix4(pm.m); lamps.push([v.x, v.y, v.z, ...rest]); }
     tris += t.tris;
   }
-  for (const mk in byMat) { const m = new THREE.Mesh(mergeGeometries(byMat[mk], false), mat(mk, step, !!opts.shade)); m.userData.furn = 1; group.add(m); }
+  for (const key in byMat) { const [mk, st] = key.split("#"); const m = new THREE.Mesh(mergeGeometries(byMat[key], false), mat(mk, +st, !!opts.shade)); m.userData.furn = 1; group.add(m); }
   if (blobGeos.length) group.add(new THREE.Mesh(mergeGeometries(blobGeos, false), mat("blob", step)));
   group.traverse(o => { o.userData.ownMat = o.userData.ownMat || 0; });
   return { group, solids, lamps, paintings, opens, calls: group.children.length, tris, warnings: warnings.concat(gapCheck(solids, opts.walls || [])) };
