@@ -17,7 +17,7 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { paint, PAINTINGS } from "./painting.js";
 
-export const KIT_VERSION = "kit 1.3";
+export const KIT_VERSION = "kit 1.4";
 const TAU = Math.PI * 2, PLAYER_W = 0.6, CATCH = 0.75;      // a gap between 2 cm and 75 cm is one a body can wedge into
 
 // ---------- textures (canvas, made once) ----------
@@ -29,7 +29,7 @@ function canvasTex(key, w, h, paint, o = {}) {
   const t = new THREE.CanvasTexture(c);
   if (o.srgb !== false) t.colorSpace = THREE.SRGBColorSpace;
   if (o.rep) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(o.rep[0], o.rep[1]); }
-  t.anisotropy = 4; t.userData.canvas = c;
+  t.anisotropy = o.aniso || 4; t.userData.canvas = c;
   return (texCache[key] = t);
 }
 function rng(seed) { let s = seed >>> 0 || 1; return () => ((s = Math.imul(s ^ (s >>> 15), 2246822519) ^ Math.imul(s ^ (s >>> 13), 3266489917)) >>> 0) / 4294967296; }
@@ -122,15 +122,63 @@ const TEX = {
     L.forEach((s, i) => g.fillText(s, 14, 22 + i * 17));
     for (let y = 0; y < h; y += 3) { g.fillStyle = "rgba(0,0,0,.18)"; g.fillRect(0, y, w, 1); }     // soft scan lines (wide enough not to shimmer at a distance)
   }),
-  clock: () => canvasTex("clock", 256, 256, (g, w, h) => {           // stopped at 4:47
+  clock: () => canvasTex("clock", 256, 256, (g, w, h) => {           // stopped at 8:38 (every clock in the facility says 8:38)
     g.fillStyle = "#f2efe6"; g.beginPath(); g.arc(128, 128, 126, 0, TAU); g.fill();
     g.strokeStyle = "#222"; for (let i = 0; i < 60; i++) { const a = i / 60 * TAU, r0 = i % 5 ? 112 : 102; g.lineWidth = i % 5 ? 2 : 5; g.beginPath(); g.moveTo(128 + Math.sin(a) * r0, 128 - Math.cos(a) * r0); g.lineTo(128 + Math.sin(a) * 118, 128 - Math.cos(a) * 118); g.stroke(); }
     g.fillStyle = "#222"; sans(g, 24, 700); g.textAlign = "center"; g.textBaseline = "middle";
     for (let i = 1; i <= 12; i++) { const a = i / 12 * TAU; g.fillText(String(i), 128 + Math.sin(a) * 84, 128 - Math.cos(a) * 84); }
     const hand2 = (a, len, wd, col) => { g.strokeStyle = col; g.lineWidth = wd; g.lineCap = "round"; g.beginPath(); g.moveTo(128 - Math.sin(a) * 14, 128 + Math.cos(a) * 14); g.lineTo(128 + Math.sin(a) * len, 128 - Math.cos(a) * len); g.stroke(); };
-    hand2((4 + 47 / 60) / 12 * TAU, 58, 8, "#1b1b1b"); hand2(47 / 60 * TAU, 92, 5, "#1b1b1b"); hand2(32 / 60 * TAU, 98, 2, "#b3261e");
+    hand2((8 + 38 / 60) / 12 * TAU, 58, 8, "#1b1b1b"); hand2(38 / 60 * TAU, 92, 5, "#1b1b1b"); hand2(12 / 60 * TAU, 98, 2, "#b3261e");
     g.fillStyle = "#b3261e"; g.beginPath(); g.arc(128, 128, 6, 0, TAU); g.fill();
   }),
+  flipclock: () => canvasTex("flipclock", 512, 256, (g, w, h) => {   // a split-flap desk clock's two windows: 8 | 38
+    g.fillStyle = "#0b0b0c"; g.fillRect(0, 0, w, h);
+    const card = (x, cw, txt) => {
+      const y = 22, ch = h - 44, mid = y + ch / 2;
+      for (const top of [true, false]) {                       // each card is two flaps, the top one catching a little more light
+        const y0 = top ? y : mid + 3, y1 = top ? mid - 3 : y + ch, gr = g.createLinearGradient(0, y0, 0, y1);
+        gr.addColorStop(0, top ? "#3a3b3e" : "#25262a"); gr.addColorStop(1, top ? "#2a2b2e" : "#18191b");
+        g.fillStyle = gr; g.beginPath(); g.roundRect(x, y0, cw, y1 - y0, top ? [10, 10, 2, 2] : [2, 2, 10, 10]); g.fill();
+      }
+      g.save(); g.beginPath(); g.rect(x, y, cw, ch); g.clip();
+      g.fillStyle = "#f1eee6"; g.textAlign = "center"; g.textBaseline = "middle"; g.font = `800 ${Math.round(ch * 0.84)}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+      g.fillText(txt, x + cw / 2, mid + ch * 0.035);
+      const sh = g.createLinearGradient(0, mid + 3, 0, mid + 3 + ch * 0.07); sh.addColorStop(0, "rgba(0,0,0,.32)"); sh.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = sh; g.fillRect(x, mid + 3, cw, ch * 0.07);                             // the top flap's soft shadow on the lower one
+      g.restore();
+      g.fillStyle = "#050506"; g.fillRect(x - 2, mid - 3, cw + 4, 6);                      // the split
+      g.fillStyle = "#6c6e72"; for (const px of [x + 4, x + cw - 10]) g.fillRect(px, mid - 4, 6, 8);   // hinge pins
+    };
+    card(28, 150, "8"); card(206, 278, "38");
+  }),
+  ledclock: () => canvasTex("ledclock", 768, 256, (g, w, h) => {     // green dot-LED digits, 8:38, two segments going
+    g.fillStyle = "#030504"; g.fillRect(0, 0, w, h);
+    // segments a..g as (x0, y0, x1, y1) in a 1 x 2 digit cell
+    const SEG = { a: [0.12, 0, 0.88, 0], b: [1, 0.1, 1, 0.9], c: [1, 1.1, 1, 1.9], d: [0.12, 2, 0.88, 2], e: [0, 1.1, 0, 1.9], f: [0, 0.1, 0, 0.9], g: [0.12, 1, 0.88, 1] };
+    const DIG = { 8: "abcdefg", 3: "abcdg" };
+    const OFF = "rgba(48,90,54,.22)", ON = "#7dff86";
+    const dot = (x, y, r, lit) => {
+      if (lit > 0) { g.shadowColor = "rgba(90,255,110," + (0.9 * lit) + ")"; g.shadowBlur = 14 * lit; g.fillStyle = lit >= 1 ? ON : `rgba(125,255,134,${0.18 + lit * 0.6})`; }
+      else { g.shadowBlur = 0; g.fillStyle = OFF; }
+      g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill(); g.shadowBlur = 0;
+    };
+    // fail[seg] = function of the dot's index (0..n-1) -> brightness 0..1
+    const digit = (ox, oy, sz, d, fail = {}) => {
+      for (const k in SEG) {
+        const [x0, y0, x1, y1] = SEG[k], n = 7, on = d !== null && DIG[d].includes(k);
+        for (let i = 0; i < n; i++) {
+          const t = i / (n - 1), x = ox + (x0 + (x1 - x0) * t) * sz, y = oy + (y0 + (y1 - y0) * t) * sz;
+          dot(x, y, sz * 0.075, on ? (fail[k] ? fail[k](i) : 1) : 0);
+        }
+      }
+    };
+    const sz = 92, oy = 34;
+    digit(40, oy, sz, null);                                                    // the tens of the hour: blank (its unlit dots still show)
+    digit(210, oy, sz, 8, { e: i => (i >= 5 ? 0 : 1), b: i => (i === 4 ? 0 : 1) });   // the 8: the foot of its lower-left bar dead, one dot out on the right
+    dot(366, oy + sz * 0.62, 9, 1); dot(366, oy + sz * 1.38, 9, 1);             // colon
+    digit(430, oy, sz, 3);
+    digit(600, oy, sz, 8, { g: i => (i === 2 || i === 4 ? 0 : 1), c: i => (i >= 4 ? 0.35 : 1) });   // the last 8: two dots dead in its middle bar, the foot of its lower-right bar fading (still reads 8)
+  }, { aniso: 8 }),
   notices: () => canvasTex("notices", 512, 340, (g, w, h) => {        // the noticeboard's papers
     const r = rng(21);
     const paper = (x, y, pw, ph, rot, col, lines, title) => {
@@ -226,7 +274,9 @@ const MDEF = {
   sack:     { c: 0xffffff, r: 1, m: 0, map: "sack" },    paper: { c: 0xd2cec0, r: .9, m: 0 },  paperYel: { c: 0xd4c682, r: .9, m: 0 },
   keys:     { c: 0xffffff, r: .55, m: 0, map: "keys" },  notices: { c: 0xffffff, r: .85, m: 0, map: "notices" }, board: { c: 0xcfd1ce, r: .35, m: 0, map: "whiteboard" },
   vend:     { c: 0xffffff, r: .35, m: .1, map: "vend", e: [.35, .35, .35], emap: true },  toolbd: { c: 0xffffff, r: .85, m: 0, map: "toolboard" },
-  clock:    { c: 0xd0d0cc, r: .5, m: 0, map: "clock" },  canvasBk: { c: 0xffffff, r: .95, m: 0, map: "canvasBack" },
+  clock:    { c: 0xd0d0cc, r: .5, m: 0, map: "clock" },  flipcard: { c: 0xffffff, r: .45, m: 0, map: "flipclock" },
+  ledface:  { c: 0xffffff, r: .25, m: 0, map: "ledclock", e: [1.5, 1.5, 1.5], emap: true },  smoked: { c: 0x1c2a22, r: .06, m: 0, t: .3 },
+  plasOrg:  { c: 0xc8662a, r: .38, m: 0 },  canvasBk: { c: 0xffffff, r: .95, m: 0, map: "canvasBack" },
   carpet:   { c: 0xffffff, r: .98, m: 0, map: "carpet" }, lino: { c: 0xffffff, r: .45, m: 0, map: "lino" },
   glass:    { c: 0xcfe3ea, r: .08, m: 0, t: .16 },  water: { c: 0x8fc4e8, r: .05, m: 0, t: .55 },
   screen:   { c: 0x000000, r: .2, m: 0, map: "crt", e: [1.2, 1.2, 1.2], emap: true },
@@ -405,11 +455,31 @@ const PIECES = {
       for (const s of [-1, 1]) for (const t of [-1, 1]) K.box("steelDk", 0.008, 0.1, 0.008, s * 0.12, 0.06, t * 0.16);
       K.box("paperYel", 0.08, 0.002, 0.08, 0.04, 0.125, 0.06, 0, 0.5, 0);
     } },
-  clock: { name: "Wall clock", group: "Office", wall: true, info: "Stopped at 4:47. Hangs on a wall.",
+  clock: { name: "Wall clock", group: "Office", wall: true, info: "Stopped at 8:38. Hangs on a wall.",
     build(K) {
       K.cyl("black", 0.16, 0.16, 0.05, 0, 0, 0.025, 32, Math.PI / 2); K.torus("black", 0.16, 0.012, 0, 0, 0.05, TAU, 0, 0, 0, 32);
       K.geo("clock", new THREE.CircleGeometry(0.15, 32), 0, 0, 0.051);
       K.geo("glass", new THREE.CircleGeometry(0.152, 32), 0, 0, 0.058);
+    } },
+  flipclock: { name: "Flip clock", group: "Office", info: "Split-flap desk clock in orange plastic, flaps at 8:38. Not solid.",
+    build(K) {
+      const W = 0.24, H = 0.12, D = 0.11;
+      K.rbox("plasOrg", W, H, D, 0.03, 0, H / 2 + 0.012, 0);                       // body
+      K.box("black", W - 0.035, H - 0.04, 0.01, 0, H / 2 + 0.012, D / 2 - 0.003);   // the dark window
+      K.plane("flipcard", W - 0.045, H - 0.05, 0, H / 2 + 0.012, D / 2 + 0.0025);
+      K.cyl("steelDk", 0.0016, 0.0016, W - 0.05, 0, H / 2 + 0.012, D / 2 + 0.004, 6, 0, 0, Math.PI / 2);   // the flaps' axle across the split
+      K.plane("glass", W - 0.04, H - 0.045, 0, H / 2 + 0.012, D / 2 + 0.008);
+      for (const sx of [-1, 1]) K.cyl("plasOrg", 0.012, 0.012, 0.008, sx * (W / 2 + 0.003), H / 2 + 0.03, -0.01, 12, 0, 0, Math.PI / 2);   // setting knobs
+      for (const sx of [-1, 1]) K.box("rubber", 0.04, 0.012, D - 0.03, sx * (W / 2 - 0.04), 0.006, 0);   // feet
+    } },
+  ledclock: { name: "LED wall clock", group: "Stores", wall: true, info: "Green dot-LED clock reading 8:38, two segments failing. Hangs on a wall.",
+    build(K) {
+      const W = 0.5, H = 0.2, D = 0.06;
+      K.rbox("black", W, H, D, 0.012, 0, 0, D / 2);
+      K.plane("ledface", W - 0.04, H - 0.04, 0, 0, D + 0.0015);
+      K.plane("smoked", W - 0.03, H - 0.03, 0, 0, D + 0.005);
+      K.box("steelDk", 0.08, 0.02, 0.04, 0, -H / 2 - 0.006, D / 2);                // cable gland under it
+      K.cyl("black", 0.005, 0.005, 0.35, 0.02, -H / 2 - 0.18, 0.02, 6);            // the flex running down the wall
     } },
   noticeboard: { name: "Noticeboard", group: "Office", wall: true, info: "Cork board with pinned notices. Hangs on a wall.",
     build(K) {

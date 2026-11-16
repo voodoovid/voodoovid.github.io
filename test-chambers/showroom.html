@@ -83,7 +83,7 @@ h4 { margin: 4px 2px 8px; font-size: 11px; letter-spacing: .22em; color: var(--d
   <header>
     <div class="logo"></div>
     <div class="title"><b>TEST CHAMBERS</b><span>Furniture Showroom <small id="ver" style="font-size:12px;color:var(--dim);font-weight:600;letter-spacing:.06em"></small></span></div>
-    <div id="summary"><strong id="sumTop">Checking…</strong><span id="sumSub">36 pieces</span></div>
+    <div id="summary"><strong id="sumTop">Checking…</strong><span id="sumSub">39 pieces</span></div>
     <button class="pill ghost" id="bHelp" data-tip="How this page works">?</button>
     <button class="pill" id="bRun" data-tip="Run every check again (takes about 5 seconds)">Run checks</button>
   </header>
@@ -141,7 +141,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { Furn, KIT_VERSION } from "./furniture.js";
 
-const VERSION = "v1.4";
+const VERSION = "v1.5";
 const $ = id => document.getElementById(id);
 $("ver").textContent = VERSION + " · " + KIT_VERSION;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js").catch(() => {});
@@ -192,8 +192,8 @@ const sWall = new THREE.Mesh(new THREE.BoxGeometry(6, 3.2, 0.1), DARK); sWall.po
 const sCeil = new THREE.Mesh(new THREE.BoxGeometry(6, 0.1, 6), DARK); sCeil.position.y = 2.75; stage.add(sCeil);
 const plinth = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.75, 0.55), new THREE.MeshStandardMaterial({ color: 0x3a4048, roughness: .7 })); plinth.position.y = 0.375; stage.add(plinth);
 const behind = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.0, 0.02), WHITE); behind.visible = false; stage.add(behind);    // the white panel behind the painting
-const DESKTOP = new Set(["desklamp", "computer", "keyboard", "phone", "intray", "kettle", "mug"]);
-const WALL_Y = { clock: 2.0, noticeboard: 1.55, whiteboard: 1.45, toolboard: 1.35, painting: 1.6, landscape: 1.6, skirting: 0, door: 0 };
+const DESKTOP = new Set(["desklamp", "computer", "keyboard", "phone", "intray", "kettle", "mug", "flipclock"]);
+const WALL_Y = { clock: 2.0, ledclock: 1.8, noticeboard: 1.55, whiteboard: 1.45, toolboard: 1.35, painting: 1.6, landscape: 1.6, skirting: 0, door: 0 };
 const isArt = k => k === "painting" || k === "landscape";
 
 // ---------- the den: most of the kit in one 6 x 4.5 m room (office, break corner, store wall) ----------
@@ -213,14 +213,14 @@ const DEN_LIST = [
   { k: "computer", at: [-2.5, 0.75, bz + 0.3] }, { k: "keyboard", at: [-2.45, 0.75, bz + 0.6] }, { k: "phone", at: [-1.85, 0.75, bz + 0.25], ry: -0.3 },
   { k: "intray", at: [-1.72, 0.75, bz + 0.55], ry: 0.2 }, { k: "desklamp", at: [-2.85, 0.75, bz + 0.2], ry: 0.5 }, { k: "mug", at: [-2.02, 0.75, bz + 0.6], red: true },
   { k: "cabinet", at: [-1.25, 0, bz + 0.31] }, { k: "cabinet", at: [-0.78, 0, bz + 0.31] },
-  { k: "whiteboard", at: [-2.0, 1.45, bz] }, { k: "clock", at: [-0.8, 2.0, bz] }, { k: "painting", at: [lx, 1.6, -1.0], turn: 1 },
+  { k: "whiteboard", at: [-2.0, 1.45, bz] }, { k: "clock", at: [-0.8, 2.0, bz] }, { k: "flipclock", at: [-1.25, 1.32, bz + 0.35] }, { k: "painting", at: [lx, 1.6, -1.0], turn: 1 },
   { k: "landscape", at: [lx, 1.75, 1.45], turn: 1 }, { k: "plant", at: [lx + 0.35, 0, 1.85] }, { k: "bin", at: [-1.5, 0, bz + 0.85] }, { k: "coatstand", at: [lx + 0.45, 0, 1.1] },
   { k: "door", at: [lx, 0, 0.2], turn: 1, label: "Records" },
   // break corner (fridge, cooler and vending machine along the right wall; every solid gap is shut or at least 75 cm)
   { k: "sofa", at: [1.4, 0, bz + 0.43], w: 1.6 }, { k: "noticeboard", at: [1.4, 1.55, bz] },
   { k: "table", at: [0.9, 0, 0.8], w: 1.0 }, { k: "stackchair", at: [0.9, 0, 1.5], ry: Math.PI }, { k: "stackchair", at: [0.15, 0, 0.75], ry: Math.PI / 2 + 0.2 },
   { k: "kettle", at: [0.75, 0.74, 0.7] }, { k: "mug", at: [1.1, 0.74, 0.95] },
-  { k: "fridge", at: [rx - 0.33, 0, -0.9], turn: 3 }, { k: "cooler", at: [rx - 0.17, 0, 0.74], turn: 3 }, { k: "vending", at: [rx - 0.41, 0, 1.35], turn: 3 },
+  { k: "fridge", at: [rx - 0.33, 0, -0.9], turn: 3 }, { k: "cooler", at: [rx - 0.17, 0, 0.74], turn: 3 }, { k: "vending", at: [rx - 0.41, 0, 1.35], turn: 3 }, { k: "ledclock", at: [rx, 2.2, -0.2], turn: 3 },
   // stores
   { k: "carton", at: [-0.6, 0, 1.75] }, { k: "carton", at: [-0.6, 0.42, 1.75], ry: 0.3, size: "mid" },
   { k: "sack", at: [-1.2, 0, 1.85] }, { k: "mop", at: [-1.9, 0, 1.9], ry: 0.6 },

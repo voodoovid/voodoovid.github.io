@@ -545,7 +545,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { Furn } from "./furniture.js";                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.12";
+const VERSION = "v8.13";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const IT_TEST = /[?&]itemtest\b/.test(location.search), SPFX = IT_TEST ? "testchambers.itest." : "testchambers.";
 const $ = id => document.getElementById(id);
@@ -6390,7 +6390,8 @@ const Cut = (() => {
     for (let i = 0; i < 5; i++) { const z = -3.6 - i * 0.62; box(gTop, chairM, 0.46, 0.05, 0.5, -4.6, 0.45, z); box(gTop, chairM, 0.05, 0.42, 0.5, -4.86, 0.72, z); box(gTop, legM, 0.03, 0.45, 0.03, -4.42, 0.225, z - 0.2); box(gTop, legM, 0.03, 0.45, 0.03, -4.42, 0.225, z + 0.2); }
     const clock = canvasTex(256, 256, (g) => { g.fillStyle = "#e8e6de"; g.beginPath(); g.arc(128, 128, 118, 0, 7); g.fill(); g.strokeStyle = "#17191b"; g.lineWidth = 9; g.stroke(); g.lineWidth = 5;
       for (let i = 0; i < 12; i++) { const a = i * PI / 6; g.beginPath(); g.moveTo(128 + Math.sin(a) * 96, 128 - Math.cos(a) * 96); g.lineTo(128 + Math.sin(a) * 108, 128 - Math.cos(a) * 108); g.stroke(); }
-      g.lineWidth = 8; g.lineCap = "round"; g.beginPath(); g.moveTo(128, 128); g.lineTo(128 + Math.sin(2.3) * 56, 128 - Math.cos(2.3) * 56); g.stroke(); g.lineWidth = 5; g.beginPath(); g.moveTo(128, 128); g.lineTo(128 + Math.sin(5.55) * 88, 128 - Math.cos(5.55) * 88); g.stroke(); }, false);
+      const hA = (8 + 38 / 60) / 12 * 2 * PI, mA = 38 / 60 * 2 * PI;           // 8:38, like every clock in the facility
+      g.lineWidth = 8; g.lineCap = "round"; g.beginPath(); g.moveTo(128, 128); g.lineTo(128 + Math.sin(hA) * 56, 128 - Math.cos(hA) * 56); g.stroke(); g.lineWidth = 5; g.beginPath(); g.moveTo(128, 128); g.lineTo(128 + Math.sin(mA) * 88, 128 - Math.cos(mA) * 88); g.stroke(); }, false);
     { const c = new THREE.Mesh(new THREE.CircleGeometry(0.21, 32), std({ map: clock, roughness: 0.6, transparent: true })); c.position.set(-4.985, 2.35, -4.8); c.rotation.y = PI / 2; gTop.add(c); }
     const notice = canvasTex(512, 256, (g) => { g.fillStyle = "#e7e9e4"; g.fillRect(0, 0, 512, 256); g.fillStyle = "#17191b"; g.textAlign = "center"; g.font = "800 54px Helvetica, Arial, sans-serif"; g.fillText("PLEASE SIGN IN", 256, 104);
       g.font = "600 30px Helvetica, Arial, sans-serif"; g.fillText("A member of staff will be", 256, 164); g.fillText("with you shortly.", 256, 204); }, false);
@@ -7459,7 +7460,8 @@ const Items = (() => {
   function clockTex() {
     return canvasTex(256, 256, g => {
       g.fillStyle = "#f2efe4"; g.beginPath(); g.arc(128, 128, 124, 0, 6.3); g.fill(); g.strokeStyle = "#14181c"; g.lineWidth = 5; for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6; g.beginPath(); g.moveTo(128 + Math.sin(a) * 100, 128 - Math.cos(a) * 100); g.lineTo(128 + Math.sin(a) * 116, 128 - Math.cos(a) * 116); g.stroke(); }
-      g.lineWidth = 9; g.lineCap = "round"; g.beginPath(); g.moveTo(128, 128); g.lineTo(128 + 52 * Math.sin(-0.5), 128 - 52 * Math.cos(-0.5)); g.stroke(); g.lineWidth = 6; g.beginPath(); g.moveTo(128, 128); g.lineTo(128 + 88 * Math.sin(2.1), 128 - 88 * Math.cos(2.1)); g.stroke();
+      const hA = (8 + 38 / 60) / 12 * 2 * Math.PI, mA = 38 / 60 * 2 * Math.PI;     // 8:38, like every clock in the facility
+      g.lineWidth = 9; g.lineCap = "round"; g.beginPath(); g.moveTo(128, 128); g.lineTo(128 + 52 * Math.sin(hA), 128 - 52 * Math.cos(hA)); g.stroke(); g.lineWidth = 6; g.beginPath(); g.moveTo(128, 128); g.lineTo(128 + 88 * Math.sin(mA), 128 - 88 * Math.cos(mA)); g.stroke();
       g.fillStyle = "#c8262c"; g.font = "900 22px Helvetica, Arial, sans-serif"; g.textAlign = "center"; g.fillText("PUNCH", 128, 190);
     }, false);
   }
@@ -7751,9 +7753,10 @@ function levelItemTest() {
     { k: "desk", at: [15.75, 0, bz + 0.375] }, { k: "cabinet", at: [16.735, 0, bz + 0.31] }, { k: "cabinet", at: [17.205, 0, bz + 0.31] },
     { k: "chair", at: [15.8, 0, -4.45], ry: Math.PI + 0.3 }, { k: "computer", at: [15.5, 0.75, bz + 0.3] }, { k: "keyboard", at: [15.55, 0.75, bz + 0.62] },
     { k: "desklamp", at: [15.15, 0.75, bz + 0.2], ry: 0.5 }, { k: "phone", at: [16.2, 0.75, bz + 0.25], ry: -0.3 }, { k: "mug", at: [16.25, 0.75, bz + 0.6], red: true },
-    { k: "clock", at: [17, 2.15, bz] }, { k: "painting", at: [15, 1.6, -3.6], turn: 1 }, { k: "noticeboard", at: [19, 1.5, -3.6], turn: 3 },
+    { k: "clock", at: [17, 2.15, bz] }, { k: "flipclock", at: [16.735, 1.32, bz + 0.3] }, { k: "painting", at: [15, 1.6, -3.6], turn: 1 }, { k: "noticeboard", at: [19, 1.5, -3.6], turn: 3 },
     { k: "plant", at: [18.6, 0, -2.45] }, { k: "bin", at: [15.35, 0, -4.4] },
-    { k: "landscape", at: [4.5, 1.75, W], turn: 2 }, { k: "sofa", at: [4.5, 0, W - 0.43], turn: 2 }, { k: "cooler", at: [5.51, 0, W - 0.16], turn: 2 }, { k: "plant", at: [2.7, 0, W - 0.4], seed: 9 }
+    { k: "landscape", at: [4.5, 1.75, W], turn: 2 }, { k: "sofa", at: [4.5, 0, W - 0.43], turn: 2 }, { k: "cooler", at: [5.51, 0, W - 0.16], turn: 2 }, { k: "plant", at: [2.7, 0, W - 0.4], seed: 9 },
+    { k: "ledclock", at: [6.4, 2.25, W], turn: 2 }
   ];
   return Object.assign(h, { num: 1, name: "Item Test", track: 0, par: [120, 0], say: {
     intro: ["Item test. Pick things up. Open things. Try not to take anything that is not on the list."], hint: ["The breaker is on the wall."], hint2: ["The blue card is behind the red door."],
