@@ -61,6 +61,7 @@ body.emerg #vig { background: radial-gradient(ellipse 75% 70% at 50% 50%, rgba(1
 .bdoors li b { font-weight: 700; letter-spacing: .06em; }
 .bdoors li i { font-style: normal; font-weight: 700; letter-spacing: .1em; font-size: 12px; text-transform: uppercase; }
 .bdoors li i.ok { color: #3fd68a; } .bdoors li i.no { color: #ff7a6b; }
+.bvids li { align-items: center; } .bvids li .btn { width: auto; margin: 0; padding: 10px 18px; flex: none; }
 .bring { font-size: 30px; font-weight: 800; letter-spacing: .04em; margin: 2px 0 0; } .bring small { font-size: 14px; color: var(--dim); font-weight: 600; margin-left: 8px; letter-spacing: .1em; }
 .bbackrow { margin-top: 12px; } .bbackrow .btn { width: auto; display: inline-block; }
 #ver { position: absolute; right: calc(env(safe-area-inset-right, 0px) + 14px); top: 58px; font-size: 10px; letter-spacing: .12em; color: rgba(255,255,255,.4); }
@@ -316,7 +317,6 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
         <button class="ibtn wide" id="bHint" type="button" aria-label="Ask SaDos for a hint">Hint</button>
         <button class="ibtn wide" id="bBonus" type="button" aria-label="Bonuses">Bonuses<i id="bonusDot"></i></button>
         <button class="ibtn wide" id="bSettings" type="button" aria-label="Settings">Settings</button>
-        <button class="ibtn" id="bGuide" type="button" aria-label="Guide" title="How to play (H)">?</button>
         <button class="ibtn" id="bRestart" type="button" aria-label="Restart chamber" title="Restart chamber (R)">&#10227;</button>
         <button class="ibtn" id="bFull" type="button" aria-label="Full screen" title="Full screen (F)">&#9974;</button>
         <button class="ibtn" id="bPause" type="button" aria-label="Pause" title="Pause (Esc)">&#10074;&#10074;</button>
@@ -429,9 +429,6 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
       <div class="opt">Picture <button id="oQuality" type="button">Auto</button></div>
       <div class="opt">Full screen <button id="oFull" type="button">Enter</button></div>
       <div class="opt">Challenge: portal limit <button id="oChal" type="button">Off</button></div>
-      <div class="opt">Opening story <button id="oStory" type="button">Watch</button></div>
-      <div class="opt">Closing story <button id="oEnding" type="button">Watch</button></div>
-      <div class="opt">Hold Music (temporary) <button id="oShow" type="button">Watch</button></div>
       <div class="opt">Saved progress <button id="oReset" type="button">Reset</button></div>
       <button class="btn" id="bOptBack" type="button" style="margin-top:16px">&lsaquo; Back</button>
       <p class="vtag" id="vOpt"></p>
@@ -579,7 +576,7 @@ import { Furn } from "./furniture.js";
 import { GLYPHS as HAND_GLYPHS, handWrite, handBlock, handWidth } from "./hand.js";      // v8.19: hand-lettering                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.23";
+const VERSION = "v8.24";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const IT_TEST = /[?&]itemtest\b/.test(location.search), SPFX = IT_TEST ? "testchambers.itest." : "testchambers.";
 const $ = id => document.getElementById(id);
@@ -6749,13 +6746,13 @@ function unlockPointer() { try { if (document.pointerLockElement) { selfUnlock =
 /* ---------- hover hints: every button says what it does when the pointer rests on it ---------- */
 const TIPS = {
   bHint: "Ask SaDos for a hint (T). Press again for a firmer one", bCredits: "Who and what made this", bCreditsBack: "Back to the results", oChal: "After finishing the game: only a few portals per room",
-  bGuide: "How to play (H)", bRestart: "Restart from the last checkpoint (R)", bFull: "Full screen on or off (F)", bPause: "Pause (Esc)",
+  bRestart: "Restart from the last checkpoint (R)", bFull: "Full screen on or off (F)", bPause: "Pause (Esc)",
   bPlay: "Start, or carry on from the last chamber you reached", bChambers: "Choose any chamber you have reached", bOptions: "Sound, look speed, picture quality, progress", bHow: "Controls, and everything you will meet",
-  bBonus: "Bonuses: key cards, O.'s pages, tapes, gun stickers (B)", bSettings: "Settings: sound, look, gun hand, the guide", bBonusDone: "Close Bonuses (Esc, B, or tap outside)", bPauseBonus: "Key cards, O.'s pages, tapes, gun stickers", oGuide: "Controls, and everything you will meet", bLogBack: "Close (Esc)", bMonBack: "Close the monitor (Esc)", bStkBack: "Back to Options (Esc)",
-  oShow: "Temporary: watch the Hold Music TV show here, with sound", bShowBack: "Stop the show and go back to Options (Esc)", bShowAgain: "Play the show again from the start",
+  bBonus: "Bonuses: key cards, O.'s pages, tapes, gun stickers, videos (B)", bSettings: "Settings: sound, look, gun hand, the guide", bBonusDone: "Close Bonuses (Esc, B, or tap outside)", bPauseBonus: "Key cards, O.'s pages, tapes, gun stickers", oGuide: "Controls, and everything you will meet", bLogBack: "Close (Esc)", bMonBack: "Close the monitor (Esc)", bStkBack: "Back to Options (Esc)",
+  bShowBack: "Stop and go back (Esc)", bShowAgain: "Play the show again from the start",
   bChBack: "Back to where you were (Esc, or tap outside)", bOptBack: "Back to where you were (Esc, or tap outside)", bHowBack: "Close the guide (Esc, or tap outside it)",
   oMusic: "Music on or off", oSfx: "Sound effects on or off", oVoice: "SaDos and the sentries speak, or only subtitles", oSens: "How fast the view turns", oInvert: "Push up to look down", oHand: "Which hand holds the portal gun (left or right)",
-  oScroll: "Which way a two-finger swipe walks", oQuality: "Auto adjusts to keep the game smooth; High is sharper; Low is fastest", oFull: "Full screen on or off", oReset: "Lock the chambers again and start over (asks first)", oStory: "Watch the opening story again", oEnding: "Watch the closing story (the very end of the game)", cutSkip: "Skip the opening (Esc)",
+  oScroll: "Which way a two-finger swipe walks", oQuality: "Auto adjusts to keep the game smooth; High is sharper; Low is fastest", oFull: "Full screen on or off", oReset: "Lock the chambers again and start over (asks first)", cutSkip: "Skip the opening (Esc)",
   bResume: "Back to the chamber (Esc, or tap outside)", bRetry: "Start this room again", bPauseOpt: "Sound, look speed, gun hand, the guide", bPauseCh: "Choose any chamber you have reached", bPauseMenu: "Leave the chamber and go to the title",
   bNext: "On to the next chamber (Return)", bAgain: "Play this chamber again from its first room", bDoneMenu: "Go to the title", bResetYes: "Erase progress. This cannot be undone", bResetNo: "Change nothing",
   tBlue: "Fire the blue portal", tOrange: "Fire the orange portal", tJump: "Jump", tUse: "Pick up or put down a cube or sentry"
@@ -6818,14 +6815,13 @@ function buildChambers() {
 }
 const click = (id, fn) => $(id).addEventListener("click", e => { ensureAudio(); fn(e); });
 click("bPlay", () => { const r = resumeRoom(); if (r === 0 && !store.get("seenOpening", 0) && !IT_TEST) Cut.play(() => beginLevel(0)); else beginLevel(r); });       // the first visit starts with the opening film
-click("oStory", () => Cut.play(() => { syncOpts(); showOv("ovOptions"); }));
-click("oEnding", () => Cut.playEnding(() => { syncOpts(); showOv("ovOptions"); }));
 // v8.0 (temporary): Options > Hold Music plays the TV show full size in a pop-up, with its sound, so it can be checked without walking to the office
 let showReel = 0, showBack = null;       // v8.18: the same pop-up plays a lost reel (showTape); `showBack` is where Back goes then
 function showClose() { HoldShow.unwatch(); const b = showBack; showReel = 0; showBack = null; $("showTtl").textContent = "Hold Music"; if (b) b(); else { syncOpts(); showOv("ovOptions"); } }
 function showStart() { HoldShow.watch($("showCv"), $("showPvSub"), showReel); }
 function showTape(n, back) { showReel = n; showBack = back || null; $("showTtl").textContent = "Hold Music · lost reel " + n; showOv("ovShow"); showStart(); }
-click("oShow", () => { showOv("ovShow"); showStart(); });
+// v8.24: Bonuses > Videos plays the Hold Music show here; Back returns to Bonuses
+function showHold(back) { showReel = 0; showBack = back || null; $("showTtl").textContent = "Hold Music"; showOv("ovShow"); showStart(); }
 click("bStkBack", () => { syncOpts(); showOv("ovOptions"); });
 click("bBonus", () => Bonus.open(null, "play"));             // v8.23: straight from play; the game holds while it is open
 click("bBonusDone", () => Bonus.close());
@@ -6847,7 +6843,6 @@ function openGuide() {
   showOv("ovHow");
 }
 click("bHow", () => { howFrom = "ovTitle"; showOv("ovHow"); });
-click("bGuide", openGuide);
 function askHint() { if (state !== "play") return; const now = performance.now(); if (now - run.hintAt < 6000) return; run.hintAt = now;
   if (world.lv.nohint || !(world.lv.say.hint && world.lv.say.hint.length)) { toast("SaDos gives no hint in this room."); return; }      // v8.1: Paperweight and Hall Of Mirrors have none
   run.hinted = Math.max(run.hinted, 1); sadosShutUp();
@@ -9315,6 +9310,7 @@ const Bonus = (() => {
       ["pages", "Pages", Object.keys(Log.get("pages")).length + " / " + countOf("page"), "Read O.'s pages again"],
       ["tapes", "Tapes", Object.keys(Log.get("tapes")).length + " / " + countOf("tape"), "Watch the lost reels again"],
       ["stickers", "Stickers", STICKERS.filter(s => !s.secret && store.get("stickers", []).includes(s.id)).length + " / " + STICKERS.filter(s => !s.secret).length, "Pick the sticker on your portal gun"]];
+    T.push(["videos", "Videos", "", "Watch the opening and closing stories, and Hold Music"]);
     if (store.get("lintFound", 0)) T.push(["lint", "Lint", "", "He is with you"]);
     if (!T.find(t => t[0] === tab)) tab = "cards";
     const el = $("bTabs"); el.innerHTML = "";
@@ -9370,6 +9366,18 @@ const Bonus = (() => {
       body.appendChild(g);
     } else if (tab === "stickers") {
       const note = P("stkNote", ""), g = document.createElement("div"); g.className = "stkGrid"; body.append(note, g); GunSticker.build(g, note);
+    } else if (tab === "videos") {
+      body.appendChild(P("stkNote", "Watch them again. Done, Esc or Skip comes back here."));
+      const V = [["Opening story", "The wet night you walked in", "Watch the opening story again", () => Cut.play(() => open("videos"))],
+        ["Closing story", "The very end of the game", "Watch the closing story (the very end of the game)", () => Cut.playEnding(() => open("videos"))],
+        ["Hold Music", "Ted & Lint's show, with sound", "Watch the Hold Music TV show, with sound", () => showHold(() => open("videos"))]];
+      const ul = document.createElement("ul"); ul.className = "bdoors bvids";
+      for (const [name, sub, tip, fn] of V) {
+        const li = document.createElement("li"), a = document.createElement("span"); a.innerHTML = "<b>" + name + "</b> · " + sub;
+        const b = document.createElement("button"); b.type = "button"; b.className = "btn"; b.textContent = "Watch"; b.dataset.tip = tip;
+        b.addEventListener("click", () => { ensureAudio(); fn(); }); li.append(a, b); ul.appendChild(li);
+      }
+      body.appendChild(ul);
     } else if (tab === "lint") {
       body.appendChild(P("bring", "Lint")); body.appendChild(P("stkNote", "Found behind the last staff door. He rides out with you at the end, and signs the sheet in crayon."));
       const b = document.createElement("button"); b.type = "button"; b.className = "btn"; b.style.width = "auto"; b.textContent = "Watch the closing story"; b.dataset.tip = "The closing story, with Lint in it";
