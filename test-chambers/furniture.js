@@ -16,8 +16,9 @@
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { paint, PAINTINGS } from "./painting.js";
+import { handWrite } from "./hand.js";               // v8.19: hand-written labels
 
-export const KIT_VERSION = "kit 1.4";
+export const KIT_VERSION = "kit 1.5";
 const TAU = Math.PI * 2, PLAYER_W = 0.6, CATCH = 0.75;      // a gap between 2 cm and 75 cm is one a body can wedge into
 
 // ---------- textures (canvas, made once) ----------
@@ -33,7 +34,9 @@ function canvasTex(key, w, h, paint, o = {}) {
   return (texCache[key] = t);
 }
 function rng(seed) { let s = seed >>> 0 || 1; return () => ((s = Math.imul(s ^ (s >>> 15), 2246822519) ^ Math.imul(s ^ (s >>> 13), 3266489917)) >>> 0) / 4294967296; }
-const hand = (g, size, w = 600) => { g.font = `${w} ${size}px "Marker Felt", "Comic Sans MS", "Segoe Print", cursive`; };
+const hand = (g, size, w = 600) => { g.font = `${w} ${size}px "Marker Felt", "Comic Sans MS", "Segoe Print", cursive`; g._hs = size; };
+// v8.19: hand-written text on kit textures goes through hand.js (drawn letter by letter); `hand(g, size)` then `hfill(g, text, x, y)` replaces fillText
+const hfill = (g, text, x, y) => { const sz = (g._hs || 20) * 0.72, al = g.textAlign === "center" ? "center" : g.textAlign === "right" ? "right" : "left"; handWrite(g, text, x, y + sz * 0.5, sz, { color: g.fillStyle, pen: .12, seed: text.length * 3, mess: .6, align: al }); };
 const sans = (g, size, w = 700) => { g.font = `${w} ${size}px Helvetica, Arial, sans-serif`; };
 
 const TEX = {
@@ -89,7 +92,7 @@ const TEX = {
     g.strokeStyle = "rgba(120,96,60,.5)"; g.strokeRect(w * 0.42, 0, w * 0.16, h);
     g.save(); g.translate(w * 0.2, h * 0.72); g.fillStyle = "rgba(40,30,20,.7)"; sans(g, 13, 800); g.textAlign = "center";
     g.fillText("THIS WAY UP", 0, 30); g.beginPath(); g.moveTo(-8, 18); g.lineTo(-8, 2); g.lineTo(-14, 2); g.lineTo(-4, -10); g.lineTo(6, 2); g.lineTo(0, 2); g.lineTo(0, 18); g.fill(); g.restore();
-    g.save(); g.translate(w * 0.8, h * 0.2); g.rotate(-0.08); g.fillStyle = "rgba(30,30,30,.75)"; hand(g, 20); g.textAlign = "center"; g.fillText("FILES", 0, 0); g.fillText("72-79", 0, 22); g.restore();
+    g.save(); g.translate(w * 0.8, h * 0.2); g.rotate(-0.08); g.fillStyle = "rgba(30,30,30,.75)"; hand(g, 20); g.textAlign = "center"; hfill(g, "FILES", 0, 0); hfill(g, "72-79", 0, 22); g.restore();
   }),
   sack: () => canvasTex("sack", 256, 256, (g, w, h) => {              // canvas mail sack, stencilled
     g.fillStyle = "#8d8668"; g.fillRect(0, 0, w, h); const r = rng(17);
@@ -199,11 +202,11 @@ const TEX = {
     g.fillStyle = "#f7f8f6"; g.fillRect(0, 0, w, h);
     for (let i = 0; i < 7; i++) { const gr = g.createRadialGradient(0, 0, 4, 0, 0, 70); gr.addColorStop(0, "rgba(110,120,135,.10)"); gr.addColorStop(1, "rgba(110,120,135,0)");      // smears where things were wiped off
       g.save(); g.translate(60 + i * 62, 60 + (i * 97) % 220); g.scale(1.8, 0.5); g.fillStyle = gr; g.fillRect(-70, -70, 140, 140); g.restore(); }
-    g.strokeStyle = "#1d4fa8"; g.fillStyle = "#1d4fa8"; hand(g, 28); g.fillText("Q3 PRIORITIES", 30, 48);
+    g.strokeStyle = "#1d4fa8"; g.fillStyle = "#1d4fa8"; hand(g, 28); hfill(g, "Q3 PRIORITIES", 30, 48);
     g.lineWidth = 3; g.beginPath(); g.moveTo(30, 58); g.lineTo(250, 56); g.stroke();
-    hand(g, 22); ["1. More tests", "2. More subjects", "3. ???", "4. Car park lights"].forEach((s, i) => g.fillText(s, 40, 98 + i * 34));
+    hand(g, 22); ["1. More tests", "2. More subjects", "3. ???", "4. Car park lights"].forEach((s, i) => hfill(g, s, 40, 98 + i * 34));
     g.strokeStyle = "#b3261e"; g.fillStyle = "#b3261e"; g.lineWidth = 3; g.beginPath(); g.moveTo(32, 160); g.lineTo(200, 166); g.stroke();
-    hand(g, 20); g.fillText("back Monday", 330, 250);
+    hand(g, 20); hfill(g, "back Monday", 330, 250);
     g.strokeStyle = "#1e7a3c"; g.beginPath(); g.arc(400, 120, 50, 0, TAU); g.stroke(); g.beginPath(); g.moveTo(350, 120); g.lineTo(450, 120); g.moveTo(400, 70); g.lineTo(400, 170); g.stroke();
   }),
   vend: () => canvasTex("vend", 256, 512, (g, w, h) => {              // the vending machine's front: rows of snacks behind glass, keypad, slot
@@ -280,7 +283,7 @@ const MDEF = {
   carpet:   { c: 0xffffff, r: .98, m: 0, map: "carpet" }, lino: { c: 0xffffff, r: .45, m: 0, map: "lino" },
   glass:    { c: 0xcfe3ea, r: .08, m: 0, t: .16 },  water: { c: 0x8fc4e8, r: .05, m: 0, t: .55 },
   screen:   { c: 0x000000, r: .2, m: 0, map: "crt", e: [1.2, 1.2, 1.2], emap: true },
-  glow:     { c: 0xffffff, r: .3, m: 0, e: [2.4, 2.25, 2.0] },  glowWarm: { c: 0xffffff, r: .3, m: 0, e: [2.6, 2.0, 1.2] },
+  glow:     { c: 0xffffff, r: .3, m: 0, e: [2.4, 2.25, 2.0] },  fridgeIn: { c: 0xe6ecec, r: .35, m: 0, e: [.42, .46, .48] },  glowWarm: { c: 0xffffff, r: .3, m: 0, e: [2.6, 2.0, 1.2] },
   ledRed:   { c: 0x330000, r: .3, m: 0, e: [2.5, .25, .2] },   ledGrn: { c: 0x003300, r: .3, m: 0, e: [.3, 2.4, .5] },
   shade:    { c: 0xffffff, r: .6, m: .1, map: "lampShade" },   brass: { c: 0xb0904a, r: .35, m: .9 },
   yellow:   { c: 0xe0b021, r: .5, m: 0 },  mopHead: { c: 0xcfc6ad, r: 1, m: 0 },  redTool: { c: 0xb3261e, r: .45, m: .1 },
@@ -498,10 +501,14 @@ const PIECES = {
       K.box("black", 0.12, 0.05, 0.03, 0.5, -H / 2 + 0.02, 0.05);
     } },
   bin: { name: "Waste bin", group: "Office", info: "Mesh bin with screwed-up paper. Not solid.",
-    build(K) {
+    build(K) {          // v8.19: a real inside (the wall was one-sided, so from above you saw through it), a floor, and the paper resting on a pile in it
       K.lathe("steelDk", [[0, 0], [0.12, 0], [0.15, 0.3], [0.155, 0.3]], 0, 0, 0, 20);
+      K.geo("steelDk", new THREE.LatheGeometry([[0.152, 0.298], [0.143, 0.21], [0.117, 0.012]].map(([x, y]) => new THREE.Vector2(x, y)), 20));      // the inner wall, facing in
+      K.cyl("steelDk", 0.117, 0.117, 0.004, 0, 0.012, 0, 20);
       K.torus("steelDk", 0.152, 0.006, 0, 0.3, 0, TAU, Math.PI / 2, 0, 0, 24);
-      K.sph("paper", 0.04, 0.03, 0.28, 0.02, 1, 0.8, 1, 7); K.sph("paper", 0.035, -0.05, 0.26, -0.03, 1, 0.85, 1, 7); K.sph("paperYel", 0.03, 0.02, 0.33, -0.05, 1, 0.8, 1, 6);
+      K.cyl("paper", 0.128, 0.115, 0.1, 0, 0.065, 0, 16);                                    // the pile of paper under the top layer
+      K.sph("paper", 0.042, 0.03, 0.15, 0.02, 1, 0.8, 1, 7); K.sph("paper", 0.038, -0.05, 0.145, -0.03, 1, 0.85, 1, 7); K.sph("paperYel", 0.032, 0.04, 0.14, -0.06, 1, 0.8, 1, 6);
+      K.sph("paper", 0.036, -0.04, 0.15, 0.06, 1, 0.8, 1, 7); K.box("cardPlain", 0.07, 0.004, 0.1, 0.06, 0.122, 0.05, 0.1, 0.4, 0.2);
       K.shadow(0.4, 0.4);
     } },
   plant: { name: "Pot plant", group: "Office", info: "A rubber plant in a terracotta pot. Not solid.",
@@ -565,16 +572,48 @@ const PIECES = {
       K.torus(mk, 0.03, 0.008, 0.05, 0.055, 0, Math.PI, 0, 0, -Math.PI / 2, 12);
       K.cyl("soil", 0.043, 0.043, 0.004, 0, 0.07, 0, 16);
     } },
-  fridge: { name: "Fridge", group: "Break room", solid: true, info: "Tall fridge with a freezer door and notes on it. Solid.",
+  fridge: { name: "Fridge", group: "Break room", solid: true, opens: "fridge", info: "Tall fridge with a freezer. The lower door opens (GRAB): shelves, a light, a cold drink. Solid.",
+    // v8.19: a real carcass with an inside, so the door can open. The door is built by door() and hung at `hinge` (its outer front corner,
+    // the +x side), so it swings out and never past the hinge line. `drink` is where the drink stands (the game draws it, so it can be taken)
+    hinge: [0.3, 0, 0.325], swingMax: 1.6, drink: [-0.05, 0.808, 0.07],
     build(K) {
-      const W = 0.6, D = 0.65, H = 1.75;
-      K.rbox("white", W, H, D, 0.03, 0, H / 2, 0);
-      K.box("steel", W - 0.02, 0.008, 0.02, 0, 1.22, D / 2);                                       // the split between the doors
-      K.rbox("steel", 0.03, 0.34, 0.04, 0.012, -W / 2 + 0.06, 1.0, D / 2 + 0.02); K.rbox("steel", 0.03, 0.22, 0.04, 0.012, -W / 2 + 0.06, 1.38, D / 2 + 0.02);
-      K.box("paperYel", 0.08, 0.08, 0.002, 0.1, 1.45, D / 2 + 0.001, 0, 0, 0.12); K.box("paper", 0.15, 0.2, 0.002, 0.05, 0.9, D / 2 + 0.001, 0, 0, -0.05);
-      K.box("black", 0.06, 0.03, 0.01, 0.12, 0.97, D / 2 + 0.006);
-      K.box("black", W - 0.04, 0.08, 0.02, 0, 0.04, D / 2 - 0.01);
+      const W = 0.6, D = 0.65, H = 1.75, Dc = D - 0.06, zc = -D / 2 + Dc / 2, zf = -D / 2 + Dc;      // carcass depth, centre and front (the door sits in front)
+      K.box("white", W, H, 0.04, 0, H / 2, -D / 2 + 0.02);                                         // back
+      for (const sx of [-1, 1]) K.box("white", 0.03, H, Dc, sx * (W / 2 - 0.015), H / 2, zc);   // sides
+      K.box("white", W, 0.03, Dc, 0, H - 0.015, zc);                                              // top
+      K.box("white", W, 0.09, Dc, 0, 0.045, zc); K.box("black", W - 0.04, 0.07, 0.02, 0, 0.045, zf + 0.05);      // plinth and its grille
+      K.box("white", W - 0.06, 0.03, Dc - 0.04, 0, 1.215, zc);                                     // the freezer's floor
+      // the inside: a cool lit liner, two glass shelves, a crisper drawer, the lamp
+      K.box("fridgeIn", W - 0.064, 1.11, 0.004, 0, 0.655, -D / 2 + 0.042);
+      for (const sx of [-1, 1]) K.box("fridgeIn", 0.004, 1.11, Dc - 0.05, sx * (W / 2 - 0.032), 0.655, zc + 0.005);
+      K.box("fridgeIn", W - 0.064, 0.004, Dc - 0.05, 0, 0.1, zc + 0.005); K.box("fridgeIn", W - 0.064, 0.004, Dc - 0.05, 0, 1.198, zc + 0.005);
+      const shD = Dc - 0.12, shZ = -D / 2 + 0.045 + shD / 2;                                       // shelves stop short of the door's bins
+      for (const y of [0.43, 0.8]) { K.box("glass", W - 0.07, 0.008, shD, 0, y, shZ); K.box("steel", W - 0.07, 0.012, 0.012, 0, y, shZ + shD / 2); }
+      K.box("glass", W - 0.09, 0.2, shD - 0.04, 0, 0.21, shZ - 0.01); K.box("steel", W - 0.09, 0.02, 0.012, 0, 0.3, shZ + shD / 2 - 0.02);   // crisper
+      K.box("leaf", 0.12, 0.06, 0.1, -0.1, 0.15, shZ - 0.05); K.sph("leafDk", 0.045, 0.08, 0.15, shZ - 0.02, 1, 0.8, 1.2);
+      K.box("glow", 0.14, 0.02, 0.05, 0, 1.185, -0.05);
+      // what is left in it: milk, a jar, a takeaway box, a yoghurt nobody will claim
+      K.box("paper", 0.07, 0.19, 0.07, -0.16, 0.43 + 0.1, -0.12); K.box("paintBlu", 0.071, 0.03, 0.071, -0.16, 0.6, -0.12);
+      K.lathe("glass", [[0, 0], [0.04, 0], [0.042, 0.1], [0.03, 0.11], [0, 0.11]], 0.02, 0.434, -0.15, 14); K.cyl("redTool", 0.031, 0.031, 0.02, 0.02, 0.555, -0.15, 14);
+      K.box("cardPlain", 0.18, 0.07, 0.14, -0.1, 0.804 + 0.035, -0.13); K.cyl("ceramic", 0.035, 0.03, 0.06, 0.08, 0.804 + 0.03, -0.18, 14); K.cyl("paperYel", 0.036, 0.036, 0.004, 0.08, 0.866, -0.18, 14);
+      // the freezer door (stays shut) and its handle
+      K.rbox("white", W, H - 1.23 - 0.005, 0.06, 0.02, 0, (1.23 + H) / 2, zf + 0.03);
+      K.rbox("steel", 0.03, 0.22, 0.04, 0.012, -W / 2 + 0.06, 1.38, D / 2 + 0.02);
+      K.box("paperYel", 0.08, 0.08, 0.002, 0.1, 1.45, D / 2 + 0.001, 0, 0, 0.12);
       K.solidBox(-W / 2, 0, -D / 2, W / 2, H, D / 2); K.shadow(W + 0.2, D + 0.2);
+    },
+    door(K) {                                     // the lower door, in the hinge's frame: it spans x -0.6..0 and z -0.06..0, y 0.09..1.215
+      const W = 0.6, y0 = 0.095, y1 = 1.21, hh = y1 - y0, yc = (y0 + y1) / 2;
+      K.rbox("white", W, hh, 0.06, 0.02, -W / 2, yc, -0.03);
+      K.box("black", W - 0.02, hh - 0.02, 0.006, -W / 2, yc, -0.063);                             // the gasket
+      K.box("fridgeIn", W - 0.08, hh - 0.08, 0.004, -W / 2, yc, -0.067);
+      for (const y of [0.3, 0.66, 0.98]) { K.box("white", W - 0.1, 0.008, 0.05, -W / 2, y, -0.093); K.box("white", W - 0.1, 0.06, 0.006, -W / 2, y + 0.03, -0.115); }   // the door's bins
+      K.cyl("glass", 0.028, 0.028, 0.2, -0.42, 0.405, -0.095, 12); K.cyl("redTool", 0.012, 0.012, 0.03, -0.42, 0.52, -0.095, 8);        // a bottle of something red
+      K.cyl("paperYel", 0.03, 0.03, 0.14, -0.2, 0.735, -0.093, 12); K.cyl("plasOrg", 0.02, 0.02, 0.02, -0.2, 0.815, -0.093, 8);           // mustard
+      for (let i = 0; i < 4; i++) K.sph("ceramic", 0.022, -0.32 + i * 0.05, 1.005, -0.093, 1, 1.25, 1, 10);                          // eggs
+      K.rbox("steel", 0.03, 0.34, 0.04, 0.012, -W + 0.06, 1.0, 0.02);                              // the handle, on the far edge from the hinge
+      K.box("paper", 0.15, 0.2, 0.002, -0.25, 0.9, 0.001, 0, 0, -0.05);
+      K.box("black", 0.06, 0.03, 0.01, -0.18, 0.97, 0.006);                                        // a magnet holding it up
     } },
   cooler: { name: "Water cooler", group: "Break room", solid: true, info: "Bottle-top water cooler, half full. Solid.",
     build(K) {
@@ -607,15 +646,16 @@ const PIECES = {
   // ---------------- stores and workshop ----------------
   shelving: { name: "Metal shelving", group: "Stores", solid: true, info: "Five-shelf steel rack with boxes and files. Solid.",
     build(K, o) {
-      const W = o.w || 1.2, D = 0.45, H = 2.0;
+      const W = o.w || 1.2, D = 0.45, H = 2.0, N = o.shelves || 5, gap = 1.84 / (N - 1), clear = o.clear || [];      // v8.19: `shelves` 4 or 5, `clear` leaves those levels empty (something is set on them)
       for (const sx of [-1, 1]) for (const sz of [-1, 1]) K.box("steelDk", 0.035, H, 0.035, sx * (W / 2 - 0.018), H / 2, sz * (D / 2 - 0.018));
       const r = rng(o.seed || 3);
-      for (let i = 0; i < 5; i++) {
-        const y = 0.08 + i * 0.46; K.box("steel", W, 0.025, D, 0, y, 0); K.box("steelDk", W, 0.04, 0.01, 0, y - 0.005, D / 2);
-        if (i === 4) continue;
+      for (let i = 0; i < N; i++) {
+        const y = 0.08 + i * gap; K.box("steel", W, 0.025, D, 0, y, 0); K.box("steelDk", W, 0.04, 0.01, 0, y - 0.005, D / 2);
+        if (i === N - 1 || clear.includes(i)) continue;
         let x = -W / 2 + 0.06;
         while (x < W / 2 - 0.2) {
           const k = r(), w = k < 0.4 ? 0.3 : k < 0.7 ? 0.07 : 0.22;
+          if (x + w > W / 2 - 0.04) break;                                  // v8.19: nothing hangs out of the side of the rack
           if (k < 0.4) K.box("card", w, 0.24, 0.36, x + w / 2, y + 0.135, 0, 0, (r() - 0.5) * 0.1, 0);
           else if (k < 0.7) { for (let j = 0; j < 3; j++) K.box(j % 2 ? "paintBlu" : "redTool", 0.022, 0.3, 0.26, x + j * 0.024 + 0.012, y + 0.163, 0.04); }
           else K.box("cardPlain", w, 0.14, 0.3, x + w / 2, y + 0.083, 0.02);
@@ -761,7 +801,13 @@ function makePiece(k, o = {}, grime = 0, clone = false) {        // clone: the m
   for (const p of t.parts) { const m = new THREE.Mesh(clone ? p.geo.clone() : p.geo, mat(p.mk, step)); g.add(m); }
   if (PLATE[k]) g.add(plateMesh(PLATE[k](o)));
   for (const [w, d] of t.blobs) { const b = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat("blob", step)); b.rotation.x = -Math.PI / 2; b.position.y = 0.002; g.add(b); }
-  if (t.P.hinge) return hinged(g, t, o, step);
+  if (t.P.hinge && !t.P.door) return hinged(g, t, o, step);
+  if (t.P.door) {                                                  // v8.19: a piece with a door that opens (the fridge)
+    const dk = new Kit(); t.P.door(dk, o); const pivot = new THREE.Group(); pivot.position.set(...t.P.hinge);
+    for (const [mk, gs] of Object.entries(dk.parts)) pivot.add(new THREE.Mesh(mergeGeometries(gs, false), mat(mk, step)));
+    g.add(pivot); g.userData = { t, pivot, open: 0, max: t.P.swingMax || 1.5, kind: t.P.opens };
+    return g;
+  }
   g.userData.t = t; return g;
 }
 function plateMesh(p) {
@@ -780,7 +826,7 @@ function hinged(g, t, o, step) {
   return wrap;
 }
 // swing a painting (0 shut flat on the wall, 1 open a little past square)
-function swing(p, a) { p.userData.open = a; p.userData.pivot.rotation.y = -a * 1.75; }
+function swing(p, a) { p.userData.open = a; p.userData.pivot.rotation.y = p.userData.max ? a * p.userData.max : -a * 1.75; }        // (a door: 0 shut, 1 open as far as it goes)
 function setArt(p, canvas) { const t = new THREE.CanvasTexture(canvas); t.colorSpace = THREE.SRGBColorSpace; p.userData.face.material.map = t; p.userData.face.material.emissiveMap = t; p.userData.face.material.needsUpdate = true; }
 
 // ---------- a room's furniture, merged ----------
@@ -788,12 +834,13 @@ function setArt(p, canvas) { const t = new THREE.CanvasTexture(canvas); t.colorS
 // Returns { group, solids, lamps, paintings, calls, tris, warnings }.
 // `solids` are dark level boxes (never drawn: the meshes are the look). `lamps` are [x, y, z, ...] lamp args for the level's bake.
 function room(list, opts = {}) {
-  const step = grimeStep(opts.grime), byMat = {}, group = new THREE.Group(), solids = [], lamps = [], paintings = [], warnings = [];
+  const step = grimeStep(opts.grime), byMat = {}, group = new THREE.Group(), solids = [], lamps = [], paintings = [], opens = [], warnings = [];
   let tris = 0;
   const blobGeos = [];
   for (const it of list) {
     const t = template(it.k, it), pm = placeMatrix(it);
     if (t.solid.length && it.ry !== undefined && Math.abs(Math.round(it.ry / (Math.PI / 2)) * Math.PI / 2 - it.ry) > 1e-3) warnings.push(`${it.k} at ${it.at}: a solid piece turned off the quarter; its box is the box round it`);
+    if (t.P.door) { const p = makePiece(it.k, it, opts.grime, true); p.applyMatrix4(pm.m); group.add(p); opens.push(p); for (const b of t.solid) solids.push(solidWorld(b, pm)); tris += t.tris; continue; }      // v8.19: its own group, so its door can swing
     if (t.P.hinge || it.own) { const p = makePiece(it.k, it, opts.grime, true); p.applyMatrix4(pm.m); group.add(p); paintings.push(p); tris += t.tris; continue; }
     let lo = null, hi = null;
     if (opts.shade) {                     // the room's baked light at the foot and the top of the piece, blended up each vertex
@@ -817,7 +864,7 @@ function room(list, opts = {}) {
   for (const mk in byMat) { const m = new THREE.Mesh(mergeGeometries(byMat[mk], false), mat(mk, step, !!opts.shade)); m.userData.furn = 1; group.add(m); }
   if (blobGeos.length) group.add(new THREE.Mesh(mergeGeometries(blobGeos, false), mat("blob", step)));
   group.traverse(o => { o.userData.ownMat = o.userData.ownMat || 0; });
-  return { group, solids, lamps, paintings, calls: group.children.length, tris, warnings: warnings.concat(gapCheck(solids, opts.walls || [])) };
+  return { group, solids, lamps, paintings, opens, calls: group.children.length, tris, warnings: warnings.concat(gapCheck(solids, opts.walls || [])) };
 }
 
 // shade(x, y, z) -> [r, g, b] is the level's bake at a point (about 0.42 in the dark, 1 or more by a lamp); the scene's own lights
