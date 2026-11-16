@@ -42,6 +42,27 @@ body.emerg #vig { background: radial-gradient(ellipse 75% 70% at 50% 50%, rgba(1
   font: 700 17px/1 var(--font); display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
 .ibtn:active { transform: scale(.92); background: rgba(255,255,255,.25); }
 .ibtn.wide { width: auto; padding: 0 15px; border-radius: 21px; font-size: 15px; letter-spacing: .02em; }
+#bBonus { position: relative; }
+#bonusDot { position: absolute; top: -3px; right: -3px; width: 11px; height: 11px; border-radius: 50%; background: #f4b942; box-shadow: 0 0 8px rgba(244,185,66,.85); display: none; }
+#bonusDot.on { display: block; }
+@media (max-width: 900px) { #hudBtns { gap: 6px; } .ibtn.wide { padding: 0 11px; font-size: 14px; } }
+/* v8.23 the Bonuses window */
+.bhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.bhead h2.ttl { margin: 0; }
+.bhead .btn { width: auto; margin: 0; padding: 10px 22px; text-align: center; }
+.btabs { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
+.btabs button { font: 700 13px/1 var(--font); letter-spacing: .12em; text-transform: uppercase; padding: 10px 14px; border-radius: 3px; cursor: pointer;
+  color: var(--ink); background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.28); }
+.btabs button em { font-style: normal; font-weight: 600; letter-spacing: .02em; opacity: .65; margin-left: 6px; }
+.btabs button.cur { border-color: #f4b942; box-shadow: 0 0 0 1px #f4b942 inset; color: #fff; }
+#bBody { max-height: calc(100vh - 250px); overflow: auto; -webkit-overflow-scrolling: touch; touch-action: pan-y; }
+.bdoors { list-style: none; margin: 12px 0 0; padding: 0; }
+.bdoors li { display: flex; justify-content: space-between; gap: 12px; padding: 9px 2px; border-top: 1px solid rgba(255,255,255,.1); font-size: 14px; color: rgba(238,242,245,.9); }
+.bdoors li b { font-weight: 700; letter-spacing: .06em; }
+.bdoors li i { font-style: normal; font-weight: 700; letter-spacing: .1em; font-size: 12px; text-transform: uppercase; }
+.bdoors li i.ok { color: #3fd68a; } .bdoors li i.no { color: #ff7a6b; }
+.bring { font-size: 30px; font-weight: 800; letter-spacing: .04em; margin: 2px 0 0; } .bring small { font-size: 14px; color: var(--dim); font-weight: 600; margin-left: 8px; letter-spacing: .1em; }
+.bbackrow { margin-top: 12px; } .bbackrow .btn { width: auto; display: inline-block; }
 #ver { position: absolute; right: calc(env(safe-area-inset-right, 0px) + 14px); top: 58px; font-size: 10px; letter-spacing: .12em; color: rgba(255,255,255,.4); }
 #cross { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px; filter: drop-shadow(0 0 2px rgba(0,0,0,.7)); }
 #cross .a { fill: none; stroke-width: 3; stroke-linecap: round; }
@@ -293,6 +314,8 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
       <div id="hudSpeed"><span class="n" id="spdNum">0.0</span><small>M/S</small><i id="spdBar"><u></u></i></div>
       <div id="hudBtns">
         <button class="ibtn wide" id="bHint" type="button" aria-label="Ask SaDos for a hint">Hint</button>
+        <button class="ibtn wide" id="bBonus" type="button" aria-label="Bonuses">Bonuses<i id="bonusDot"></i></button>
+        <button class="ibtn wide" id="bSettings" type="button" aria-label="Settings">Settings</button>
         <button class="ibtn" id="bGuide" type="button" aria-label="Guide" title="How to play (H)">?</button>
         <button class="ibtn" id="bRestart" type="button" aria-label="Restart chamber" title="Restart chamber (R)">&#10227;</button>
         <button class="ibtn" id="bFull" type="button" aria-label="Full screen" title="Full screen (F)">&#9974;</button>
@@ -335,7 +358,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
       <button class="btn primary" id="bPlay" type="button">Play<small id="playSub">Start with chamber 01</small></button>
       <button class="btn" id="bChambers" type="button">Chambers<small>Pick any chamber you have reached</small></button>
       <div class="row2">
-        <button class="btn" id="bOptions" type="button">Options</button>
+        <button class="btn" id="bOptions" type="button">Settings</button>
         <button class="btn" id="bHow" type="button">How to play</button>
       </div>
       <p class="vtag" id="vTitle"></p>
@@ -385,18 +408,23 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
       <div class="showBtns"><button class="btn" id="bMonBack" type="button">&lsaquo; Back</button></div>
     </div>
   </div>
+  <div class="ov" id="ovBonus" hidden>
+    <div class="card wide">
+      <div class="bhead"><h2 class="ttl">Bonuses</h2><button class="btn primary" id="bBonusDone" type="button">Done</button></div>
+      <div class="btabs" id="bTabs"></div>
+      <div id="bBody"></div>
+    </div>
+  </div>
   <div class="ov" id="ovOptions" hidden>
     <div class="card">
-      <h2 class="ttl">Options</h2>
+      <h2 class="ttl">Settings</h2>
       <div class="opt">Music <button id="oMusic" type="button">On</button></div>
       <div class="opt">Sound effects <button id="oSfx" type="button">On</button></div>
       <div class="opt">SaDos voice <button id="oVoice" type="button">On</button></div>
       <div class="opt">Look speed <input id="oSens" type="range" min="0.4" max="2.2" step="0.05" value="1"></div>
       <div class="opt">Invert look (up/down) <button id="oInvert" type="button">Off</button></div>
       <div class="opt">Gun hand <button id="oHand" type="button">Left</button></div>
-      <div class="opt">Gun sticker <button id="oSticker" type="button">None</button></div>
-      <div class="opt">O.'s pages <button id="oPages" type="button">Read</button></div>
-      <div class="opt">Tapes <button id="oTapes" type="button">Play</button></div>
+      <div class="opt">How to play <button id="oGuide" type="button">Open</button></div>
       <div class="opt">Trackpad: swipe up walks <button id="oScroll" type="button">Forward</button></div>
       <div class="opt">Picture <button id="oQuality" type="button">Auto</button></div>
       <div class="opt">Full screen <button id="oFull" type="button">Enter</button></div>
@@ -428,7 +456,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
             <li><b>Two-finger swipe up / down</b> to walk forward / back; sideways to sidestep.</li>
             <li><b>Click</b>: blue portal. <b>Two-finger click</b> (or right click): orange.</li>
             <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrows walk &middot; <kbd>Space</kbd> jump &middot; <kbd>E</kbd> grab</li>
-            <li><kbd>Q</kbd> blue &middot; <kbd>X</kbd> orange &middot; <kbd>R</kbd> restart &middot; <kbd>H</kbd> this guide &middot; <kbd>T</kbd> or <b>Hint</b> ask for a hint (again for a firmer one) &middot; <kbd>Esc</kbd> pause &middot; <kbd>F</kbd> full screen</li></ul></div>
+            <li><kbd>Q</kbd> blue &middot; <kbd>X</kbd> orange &middot; <kbd>R</kbd> restart &middot; <kbd>H</kbd> this guide &middot; <kbd>T</kbd> or <b>Hint</b> ask for a hint (again for a firmer one) &middot; <kbd>B</kbd> bonuses &middot; <kbd>Esc</kbd> pause &middot; <kbd>F</kbd> full screen</li><li>Any window closes with <b>Done</b> or <b>Back</b>, <kbd>Esc</kbd>, or a tap outside it.</li></ul></div>
           <div class="gsec"><h3>Controller</h3><ul>
             <li><b>Left stick</b> walk &middot; <b>right stick</b> look</li>
             <li><b>LT / LB</b> blue &middot; <b>RT / RB</b> orange</li>
@@ -463,7 +491,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
             <li><b>Fling</b>: when you are fast, swap the ceiling portal for one on a far wall. You leave it at full speed, and cross gaps no jump could.</li>
             <li><b>Portals stay</b> until you fire again or cross a reset field. Fire them while you fall too.</li>
             <li><b>Ratings</b>: each chamber has a par time and a par number of portals. Beat both for gold, one for silver. Each chamber also hides one <b>key card</b>.</li>
-            <li><b>Finds</b>: some rooms hide things to pick up (walk into them, or <kbd>E</kbd> while looking at one). <b>Key cards</b> stay on your key ring and open locked <b>bonus doors</b> (the ones with an amber line over them), even in later rooms. A <b>breaker</b> on a wall (<kbd>E</kbd> to throw it) powers a door somewhere. <b>Tapes</b> play when you pick them up. <b>Gun stickers</b> go on your portal gun from Options &gt; Gun sticker. Everything you find is saved straight away, and the results card lists the chamber's finds.</li>
+            <li><b>Finds</b>: some rooms hide things to pick up (walk into them, or <kbd>E</kbd> while looking at one). <b>Key cards</b> stay on your key ring and open locked <b>bonus doors</b> (the ones with an amber line over them), even in later rooms. A <b>breaker</b> on a wall (<kbd>E</kbd> to throw it) powers a door somewhere. <b>Tapes</b> play when you pick them up. <b>Gun stickers</b> go on your portal gun from <b>Bonuses</b> &gt; Stickers. The <b>Bonuses</b> button (or <kbd>B</kbd>) shows your key cards and the staff doors, and plays back O.'s pages and the tapes you have found; a yellow dot on it means something new. Everything you find is saved straight away, and the results card lists the chamber's finds.</li>
             <li><b>Chambers have several rooms.</b> Each door between them is a checkpoint: the arrow button (or <kbd>R</kbd>) restarts the room you are in, and Play carries on from it next time.</li></ul></div>
         </div>
       </div>
@@ -476,9 +504,9 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
     <div class="card">
       <h2 class="ttl">Paused</h2>
       <button class="btn primary" id="bResume" type="button">Resume</button>
-      <button class="btn" id="bRetry" type="button">Restart chamber</button>
-      <button class="btn" id="bPauseGuide" type="button">How to play</button>
-      <button class="btn" id="bPauseOpt" type="button">Options</button>
+      <button class="btn" id="bRetry" type="button">Restart room</button>
+      <button class="btn" id="bPauseBonus" type="button">Bonuses</button>
+      <button class="btn" id="bPauseOpt" type="button">Settings</button>
       <button class="btn" id="bPauseCh" type="button">Chambers</button>
       <button class="btn" id="bPauseMenu" type="button">Main menu</button>
       <p class="vtag" id="vPause"></p>
@@ -551,7 +579,7 @@ import { Furn } from "./furniture.js";
 import { GLYPHS as HAND_GLYPHS, handWrite, handBlock, handWidth } from "./hand.js";      // v8.19: hand-lettering                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.22";
+const VERSION = "v8.23";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const IT_TEST = /[?&]itemtest\b/.test(location.search), SPFX = IT_TEST ? "testchambers.itest." : "testchambers.";
 const $ = id => document.getElementById(id);
@@ -3786,7 +3814,7 @@ if (IT_TEST) CHAMBERS.splice(0, CHAMBERS.length, ["Item Test", levelItemTest]); 
 const LEVEL_FUNCS = [], ROOM = [], FIRST = [];
 CHAMBERS.forEach(([name, ...fns], c) => { FIRST.push(LEVEL_FUNCS.length); fns.forEach((f, k) => { ROOM.push({ c, part: k, parts: fns.length }); LEVEL_FUNCS.push(denWrap(f, LEVEL_FUNCS.length)); }); });      // v8.14: denWrap dresses the dens of rooms 1 to 30
 const ROOM_NAMES = LEVEL_FUNCS.map(f => f().name), CH_NAMES = CHAMBERS.map(c => c[0]);
-const BADGE_CH = new Set(), FIND_CH = CHAMBERS.map(() => []), KEY_INFO = {};      // v8.5: FIND_CH[c] lists every find in chamber c; KEY_INFO[key] = a key card's label and colour
+const BADGE_CH = new Set(), FIND_CH = CHAMBERS.map(() => []), KEY_INFO = {}, STAFF_DOORS = [];       // v8.23: STAFF_DOORS lists every key-card door for the Bonuses window      // v8.5: FIND_CH[c] lists every find in chamber c; KEY_INFO[key] = a key card's label and colour
 LEVEL_FUNCS.forEach((f, i) => { const l = f(); if (l.badge) BADGE_CH.add(ROOM[i].c); itemScan(l, ROOM[i].c); });      // chambers that hide a staff badge (every chamber, once the rewrite is done)
 if (!store.get("mig50", 0)) {            // v5.0 put four chambers in after Disposal and a room in front of The Last Order: move saved progress along
   store.set("mig50", 1); const sh = c => c >= 13 ? c + 4 : c, p5 = store.get("progress5", null);
@@ -6184,7 +6212,7 @@ function physicsStep(dt) {
   if (alive && W.badge && tmpA.set(pl.p.x, pl.p.y + 0.3, pl.p.z).distanceTo(W.badge.pos) < W.badge.r) {       // picked up the staff badge
     levelGroup.remove(W.badge.g); W.badge = null; const got = store.get("badges", []); if (!got.includes(ROOM[levelIdx].c)) { got.push(ROOM[levelIdx].c); store.set("badges", got); }
     { const ks = store.get("keys", []); if (!ks.includes("ch" + ROOM[levelIdx].c)) { ks.push("ch" + ROOM[levelIdx].c); store.set("keys", ks); } }       // v8.12: a chamber card also goes on the key ring, so the staff doors count it
-    sfx.badge(); toast("Key card found: " + got.filter(c => BADGE_CH.has(c)).length + " of " + BADGE_CH.size); if (!store.get("saidBadge", 0)) { store.set("saidBadge", 1); say("badge"); }
+    sfx.badge(); Bonus.mark(); toast("Key card found: " + got.filter(c => BADGE_CH.has(c)).length + " of " + BADGE_CH.size); if (!store.get("saidBadge", 0)) { store.set("saidBadge", 1); say("badge"); }
   }
   if (alive && W.lv.trig) for (const z of W.lv.trig) if (!z.done && pl.p.x > z.min[0] && pl.p.x < z.max[0] && pl.p.y > z.min[1] && pl.p.y < z.max[1] && pl.p.z > z.min[2] && pl.p.z < z.max[2]) { z.done = true; say(null, z.line); }
   // exit
@@ -6692,7 +6720,7 @@ function flash(kind) { flashEl.className = kind === "g" ? "g" : ""; void flashEl
    UI, input, main loop, boot
    ===================================================================================== */
 const isTouch = ("ontouchstart" in window) || navigator.maxTouchPoints > 0;
-const OVS = ["ovTitle", "ovChambers", "ovOptions", "ovHow", "ovPause", "ovDone", "ovReset", "ovCredits", "ovShow", "ovStickers", "ovLog", "ovMonitor"];
+const OVS = ["ovTitle", "ovChambers", "ovOptions", "ovHow", "ovPause", "ovDone", "ovReset", "ovCredits", "ovShow", "ovStickers", "ovLog", "ovMonitor", "ovBonus"];
 let lastOv = "ovTitle", optsFrom = "ovTitle", chFrom = "ovTitle";
 function showOv(id) {
   for (const o of OVS) $(o).hidden = o !== id;
@@ -6715,19 +6743,20 @@ function toggleFull() {
   } catch (e) { toast("Full screen is not available here"); }
 }
 function lockPointer() { if ((isTouch && !mouseMode) || !canvas.requestPointerLock) return; try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
-function unlockPointer() { try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) {} }
+let selfUnlock = false;      // v8.23: the game itself let go of the pointer (opening a window), so that lock-change event, however late it comes, is not taken for the player pressing Esc
+function unlockPointer() { try { if (document.pointerLockElement) { selfUnlock = true; document.exitPointerLock(); } } catch (e) {} }
 
 /* ---------- hover hints: every button says what it does when the pointer rests on it ---------- */
 const TIPS = {
   bHint: "Ask SaDos for a hint (T). Press again for a firmer one", bCredits: "Who and what made this", bCreditsBack: "Back to the results", oChal: "After finishing the game: only a few portals per room",
   bGuide: "How to play (H)", bRestart: "Restart from the last checkpoint (R)", bFull: "Full screen on or off (F)", bPause: "Pause (Esc)",
   bPlay: "Start, or carry on from the last chamber you reached", bChambers: "Choose any chamber you have reached", bOptions: "Sound, look speed, picture quality, progress", bHow: "Controls, and everything you will meet",
-  oSticker: "Put a sticker you have found on your portal gun", oPages: "Read the pages of O. you have found", oTapes: "Play the tapes you have found", bLogBack: "Close (Esc)", bMonBack: "Close the monitor (Esc)", bStkBack: "Back to Options (Esc)",
+  bBonus: "Bonuses: key cards, O.'s pages, tapes, gun stickers (B)", bSettings: "Settings: sound, look, gun hand, the guide", bBonusDone: "Close Bonuses (Esc, B, or tap outside)", bPauseBonus: "Key cards, O.'s pages, tapes, gun stickers", oGuide: "Controls, and everything you will meet", bLogBack: "Close (Esc)", bMonBack: "Close the monitor (Esc)", bStkBack: "Back to Options (Esc)",
   oShow: "Temporary: watch the Hold Music TV show here, with sound", bShowBack: "Stop the show and go back to Options (Esc)", bShowAgain: "Play the show again from the start",
-  bChBack: "Back to where you were", bOptBack: "Back to where you were", bHowBack: "Close the guide (Esc, or tap outside it)",
+  bChBack: "Back to where you were (Esc, or tap outside)", bOptBack: "Back to where you were (Esc, or tap outside)", bHowBack: "Close the guide (Esc, or tap outside it)",
   oMusic: "Music on or off", oSfx: "Sound effects on or off", oVoice: "SaDos and the sentries speak, or only subtitles", oSens: "How fast the view turns", oInvert: "Push up to look down", oHand: "Which hand holds the portal gun (left or right)",
   oScroll: "Which way a two-finger swipe walks", oQuality: "Auto adjusts to keep the game smooth; High is sharper; Low is fastest", oFull: "Full screen on or off", oReset: "Lock the chambers again and start over (asks first)", oStory: "Watch the opening story again", oEnding: "Watch the closing story (the very end of the game)", cutSkip: "Skip the opening (Esc)",
-  bResume: "Back to the chamber (Esc)", bRetry: "Start again from the last checkpoint", bPauseGuide: "Controls, and everything you will meet", bPauseOpt: "Sound, look speed, picture quality", bPauseCh: "Choose any chamber you have reached", bPauseMenu: "Leave the chamber and go to the title",
+  bResume: "Back to the chamber (Esc, or tap outside)", bRetry: "Start this room again", bPauseOpt: "Sound, look speed, gun hand, the guide", bPauseCh: "Choose any chamber you have reached", bPauseMenu: "Leave the chamber and go to the title",
   bNext: "On to the next chamber (Return)", bAgain: "Play this chamber again from its first room", bDoneMenu: "Go to the title", bResetYes: "Erase progress. This cannot be undone", bResetNo: "Change nothing",
   tBlue: "Fire the blue portal", tOrange: "Fire the orange portal", tJump: "Jump", tUse: "Pick up or put down a cube or sentry"
 };
@@ -6762,6 +6791,19 @@ function pause() {
   state = "paused"; unlockPointer(); inp.fwd = inp.right = 0; resetSticks(); showOv("ovPause");
 }
 function resume() { if (state !== "paused") return; hideOv(); state = "play"; syncTouch(); lockPointer(); }
+// v8.23: Settings and Bonuses open straight from play. The game holds (no pause card) and their Back / Done goes straight back to play
+function holdPlay() { if (state !== "play" && state !== "dead") return false; state = "paused"; unlockPointer(); inp.fwd = inp.right = 0; resetSticks(); return true; }
+function openSettings() { if (Lift.on || state === "cut") return; if (holdPlay()) optsFrom = "play"; else if (state === "paused") optsFrom = anyOv() === "ovPause" ? "ovPause" : optsFrom; else if (anyOv() !== "ovOptions") optsFrom = anyOv() || "ovTitle"; syncOpts(); showOv("ovOptions"); }
+function optsBack() { if (optsFrom === "play") { optsFrom = "ovTitle"; resume(); } else showOv(optsFrom); }
+// one Back for every floating window: Esc, the controller's B and a tap outside the card all come here
+function ovBack() {
+  const o = anyOv(); if (!o) return;
+  if (o === "ovPause") { if (state === "paused") resume(); }
+  else if (o === "ovChambers") showOv(chFrom); else if (o === "ovOptions") optsBack(); else if (o === "ovHow") showOv(howFrom);
+  else if (o === "ovReset") { syncOpts(); showOv("ovOptions"); } else if (o === "ovShow") showClose(); else if (o === "ovStickers") { syncOpts(); showOv("ovOptions"); }
+  else if (o === "ovLog" || o === "ovMonitor") Log.close(); else if (o === "ovCredits") showOv("ovDone"); else if (o === "ovBonus") Bonus.close();
+}
+for (const id of OVS) if (id !== "ovTitle" && id !== "ovDone") $(id).addEventListener("click", e => { if (e.target === e.currentTarget) { ensureAudio(); ovBack(); } });     // a tap outside the card (not the title or results card, which have nowhere to go back to)
 
 function buildChambers() {
   const g = $("chGrid"), pr = store.get("progress5", 0); g.innerHTML = "";
@@ -6784,10 +6826,12 @@ function showClose() { HoldShow.unwatch(); const b = showBack; showReel = 0; sho
 function showStart() { HoldShow.watch($("showCv"), $("showPvSub"), showReel); }
 function showTape(n, back) { showReel = n; showBack = back || null; $("showTtl").textContent = "Hold Music · lost reel " + n; showOv("ovShow"); showStart(); }
 click("oShow", () => { showOv("ovShow"); showStart(); });
-click("oSticker", () => { GunSticker.build(); showOv("ovStickers"); });          // v8.5: the gun sticker picker
 click("bStkBack", () => { syncOpts(); showOv("ovOptions"); });
-click("oPages", () => Log.open("pages", null, "ovOptions"));
-click("oTapes", () => Log.open("tapes", null, "ovOptions"));
+click("bBonus", () => Bonus.open(null, "play"));             // v8.23: straight from play; the game holds while it is open
+click("bBonusDone", () => Bonus.close());
+click("bPauseBonus", () => Bonus.open(null, "ovPause"));
+click("bSettings", openSettings);
+click("oGuide", () => { howFrom = "ovOptions"; showOv("ovHow"); });
 click("bLogBack", () => Log.back());
 click("bMonBack", () => Log.close());
 click("bShowAgain", showStart);
@@ -6811,10 +6855,8 @@ function askHint() { if (state !== "play") return; const now = performance.now()
   const two = !!(world.lv.say.hint2 && world.lv.say.hint2.length); run.hintLv = two ? Math.min(run.hintLv + 1, 2) : 1;
   if (two) toast("Hint " + run.hintLv + " of 2"); say(run.hintLv === 2 ? "hint2" : "hint"); }
 click("bHint", askHint);
-click("bPauseGuide", () => { howFrom = "ovPause"; showOv("ovHow"); });
 click("bHowBack", () => showOv(howFrom));
-$("ovHow").addEventListener("click", e => { if (e.target === e.currentTarget) showOv(howFrom); });   // a tap outside the guide closes it
-click("bOptBack", () => showOv(optsFrom));
+click("bOptBack", optsBack);
 click("bResume", resume);
 click("bRetry", () => { hideOv(); beginLevel(levelIdx, true); });
 click("bPauseOpt", () => { optsFrom = "ovPause"; syncOpts(); showOv("ovOptions"); });
@@ -6835,7 +6877,7 @@ click("bPause", pause);
 click("bFull", toggleFull); click("oFull", toggleFull);
 click("oReset", () => showOv("ovReset"));
 click("bResetNo", () => { syncOpts(); showOv("ovOptions"); });
-click("bResetYes", () => { for (const k of ["progress5", "finished5", "room", "best", "badges", "saidBadge", "tipDone", "saidFirst", "taught", "seenOpening", "story", "parcel", "lint", "lintFound", "finds", "keys", "power", "bopen", "stickers", "sticker", "saidFind", "clocks", "log_pages", "log_tapes", "ventSkip", "saidSafe"]) { try { localStorage.removeItem(SPFX + k); } catch (e) {} } GunSticker.apply(); optsFrom = "ovTitle"; goTitle(); toast("Progress reset"); });
+click("bResetYes", () => { for (const k of ["progress5", "finished5", "room", "best", "badges", "saidBadge", "tipDone", "saidFirst", "taught", "seenOpening", "story", "parcel", "lint", "lintFound", "finds", "keys", "power", "bopen", "stickers", "sticker", "saidFind", "clocks", "log_pages", "log_tapes", "ventSkip", "saidSafe", "bonusNew"]) { try { localStorage.removeItem(SPFX + k); } catch (e) {} } GunSticker.apply(); Bonus.dot(); optsFrom = "ovTitle"; goTitle(); toast("Progress reset"); });
 if (store.get("progress5", null) === null) store.set("progress5", Math.min(Math.floor(store.get("progress4", 0) / 2), CHAMBERS.length - 1));     // v4.3 groups rooms into chambers: keep roughly how far you had got
 function syncOpts() {
   const on = (id, v) => { const b = $(id); b.textContent = v ? "On" : "Off"; b.classList.toggle("on", !!v); };
@@ -6887,7 +6929,7 @@ addEventListener("keydown", e => {
     if (!(ae && ae.tagName === "BUTTON" && ov.contains(ae))) { const b = [...ov.querySelectorAll(".btn.primary")].find(x => !x.hidden && x.offsetParent); if (b) { e.preventDefault(); ensureAudio(); b.click(); } }
     return;
   }
-  if (anyOv()) { if (k === "escape") { if (state === "paused" && anyOv() === "ovPause") resume(); else if (anyOv() === "ovChambers") showOv(chFrom); else if (anyOv() === "ovOptions") showOv(optsFrom); else if (anyOv() === "ovHow") showOv(howFrom); else if (anyOv() === "ovReset") showOv("ovOptions"); else if (anyOv() === "ovShow") showClose(); else if (anyOv() === "ovStickers") { syncOpts(); showOv("ovOptions"); } else if (anyOv() === "ovLog" || anyOv() === "ovMonitor") Log.close(); else if (anyOv() === "ovCredits") showOv("ovDone"); } else if ((k === "h" || k === "?") && anyOv() === "ovHow") showOv(howFrom); return; }
+  if (anyOv()) { if (k === "escape") ovBack(); else if ((k === "h" || k === "?") && anyOv() === "ovHow") showOv(howFrom); else if (k === "b" && !e.repeat && anyOv() === "ovBonus") Bonus.close(); return; }
   if (Lift.on) { if (["arrowup", "arrowdown", "arrowleft", "arrowright"].includes(k)) e.preventDefault(); setKey(e, true); return; }      // v8.22: in the moving lift you can walk about the car; nothing else (Space, Return and Esc are Skip)
   if (state !== "play" && state !== "dead") return;
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(k)) e.preventDefault();
@@ -6898,6 +6940,7 @@ addEventListener("keydown", e => {
   else if (k === "x" && !e.repeat) firePortal(1);
   else if ((k === "h" || k === "?") && !e.repeat) openGuide();
   else if (k === "t" && !e.repeat) askHint();
+  else if (k === "b" && !e.repeat) Bonus.open(null, "play");
   else if (k === "r" && !e.repeat) beginLevel(levelIdx, true);
   else if (k === "f" && !e.repeat) toggleFull();
   else if (k === "escape") pause();
@@ -6908,7 +6951,9 @@ let lockFailed = false, lockAsked = false, mouseMode = false, locked = false, la
 function enterMouseMode() { if (mouseMode) return; mouseMode = true; document.body.classList.add("mouselook"); }
 document.addEventListener("pointerlockchange", () => {
   locked = !!document.pointerLockElement;
-  if (!locked && state === "play" && !isTouch && !Lift.on) pause();
+  if (locked) return;
+  const mine = selfUnlock; selfUnlock = false;
+  if (!mine && state === "play" && !isTouch && !Lift.on) pause();
 });
 document.addEventListener("pointerlockerror", () => { lockFailed = true; });
 function tryLock() { setTimeout(() => { if (!document.pointerLockElement) lockFailed = true; }, 600); tryLock0(); }
@@ -7016,7 +7061,7 @@ let padFire = [false, false];
       start: d => { if (!d) return; if (anyOv() === "ovDone" && !$("bNext").hidden) { $("bNext").click(); return; } if (state === "play") pause(); else if (state === "paused") resume(); }
     },
     menu: () => { const o = anyOv(); return o ? $(o) : null; },       // the open card itself, so the d-pad can move between its buttons
-    menuBack: d => { if (!d) return; const o = anyOv(); if (o === "ovPause") resume(); else if (o === "ovChambers") showOv(chFrom); else if (o === "ovOptions") showOv(optsFrom); else if (o === "ovHow") showOv(howFrom); else if (o === "ovReset") showOv("ovOptions"); else if (o === "ovShow") showClose(); else if (o === "ovStickers") { syncOpts(); showOv("ovOptions"); } else if (o === "ovLog" || o === "ovMonitor") Log.close(); else if (o === "ovCredits") showOv("ovDone"); },
+    menuBack: d => { if (!d) return; ovBack(); },
     autoStart: () => { if (!$("ovTitle").hidden) $("bPlay").click(); },
     help: ["In a chamber", ["Left stick", "Walk"], ["Right stick", "Look"], ["LT / LB", "Blue portal"], ["RT / RB", "Orange portal"], ["A", "Jump"], ["X", "Pick up / put down a cube or sentry"], ["Y", "Restart chamber"], ["Start", "Pause · next chamber on the results card"], ["Select", "This screen"],
       "In menus", ["↑ ↓ ← →", "Move the highlight"], ["A", "Press"], ["B", "Back"]]
@@ -8626,6 +8671,7 @@ function itemScan(l, c) {                    // called once per room at boot, fr
   for (const m of (l.monitors || [])) FIND_CH[c].push({ gid: l.name + ":" + m.id, kind: "monitor", name: "Monitor: " + (m.room || "") });
   if (l.safe && l.safe.item) FIND_CH[c].push({ gid: l.name + ":" + l.safe.item.id, kind: l.safe.item.kind, get name() { return itemName(l.safe.item); } });      // v8.14: the find behind the painting
   for (const b of (l.breakers || [])) FIND_CH[c].push({ gid: l.name + ":" + b.id, kind: "breaker", name: "Breaker" + (b.label ? ": " + b.label : "") });
+  for (const d of (l.bdoors || [])) if (d.cards || d.card) STAFF_DOORS.push({ c, room: l.name, gid: l.name + ":" + d.id, cards: d.cards || 0, card: d.card || null });
 }
 function itemName(it) {
   if (it.kind === "card") return "Key card: " + (it.label || it.key);
@@ -8709,8 +8755,8 @@ const GunSticker = (() => {
   }
   function nameOf(id) { const s = STICKERS.find(s => s.id === id); return s ? s.name : "None"; }
   function current() { const id = store.get("sticker", ""); return id && store.get("stickers", []).includes(id) ? id : ""; }
-  function build() {                         // the picker: every sticker, the found ones selectable, the rest "?"
-    const g = $("stkGrid"), have = store.get("stickers", []), cur = current(); g.innerHTML = "";
+  function build(g = $("stkGrid"), noteEl = $("stkNote")) {      // the picker: every sticker, the found ones selectable, the rest "?" (v8.23: also drawn in Bonuses > Stickers)
+    const have = store.get("stickers", []), cur = current(); g.innerHTML = "";
     const tile = (id, name, tip, paint, lock) => {
       const b = document.createElement("button"); b.type = "button"; b.className = "chbtn" + (id === cur ? " cur" : ""); b.dataset.tip = tip;
       const cv = document.createElement("canvas"); cv.width = 256; cv.height = 192; const cx = cv.getContext("2d");
@@ -8718,13 +8764,13 @@ const GunSticker = (() => {
       else if (paint) { cx.save(); cx.translate(28, 21); paint(cx, 200, 150); cx.restore(); }
       else { cx.strokeStyle = "rgba(255,255,255,.3)"; cx.lineWidth = 6; cx.beginPath(); cx.arc(128, 96, 44, 0, 6.3); cx.moveTo(97, 127); cx.lineTo(159, 65); cx.stroke(); }
       const sp = document.createElement("span"); sp.textContent = lock ? "Not found yet" : name;
-      b.append(cv, sp); if (lock) b.disabled = true; else b.addEventListener("click", () => { store.set("sticker", id); apply(); sfx.button(true); build(); syncStk(); });
+      b.append(cv, sp); if (lock) b.disabled = true; else b.addEventListener("click", () => { store.set("sticker", id); apply(); sfx.button(true); build(g, noteEl); syncStk(); });
       g.appendChild(b);
     };
     tile("", "None", "No sticker on the gun", null, false);
     for (const s of STICKERS) { const got = have.includes(s.id); if (s.secret && !got) continue; tile(s.id, s.name, got ? s.tip + ". Put it on the gun" : "Not found yet: somewhere in the facility", s.paint, !got); }
     const n = STICKERS.filter(s => !s.secret && have.includes(s.id)).length, N = STICKERS.filter(s => !s.secret).length;
-    $("stkNote").textContent = n ? "Found " + n + " of " + N + (have.includes("lint") ? ", and the secret one" : "") + ". Pick one for your portal gun." : "You have not found any stickers yet. They are hidden around the facility.";
+    noteEl.textContent = n ? "Found " + n + " of " + N + (have.includes("lint") ? ", and the secret one" : "") + ". Pick one for your portal gun." : "You have not found any stickers yet. They are hidden around the facility.";
   }
   function syncStk() { const b = $("oSticker"); if (b) b.textContent = nameOf(current()); }
   return { apply, build, sync: syncStk, tex, nameOf, current };
@@ -9003,9 +9049,9 @@ const Items = (() => {
   function doors(W) { for (const D of BD) if (D.open) D.door.cnt += 1; }       // from the door loop: an unlocked bonus door is held open
   function firstLine(kind) { const s = store.get("saidFind", {}); if (s[kind]) return; s[kind] = 1; store.set("saidFind", s); const k = { card: "findCard", monitor: "findMonitor", page: "findPage", clock: "findClock", tape: "findTape", sticker: "findSticker", pickup: "findPickup", breaker: "findBreaker", bonus: "bonusOpen" }[kind]; if (k && LINES[k]) say(k); }
   function take(e) {
-    const it = e.it; levelGroup.remove(e.g); L.splice(L.indexOf(e), 1); add("finds", e.gid); sfx.badge();
+    const it = e.it; levelGroup.remove(e.g); L.splice(L.indexOf(e), 1); add("finds", e.gid); sfx.badge(); if (["card", "sticker", "tape", "page"].includes(it.kind)) Bonus.mark();
     if (it.kind === "card") { add("keys", it.key); toast("Key card: " + (it.label || it.key) + " · on your key ring"); }
-    else if (it.kind === "sticker") { add("stickers", it.sticker); toast("Gun sticker: " + GunSticker.nameOf(it.sticker) + " · put it on in Options"); }
+    else if (it.kind === "sticker") { add("stickers", it.sticker); toast("Gun sticker: " + GunSticker.nameOf(it.sticker) + " · put it on in Bonuses"); }
     else if (it.kind === "tape") { toast("Tape: " + (it.title || "untitled")); Log.save("tapes", e.gid, { title: it.title || "Tape", lines: it.lines || [] }); Log.open("tapes", e.gid, "play"); }       // v8.18: a found reel plays straight away, as a Hold Music segment
     else if (it.kind === "page") { toast("Page: " + (it.title || "a page")); Log.save("pages", e.gid, { title: it.title || "Page", text: it.text || [] }); Log.open("pages", e.gid, "play"); }
     else if (it.kind === "clock") { run.time = Math.max(0, run.time - 30); toast("BONUS: Punch clock · 30 s off the chamber clock"); setTimeout(() => sfx.badge(), 400); add("clocks", e.gid); }
@@ -9190,7 +9236,7 @@ const LintRoom = (() => {
   function use() {
     if (!look || !L || taken) return false;
     taken = true; L.P.g.visible = false; msg = ""; look = false; sfx.badge();
-    const first = !store.get("lintFound", 0); store.set("lintFound", 1);
+    const first = !store.get("lintFound", 0); store.set("lintFound", 1); if (first) Bonus.mark();
     toast("Lint is coming with you"); subQ = subQ.filter(q => (q.text || q) !== LINT_LINES.hello && q !== LINT_LINES.sadosHello); if (first) subQ.unshift(LINT_LINES.sadosTake); sayAs("LINT", LINT_LINES.take, true);
     return true;
   }
@@ -9251,8 +9297,97 @@ const Log = (() => {
     { const vg = g.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, W * 0.62); vg.addColorStop(0, "rgba(0,0,0,0)"); vg.addColorStop(1, "rgba(0,0,0,.55)"); g.fillStyle = vg; g.fillRect(0, 0, W, H); }      // a soft vignette (no scanlines: they make moire)
     showOv("ovMonitor");
   }
-  return { save, open, back, close, monitor, get: get };
+  return { save, open, back, close, monitor, get: get, handPage };
 })();
+/* v8.23 the Bonuses window (the HUD's Bonuses button, B, or Pause > Bonuses): what you have found, kept apart from the settings.
+   Tabs: Key cards (the ring, and every staff door in the chambers you have reached, with its card count and whether it is open),
+   Pages (O.'s pages, read again in his hand), Tapes (the lost reels, played again in the Hold Music pop-up), Stickers (the gun
+   sticker picker) and Lint (only once he has been found). Things not found yet are only ever a count: never where they are.
+   A yellow dot on the button (`bonusNew`) means a new find since you last looked. The game holds while it is open. */
+const Bonus = (() => {
+  let tab = "cards", fromPlay = false, from = "ovPause", page = null;
+  const keysAll = () => BADGE_CH.size + FIND_CH.reduce((n, F) => n + F.filter(f => f.kind === "card").length, 0);
+  const countOf = kind => FIND_CH.reduce((n, F) => n + F.filter(f => f.kind === kind).length, 0);
+  function dot() { const d = $("bonusDot"); if (d) d.classList.toggle("on", !!store.get("bonusNew", 0)); }
+  function mark() { store.set("bonusNew", 1); dot(); }
+  function tabs() {
+    const T = [["cards", "Key cards", store.get("keys", []).length + " / " + keysAll(), "Your key ring, and the staff doors it opens"],
+      ["pages", "Pages", Object.keys(Log.get("pages")).length + " / " + countOf("page"), "Read O.'s pages again"],
+      ["tapes", "Tapes", Object.keys(Log.get("tapes")).length + " / " + countOf("tape"), "Watch the lost reels again"],
+      ["stickers", "Stickers", STICKERS.filter(s => !s.secret && store.get("stickers", []).includes(s.id)).length + " / " + STICKERS.filter(s => !s.secret).length, "Pick the sticker on your portal gun"]];
+    if (store.get("lintFound", 0)) T.push(["lint", "Lint", "", "He is with you"]);
+    if (!T.find(t => t[0] === tab)) tab = "cards";
+    const el = $("bTabs"); el.innerHTML = "";
+    for (const [id, name, n, tip] of T) {
+      const b = document.createElement("button"); b.type = "button"; b.className = id === tab ? "cur" : ""; b.dataset.tip = tip;
+      b.textContent = name; if (n) { const em = document.createElement("em"); em.textContent = n; b.appendChild(em); }
+      b.addEventListener("click", () => { ensureAudio(); tab = id; page = null; render(); }); el.appendChild(b);
+    }
+  }
+  const P = (cls, txt) => { const p = document.createElement("p"); p.className = cls; p.textContent = txt; return p; };
+  function backRow(fn, label) { const d = document.createElement("div"); d.className = "bbackrow"; const b = document.createElement("button"); b.type = "button"; b.className = "btn"; b.innerHTML = "&lsaquo; " + label; b.dataset.tip = "Back to the list"; b.addEventListener("click", () => { ensureAudio(); fn(); }); d.appendChild(b); return d; }
+  function render() {
+    tabs(); const body = $("bBody"); body.innerHTML = ""; body.scrollTop = 0;
+    if (tab === "cards") {
+      const have = store.get("keys", []).length, all = keysAll(), reached = store.get("progress5", 0), opened = store.get("bopen", []);
+      const r = document.createElement("p"); r.className = "bring"; r.textContent = have + " of " + all; const sm = document.createElement("small"); sm.textContent = "KEY CARDS ON YOUR RING"; r.appendChild(sm); body.appendChild(r);
+      body.appendChild(P("stkNote", have < all ? "Each chamber hides one. The rest are still out there." : "Every key card in the facility."));
+      const seen = STAFF_DOORS.filter(d => d.c <= reached), later = STAFF_DOORS.length - seen.length;
+      if (seen.length) {
+        const ul = document.createElement("ul"); ul.className = "bdoors";
+        for (const d of seen) {
+          const li = document.createElement("li"), open = opened.includes(d.gid), need = d.card ? 1 : d.cards, ok = d.card ? store.get("keys", []).includes(d.card) : have >= d.cards;
+          const a = document.createElement("span"); a.innerHTML = "<b>Chamber " + String(d.c + 1).padStart(2, "0") + "</b> · " + d.room.replace(/[<>&]/g, "");
+          const z = document.createElement("i"); z.className = open || ok ? "ok" : "no";
+          z.textContent = (d.card ? ((KEY_INFO[d.card] || {}).label || d.card) + " card" : need + " cards") + " · " + (open ? "open" : ok ? "you have enough" : "locked");
+          li.append(a, z); ul.appendChild(li);
+        }
+        body.appendChild(P("stkNote", "Staff doors in the chambers you have reached. Walk up and GRAB at the reader.")); body.appendChild(ul);
+      }
+      if (later) body.appendChild(P("stkNote", (seen.length ? "And " + later + " more" : later + " staff door" + (later === 1 ? "" : "s")) + " further on."));
+    } else if (tab === "pages") {
+      const r = Log.get("pages"), ids = Object.keys(r), all = countOf("page");
+      if (page && r[page]) {
+        const d = r[page], wrap = document.createElement("div"); wrap.className = "logPage"; const h = document.createElement("h3"); h.textContent = "PAGE · " + d.title; wrap.appendChild(h); body.appendChild(wrap);
+        wrap.appendChild(Log.handPage(d.text, wrap)); body.appendChild(backRow(() => { page = null; render(); }, "All pages")); return;
+      }
+      body.appendChild(P("stkNote", ids.length ? "Found " + ids.length + " of " + all + ". Pick one to read." : "None found yet: " + all + " to find."));
+      const g = document.createElement("div"); g.className = "stkGrid";
+      for (const id of ids) { const b = document.createElement("button"); b.type = "button"; b.className = "chbtn"; b.dataset.tip = "Read this page"; const sp = document.createElement("span"); sp.textContent = r[id].title; b.appendChild(sp); b.addEventListener("click", () => { ensureAudio(); page = id; render(); }); g.appendChild(b); }
+      body.appendChild(g);
+    } else if (tab === "tapes") {
+      const r = Log.get("tapes"), ids = Object.keys(r), all = countOf("tape");
+      if (page && r[page]) {          // a tape that is not a lost reel (Item Test) reads as text
+        const d = r[page], wrap = document.createElement("div"); wrap.className = "logPage"; const h = document.createElement("h3"); h.textContent = "TAPE · " + d.title; const t = document.createElement("div"); t.textContent = d.lines.join("\n\n"); wrap.append(h, t); body.appendChild(wrap);
+        body.appendChild(backRow(() => { page = null; render(); }, "All tapes")); return;
+      }
+      body.appendChild(P("stkNote", ids.length ? "Found " + ids.length + " of " + all + ". Pick one to watch." : "None found yet: " + all + " to find."));
+      const g = document.createElement("div"); g.className = "stkGrid";
+      for (const id of ids) {
+        const b = document.createElement("button"); b.type = "button"; b.className = "chbtn"; b.dataset.tip = "Watch this tape"; const sp = document.createElement("span"); sp.textContent = r[id].title; b.appendChild(sp);
+        b.addEventListener("click", () => { ensureAudio(); const n = reelOf(r[id].title); if (n) showTape(n, () => open("tapes")); else { page = id; render(); } }); g.appendChild(b);
+      }
+      body.appendChild(g);
+    } else if (tab === "stickers") {
+      const note = P("stkNote", ""), g = document.createElement("div"); g.className = "stkGrid"; body.append(note, g); GunSticker.build(g, note);
+    } else if (tab === "lint") {
+      body.appendChild(P("bring", "Lint")); body.appendChild(P("stkNote", "Found behind the last staff door. He rides out with you at the end, and signs the sheet in crayon."));
+      const b = document.createElement("button"); b.type = "button"; b.className = "btn"; b.style.width = "auto"; b.textContent = "Watch the closing story"; b.dataset.tip = "The closing story, with Lint in it";
+      b.addEventListener("click", () => { ensureAudio(); Cut.playEnding(() => open("lint")); }); body.appendChild(b);
+    }
+  }
+  // src: "play" (from the HUD or B: the game holds and Done goes back to it), an overlay id (Done goes back there), or nothing (keep where it came from)
+  function open(t, src) {
+    if (Lift.on || state === "cut") return;
+    if (src === "play") { if (holdPlay()) fromPlay = true; else if (state === "paused" && anyOv() === "ovPause") { fromPlay = false; from = "ovPause"; } else if (state !== "paused") return; }
+    else if (src) { fromPlay = false; from = src; }
+    if (t) tab = t; page = null; store.set("bonusNew", 0); dot(); render(); showOv("ovBonus");
+  }
+  function close() { page = null; if (fromPlay) { fromPlay = false; resume(); } else showOv(from || "ovPause"); }
+  return { open, close, mark, dot, get tab() { return tab; } };
+})();
+Bonus.dot();
+
 
 // the Item Test room (test-chambers/?itemtest only): one of everything. A breaker, two bonus rooms (one wants a card, one wants the breaker and a second card)
 function levelItemTest() {
@@ -9609,7 +9744,7 @@ function boot() {
   setTimeout(() => HoldMusic.render(), 2200);
   setTimeout(() => { try { HoldShow.ensure(); HoldShow.preload(); } catch (e) { console.error(e); } }, 3000);   // the TV show's picture and voices, ready before anyone reaches the office                                       // and its music, rendered once in the background
 }
-window.__tc = { denAudit, LEVEL_FUNCS, bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
+window.__tc = { Bonus, STAFF_DOORS, denAudit, LEVEL_FUNCS, bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
 try { boot(); } catch (err) { console.error(err); $("loading").hidden = false; $("loading").innerHTML = '<div style="max-width:420px;text-align:center;line-height:1.6;font-size:13px;letter-spacing:.05em">Something went wrong starting the game.<br><small>' + String(err && err.message || err) + "</small></div>"; }
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>
