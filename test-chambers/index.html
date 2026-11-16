@@ -547,7 +547,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { Furn } from "./furniture.js";                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.15";
+const VERSION = "v8.16";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const IT_TEST = /[?&]itemtest\b/.test(location.search), SPFX = IT_TEST ? "testchambers.itest." : "testchambers.";
 const $ = id => document.getElementById(id);
@@ -618,6 +618,42 @@ function whiteTex() {
     g.fillStyle = "rgba(60,68,78,.55)";
     for (let py = 0; py < 2; py++) for (let px = 0; px < 2; px++) for (const [ox, oy] of [[30, 30], [482, 30], [30, 482], [482, 482]]) { g.beginPath(); g.arc(px * 512 + ox, py * 512 + oy, 4, 0, 6.3); g.fill(); }
   });
+}
+// v8.16 backstage surfaces. "conc": raw board-marked concrete. "wwash": whitewash over concrete, still bright white (it takes a portal).
+// "girder": red-oxide steel. "pallet": crates on a pallet. "shutter": a roller shutter's slats. No fine repeating stripes in any of them
+function bsTex(kind) {
+  return canvasTex(1024, 1024, (g, w, h) => {
+    const R = rng({ conc: 301, wwash: 302, girder: 303, pallet: 304, shutter: 305 }[kind] || 300);
+    const speck = (n, a, lo, hi) => { for (let i = 0; i < n; i++) { const v = lo + R() * (hi - lo) | 0; g.fillStyle = `rgba(${v},${v},${v},${a * (0.4 + R() * 0.6)})`; const r = 1 + R() * 3; g.fillRect(R() * w, R() * h, r, r); } };
+    const blotch = (n, col, a, r0, r1) => { for (let i = 0; i < n; i++) { const x = R() * w, y = R() * h, r = r0 + R() * (r1 - r0); const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, `rgba(${col},${a})`); gr.addColorStop(1, `rgba(${col},0)`);
+      g.fillStyle = gr; for (const ox of [-w, 0, w]) for (const oy of [-h, 0, h]) { g.save(); g.translate(ox, oy); g.fillRect(x - r, y - r, r * 2, r * 2); g.restore(); } } };
+    if (kind === "conc") {
+      g.fillStyle = "#7c7d79"; g.fillRect(0, 0, w, h); blotch(22, "170,170,164", .09, 120, 320); blotch(16, "50,52,54", .07, 120, 300); speck(9000, .16, 60, 190);
+      for (let y = 0; y < h; y += 256) { g.fillStyle = "rgba(20,22,24,.3)"; g.fillRect(0, y, w, 3); g.fillStyle = "rgba(220,220,214,.1)"; g.fillRect(0, y + 3, w, 2); }      // the formwork's board lines, a metre and a quarter apart
+      for (let x = 128; x < w; x += 512) for (let y = 128; y < h; y += 256) { g.fillStyle = "rgba(14,15,16,.55)"; g.beginPath(); g.arc(x, y, 9, 0, 6.3); g.fill(); g.fillStyle = "rgba(230,230,224,.12)"; g.beginPath(); g.arc(x, y + 2, 11, 0.3, 2.8); g.fill(); }      // tie holes
+      for (let i = 0; i < 7; i++) { const x = R() * w, y = R() * h * 0.5, len = 120 + R() * 300, gr = g.createLinearGradient(0, y, 0, y + len); gr.addColorStop(0, "rgba(40,34,28,.28)"); gr.addColorStop(1, "rgba(40,34,28,0)"); g.fillStyle = gr; g.fillRect(x, y, 5 + R() * 14, len); }      // runs of rust and water
+    } else if (kind === "wwash") {
+      g.fillStyle = "#eef0f1"; g.fillRect(0, 0, w, h); blotch(26, "255,255,255", .5, 80, 240); blotch(18, "168,176,184", .16, 60, 200); speck(2600, .1, 120, 255);
+      for (let i = 0; i < 46; i++) { const y = R() * h, x = R() * w, len = 200 + R() * 500; g.strokeStyle = `rgba(${R() < .5 ? "255,255,255" : "150,160,170"},${.07 + R() * .08})`; g.lineWidth = 10 + R() * 26; g.lineCap = "round"; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + len / 2, y + (R() - .5) * 30, x + len, y + (R() - .5) * 16); g.stroke(); }      // broad brush marks
+      for (let i = 0; i < 9; i++) { const x = R() * w, y = R() * h; g.fillStyle = "rgba(120,122,120,.5)"; g.beginPath(); for (let k = 0; k < 7; k++) { const a = k / 7 * 6.3, r = 5 + R() * 13; k ? g.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r) : g.moveTo(x + Math.cos(a) * r, y + Math.sin(a) * r); } g.fill(); }      // chips, down to the concrete
+    } else if (kind === "girder") {
+      g.fillStyle = "#7a3b2a"; g.fillRect(0, 0, w, h); blotch(30, "170,96,60", .22, 50, 200); blotch(34, "40,22,16", .3, 40, 180); speck(5000, .18, 20, 150);
+      for (const x of [0, 512]) { g.fillStyle = "rgba(20,10,8,.5)"; g.fillRect(x, 0, 8, h); g.fillStyle = "rgba(255,190,150,.12)"; g.fillRect(x + 8, 0, 4, h); for (let y = 64; y < h; y += 128) for (const ox of [44, 468]) { g.fillStyle = "rgba(24,12,9,.7)"; g.beginPath(); g.arc(x + ox, y, 13, 0, 6.3); g.fill(); g.fillStyle = "rgba(210,130,95,.5)"; g.beginPath(); g.arc(x + ox - 2, y - 3, 9, 0, 6.3); g.fill(); } }      // flange edges and rivets
+    } else if (kind === "pallet") {
+      g.fillStyle = "#8a6a45"; g.fillRect(0, 0, w, h);
+      for (let y = 0; y < h; y += 128) { const v = 120 + R() * 40 | 0; g.fillStyle = `rgb(${v + 20},${v - 8},${v - 50})`; g.fillRect(0, y + 5, w, 118); g.fillStyle = "rgba(30,20,10,.75)"; g.fillRect(0, y, w, 5);
+        for (let i = 0; i < 16; i++) { g.strokeStyle = `rgba(60,40,20,${.1 + R() * .14})`; g.lineWidth = 1 + R() * 2.5; const yy = y + 12 + R() * 104; g.beginPath(); g.moveTo(0, yy); g.bezierCurveTo(w * .3, yy + (R() - .5) * 16, w * .7, yy + (R() - .5) * 16, w, yy); g.stroke(); }
+        for (const x of [40, 472, 552, 984]) { g.fillStyle = "rgba(25,22,20,.75)"; g.beginPath(); g.arc(x, y + 64, 6, 0, 6.3); g.fill(); } }
+      for (const x of [0, 512]) { g.fillStyle = "rgba(30,20,10,.7)"; g.fillRect(x, 0, 6, h); }
+      g.fillStyle = "rgba(24,20,16,.5)"; g.fillRect(196, 300, 120, 14); g.fillRect(196, 326, 120, 14); g.fillRect(708, 812, 120, 14);      // stencilled bars (no lettering: some faces are mirrored)
+      blotch(20, "40,28,16", .2, 50, 160); speck(3000, .12, 20, 120);
+    } else {
+      const gr = g.createLinearGradient(0, 0, w, 0); gr.addColorStop(0, "#5c6268"); gr.addColorStop(.5, "#747b82"); gr.addColorStop(1, "#5a6066"); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+      for (let y = 0; y < h; y += 128) { const sl = g.createLinearGradient(0, y, 0, y + 128); sl.addColorStop(0, "rgba(255,255,255,.2)"); sl.addColorStop(.45, "rgba(255,255,255,0)"); sl.addColorStop(.8, "rgba(0,0,0,.18)"); sl.addColorStop(1, "rgba(0,0,0,.5)"); g.fillStyle = sl; g.fillRect(0, y, w, 128); }      // eight broad slats
+      blotch(26, "90,60,40", .16, 40, 160); speck(2600, .14, 30, 200);
+      g.fillStyle = "#d9a520"; g.fillRect(0, h - 70, w, 70); g.fillStyle = "#15181b"; for (let x = -80; x < w + 80; x += 128) { g.beginPath(); g.moveTo(x, h); g.lineTo(x + 64, h); g.lineTo(x + 134, h - 70); g.lineTo(x + 70, h - 70); g.fill(); }
+    }
+  }, kind !== "shutter");
 }
 function darkTex() {
   return canvasTex(1024, 1024, (g, w, h) => {
@@ -1130,7 +1166,7 @@ function bakeFaces(list, occ, lamps, air, out, uvOrigin) {
     const [t1, t2] = AX[a], plane = s > 0 ? b.max[a] : b.min[a];
     const l1 = b.max[t1] - b.min[t1], l2 = b.max[t2] - b.min[t2];
     const n1 = Math.max(1, Math.round(l1 / CELL)), n2 = Math.max(1, Math.round(l2 / CELL));
-    const key = b.mat === "white" && a === 1 && s > 0 ? "floor" : b.mat;     // white floors get their own glossier finish
+    const up = a === 1 && s > 0, key = b.look ? (up && (b.look === "wwash" || b.look === "conc" || b.look === "clean") ? b.look + "F" : b.look) : b.mat === "white" && up ? "floor" : b.mat;     // white floors get their own glossier finish (v8.16: `look` re-dresses a box without changing what it is)
     const G = out[key] || (out[key] = { p: [], n: [], uv: [], c: [], idx: [] });
     for (let i = 0; i < n1; i++) for (let j = 0; j < n2; j++) {
       const u0 = b.min[t1] + l1 * i / n1, u1 = b.min[t1] + l1 * (i + 1) / n1, v0 = b.min[t2] + l2 * j / n2, v1 = b.min[t2] + l2 * (j + 1) / n2;
@@ -2331,7 +2367,7 @@ function undark(b) { b.mat = "white"; b.portal = true; return b; }        // a d
 // o.two (+1 or -1) adds a second room along x, behind a wall with a slot in it: its panel can only be seen, and reached, from the first.
 // Nothing in here is on the test track; the panels are extra, so check each room's shortcut scan with them in place
 function den(h, o) {
-  const B = h.boxes, Wd = o.W, far = o.side === 1, zs = far ? Wd : 0, out = far ? 1 : -1, xa = o.x, sy = o.y || 3.2;
+  const B = h.boxes, Wd = o.W, far = o.side === 1, zs = far ? Wd : 0, out = far ? 1 : -1, xa = o.x, sy = o.y != null ? o.y : 3.2;      // (v8.16: y 0 is a den at floor level)
   const zb = (x0, y0, d0, x1, y1, d1, mat = "dark") => bx(x0, y0, Math.min(zs + out * d0, zs + out * d1), x1, y1, Math.max(zs + out * d0, zs + out * d1), mat);
   const wi = B.findIndex(b => (far ? (b.min[2] === Wd && b.max[2] === Wd + 2) : (b.max[2] === 0 && b.min[2] === -2)) && b.min[0] <= xa - 2.5 && b.max[0] >= xa + 2.5 && b.min[1] <= sy - 0.5 && b.max[1] >= sy + 3.2), w0 = B[wi], mat = w0.mat;   // v7.6: the wall piece the doorway is in (rooms 9 to 30 split their walls)
   B.splice(wi, 1);
@@ -2486,6 +2522,14 @@ function denLayout(K, type, R, wall, lo, o = {}) {
     hang("noticeboard", s + dir * 0.85, 1.6);
     K.F.push({ k: "coatstand", at: floorAt(0.45, 0.35), ry: 0.6 }, { k: "sack", at: floorAt(1.25, 0.4), ry: ryW + 0.4 }, { k: "carton", at: K.front(R, wall, a.c, 0.8, 0), ry: ryW + 0.3, size: "big" });
     S.push(K.front(R, wall, a.c + 0.15, 0.3, 1.17), floorAt(0.9, 1.0));
+  } else if (type === "home") {                  // v8.16 O.'s home base: the sofa he sleeps on, his noticeboard, a table with the kettle, shelves of what he kept
+    const a = seq("sofa"); hang("noticeboard", a.c, 1.75);
+    s += dir * 0.75; const b = seq("shelving", { w: 1.2, seed: 71 });
+    top("sack", b.c, 0.25, 1.17); top("carton", b.c + 0.2, 0.25, 2.0, 0, { size: "small" }); top("mug", b.c - 0.3, 0.25, 0.75, 0, { red: true });
+    K.F.push({ k: "table", at: K.front(R, wall, a.c, 2.0, 0), ry: ryW }, { k: "stackchair", at: K.front(R, wall, a.c + 0.4, 2.65, 0), ry: ryW + Math.PI + 0.25 });
+    K.F.push({ k: "kettle", at: K.front(R, wall, a.c + 0.35, 2.05, 0.74), ry: ryW + 0.5 }, { k: "mug", at: K.front(R, wall, a.c - 0.3, 2.15, 0.74), ry: 1 }, { k: "flipclock", at: K.front(R, wall, a.c - 0.05, 1.8, 0.74), ry: ryW + Math.PI });
+    K.F.push({ k: "sack", at: floorAt(0.4, 0.4), ry: ryW + 0.5 }, { k: "coatstand", at: K.front(R, wall, a.c - dir * 1.25, 3.3, 0), ry: 0.5 });
+    S.push(K.front(R, wall, a.c + 0.05, 2.25, 0.74), K.front(R, wall, a.c, 0.5, 0.62));
   } else if (type === "bare") {
     S.push(floorAt(1.5, 1.5));
   }
@@ -2734,8 +2778,165 @@ function denWrap(f, i) {
       delete l.badge;                                                  // chambers 1 to 13: the card is in a den, not out in the room
       if (sp) try { denDress(l, sp, i + 1); } catch (e) { console.error("den " + l.name, e); }
     }
+    if (isBS(i)) {                                                     // v8.16: rooms 39 to 45 are backstage
+      delete l.badge;                                                  // chambers 17 to 19: the card is in a den
+      try { if (BS_DEN[l.name]) bsDen(l, BS_DEN[l.name], i + 1); } catch (e) { console.error("den " + l.name, e); }
+      try { bsDress(l, i); } catch (e) { console.error("backstage " + l.name, e); }
+    }
     return l;
   };
+}
+/* =====================================================================================
+   v8.16 Batch 4 of the dens plan: BACKSTAGE, rooms 39 to 45.
+   After Gauntlet the lift stalls between floors (Lift, `stall`) and you climb out onto the service level. Rooms 39 to 45
+   keep their order, names, chambers, solvers and saves: every solid box and every white / dark flag is where it was. Only
+   the LOOK changes (`b.look`, read by bakeFaces: raw concrete, whitewash, girders, pallets), plus clutter that is not
+   solid (`lv.loose`): pipes, cable trays, charging pads, freight scales. Rule kept: bright white takes a portal, nothing
+   else does. Doors are roller shutters, the acid is a coolant sump, chamber signs are O.'s painted words, and there is no
+   lift car to arrive in (a shuttered hoist doorway; in room 39 the stalled car itself, dark, doors jammed).
+   SaDos backstage: she speaks only while one of her cameras can see you (`bsSeen`); her intro waits for that. Hints still
+   work when asked for. Knock the cameras down and she goes quiet.
+   The dens flip: backstage, a hidden space is a clean, bright piece of test chamber with faint Muzak (`bsDen`). The way
+   in is a small puzzle with that room's own device; the inner room is reached by portal through a slot (or, in Second
+   Opinion, by weighing a plate down with a dead sentry). Nothing in a den is ever needed to finish.
+   ===================================================================================== */
+const BS_FIRST = 38, BS_LAST = 44;                    // room indexes (0-based) of rooms 39 to 45
+const isBS = i => !IT_TEST && i >= BS_FIRST && i <= BS_LAST;
+const BS_NAME = { "Second Opinion": "SENTRY CHARGING BAY", "Prism": "OPTICS STORE", "Hot Seat": "BURN-IN BENCH", "Heavy Hat": "OVERHEAD STORES", "Lift Off": "GRAVITY RIG", "Live Wire": "SWITCH ROOM", "Paperweight": "CAMERA STORES" };
+// what SaDos says when a camera first finds you in each room: she wants you back on the track (the device is still named, the route never is)
+const BS_SAY = {
+  "Second Opinion": ["There you are. You are not on the test track. You are in the sentry charging bay, and those two are on charge. They will still shoot you. Charging is not sleeping.", "Come back to the track. I will not even write it down."],
+  "Prism": ["This is the optics store. That crate has a lens in one face. Light that goes into the crate comes out of the lens. It is stock. It is not a test.", "Put it down and come back. Everything on the track is clean, and labelled, and yours."],
+  "Hot Seat": ["The burn-in bench. The beam is turned all the way up, because nobody is supposed to be standing where you are standing.", "The shutter wants light on its sensor and a dead weight on the scale. I am only telling you so that you will see it is not worth it."],
+  "Heavy Hat": ["Overhead stores. Two sentries on their cradles, one crate, and a ceiling nobody finished.", "The shutter wants the crate. You want the lift. The lift is back the way you came."],
+  "Lift Off": ["Somebody left the gravity rig running. The panel beside you turns it over for anything loose in the zone. Not you. I would not do that to you. Come back, and I will prove it."],
+  "Live Wire": ["The switch room. That is a spark. It goes in a straight line, bounces off whatever it meets, and gives up after a while. The socket past the dust curtain would like it.", "You are not an electrician. I checked your label. It says parcel."],
+  "Paperweight": ["Camera stores. The shutter is on a camera scale, and it wants two. The camera across the sump watches where the kicker throws things. If it sees you land, I start you again.", "It is the only thing down here that still does what I tell it. I am rather fond of it."]
+};
+const BS_PAGE7 = { title: "O.'s page 7", text: ["You got out of the lift. Good. I painted the arrows for myself, years ago, so I could find my way back when the lights went. Follow them if you like. They only go one way.", "She cannot see back here unless one of her cameras can. Knock them down and she goes quiet. She minds that more than anything you have done to her sentries.", "These little white rooms are hers. Samples. Spare pieces of test, kept clean. I hide in them, because it is the last place she would look for somebody who does not want to be tested. - O."] };
+const BS_TAPE5 = { title: "Hold Music: lost reel 5", lines: ["TED: Tonight, no guest. The guest chair is empty.", "TED: I have left it empty on purpose. It is called a tribute.", "TED: A viewer has written in. The viewer says a yellow sock was seen behind the walls, heading down.", "TED: The viewer is the lady on the speakers. She would like him back. So would I.", "TED: Lint, if you are watching: you still have my other bow tie. Please hold."] };
+const BS_TRACE6 = { name: "A visitor lanyard, hung on a nail by the kettle", look: "clip" };
+// the dens. New ones (side, x) are at floor level behind a service shutter that the room's own device opens (`key`); `old` ones keep the doorway den() gave them.
+// finds: [space (0 main, 1 inner), what]
+const BS_DEN = {
+  "Second Opinion": { old: true, weigh: 1, finds: [[1, "card"]] },                                   // inner room: a dead sentry on the plate
+  "Prism": { side: 0, x: 9, two: 1, key: { receiver: { pos: [0, 0.75, 2.5], n: [1, 0, 0], w: 1.5, h: 1.5 } }, finds: [[0, { id: "clock", kind: "clock" }], [1, Object.assign({ id: "page7", kind: "page" }, BS_PAGE7)]] },      // the lens crate, set down a third way
+  "Hot Seat": { side: 1, x: 3, two: 1, key: { plate: { pos: [1.5, 0, 10.4], only: "sentry" } }, finds: [[1, { breaker: { id: "dark", label: "Work lights", fx: "dark" } }]] },     // a burned-out sentry on the scale by the shutter
+  "Heavy Hat": { side: 1, x: 2.6, two: 1, key: { plate: { pos: [1.2, 0, 10.7], only: "cube" } }, finds: [[1, "card"]] },                 // the crate on the scale by the shutter
+  "Lift Off": { old: true, finds: [[1, "card"]] },
+  "Live Wire": { side: 0, x: 9.5, two: -1, key: { socket: { pos: [5.5, 1.5, 12], n: [0, 0, -1], spare: true } }, finds: [[1, { monitor: { id: "mon", room: "Paperweight" } }]] },      // a second socket, in the spark's own lane
+  "Paperweight": { side: 0, x: 5, two: 1, key: { plate: { pos: [2.6, 0, 1.7], cams: 1 } }, finds: [[0, { monitor: { id: "mon", room: "Hall Of Mirrors" } }]],          // a camera on the little scale by the shutter
+    staff: { cards: 17, items: [Object.assign({ id: "tape5", kind: "tape" }, BS_TAPE5), Object.assign({ id: "lint6", kind: "pickup" }, BS_TRACE6)] } }      // O.'s home base
+};
+function bsDen(h, sp, idx) {
+  const A = h.air[0], Wd = A[5], B = h.boxes, id = "den" + idx;
+  if (!sp.old) den(h, { W: Wd, side: sp.side, x: sp.x, y: 0, two: sp.two });
+  const rec = h.dens && h.dens[0]; if (!rec) return;
+  const { xa, sy, zs, out } = rec, Z = d => zs + out * d, zr = (e0, e1) => [Math.min(Z(e0), Z(e1)), Math.max(Z(e0), Z(e1))];
+  const zb = (a0, y0, e0, a1, y1, e1, m = "dark") => bx(a0, y0, zr(e0, e1)[0], a1, y1, zr(e0, e1)[1], m);
+  for (const b of rec.junk) { const i = B.indexOf(b); if (i >= 0) B.splice(i, 1); }                     // no desk, no bed: these rooms are hers, and kept clean
+  for (const l of rec.lamps) { l.r = .93; l.g = .97; l.b = 1; l.i *= 1.35; }
+  h.trig = (h.trig || []).filter(z => !(z.min[2] >= Math.min(Z(2.2), Z(6)) - 0.01 && z.max[2] <= Math.max(Z(2.2), Z(6)) + 0.01));      // she cannot see in here, so she has nothing to say about it
+  h.doors = h.doors || []; h.plates = h.plates || [];
+  let t = rec.t || 0; const R1 = { x0: xa - 2, x1: xa + 2, d0: 2, d1: 6 }, spaces = [R1]; let R2 = null;
+  if (!sp.old) {
+    // the service shutter in the doorway, and what opens it
+    const [d0, d1] = zr(0.08, 0.34);
+    h.doors.push({ id, zf: out, min: [xa - 0.75, 0, d0], max: [xa + 0.75, 2.3, d1], rise: 2.34, need: 1 });
+    const k = sp.key;
+    if (k.plate) h.plates.push(Object.assign({ door: id }, k.plate));
+    if (k.receiver) (h.receivers = h.receivers || []).push(Object.assign({ door: id }, k.receiver));
+    if (k.socket) (h.sockets = h.sockets || []).push(Object.assign({ door: id }, k.socket));
+    if (!k.socket) h.plates.push({ pos: [xa - t * 1.25, 0, Z(2.85)], door: id, hold: 3 });           // inside: a timed button that always lets you out
+  }
+  if (rec.t) R2 = { x0: rec.x2[0], x1: rec.x2[1], d0: 2, d1: 6 };
+  else if (sp.weigh) {                                                                                // Second Opinion: a new inner room behind the side wall, shut until a sentry is on the plate
+    t = sp.weigh; const a = t > 0 ? xa + 2 : xa - 2.5, b = a + 0.5, wi = B.indexOf(rec.side[t]); if (wi >= 0) B.splice(wi, 1);
+    B.push(zb(a, sy, 2, b, sy + 2.7, 3.4), zb(a, sy, 4.6, b, sy + 2.7, 6), zb(a, sy + 2.2, 3.4, b, sy + 2.7, 4.6));
+    const x0 = t > 0 ? xa + 2.5 : xa - 6.5; R2 = denRoom(h, rec, x0, x0 + 4, 2, 6, { L: t > 0 ? false : undefined, R: t > 0 ? undefined : false });
+    const [s0, s1] = zr(3.4, 4.6), [e0, e1] = zr(3.45, 4.55); h.air.push([a, sy, s0, b, sy + 2.2, s1]);
+    h.doors.push({ id, min: [a + 0.1, sy, e0], max: [a + 0.4, sy + 2.2, e1], rise: 2.45, need: 1 });
+    h.plates.push({ pos: [xa - t * 1.2, sy, Z(3.0)], door: id, only: "sentry" }, { pos: [t > 0 ? x0 + 1.2 : x0 + 2.8, sy, Z(4)], door: id, hold: 2.5 });
+    h.lamps.push(lamp((R2.x0 + R2.x1) / 2, sy + 2.3, Z(4), .6, 5, .93, .97, 1));
+  }
+  if (R2) spaces.push(R2);
+  // the finds
+  const used = [0, 0], items = h.items = h.items || [];
+  const spot = n => { const k = used[n]++; return n && R2 ? [(R2.x0 + R2.x1) / 2 + (k ? 0.9 : 0), sy, Z(4.4)] : [xa - (t || 1) * 1.25, sy, Z(k ? 3.7 : 4.8)]; };
+  for (const [n, f] of sp.finds || []) {
+    if (f === "card") { const p = spot(n); h.badge = [p[0], sy + 0.95, p[2]]; continue; }
+    if (f.monitor) { (h.monitors = h.monitors || []).push(Object.assign({ pos: n && R2 ? [(R2.x0 + R2.x1) / 2, sy + 1.45, Z(6) - out * 0.001] : [xa - (t || 1) * 1.999, sy + 1.45, Z(4)], n: n && R2 ? [0, 0, -out] : [t || 1, 0, 0] }, f.monitor)); continue; }
+    if (f.breaker) { (h.breakers = h.breakers || []).push(Object.assign({ pos: [n && R2 ? (R2.x0 + R2.x1) / 2 + 0.6 : xa + (t || 1) * 0.2, sy + 1.45, Z(2.0)], n: [0, 0, out] }, f.breaker)); continue; }
+    items.push(Object.assign({ pos: spot(n) }, f));
+  }
+  // O.'s home base: behind a key-card door in the inner room's back wall, and furnished (the one lived-in room back here)
+  if (sp.staff && R2) {
+    const st = sp.staff, xd = t > 0 ? R2.x1 - 1.6 : R2.x0 + 1.25, K = denKit(rec); K.out = out; const n0 = B.length;
+    const bw = B.findIndex(b => b.max[0] === R2.x1 + 0.5 && b.min[0] === R2.x0 - 0.5 && Math.abs(zr(6, 6.5)[0] - b.min[2]) < 1e-6 && b.min[1] === sy);
+    if (bw < 0) throw new Error("no back wall"); B.splice(bw, 1);
+    B.push(zb(R2.x0 - 0.5, sy, 6, xd - 0.85, sy + 2.7, 6.5), zb(xd + 0.85, sy, 6, R2.x1 + 0.5, sy + 2.7, 6.5), zb(xd - 0.85, sy + 2.45, 6, xd + 0.85, sy + 2.7, 6.5));
+    const n1 = B.length, R3 = denRoom(h, rec, R2.x0, R2.x1, 6.5, 10.5); for (let i = n1; i < B.length; i++) B[i].look = "dark";      // not a clean room: his
+    h.air.push([xd - 0.8, sy, zr(6, 6.5)[0], xd + 0.8, sy + 2.4, zr(6, 6.5)[1]]);
+    (h.bdoors = h.bdoors || []).push({ id: "staff", min: [xd - 0.8, sy, zr(6.1, 6.35)[0]], max: [xd + 0.8, sy + 2.4, zr(6.1, 6.35)[1]], n: [0, 0, -out], cards: st.cards, rise: 2.55 });
+    const spots = denLayout(K, "home", R3, "B", t > 0, { seed: idx + 90 }); denShell(K, R3, "break", 0);
+    for (const it of st.items) items.push(Object.assign({ pos: spots.shift() }, it));
+    const fx = t > 0 ? R3.x0 : R3.x1;
+    h.signs.push(scrawl("YOU KNOCKED. SIT DOWN.", "THE KETTLE STILL WORKS.  - O.", [fx + (t > 0 ? 0.001 : -0.001), sy + 1.6, Z(8.5)], [t > 0 ? 1 : -1, 0, 0], 3.0, 0.9));
+    h.furn = (h.furn || []).concat(K.F); h.furnGrime = 0.75; spaces.push(R3);
+  }
+  h.denSpaces = spaces;
+  h.denAir = spaces.map(R => [R.x0 - 0.6, sy - 0.2, zr(R.d0 - 2.2, R.d1)[0], R.x1 + 0.6, sy + 2.8, zr(R.d0 - 2.2, R.d1)[1]]);      // where the faint Muzak plays (v8.16)
+}
+// the look of a backstage room. Nothing here moves, adds or removes a solid box, and no box's `mat` or `portal` changes
+function bsDress(lv, idx) {
+  const A = lv.air[0], L = A[3], H = A[4], Wd = A[5]; lv.bs = true; lv.back = true;
+  for (const b of lv.boxes) {
+    if (b.look) continue;
+    if (b.max[2] <= -2 + 1e-6 || b.min[2] >= Wd + 2 - 1e-6) { if (b.mat === "dark") b.look = "clean"; continue; }       // a den: clean chamber panels
+    if (b.mat === "white") { b.look = "wwash"; continue; }
+    if (b.mat !== "dark") continue;
+    const dx = b.max[0] - b.min[0], dy = b.max[1] - b.min[1], dz = b.max[2] - b.min[2];
+    const inside = b.min[0] >= 0 && b.max[0] <= L && b.min[2] >= 0 && b.max[2] <= Wd && b.min[1] >= 0 && b.max[1] <= H;
+    b.look = !inside ? "conc" : dy <= 3.4 && Math.min(dx, dz) >= 0.9 ? "pallet" : dy > 3.4 && Math.max(dx, dz) <= 1.3 ? "girder" : "conc";
+  }
+  // the work lights are sodium, not chamber white
+  for (const l of lv.lamps) if (l.z > 0 && l.z < Wd && l.y > 0 && l.r === 1 && l.g === 1 && l.b === 1) { l.r = 1; l.g = .84; l.b = .62; l.i *= 1.08; }
+  for (const l of lv.lamps) if (l.y < 0 && l.g === 1 && l.r === .25) { l.r = .3; l.g = .7; l.b = 1; }                    // the sump glows blue
+  // O.'s painted words where the chamber sign was
+  lv.signs = lv.signs.map(sg => sg.kind === "chamber" ? scrawl(BS_NAME[lv.name] || lv.name.toUpperCase(), "KEEP GOING  >   - O.", [sg.pos[0], 4.3, 0.001], [0, 0, 1], Math.min(4.6, sg.w), 1.05) : sg);
+  if (BS_SAY[lv.name]) lv.say = Object.assign({}, lv.say, { intro: BS_SAY[lv.name] });
+  // clutter, none of it solid: runs of pipe under the ceiling along both long walls, a cable tray, a charging pad under every bolted sentry, a freight scale under every plate
+  const Lz = lv.loose = lv.loose || [], whites = lv.boxes.filter(b => b.mat === "white");
+  const runs = (y0, y1, z0, z1) => {              // the stretches of x where nothing white is near that strip of wall
+    const cut = whites.filter(b => b.max[1] > y0 - 0.3 && b.min[1] < y1 + 0.3 && b.max[2] > z0 - 0.3 && b.min[2] < z1 + 0.3).map(b => [b.min[0] - 0.5, b.max[0] + 0.5]).sort((p, q) => p[0] - q[0]);
+    const out = []; let x = 0.3; for (const [a, b] of cut) { if (a > x + 1.2) out.push([x, a]); x = Math.max(x, b); } if (L - 0.3 > x + 1.2) out.push([x, L - 0.3]); return out;
+  };
+  for (const zw of [0.2, Wd - 0.2]) {
+    for (const [a, b] of runs(H - 0.75, H - 0.2, zw - 0.2, zw + 0.2)) { Lz.push(["cyl", (a + b) / 2, H - 0.42, zw, 0.12, b - a, 0, 0x8a4a32, 0, Math.PI / 2], ["cyl", (a + b) / 2, H - 0.68, zw - (zw < 1 ? -0.02 : 0.02), 0.06, b - a, 0, 0x6f7a80, 0, Math.PI / 2]);
+      for (let x = a + 1.2; x < b - 0.4; x += 3.6) Lz.push(["box", x, H - 0.5, zw, 0.08, 0.5, 0.34, 0x30353a]); }       // brackets
+  }
+  { const zt = Wd * 0.32; for (const [a, b] of runs(H - 0.4, H, zt - 0.3, zt + 0.3)) Lz.push(["box", (a + b) / 2, H - 0.22, zt, b - a, 0.05, 0.5, 0x3d4347], ["box", (a + b) / 2, H - 0.17, zt - 0.12, b - a, 0.05, 0.06, 0x1c1f22], ["box", (a + b) / 2, H - 0.17, zt + 0.08, b - a, 0.05, 0.05, 0xc5482e], ["box", (a + b) / 2, H - 0.17, zt + 0.17, b - a, 0.04, 0.04, 0xb9a23a]); }
+  for (const sn of lv.sentries || []) if (sn.bolt) { const [x, y, z] = sn.pos, zw = z < Wd / 2 ? 0.05 : Wd - 0.05, len = Math.abs(zw - z) - 0.7;
+    Lz.push(["box", x + 0.15, y + 0.012, z, 1.3, 0.024, 1.1, 0x2a2e33], ["box", x + 0.72, y + 0.05, z, 0.12, 0.1, 0.9, 0xd9a520], ["box", x + 0.72, y + 0.11, z + 0.3, 0.06, 0.03, 0.06, 0x35d06a]);
+    if (len > 0.5) Lz.push(["box", x + 0.72, y + 0.03, (z + Math.sign(zw - z) * 0.5 + zw) / 2, 0.05, 0.05, len + 0.2, 0x15181b]); }
+  for (const p of lv.plates || []) { const [x, y, z] = p.pos; if (p.hold) continue;
+    Lz.push(["box", x, y + 0.012, z, 2.3, 0.024, 2.3, 0x4a5056]); for (const [ox, oz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) Lz.push(["box", x + ox * 1.02, y + 0.02, z + oz * 1.02, 0.26, 0.03, 0.26, 0xd9a520]); }
+}
+// one of her cameras has you in view (not knocked down, and nothing solid between its lens and you)
+let _bsEye = null;
+function bsSeen() {
+  if (!world || !world.cams) return false;
+  (_bsEye || (_bsEye = new V3())).set(player.p.x, player.p.y + 0.3, player.p.z);
+  for (const c of world.cams) if (!c.dead && c.head.position.distanceTo(_bsEye) < 40 && lineClear(c.head.position, _bsEye)) return true;
+  return false;
+}
+let bsSeenT = 0;
+function bsTick(dt) {                                // every frame while playing in a backstage room
+  const lv = world && world.lv; if (!lv || !lv.bs) { if (HoldMusic.den) { HoldMusic.den = false; if (!Lift.on) HoldMusic.stop(0.8); } return; }
+  if (run.bsIntro && (bsSeenT += dt) > 0.4) { bsSeenT = 0; if (bsSeen()) { run.bsIntro = 0; say("intro"); } }
+  const p = player.p, inDen = state === "play" && (lv.denAir || []).some(a => p.x > a[0] && p.x < a[3] && p.y > a[1] && p.y < a[4] + 1 && p.z > a[2] && p.z < a[5]);
+  if (inDen && !HoldMusic.den) { HoldMusic.den = true; HoldMusic.play(0.16); }                   // the clean rooms still have their Muzak, faintly
+  else if (!inDen && HoldMusic.den) { HoldMusic.den = false; HoldMusic.stop(1.5); }
 }
 function level46() {                       // Mirror Test: show the bolted sentry the back of its own head
   const L = 30, W = 12, H = 7, h = hall({ L, W, H, zc: 6 }); darkAll(h);
@@ -3054,8 +3255,14 @@ MAT.white = bakedMat(TEX.white, NRM_WHITE, 0.5, 0.0, 0.55);
 MAT.bare = bakedMat(TEX.white, NRM_WHITE, 0.88, 0.0, 0.12, 0x9a8362);      // bare board (v6.4): takes no portal until primer lands on it
 MAT.floor = bakedMat(TEX.white, NRM_WHITE, 0.26, 0.0, 0.95, 0xc4cad0);
 MAT.dark = bakedMat(TEX.dark, panelNormal(true), 0.32, 0.45, 0.9);
+// v8.16 backstage looks (a box's `look`): none of them changes what takes a portal
+{ const C = bsTex("conc"), Wt = bsTex("wwash");
+  MAT.conc = bakedMat(C, null, 0.94, 0.0, 0.05, 0xb9b9b4); MAT.concF = bakedMat(C, null, 0.7, 0.0, 0.2, 0x9c9d9b);
+  MAT.wwash = bakedMat(Wt, null, 0.8, 0.0, 0.2); MAT.wwashF = bakedMat(Wt, null, 0.55, 0.0, 0.45, 0xdfe3e6);
+  MAT.girder = bakedMat(bsTex("girder"), null, 0.6, 0.35, 0.3); MAT.pallet = bakedMat(bsTex("pallet"), null, 0.9, 0.0, 0.05);
+  MAT.clean = bakedMat(TEX.white, NRM_WHITE, 0.4, 0.0, 0.6, 0x9aa7b2); MAT.cleanF = bakedMat(TEX.white, NRM_WHITE, 0.24, 0.0, 0.9, 0x8693a0); }
 // the blast doors: brushed steel with recessed panels, a hazard band along the foot and a stencilled number
-const DOOR = (() => {
+const DOOR_STD = (() => {
   const face = canvasTex(512, 544, (g, w, h) => {
     const R = rng(77), gr = g.createLinearGradient(0, 0, w, 0); gr.addColorStop(0, "#69737c"); gr.addColorStop(.5, "#87919a"); gr.addColorStop(1, "#6a747d");
     g.fillStyle = gr; g.fillRect(0, 0, w, h);
@@ -3073,6 +3280,8 @@ const DOOR = (() => {
   return { face: std({ map: face, roughness: .42, metalness: .55, envMapIntensity: 1.0 }), side: std({ color: 0x3c444b, roughness: .5, metalness: .6, envMapIntensity: .8 }),
     frame: std({ color: 0xc9cfd4, roughness: .32, metalness: .45, envMapIntensity: 1.1 }) };
 })();
+const DOOR = DOOR_STD, DOOR_BS = { face: new THREE.MeshStandardMaterial({ map: bsTex("shutter"), envMap: ENV, roughness: .55, metalness: .5, envMapIntensity: .6 }), side: DOOR_STD.side,
+  frame: new THREE.MeshStandardMaterial({ color: 0x4a4038, envMap: ENV, roughness: .6, metalness: .5, envMapIntensity: .5 }) };      // v8.16 backstage: roller shutters in rough steel frames
 scene.add(new THREE.HemisphereLight(0xeaf1f8, 0x5b636c, 1.15));
 { const sun = new THREE.DirectionalLight(0xffffff, 1.5); sun.position.set(-0.35, 1, 0.45); scene.add(sun); }
 
@@ -3451,7 +3660,7 @@ function buildLevel(idx) {
   // acid pools
   for (const a of lv.acid) {
     const t = TEX.acid.clone(); t.needsUpdate = true; t.repeat.set((a.x1 - a.x0) / 3, (a.z1 - a.z0) / 3);
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(a.x1 - a.x0, a.z1 - a.z0), new THREE.MeshBasicMaterial({ map: t, color: new THREE.Color(.8, 1.15, .85), transparent: true, opacity: .95 }));
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(a.x1 - a.x0, a.z1 - a.z0), new THREE.MeshBasicMaterial({ map: t, color: lv.bs ? new THREE.Color(.42, .8, 1.5) : new THREE.Color(.8, 1.15, .85), transparent: true, opacity: .95 }));      // (v8.16 backstage: a coolant sump. It kills just the same)
     m.userData.ownMat = 1; m.rotation.x = -Math.PI / 2; m.position.set((a.x0 + a.x1) / 2, a.y, (a.z0 + a.z1) / 2); levelGroup.add(m);
     W.acid.push({ ...a, tex: t });
   }
@@ -3468,6 +3677,19 @@ function buildLevel(idx) {
     const box = { min: d.min.slice(), max: d.max.slice(), mat: "dark", portal: false };
     const th = d.max[0] - d.min[0], hgt = d.max[1] - d.min[1], w = d.max[2] - d.min[2], zc = (d.min[2] + d.max[2]) / 2;
     const g = new THREE.Group(); levelGroup.add(g);
+    const DOOR = lv.bs ? DOOR_BS : DOOR_STD;
+    if (d.zf) {                 // v8.16: a shutter set in a side wall (it faces along z; `zf` is the way into the wall: +1 or -1). Its frame and lights are on the room side
+      const xc = (d.min[0] + d.max[0]) / 2, wx = d.max[0] - d.min[0], zr = d.zf > 0 ? d.min[2] : d.max[2], n = -d.zf;
+      const slab = new THREE.Mesh(new THREE.BoxGeometry(wx - 0.02, hgt - 0.02, w - 0.04), [DOOR.side, DOOR.side, DOOR.side, DOOR.side, DOOR.face, DOOR.face]);
+      slab.position.set(xc, d.min[1] + hgt / 2, zc); slab.frustumCulled = false; g.add(slab);
+      const fr = new THREE.Group(); levelGroup.add(fr); const zf0 = zr - d.zf * 0.08, zf1 = zf0 + n * 0.1;
+      const piece = (x0, y0, x1, y1) => { const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, 0.1), DOOR.frame); m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (zf0 + zf1) / 2); m.frustumCulled = false; fr.add(m); };
+      piece(d.min[0] - 0.2, d.min[1], d.min[0] + 0.02, d.max[1] + 0.3); piece(d.max[0] - 0.02, d.min[1], d.max[0] + 0.2, d.max[1] + 0.3); piece(d.min[0] - 0.2, d.max[1] - 0.02, d.max[0] + 0.2, d.max[1] + 0.3);
+      const lights = [], strip = (ww, hh, x, y) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(ww, hh), MAT.doorRed); if (n < 0) m.rotation.y = Math.PI; m.position.set(x, y, zf1 + n * 0.006); m.frustumCulled = false; fr.add(m); lights.push(m); };
+      strip(wx - 0.4, 0.08, xc, d.max[1] + 0.15); strip(0.05, hgt * 0.5, d.min[0] - 0.09, d.min[1] + hgt * 0.45); strip(0.05, hgt * 0.5, d.max[0] + 0.09, d.min[1] + hgt * 0.45);
+      W.doors.push({ need: d.need || 1, id: d.id, auto: false, box, min0: d.min.slice(), max0: d.max.slice(), rise: d.rise, t: 0, group: g, lights, light: lights[0], open: false });
+      continue;
+    }
     const slab = new THREE.Mesh(new THREE.BoxGeometry(th - 0.06, hgt - 0.02, w - 0.06), [DOOR.side, DOOR.face, DOOR.side, DOOR.side, DOOR.side, DOOR.side]);
     slab.position.set(d.min[0] + 0.04 + (th - 0.06) / 2, d.min[1] + hgt / 2, zc); slab.frustumCulled = false; g.add(slab);
     const fr = new THREE.Group(); levelGroup.add(fr);           // the frame: two jambs and a header, standing proud of the wall
@@ -3534,7 +3756,8 @@ function buildLevel(idx) {
     const ringMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(.5, .32, .12) });
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.93, 0.035, 10, 64), ringMat); ring.rotation.x = Math.PI / 2; ring.position.y = 0.1; ring.userData.ownMat = 1;
     g.add(base, top, ring); g.position.set(p.pos[0], p.pos[1], p.pos[2]); levelGroup.add(g);
-    W.plates.push({ pos: p.pos.slice(), door: p.door, top, group: g, pressed: false, press: 0, ringMat, aim: 0, hold: p.hold || 0, left: 0, active: false, pump: p.pump || null, charge: p.charge || 0, chg: 0, cams: p.cams || 0, camN: 0 });
+    W.plates.push({ pos: p.pos.slice(), door: p.door, top, group: g, pressed: false, press: 0, ringMat, aim: 0, hold: p.hold || 0, left: 0, active: false, pump: p.pump || null, charge: p.charge || 0, chg: 0, cams: p.cams || 0, camN: 0, only: p.only || null });
+    if (p.only) top.material.color.setRGB(p.only === "sentry" ? .78 : 1.7, p.only === "sentry" ? .8 : 1.1, p.only === "sentry" ? .95 : .18);      // v8.16: a scale that only takes one kind of thing (pale: a sentry; amber: a crate)
     if (p.cams) { top.material.color.setRGB(.25, 1.1, 2.2); const ticks = new THREE.Group(); for (let k = 0; k < p.cams; k++) { const a = k / p.cams * Math.PI * 2, t = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.03, 0.12), MAT.doorRed); t.position.set(Math.cos(a) * 1.12, 0.06, Math.sin(a) * 1.12); ticks.add(t); } g.add(ticks); W.plates[W.plates.length - 1].ticks = ticks.children; }   // a camera scale: one tick round its rim per camera it wants
   }
   // cubes
@@ -4040,7 +4263,8 @@ function castRay(o, d, maxDist, withCubes, noDyn, except) {
     if (hopP) {
       segs.push({ o: origin.clone(), d: dir.clone(), len: tp }); total += tp; remaining -= tp;
       origin.addScaledVector(dir, tp).applyMatrix4(hopP.T); dir.applyMatrix3(hopP.R).normalize(); origin.addScaledVector(dir, 0.004);
-      if (remaining <= 0) break; continue;
+      if (remaining <= 0) { segs.push({ o: origin.clone(), d: dir.clone(), len: 0 }); break; }      // v8.16: a step that ends exactly on the portal still comes out of the other one (a spark could be left sliding along the wall)
+      continue;
     }
     const len = best ? best.t : remaining; segs.push({ o: origin.clone(), d: dir.clone(), len });
     const res = { segs, total: total + len, hit: null, dir: dir.clone() };
@@ -5000,7 +5224,7 @@ function v5Build(W, lv) {
     const ring = new THREE.Mesh(new THREE.TorusGeometry(0.34, 0.06, 10, 36), mat); ring.userData.ownMat = 1;
     const plate = new THREE.Mesh(new THREE.CircleGeometry(0.46, 28), SENT.dark), core = new THREE.Mesh(new THREE.CircleGeometry(0.2, 20), mat); core.position.z = 0.01; ring.position.z = 0.02;
     g.add(plate, ring, core); levelGroup.add(g);
-    W.sockets.push({ pos, n, door: d.door, r: d.r || 0.6, line: d.line, clear: !!d.clear, lit: false, mat, glow: 0 });
+    W.sockets.push({ pos, n, door: d.door, r: d.r || 0.6, line: d.line, clear: !!d.clear, spare: !!d.spare, lit: false, mat, glow: 0 });
   }
   for (const d of (lv.crushers || [])) {
     const s = v5Slab(W, lv, d, "dark"), dx = d.max[0] - d.min[0], dz = d.max[2] - d.min[2];
@@ -5148,7 +5372,7 @@ function v5Step(dt) {
     if (res.hit) {
       const h = res.hit, so = W.sockets.find(s => !s.lit && s.pos.distanceTo(h.point) < s.r && Math.abs(s.n.getComponent(h.axis) - h.sign) < 0.1);
       if (so) {
-        so.lit = true; end = true; if (!sk.keep) sk.done = true; sfx.lit(); flash("g");
+        so.lit = true; end = true; if (!sk.keep && !so.spare) sk.done = true; sfx.lit(); flash("g");      // (v8.16: a `spare` socket takes a spark without stopping the emitter)
         if (so.clear && (portals[0].on || portals[1].on)) { clearPortals(); updateCross(); sfx.field(); }
         if (so.line) say(null, so.line); else if (!run.said.socket) { run.said.socket = 1; say("socket"); }
       } else { sk.p.copy(h.point).addScaledVector(res.dir, -0.03); sk.d.copy(res.dir); sk.d.setComponent(h.axis, -sk.d.getComponent(h.axis)); sfx.tick(1); }
@@ -5297,11 +5521,11 @@ function physicsStep(dt) {
   for (const d of W.doors) { d.want = 0; d.cnt = 0; }
   for (const r of W.receivers) if (r.lit) for (const d of W.doors) if (d.id === r.door) d.cnt++;
   for (const p of W.plates) {
-    let on = !p.cams && alive && Math.abs(pl.p.x - p.pos[0]) < 0.8 && Math.abs(pl.p.z - p.pos[2]) < 0.8 && pl.p.y - HY < p.pos[1] + 0.22;
+    let on = !p.cams && !p.only && alive && Math.abs(pl.p.x - p.pos[0]) < 0.8 && Math.abs(pl.p.z - p.pos[2]) < 0.8 && pl.p.y - HY < p.pos[1] + 0.22;
     if (p.cams) {           // a camera scale: weighed in cameras, and only cameras (a crate or a person is the wrong sort of weight)
       let n = 0; for (const c of W.camProps) if (!c.held && Math.abs(c.p.x - p.pos[0]) < 0.95 && Math.abs(c.p.z - p.pos[2]) < 0.95 && c.p.y - c.h[1] < p.pos[1] + 0.45 && c.p.y > p.pos[1]) n++;
       if (n !== p.camN) { if (n > p.camN) sfx.tick(1); p.camN = n; } on = n >= p.cams;
-    } else if (!on) for (const c of props()) if (!c.held && c.kind !== "camera" && Math.abs(c.p.x - p.pos[0]) < 0.8 && Math.abs(c.p.z - p.pos[2]) < 0.8 && c.p.y - c.h[1] < p.pos[1] + 0.3 && c.p.y > p.pos[1]) { on = true; if (!p.pressed && c.kind === "cube" && alive) chatter("plateCube", 0.2, 600); break; }
+    } else if (!on) for (const c of props()) if (!c.held && c.kind !== "camera" && (!p.only || c.kind === p.only) && Math.abs(c.p.x - p.pos[0]) < 0.8 && Math.abs(c.p.z - p.pos[2]) < 0.8 && c.p.y - c.h[1] < p.pos[1] + 0.3 && c.p.y > p.pos[1]) { on = true; if (!p.pressed && c.kind === "cube" && alive) chatter("plateCube", 0.2, 600); break; }
     if (on !== p.pressed) { p.pressed = on; sfx.button(on); }
     const full = !p.charge || (p.chg = on ? Math.min(p.charge, (p.chg || 0) + dt) : 0) >= p.charge;      // a slow button needs weight on it for a while before it counts
     if (p.hold) { if (on && full) p.left = p.hold; else if (p.left > 0) { const b = Math.ceil(p.left * 2); p.left -= dt; if (Math.ceil(p.left * 2) !== b) sfx.tick(p.left); } }   // a relay holds it for a few seconds after you step off
@@ -5392,6 +5616,7 @@ function nextPart(S7) {
   const go = () => { startLevel(i, true); sevenToHands(); toast("Checkpoint · part " + (R.part + 2) + " of " + R.parts); say("done", line); introWhenOut(i, 900); };
   if (window.__tcNoLift) { go(); return; }
   state = "lift"; inp.fwd = inp.right = 0; resetSticks(); $("fade").classList.add("on");          // a ride down to the next room
+  if (isBS(i)) { sfx.door(true); setTimeout(() => { go(); requestAnimationFrame(() => $("fade").classList.remove("on")); }, 700); return; }      // v8.16 backstage: no lift, no Muzak. Through the shutter and on
   setTimeout(() => Lift.ride(go, "Part " + (R.part + 2) + " of " + R.parts + " · " + ROOM_NAMES[i], i), 330);
 }
 // ratings: each room has a par (seconds, portals); a chamber's par is the sum. Gold beats both, silver one, bronze is finishing
@@ -5691,6 +5916,7 @@ const LINES = {
   findClock: ["A punch clock. You are not staff, so it should not take your card. It has taken thirty seconds off your time instead. I will be having words with it."],
   findMonitor: ["That is a camera feed of a room you have not reached. Look all you like. It will not tell you how. I made sure of that."],
   powerMuzak: ["You have changed the lift music. Nobody changes the lift music. It was chosen by a committee, and the committee has not met since."],
+  stall: ["The lift has stopped. That is not a floor. Stay exactly where you are. Somebody will be along. Somebody is always along."],
   powerLights: ["Emergency lighting. There is no emergency. There has not been an emergency here for a very long time. I would know. I would be the emergency."],
   findSafe: ["You looked behind a painting. Of course you did. Everybody who ever worked here hid something behind that painting, and every one of them thought they were the first."],
   powerMic: ["Somebody has switched my microphone back on. The one I use when I want to be heard in the rooms I am not watching. You. You did that. Thank you, I suppose."],
@@ -5773,6 +5999,7 @@ function nextSub() {
 }
 function say(key, text) {
   if (!world || world.lv.silent) return;           // v8.6: Out Of Order is silent; the TV video is the only speech there
+  if (world.lv.bs && key !== "hint" && key !== "hint2" && key !== "done" && key !== "stall" && !bsSeen()) { if (key === "intro") run.bsIntro = 1; return; }      // v8.16 backstage: she only speaks while a camera has you (her intro waits for one); asked-for hints still come
   let lines;
   if (text) lines = [text];
   else if (key === "intro") { const st = storyLine(world.lv.name, true), lt = lintLine(world.lv.name, true); lines = [...sevenRideLines(), st, lt, ...world.lv.say.intro].filter(Boolean); }
@@ -5955,6 +6182,7 @@ click("bNext", () => {           // the lift down to the next chamber, then stra
   const i = FIRST[ROOM[levelIdx].c + 1];
   if (window.__tcNoLift) { beginLevel(i); return; }
   ensureAudio(); hideOv(); state = "lift"; $("fade").classList.add("on");
+  if (isBS(i) && i !== BS_FIRST) { sfx.door(true); setTimeout(() => { beginLevel(i); requestAnimationFrame(() => $("fade").classList.remove("on")); }, 700); return; }      // v8.16 backstage: on foot
   setTimeout(() => Lift.ride(() => beginLevel(i), "Chamber " + String(ROOM[i].c + 1).padStart(2, "0") + " · " + CH_NAMES[ROOM[i].c], i), 330);
 });
 click("bAgain", () => beginLevel(FIRST[ROOM[levelIdx].c], true));
@@ -6538,7 +6766,7 @@ function frame(ts) {
     acc += dt; let n = 0;
     while (acc >= STEP && n++ < 12) { physicsStep(STEP); acc -= STEP; if (!Dock.holding) run.time += STEP; }      // v7.1: the clock starts when you step out of the lift
     if (n >= 12) acc = 0;
-    sadosTick(dt);
+    sadosTick(dt); bsTick(dt);
     cam.yaw = player.yaw; cam.pitch = player.pitch;
     cam.roll *= Math.exp(-dt * 6); if (Math.abs(cam.roll) < 1e-3) cam.roll = 0;
     camOffset.multiplyScalar(Math.exp(-dt * 16));
@@ -7258,7 +7486,7 @@ const HoldMusic = (() => {
     [[0, 76, 3], [3, 74, 1], [4, 72, 2], [6, 69, 2]], [[0, 66, 2], [2, 69, 2], [4, 72, 2], [6, 74, 2]], [[0, 70, 3], [3, 69, 1], [4, 67, 2], [6, 64, 2]], [[0, 65, 6]]
   ];
   const CH = [[53, [0, 4, 7, 11]], [50, [0, 3, 7, 10]], [55, [0, 3, 7, 10]], [48, [0, 4, 7, 10]], [57, [0, 3, 7, 10]], [50, [0, 4, 7, 10]], [55, [0, 3, 7, 10]], [48, [0, 4, 7, 10]]];
-  let buf = null, busy = false, src = null, gain = null, pos = 0, startedAt = 0;
+  let buf = null, busy = false, src = null, gain = null, pos = 0, startedAt = 0, denOn = false;
   async function render() {
     if (buf || busy || typeof OfflineAudioContext === "undefined") return; busy = true;
     try {
@@ -7303,12 +7531,12 @@ const HoldMusic = (() => {
     } catch (e) { console.error(e); }
     busy = false;
   }
-  function play() {                     // v7.8: entering the lift. The room music goes off until you leave it; the Muzak loops for as long as you stay
+  function play(vol = 0.8) {            // v7.8: entering the lift. The room music goes off until you leave it; the Muzak loops for as long as you stay
     liftMute = true; duckMusic(false);
     if (!actx || !buf || !opts.music || src) return;
     try {
       const hp = actx.createBiquadFilter(), lp = actx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 160; lp.type = "lowpass"; lp.frequency.value = 5200;   // a small ceiling speaker
-      gain = actx.createGain(); gain.gain.setValueAtTime(0.0001, actx.currentTime); gain.gain.linearRampToValueAtTime(0.8, actx.currentTime + 0.5);     // v7.8: louder (was 0.42)
+      gain = actx.createGain(); gain.gain.setValueAtTime(0.0001, actx.currentTime); gain.gain.linearRampToValueAtTime(vol, actx.currentTime + 0.5);     // v7.8: louder (was 0.42)
       src = actx.createBufferSource(); src.buffer = buf; src.loop = true; src.connect(hp); hp.connect(lp); lp.connect(gain); gain.connect(master);
       if (world && world.muzakAlt) src.playbackRate.value = 0.8;      // v8.14: the Upside breaker: the Muzak runs slow and low, as if the tape were stretched
       startedAt = actx.currentTime - pos; src.start(0, pos % LEN); duckMusic(true);
@@ -7320,7 +7548,12 @@ const HoldMusic = (() => {
     const s = src, g = gain, t = actx.currentTime; pos = (t - startedAt) % LEN; src = null;
     try { g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0.0001, t + fade); s.stop(t + fade + 0.05); } catch (e) {}
   }
-  return { render, play, stop, get ready() { return !!buf; }, get playing() { return !!src; }, get buf() { return buf; } };
+  function warp() {                     // v8.16: the stalled lift: the tape runs down and stops
+    if (!src || !actx) return; const t = actx.currentTime;
+    try { src.playbackRate.cancelScheduledValues(t); src.playbackRate.setValueAtTime(src.playbackRate.value, t); src.playbackRate.exponentialRampToValueAtTime(0.3, t + 1.7);
+      gain.gain.cancelScheduledValues(t); gain.gain.setValueAtTime(gain.gain.value, t); gain.gain.setValueAtTime(gain.gain.value, t + 0.9); gain.gain.linearRampToValueAtTime(0.0001, t + 2.1); } catch (e) {}
+  }
+  return { render, play, stop, warp, get ready() { return !!buf; }, get playing() { return !!src; }, get buf() { return buf; }, get den() { return denOn; }, set den(v) { denOn = v; }, vol: v => { if (gain && actx) gain.gain.setTargetAtTime(v, actx.currentTime, 0.4); } };
 })();
 
 /* =====================================================================================
@@ -7746,6 +7979,7 @@ function lintStk(sp) {
 }
 /* ---------- the gun stickers. Each is ORIGINAL art, painted on a canvas (4:3); `paint(g, w, h)` ---------- */
 const POWER_FX = {
+  dark: (W, b, now) => { if (W) W.dark = true; renderer.toneMappingExposure = 0.36; MAT.lamp.color.setRGB(.5, .42, .34); if (now) toast("Work lights off"); },      // v8.16 (Hot Seat): the bench goes dark and the beam glows; nothing in the puzzle changes
   mic: (W, b, now) => { if (W) W.micOn = true; if (now && LINES.powerMic) { sadosShutUp(); say("powerMic"); } },          // SaDos's microphone (Walkway): she notices
   muzak: (W, b, now) => { if (W) W.muzakAlt = true; if (now) { toast("Somewhere, the Muzak changes"); if (LINES.powerMuzak) { sadosShutUp(); say("powerMuzak"); } } },       // v8.14: the ride out of this room plays it slow (HoldMusic.play)
   lights: (W, b, now) => { if (W) W.emerg = true; renderer.toneMappingExposure = 0.66; document.body.classList.add("emerg"); if (now) { toast("Emergency lighting on"); if (LINES.powerLights) { sadosShutUp(); say("powerLights"); } } },     // v8.14 (Press): the room goes dim and red; nothing in the puzzle changes                       // the lift Muzak (Upside): a flag for the ride to read
@@ -7915,7 +8149,7 @@ const Items = (() => {
   let SAFE = null;
   function attach(W) {
     L = []; BR = []; BD = []; msg = ""; T = 0; stopTape(); SAFE = null;
-    renderer.toneMappingExposure = 0.92; document.body.classList.remove("emerg");     // v8.14: the Press emergency lights belong to that room only
+    renderer.toneMappingExposure = 0.92; document.body.classList.remove("emerg"); MAT.lamp.color.setRGB(4.2, 4.2, 4.0);     // v8.14: the Press emergency lights belong to that room only
     if (!W) return;
     const lv = W.lv, nm = lv.name;
     for (const it of (lv.items || [])) {
@@ -8191,8 +8425,8 @@ function levelItemTest() {
    standing in the same car docked behind the start of the next room (Dock): the doors open and you walk out.
    ===================================================================================== */
 const Lift = (() => {
-  let S = null, t = 0, t0 = 0, on = false, after = null, built = null, skipT = -1, endT = -1, fl0 = 0, padHeld = true, sway = 0, ly = 0, lp = 0;
-  const DUR = 4.2, SEG = 24, DROP = 40, HW = 4.4;
+  let S = null, t = 0, t0 = 0, on = false, after = null, built = null, skipT = -1, endT = -1, fl0 = 0, padHeld = true, sway = 0, ly = 0, lp = 0, stall = false, stallAt = 0;
+  const DUR = 4.2, SEG = 24, DROP = 40, HW = 4.4, ST0 = 2.3, ST_END = 8.4;      // v8.16: the ride that stalls (after Gauntlet) stops at ST0 and ends at ST_END
   const ease = x => { x = clamp(x, 0, 1); return x * x * x * (x * (x * 6 - 15) + 10); };
   function build() {
     if (S) return S;
@@ -8237,11 +8471,29 @@ const Lift = (() => {
     for (const [x, z] of [[-1.3, -HW + .12], [1.3, -HW + .12]]) { const rail = new THREE.Mesh(new THREE.BoxGeometry(0.12, SEG * 5, 0.1), M.steel); rail.position.set(x, 0, z); shaft.add(rail); }
     const car = buildCar(); car.g.position.y = -EYE - HY; sc.add(car.g);      // the floor sits one eye height below the camera
     const c7 = makeCube(); v5Dress({ seven: true }, c7); c7.group.visible = false; sc.add(c7.group);     // v8.4: Crate Seven, when it rides down with you
+    // v8.16: what the doors half-open onto when the lift stalls between floors: the edge of a raw concrete slab at chest height,
+    // and over it the service level (a dim passage, pipes, a cable tray, a work light, one of O.'s painted arrows). Only shown in a stalled ride
+    const svc = new THREE.Group(); svc.visible = false; sc.add(svc);
+    { const conc = std({ map: bsTex("conc"), roughness: .95, metalness: 0, envMapIntensity: .05, color: 0xa6a6a2 }), dk = new THREE.MeshBasicMaterial({ color: 0x050607 });
+      const y0 = car.g.position.y, zf = -CAR.D / 2, zm = zf - 1.05, box = (m, w, h, d, x, y, z) => { const o = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); o.position.set(x, y, z); svc.add(o); return o; };
+      box(conc, 8.7, 1.2, 2.1, 0, y0 + 0.4, zm);                                         // the slab you climb onto: its top is 1.0 m above the car floor
+      box(conc, 8.7, 1.6, 2.1, 0, y0 + 4.5, zm);                                         // the slab above
+      box(conc, 8.7, 2.7, 0.2, 0, y0 + 2.35, zf - 2.0);                                  // the back wall, with a dark way through
+      box(dk, 1.5, 2.2, 0.03, -0.9, y0 + 2.1, zf - 1.89);
+      const pipe = (r, y, z, col) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 8.7, 12), std({ color: col, roughness: .6, metalness: .4 })); o.rotation.z = Math.PI / 2; o.position.set(0, y0 + y, z); svc.add(o); };
+      pipe(0.13, 3.45, zf - 1.7, 0x8a4a32); pipe(0.07, 3.5, zf - 1.42, 0x6f7a80); pipe(0.05, 3.52, zf - 1.25, 0xb9a23a);
+      box(std({ color: 0x3d4347, roughness: .7, metalness: .5 }), 8.7, 0.06, 0.45, 0, y0 + 3.3, zf - 0.6);      // a cable tray
+      const yel = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.5, 1.15, .22) });
+      box(yel, 0.14, 0.012, 1.0, -0.9, y0 + 1.008, zf - 0.75); const a1 = box(yel, 0.14, 0.012, 0.5, -0.74, y0 + 1.009, zf - 1.12), a2 = box(yel, 0.14, 0.012, 0.5, -1.06, y0 + 1.009, zf - 1.12); a1.rotation.y = 0.75; a2.rotation.y = -0.75;      // O.'s arrow, pointing in
+      const wl = new THREE.PointLight(0xffb060, 0, 9, 1.6); wl.position.set(0.9, y0 + 3.0, zf - 1.0); svc.add(wl);
+      const bulb = box(new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 2, .8) }), 0.1, 0.16, 0.1, 0.9, y0 + 3.2, zf - 1.0);
+      svc.userData.wl = wl; svc.userData.bulb = bulb; }
     sc.traverse(o => { o.frustumCulled = false; });
-    return (S = { sc, shaft, car, c7 });
+    return (S = { sc, shaft, car, c7, svc, carLight });
   }
   function ride(arrive, label, to) {       // arrive() builds the next room (it runs while the car is moving) and is called exactly once; `to` is that room (v8.2: its car sticker)
     try { build(); } catch (e) { arrive(); return; }
+    stall = to === BS_FIRST; stallAt = 0; S.svc.visible = false; S.carLight.intensity = 12; S.carLight.color.setHex(0xfff0dc);      // v8.16: the ride down from Gauntlet never gets there
     try { S.car.setSticker(to == null ? null : lintCarSpec(to)); } catch (e) { console.error(e); }
     S.c7.group.visible = to != null && sevenHere === to && !sevenSlotted;
     after = arrive; built = false; on = true; t = 0; t0 = performance.now(); skipT = endT = -1; padHeld = true; sway = Math.random() * 6;
@@ -8254,7 +8506,8 @@ const Lift = (() => {
   function arrived() {
     if (!on) return; on = false; scenePass.scene = scene; camera.fov = 72; camera.updateProjectionMatrix();
     $("liftHud").hidden = true; if (!built) { built = true; if (after) after(); }
-    if (!Dock.board(ly, lp)) HoldMusic.stop(1.4);
+    if (stall || (world && world.lv.bs) || !Dock.board(ly, lp)) HoldMusic.stop(stall ? 0.05 : 1.4);      // v8.16: backstage you arrive on foot (no car to stand in)
+    stall = false;
     sevenToHands();                        // v8.4: Crate Seven, if it rode down with you, is still in your hands     // stand in the docked car the way you were standing in this one; v7.8: the Muzak keeps playing until you step out (Dock.step)
     $("hud").hidden = false; resetSticks(); syncTouch && syncTouch();
     requestAnimationFrame(() => $("fade").classList.remove("on"));
@@ -8263,17 +8516,36 @@ const Lift = (() => {
   function tick(dt, time) {
     t = window.__liftT !== undefined ? window.__liftT : (performance.now() - t0) / 1000;           // wall-clock, so a slow frame never stretches the ride
     if (!built && t > 0.3) { built = true; try { if (after) after(); } catch (e) { console.error(e); } $("hud").hidden = true; syncTouch && syncTouch(); }   // the next room is built behind the ride
-    const u = ease(t / DUR), s = DROP * u, v = DROP * (ease((t + 0.02) / DUR) - u) / 0.02;
+    let u = ease(t / DUR), s = DROP * u, v = DROP * (ease((t + 0.02) / DUR) - u) / 0.02, jolt = 0;
+    if (stall) {
+      // v8.16 the stall: the car brakes hard between floors, the light flickers and dies, the Muzak runs down like a stopped tape,
+      // the floor display loses its number, and the doors grind half open onto the service level. You climb out (the fade)
+      const ts = t - ST0;
+      if (ts >= 0) {
+        const s0 = DROP * ease(ST0 / DUR), v0 = DROP * (ease((ST0 + 0.02) / DUR) - ease(ST0 / DUR)) / 0.02, k = Math.min(ts, 0.3);
+        s = s0 + v0 * (k - k * k / 0.6); v = Math.max(0, v0 * (1 - k / 0.3)); jolt = Math.exp(-ts * 5) * Math.sin(ts * 42) * 0.035;
+        if (!stallAt) { stallAt = 1; sfx.slam(); HoldMusic.warp(); $("liftTo").textContent = "Between floors"; setTimeout(() => { if (on && stall) say("stall"); }, 1500); }
+        const fl = ts < 1.5 ? (Math.sin(ts * 37) > 0.2 - ts * 0.5 ? 1 : 0.12) : 0; S.carLight.intensity = fl * 12 + (ts > 1.5 ? 1.6 : 0); if (ts > 1.5) S.carLight.color.setHex(0xff8a3a);
+        const dOpen = clamp((ts - 2.5) / 1.5, 0, 1), de = dOpen * dOpen * (3 - 2 * dOpen) * 0.5; S.car.setDoor(de + (dOpen > 0 && dOpen < 1 ? Math.sin(ts * 31) * 0.006 : 0));
+        if (stallAt === 1 && ts > 2.5) { stallAt = 2; sfx.slide(true); }
+        S.svc.userData.wl.intensity = 5 + Math.sin(time * 23) * 0.6;
+      } else S.svc.userData.wl.intensity = 5;
+      {
+        if (stallAt === 2 && ts > 4.3) { stallAt = 3; toast("The doors have jammed half open. Climb out."); }
+        if (endT < 0 && t > ST_END - 0.35) { endT = t; $("fade").classList.add("on"); }
+      }
+    }
+    if (stall) { const sEnd = DROP * ease(ST0 / DUR) + DROP * (ease((ST0 + 0.02) / DUR) - ease(ST0 / DUR)) / 0.02 * 0.15; S.svc.visible = true; S.svc.position.y = s - sEnd; }      // it comes up the shaft with everything else and stops level
     S.shaft.position.y = ((s % SEG) + SEG) % SEG;
-    liftFloorTxt = "B" + String(fl0 + Math.floor(s / 6)).padStart(2, "0"); S.car.setFloor(liftFloorTxt, v > 0.6 ? -1 : 0);
+    liftFloorTxt = stall && stallAt ? "B--" : "B" + String(fl0 + Math.floor(s / 6)).padStart(2, "0"); S.car.setFloor(liftFloorTxt, v > 0.6 ? -1 : 0);
     const L = takeLook(dt); ly += L.dyaw; lp = clamp(lp + L.dpitch, -1.45, 1.45);          // free look, with every control you look with in a chamber
-    cam.pos.set(Math.sin(time * 1.3 + sway) * 0.0005 * v, Math.sin(time * 9) * 0.0008 * Math.min(1, v / 3), CAR.EYE_Z);     // v7.7: a faint hum of movement, no rocking
+    cam.pos.set(Math.sin(time * 1.3 + sway) * 0.0005 * v, Math.sin(time * 9) * 0.0008 * Math.min(1, v / 3) + jolt, CAR.EYE_Z);     // v7.7: a faint hum of movement, no rocking
     cam.yaw = ly; cam.pitch = lp; cam.roll = Math.sin(time * 1.6 + sway) * 0.00025 * v;
     if (S.c7.group.visible) {               // held in front of you, as it is in a chamber
       const cp = Math.cos(lp), g7 = S.c7.group; g7.position.set(cam.pos.x - Math.sin(ly) * cp * 1.7, cam.pos.y + Math.sin(lp) * 1.7 - 0.3, cam.pos.z - Math.cos(ly) * cp * 1.7);
       g7.position.y = Math.max(g7.position.y, S.car.g.position.y + 0.36); g7.rotation.set(0, ly, 0);
     }
-    if (endT < 0 && t > DUR - 0.35) { endT = t; $("fade").classList.add("on"); }
+    if (!stall && endT < 0 && t > DUR - 0.35) { endT = t; $("fade").classList.add("on"); }
     if ((endT >= 0 && t - endT > 0.34) || (skipT >= 0 && t - skipT > 0.34)) { arrived(); return; }
     try { let down = false; for (const pd of navigator.getGamepads ? navigator.getGamepads() : []) if (pd) for (const b of [0, 1, 2, 3, 9]) if (pd.buttons[b] && pd.buttons[b].pressed) down = true; if (!down) padHeld = false; else if (!padHeld) skip(); } catch (e) {}
     gunPass.enabled = false; placeCamera(); composer.render();
@@ -8306,7 +8578,7 @@ function planDock(lv) {
   const things = [...(lv.signs || []), ...(lv.cams || []), ...(lv.held || []), ...(lv.switches || []), ...(lv.receivers || []), ...(lv.beams || []), ...(lv.sprayers || []), ...(lv.sparkers || []), ...(lv.sockets || []), ...(lv.scrawls || [])].map(o => o.pos).filter(Boolean);
   const moving = [...(lv.movers || []), ...(lv.spinners || []), ...(lv.shifters || []), ...(lv.glass || []), ...(lv.crushers || []), ...(lv.doors || [])];
   const why = (k, o) => { if (window.__dockWhy) window.__dockWhy.push(k + o); };
-  const plain = b => Object.keys(b).every(k => k === "min" || k === "max" || k === "mat" || k === "portal");
+  const plain = b => Object.keys(b).every(k => k === "min" || k === "max" || k === "mat" || k === "portal" || k === "look");
   for (const allowWhite of [false, true]) for (const o of [0, .5, -.5, 1, -1, 1.5, -1.5, 2, -2, 2.5, -2.5, 3, -3, 3.5, -3.5, 4, -4, 5, -5, 6, -6, 7, -7, 8, -8]) {      // a dark stretch of wall if there is one; where the whole wall is white, the doorway takes a piece of it
     const c = c0 + o;
     // the wall is really there across the doorway and its frame, at the same depth
@@ -8353,19 +8625,20 @@ function carveBoxes(list, R) {
     list.splice(i, 1);
     const lo = b.min.slice(), hi = b.max.slice();
     for (let a = 0; a < 3; a++) {
-      if (lo[a] < R.min[a]) { const mx = hi.slice(); mx[a] = R.min[a]; list.push({ min: lo.slice(), max: mx, mat: b.mat, portal: b.portal }); lo[a] = R.min[a]; }
-      if (hi[a] > R.max[a]) { const mn = lo.slice(); mn[a] = R.max[a]; list.push({ min: mn, max: hi.slice(), mat: b.mat, portal: b.portal }); hi[a] = R.max[a]; }
+      if (lo[a] < R.min[a]) { const mx = hi.slice(); mx[a] = R.min[a]; list.push({ min: lo.slice(), max: mx, mat: b.mat, portal: b.portal, look: b.look }); lo[a] = R.min[a]; }
+      if (hi[a] > R.max[a]) { const mn = lo.slice(); mn[a] = R.max[a]; list.push({ min: mn, max: hi.slice(), mat: b.mat, portal: b.portal, look: b.look }); hi[a] = R.max[a]; }
     }
   }
 }
 const Dock = (() => {
-  let car = null, d = null, door = null, phase = "shut", tt = 0, e = 0, wasOpen = false, strip = null;
+  let car = null, d = null, door = null, phase = "shut", tt = 0, e = 0, wasOpen = false, strip = null, ajar = false;
   function attach(W) {                     // after a room is built: stand the car in its alcove, add the door's collider
     if (!car) { car = buildCar(); scene.add(car.g); }
     d = W.lv.dock || null; car.g.visible = !!d; strip = null; phase = "shut"; e = 0; car.setDoor(0); wasOpen = false;
+    ajar = !!d && W.lv.bs && W.idx === BS_FIRST; if (d && W.lv.bs && !ajar) car.g.visible = false;      // v8.16 backstage: no car (a shuttered hoist doorway), except the stalled one you climbed out of
     try { car.setSticker(d ? lintCarSpec(W.idx) : null); } catch (er) { console.error(er); }      // v8.2
     if (!d) { door = null; return; }
-    car.g.position.set(d.C[0], d.C[1] + 0.03, d.C[2]); car.g.rotation.set(0, d.yaw, 0);      // v7.7: just above the alcove's floor liner, so nothing is flush with the car (that flicker was the moiré)
+    car.g.position.set(d.C[0], d.C[1] + 0.03 - (ajar ? 0.55 : 0), d.C[2]); car.g.rotation.set(0, d.yaw, ajar ? 0.012 : 0); if (ajar) car.setDoor(0.27);      // (stalled: it stopped short of the floor, a little out of true, doors jammed part open)      // v7.7: just above the alcove's floor liner, so nothing is flush with the car (that flicker was the moiré)
     const box = { min: d.door.min.slice(), max: d.door.max.slice(), mat: "dark", portal: false };
     door = { need: 99, id: "lift", dock: true, box, min0: box.min.slice(), max0: box.max.slice(), rise: 0, t: 0, lights: [], open: false };
     W.doors.push(door);
@@ -8378,9 +8651,16 @@ const Dock = (() => {
     piece(M.brushed, w - sg * 0.02, w + sg * 0.07, c - DW / 2 - 0.16, c + DW / 2 + 0.16, y + DH, y + DH + 0.16);
     piece(M.darkSteel, w - sg * 0.02, w + sg * 0.04, c - DW / 2 - 0.16, c + DW / 2 + 0.16, y + DH + 0.24, y + DH + 0.5);
     strip = piece(M.amber, w + sg * 0.04, w + sg * 0.05, c - DW / 2 + 0.1, c + DW / 2 - 0.1, y + DH + 0.35, y + DH + 0.39);
+    if (W.lv.bs && !ajar) {              // the hoist's roller shutter, down, with the sticker every hoist has (crooked, never low)
+      piece(DOOR_BS.face, w - sg * 0.1, w - sg * 0.03, c - DW / 2, c + DW / 2, y, y + DH);
+      try { const sp = lintCarSpec(W.idx), sz = LINT_SIZE[sp.t], tex = lintTex({ kind: "sticker", w: sz[0], h: sz[1], spec: sp });
+        const fm = new THREE.Mesh(new THREE.PlaneGeometry(sz[0], sz[1]), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, color: new THREE.Color(.9, .9, .9), polygonOffset: true, polygonOffsetFactor: -2 }));
+        fm.userData.ownMat = 1; fm.userData.ownMap = 1; const q = [0, y + 1.3 + sp.v * 0.8, 0]; q[d.ax] = w - sg * 0.022; q[d.lat] = c + (sp.u - 0.5) * 1.2; fm.position.set(q[0], q[1], q[2]);
+        const nn = [0, 0, 0]; nn[d.ax] = sg; fm.lookAt(q[0] + nn[0], q[1], q[2] + nn[2]); fm.rotateZ(sp.rot); fm.frustumCulled = false; levelGroup.add(fm); } catch (er) { console.error(er); }
+    }
   }
   function setOpen(x) {
-    e = x; car.setDoor(x * x * (3 - 2 * x));
+    e = x; car.setDoor(ajar ? 0.27 : x * x * (3 - 2 * x));
     const shut = x < 0.85;                              // the leaves block the way until they are nearly open
     for (let a = 0; a < 3; a++) { door.box.min[a] = door.min0[a]; door.box.max[a] = door.max0[a]; }
     if (!shut) { door.box.min[1] = door.min0[1] - 60; door.box.max[1] = door.min0[1] - 59.9; }
@@ -8398,11 +8678,11 @@ const Dock = (() => {
     phase = "wait"; tt = 0; setOpen(0); car.setFloor(liftFloorTxt, 0);
     return true;
   }
-  function shut() { if (!Lift.on) HoldMusic.stop(0.6); if (!d || !car) return; phase = "shut"; tt = 0; setOpen(0); }      // v7.8: and you are out of the lift, so the Muzak stops      // a respawn or restart: the doors are closed
+  function shut() { if (!Lift.on && !HoldMusic.den) HoldMusic.stop(0.6); if (!d || !car) return; phase = "shut"; tt = 0; setOpen(0); }      // v7.8: and you are out of the lift, so the Muzak stops      // a respawn or restart: the doors are closed
   function step(dt) {                     // from the door update, every physics step
     if (!d || !door) return;
     tt += dt;
-    if (liftMute && !Lift.on && depth() > 0.3) HoldMusic.stop(1.2);      // v7.8: stepped out of the car: the Muzak fades, the room music comes back
+    if (liftMute && !Lift.on && !HoldMusic.den && depth() > 0.3) HoldMusic.stop(1.2);      // v7.8: stepped out of the car: the Muzak fades, the room music comes back
     if (phase === "wait") { if (tt > 0.45) { phase = "open"; tt = 0; sfx.ding(); } }
     else if (phase === "open") { setOpen(Math.min(1, e + dt / 0.9)); if (depth() > 1.8 && !propIn()) { phase = "close"; tt = 0; } }
     else if (phase === "close") { setOpen(Math.max(0, e - dt / 1.1)); if (e <= 0) phase = "shut"; else if (depth() < 1.2 && depth() > -CAR.D - 1) { phase = "open"; } }
@@ -8426,7 +8706,7 @@ function boot() {
   setTimeout(() => HoldMusic.render(), 2200);
   setTimeout(() => { try { HoldShow.ensure(); HoldShow.preload(); } catch (e) { console.error(e); } }, 3000);   // the TV show's picture and voices, ready before anyone reaches the office                                       // and its music, rendered once in the background
 }
-window.__tc = { Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE)), cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
+window.__tc = { bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE)), cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
 try { boot(); } catch (err) { console.error(err); $("loading").hidden = false; $("loading").innerHTML = '<div style="max-width:420px;text-align:center;line-height:1.6;font-size:13px;letter-spacing:.05em">Something went wrong starting the game.<br><small>' + String(err && err.message || err) + "</small></div>"; }
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>
