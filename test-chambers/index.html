@@ -523,7 +523,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 await RAPIER.init();
 
-const VERSION = "v8.6";
+const VERSION = "v8.7";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const IT_TEST = /[?&]itemtest\b/.test(location.search), SPFX = IT_TEST ? "testchambers.itest." : "testchambers.";
 const $ = id => document.getElementById(id);
@@ -746,7 +746,7 @@ function signTex(kind, line1, line2, w, h) {
 }
 /* ---------- v8.2 "Where's Lint?": Ted & Lint stickers and Ted's notes ----------
    Somebody has been putting up stickers from the Hold Music show, and somebody (Ted) has been leaving notes asking after Lint.
-   The stickers change as you go deeper: both socks (Acts 1-2), Lint curling off (3-4), Lint torn away (5-6), only an outline (7),
+   The stickers change as you go deeper: both socks (Acts 1-2), Lint curling off (3-4), Lint torn away (5-7; v8.7 dropped the outline stage),
    and the later they are, the longer they have been up (grime: yellowed, faded, dirt in the edges, scuffs, chipped corners).
    They are pictures on the wall only: no collider, never on a portal surface. Placed by `lintDress` in `buildLevel`. */
 const LINT_P = {
@@ -812,7 +812,7 @@ function lintGrime(g, W, H, edge, amt, rnd) {
   g.restore();
   if (amt > .45) { g.save(); g.globalCompositeOperation = "destination-out"; for (let i = 0; i < amt * 7; i++) { const x = rnd() * W, y = rnd() < .5 ? rnd() * H * .12 : H - rnd() * H * .12, r = (1 + rnd() * 3.5) * W / 140; g.beginPath(); g.arc(x, y, r, 0, 6.3); g.fill(); } g.restore(); }   // chipped bits
 }
-// spec: { t: "tl" | "dot" | "bumper", stage 0..3, grime 0..1, seed }. Drawn on a 140 x 120 design grid (bumper 150 x 64, dot 110 x 110)
+// spec: { t: "tl" | "dot" | "bumper", stage 0..2, grime 0..1, seed }. Drawn on a 140 x 120 design grid (bumper 150 x 64, dot 110 x 110)
 function paintSticker(g, cw, ch, sp) {
   const rnd = lintRng(sp.seed), k = sp.grime || 0;
   g.clearRect(0, 0, cw, ch);
@@ -847,15 +847,6 @@ function paintSticker(g, cw, ch, sp) {
   const s = cw / 140; g.save(); g.scale(s, s);
   const back = new Path2D(); back.roundRect(10, 10, 120, 100, 16);
   const st = sp.stage | 0;
-  if (st >= 3) {                                                   // Act 7: scraped off long ago; a ghost, scraps, and someone has drawn round where Lint was
-    lintResidue(g, back, rnd, 1);
-    g.fillStyle = "#ece6d4"; for (const pts of [[[12, 34], [19, 30], [18, 41]], [[118, 96], [127, 92], [125, 102]], [[60, 104], [67, 101], [70, 108]]]) { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill(); }
-    g.strokeStyle = "#f4b942"; g.lineWidth = 1.9; g.lineCap = "round"; g.lineJoin = "round";
-    const o = [[72, 100], [72, 40], [74, 28], [82, 21], [92, 20], [102, 22], [110, 30], [112, 40], [112, 100]];
-    for (let i = 0; i < o.length - 1; i++) { const [x0, y0] = o[i], [x1, y1] = o[i + 1], n = Math.max(2, Math.round(Math.hypot(x1 - x0, y1 - y0) / 7)); for (let j = 0; j < n; j += 2) { const a = j / n, b = Math.min(1, (j + 1.1) / n); g.beginPath(); g.moveTo(x0 + (x1 - x0) * a + (rnd() - .5), y0 + (y1 - y0) * a + (rnd() - .5)); g.lineTo(x0 + (x1 - x0) * b + (rnd() - .5), y0 + (y1 - y0) * b + (rnd() - .5)); g.stroke(); } }
-    g.fillStyle = "#f4b942"; g.font = "500 13px 'Marker Felt', 'Comic Sans MS', cursive"; g.textAlign = "center"; g.fillText("?", 92, 66);
-    g.restore(); lintGrime(g, cw, ch, null, k * .6, rnd); return;
-  }
   if (st === 2) {                                                  // Acts 5-6: Lint has been torn off; Ted stays
     const torn = new Path2D("M26 10H72L68 22L74 34L69 46L75 58L70 70L76 82L71 94L75 110H26Q10 110 10 94V26Q10 10 26 10Z");
     lintResidue(g, new Path2D("M70 10H114Q130 10 130 26V94Q130 110 114 110H72Z"), rnd, .6);
@@ -1004,7 +995,7 @@ const LINT_DRESS = {
   "Sorting Hall": [{ t: "tl", at: [[8.4, 1.1, 0], [0, 0, 1]] }],
   "The Way Out": [{ note: "Where's Lint?", big: true, under: true, at: [[16, 1.7, 6.75], [-1, 0, 0]] }]                 // once more, large, on the dark end wall beside the door out
 };
-const lintStage = n => n <= 15 ? 0 : n <= 30 ? 1 : n <= 45 ? 2 : 3;           // both · Lint curling off · Lint torn away · outline only
+const lintStage = n => n <= 15 ? 0 : n <= 30 ? 1 : 2;           // both · Lint curling off · Lint torn away (v8.7: no outline stage, from room 31 on Lint is torn away)
 const lintGrimeOf = n => clamp((n - 6) / 47, 0, 1);                              // the deeper in, the longer it has been up
 const LINT_SIZE = { tl: [0.3, 0.257], dot: [0.17, 0.17], bumper: [0.4, 0.171], note: [0.42, 0.28], noteS: [0.3, 0.2], noteL: [0.84, 0.56], drawing: [0.62, 0.8], ticket: [0.38, 0.2] };
 // find a spot for each entry on a dark wall you can see from the start, clear of signs, doors, the lift, cameras and anything moving.
@@ -6801,12 +6792,12 @@ function buildCar() {
     const sz = LINT_SIZE[sp.t], tex = lintTex({ kind: "sticker", w: sz[0], h: sz[1], spec: sp }), grp = new THREE.Group();
     const fm = new THREE.Mesh(new THREE.PlaneGeometry(sz[0], sz[1]), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, color: new THREE.Color(.95, .95, .95) }));
     fm.rotation.z = sp.rot; grp.add(fm);
-    const yy = v => v < .45 ? 0.35 + v / .45 * 0.45 : 1.2 + (v - .45) / .55 * 1.05;
+    const yy = v => 1.15 + v * 1.1;                // v8.7: never low (was 0.35 up): 1.15 to 2.25 m
     let parent = g, glass = true;
     if (sp.spot <= 1) { parent = leaves[sp.spot].g; grp.position.set((sp.u - .5) * 0.5, yy(sp.v), 0.008); }
     else if (sp.spot === 2) { const s2 = sp.u < .5 ? -1 : 1; let z = -1.3 + ((sp.u * 2) % 1) * 2.7; if (Math.abs(z - 0.3) < 0.3) z += 0.6; grp.position.set(s2 * (W / 2 - 0.038), yy(sp.v), z); grp.rotation.y = -s2 * Math.PI / 2; }
     else if (sp.spot === 3) { let x = (sp.u - .5) * 3.2; if (Math.abs(x) < 0.32) x += x < 0 ? -0.42 : 0.42; grp.position.set(x, yy(sp.v), D / 2 - 0.038); grp.rotation.y = Math.PI; }
-    else { glass = false; grp.position.set(DW / 2 + 0.5 + (sp.u - .5) * 0.2, 0.5 + sp.v * 0.22, -D / 2 + 0.084); }
+    else { glass = false; grp.position.set(DW / 2 + 0.5 + (sp.u - .5) * 0.2, 1.88 + sp.v * 0.25, -D / 2 + 0.084); }
     if (glass) {
       const c = document.createElement("canvas"); c.width = tex.image.width; c.height = tex.image.height; const cg = c.getContext("2d");
       cg.drawImage(tex.image, 0, 0); cg.globalCompositeOperation = "source-in"; cg.fillStyle = "#ddd8ca"; cg.fillRect(0, 0, c.width, c.height);
