@@ -22,7 +22,7 @@ const ramp = (stops, t) => { for (let i = 1; i < stops.length; i++) if (t <= sto
 function paintScream(canvas, seed = 1893) {
   const W = canvas.width = 896, H = canvas.height = 1152, R = mulberry(seed), { n2, fbm } = makeNoise(seed);
   const mk = () => { const c = document.createElement("canvas"); c.width = W; c.height = H; return c; };
-  const UC = mk(), U = UC.getContext("2d", { willReadFrequently: true }), MC = mk(), M = MC.getContext("2d", { willReadFrequently: true });
+  const UC = mk(), MC = mk(); let U = UC.getContext("2d", { willReadFrequently: true }), M = MC.getContext("2d", { willReadFrequently: true });
   M.fillStyle = "#000"; M.fillRect(0, 0, W, H);
   const KIND = ["rgb(0,0,0)", "rgb(50,0,0)", "rgb(100,0,0)", "rgb(150,0,0)", "rgb(200,0,0)"];          // sky and fjord, -, walkway, rail, figure (red channel / 50)
   const shape = (path, fill, kind) => { for (const g of [U, M]) { g.beginPath(); path(g); g.fillStyle = g === U ? fill : KIND[kind]; g.fill(); } };
@@ -62,6 +62,8 @@ function paintScream(canvas, seed = 1893) {
     shape(c => c.arc(u * W, (top + .014) * H, wd * .62 * W, 0, 7), "rgb(196,170,130)", 4);
     shape(c => c.ellipse(u * W, (top + .002) * H, wd * 1.05 * W, .0045 * H, 0, 0, 7), "rgb(16,16,30)", 4); shape(c => c.rect((u - wd * .6) * W, (top - .014) * H, wd * 1.2 * W, .016 * H), "rgb(16,16,30)", 4);
   }
+  // The figure is painted on its own layer, then laid in strip by strip with a sideways sway, so head, hands and body all waver together
+  const FC = mk(), FM = mk(), U0 = U, M0 = M; U = FC.getContext("2d"); M = FM.getContext("2d");
   // ----- the courier, painted as the original's figure is: a swaying body, a skull of a head, flat hands, no drawn lines -----
   const SKIN = [216, 198, 140], bz = (c, p) => { c.moveTo(p[0][0] * W, p[0][1] * H); for (let i = 1; i < p.length; i += 3) c.bezierCurveTo(p[i][0] * W, p[i][1] * H, p[i + 1][0] * W, p[i + 1][1] * H, p[i + 2][0] * W, p[i + 2][1] * H); };
   const BODY = [[.385, .80], [.31, .86], [.40, .93], [.345, 1.03], [.52, 1.05], [.60, 1.05], [.70, 1.03], [.74, .95], [.63, .89], [.635, .80], [.57, .765], [.44, .765], [.385, .80]];
@@ -74,7 +76,7 @@ function paintScream(canvas, seed = 1893) {
     const x = u => (.51 + sd * u) * W, q = u => .51 + sd * u;
     shape(c => P(c, 0, [[q(.062), .712], [q(.128), .712], [q(.185), .80], [q(.165), .87], [q(.085), .87], [q(.088), .79]]), sd < 0 ? "rgb(176,86,40)" : "rgb(112,54,44)", 4);
     shape(c => c.ellipse(x(.095), .716 * H, .038 * W, .013 * H, sd * .15, 0, 7), "rgb(96,42,30)", 4);                                // cuff
-    shape(c => c.ellipse(x(.09), .648 * H, .025 * W, .074 * H, sd * .1, 0, 7), css(sd < 0 ? SKIN : [186, 170, 124]), 4);            // the hand: one long flat shape against the cheek
+    shape(c => c.ellipse(x(.09), .648 * H, .025 * W, .074 * H, sd * .1, 0, 7), css(sd < 0 ? [198, 184, 120] : [168, 160, 118]), 4);            // the hand: one long flat shape against the cheek, a tone darker than the face
   }
   shape(c => c.ellipse(.51 * W, .778 * H, .125 * W, .03 * H, 0, 0, 7), "rgb(110,48,30)", 4);              // the hood, down round the collar
   shape(c => P(c, 0, [[.47, .70], [.55, .70], [.56, .78], [.46, .78]]), "rgb(190,170,118)", 4);          // neck
@@ -87,18 +89,22 @@ function paintScream(canvas, seed = 1893) {
   shape(c => bz(c, HEAD), css(SKIN), 4);
   U.save(); U.beginPath(); bz(U, HEAD); U.clip();
   { const g = U.createLinearGradient(.42 * W, 0, .61 * W, 0); g.addColorStop(0, "rgba(240,224,164,.6)"); g.addColorStop(.5, "rgba(216,198,140,0)"); g.addColorStop(1, "rgba(120,132,112,.65)"); U.fillStyle = g; U.fillRect(.4 * W, .47 * H, .23 * W, .28 * H); }
-  U.fillStyle = "rgba(66,48,38,.85)"; U.beginPath(); U.ellipse(.51 * W, .484 * H, .11 * W, .026 * H, 0, 0, 7); U.fill();                                              // close-cropped hair, hardly more than a shadow on the skull
+  { const g = U.createLinearGradient(0, .485 * H, 0, .548 * H); g.addColorStop(0, "rgba(64,48,38,.9)"); g.addColorStop(.5, "rgba(96,76,54,.6)"); g.addColorStop(1, "rgba(150,130,90,0)"); U.fillStyle = g; U.fillRect(.4 * W, .47 * H, .23 * W, .09 * H); }                                              // close-cropped hair, hardly more than a shadow on the skull
   for (const sd of [-1, 1]) { U.fillStyle = "rgba(150,132,96,.6)"; U.beginPath(); U.ellipse((.51 + sd * .052) * W, .66 * H, .014 * W, .05 * H, sd * .25, 0, 7); U.fill(); }   // hollow cheeks
-  for (const sd of [-1, 1]) { const ex = (.51 + sd * .034) * W, ey = .578 * H;                                                                                         // eyes: a ring and a dot
-    U.fillStyle = "rgb(128,112,100)"; U.beginPath(); U.arc(ex, ey, .0175 * W, 0, 7); U.fill(); U.fillStyle = "rgb(230,220,184)"; U.beginPath(); U.arc(ex, ey, .013 * W, 0, 7); U.fill();
-    U.fillStyle = "rgb(44,38,52)"; U.beginPath(); U.arc(ex, ey + 1, .0048 * W, 0, 7); U.fill();
-    U.fillStyle = "rgb(84,62,56)"; U.beginPath(); U.ellipse((.51 + sd * .01) * W, .632 * H, 3, 4, 0, 0, 7); U.fill(); }
-  U.fillStyle = "rgb(150,112,84)"; U.beginPath(); U.ellipse(.51 * W, .688 * H, .03 * W, .043 * H, 0, 0, 7); U.fill();                                                 // the mouth, a long dark O
-  U.fillStyle = "rgb(58,34,36)"; U.beginPath(); U.ellipse(.51 * W, .688 * H, .022 * W, .035 * H, 0, 0, 7); U.fill();
+  for (const sd of [-1, 1]) { const ex = (.51 + sd * .033) * W, ey = .582 * H, g = U.createRadialGradient(ex, ey, 0, ex, ey, .024 * W);                         // eyes: smudged sockets, a pale middle, a speck
+    g.addColorStop(0, "rgba(92,84,92,.0)"); g.addColorStop(.45, "rgba(92,84,92,.7)"); g.addColorStop(.7, "rgba(110,104,100,.55)"); g.addColorStop(1, "rgba(120,112,100,0)"); U.fillStyle = g; U.fillRect(ex - 24, ey - 24, 48, 48);
+    U.fillStyle = "rgba(226,214,176,.85)"; U.beginPath(); U.ellipse(ex, ey, .0085 * W, .0095 * W, 0, 0, 7); U.fill(); U.fillStyle = "rgba(50,44,56,.85)"; U.beginPath(); U.arc(ex + sd, ey + 1, .0036 * W, 0, 7); U.fill();
+    U.fillStyle = "rgba(96,74,64,.8)"; U.beginPath(); U.ellipse((.51 + sd * .009) * W, .636 * H, 2.6, 3.6, 0, 0, 7); U.fill(); }
+  { const mx = .51 * W, my = .692 * H, g = U.createRadialGradient(mx, my, 0, mx, my, .05 * W); g.addColorStop(0, "rgba(66,40,40,.95)"); g.addColorStop(.5, "rgba(84,52,46,.85)"); g.addColorStop(.75, "rgba(150,112,84,.55)"); g.addColorStop(1, "rgba(170,140,100,0)");
+    U.save(); U.translate(mx, my); U.scale(.62, 1); U.translate(-mx, -my); U.fillStyle = g; U.fillRect(mx - 60, my - 50, 120, 100); U.restore(); }                 // the mouth: a long dark O with no edge
   U.restore();
   U.lineCap = "round"; U.lineJoin = "round"; U.strokeStyle = "rgba(44,50,92,.5)";                              // contours: dark blue paint under the brush, never a drawn line
   U.lineWidth = 9; U.beginPath(); bz(U, BODY); U.stroke(); U.lineWidth = 6; U.beginPath(); bz(U, HEAD.slice(3, 10)); U.stroke();
   for (const sd of [-1, 1]) { U.beginPath(); U.ellipse((.51 + sd * .09) * W, .648 * H, .027 * W, .076 * H, sd * .1, sd > 0 ? -1.2 : Math.PI - 1.4, sd > 0 ? 1.4 : Math.PI + 1.2); U.stroke(); }
+
+  U = U0; M = M0;
+  const sway = v => W * (.8 + 1.6 * (v - .45)) * (.017 * Math.sin(v * 27 + .4) + .006 * Math.sin(v * 73 + 2));
+  for (let y = (.3 * H) | 0; y < H; y += 2) { const dx = y / H > .46 ? sway(y / H) : 0; U.drawImage(FC, 0, y, W, 2, dx, y, W, 2); M.drawImage(FM, 0, y, W, 2, dx, y, W, 2); }
 
   // ----- the brush: long strokes that take their colour from the underpainting and follow its forms -----
   const src = U.getImageData(0, 0, W, H).data, msk = M.getImageData(0, 0, W, H).data, g = canvas.getContext("2d");
@@ -130,10 +136,17 @@ function paintScream(canvas, seed = 1893) {
     }
   }
   pass(11, 8, null, 26); pass(6, 5, null, 24);
-  pass(3.2, 3.5, (x, y, i, kind) => { const k = at(x + 6, y + 3); return kind === 4 || Math.abs(src[i] - src[k]) + Math.abs(src[i + 1] - src[k + 1]) + Math.abs(src[i + 2] - src[k + 2]) > 22 || R() < .3; }, 18, .9);
+  pass(3.2, 3.5, (x, y, i, kind) => { const k = at(x + 6, y + 3); return (kind === 4 && (y / H > .75 || y / H < .47 || R() < .4)) || Math.abs(src[i] - src[k]) + Math.abs(src[i + 1] - src[k + 1]) + Math.abs(src[i + 2] - src[k + 2]) > 22 || R() < .3; }, 18, .9);
 
-  for (let i = 0; i < 26; i++) stroke(.51 * W + (R() - .5) * 20, .69 * H + (R() - .5) * 44, 4, 12, Math.PI / 2 + (R() - .5) * .4, [50 + R() * 20, 30, 34], .7);       // the dark of the mouth
-  for (const sd of [-1, 1]) stroke((.51 + sd * .034) * W, .579 * H, 5, 3, 0, [40, 34, 48], .9);
+  const TINT = [[212, 190, 124], [236, 222, 170], [150, 158, 150], [186, 168, 112], [128, 140, 150]];
+  for (let i = 0; i < 900; i++) {                      // the face and hands, worked over with long loose strokes that run down and waver: nothing stays sharp
+    const x = (.36 + R() * .30) * W, y = (.47 + R() * .29) * H, k = at(x, y); if (Math.round(msk[k] / 50) !== 4 || src[k] < 150 || src[k + 2] > src[k]) continue;
+    const v = y / H, t = TINT[R() * TINT.length | 0], q = .08 + R() * .2, len = 9 + R() * 12, a = Math.PI / 2 + .3 * Math.cos(v * 27 + .4) + (R() - .5) * .3;
+    if (Math.round(msk[at(x + Math.cos(a) * len * .7, y + Math.sin(a) * len * .7)] / 50) !== 4 || Math.round(msk[at(x - Math.cos(a) * len * .7, y - Math.sin(a) * len * .7)] / 50) !== 4 || Math.round(msk[at(x - 7, y)] / 50) !== 4 || Math.round(msk[at(x + 7, y)] / 50) !== 4) continue;      // stay inside the shape: no fringe
+    stroke(x, y, 2.2 + R() * 2, len, a, [lerp(src[k], t[0], q), lerp(src[k + 1], t[1], q), lerp(src[k + 2], t[2], q)], .4);
+  }
+  { const cx = .51 * W + sway(.692), cy = .692 * H; for (let i = 0; i < 12; i++) stroke(cx + (R() - .5) * 14, cy + (R() - .5) * 40, 4.5, 14, Math.PI / 2 + (R() - .5) * .5, [62 + R() * 26, 38 + R() * 10, 38], .5);       // the dark of the mouth, put back loosely
+    for (const sd of [-1, 1]) { const ex = (.51 + sd * .033) * W + sway(.582), ey = .582 * H; for (let k = 0; k < 7; k++) { const a = k / 7 * 6.283 + R() * .4; stroke(ex + Math.cos(a) * 12, ey + Math.sin(a) * 12, 2.6, 8, a + Math.PI / 2, [98 + R() * 20, 90, 96], .4); } stroke(ex, ey, 7, 3, 0, [226, 214, 176], .6); stroke(ex + sd, ey + 1, 3.4, 2.5, 0, [48, 42, 54], .75); } }
   { const vg = g.createRadialGradient(W * .5, H * .52, H * .36, W * .5, H * .5, H * .74); vg.addColorStop(0, "rgba(20,10,10,0)"); vg.addColorStop(1, "rgba(20,10,10,.36)"); g.fillStyle = vg; g.fillRect(0, 0, W, H); }
   return canvas;
 }
