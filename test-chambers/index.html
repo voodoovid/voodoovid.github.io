@@ -547,7 +547,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { Furn } from "./furniture.js";                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.14";
+const VERSION = "v8.15";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const IT_TEST = /[?&]itemtest\b/.test(location.search), SPFX = IT_TEST ? "testchambers.itest." : "testchambers.";
 const $ = id => document.getElementById(id);
@@ -2376,7 +2376,7 @@ function den(h, o) {
    room of those chambers. Rules kept: the den's white is only its panels; furniture keeps clear of the strip from the
    doorway to the back panel, of slots and doors; solid pieces sit flush or 0.75 m apart (gapCheck).
    ===================================================================================== */
-const DEN_ROOMS = 30;                          // rooms 1 to 30 are this batch's: their chamber cards live in dens
+const DEN_ROOMS = 38;                          // rooms 1 to 38 (v8.15; 30 in v8.14): their chamber cards live in dens
 const denFace = (out, f) => f === "+x" ? Math.PI / 2 : f === "-x" ? -Math.PI / 2 : f === "in" ? (out > 0 ? 0 : Math.PI) : (out > 0 ? Math.PI : 0);
 // a room's furniture, packed along one wall of a region R = { x0, x1, d0, d1 } (d = depth into the wall, z = zs + out * d)
 function denKit(rec) {
@@ -2463,6 +2463,29 @@ function denLayout(K, type, R, wall, lo, o = {}) {
     hang("clock", a.c + 0.4 * dir, 2.15);
     const pc = s + dir * 0.78; hang("painting", pc, 1.55);                // "Signature Required", on its hinge; behind it, a wall safe (Items, lv.safe)
     S.push(K.front(R, wall, a.c + 0.1 * dir, 0.5, 0.75), floorAt(1.0, 0.8)); S.safe = { paint: K.front(R, wall, pc, 0, 1.55), at: K.front(R, wall, pc, 0.22, 1.4) };
+  } else if (type === "office2") {               // v8.15 Act 5: a larger office: desk, two cabinets, a whiteboard and a noticeboard
+    const a = seq("desk"), b = seq("cabinet"), c = seq("cabinet");
+    top("computer", a.c - 0.3 * dir, 0.3, 0.75, 0, { seed: o.seed }); top("keyboard", a.c - 0.3 * dir, 0.58, 0.75); top("desklamp", a.c + 0.55 * dir, 0.2, 0.75); top("phone", a.c + 0.25 * dir, 0.28, 0.75); top("mug", a.c + 0.5 * dir, 0.55, 0.75);
+    K.F.push({ k: "chair", at: K.front(R, wall, a.c - 0.25 * dir, 1.05, 0), ry: ryW + Math.PI - 0.4 }, { k: "bin", at: K.front(R, wall, a.c + 0.55 * dir, 0.95, 0), ry: 0 });
+    top("flipclock", b.c, 0.3, 1.32); top("intray", c.c, 0.3, 1.32); hang("whiteboard", a.c, 1.75); hang("noticeboard", (b.c + c.c) / 2, 2.0);
+    S.push(K.front(R, wall, a.c + 0.1 * dir, 0.5, 0.75), floorAt(1.0, 0.8));
+  } else if (type === "server") {                // v8.15 Act 5: a server closet: two racks of old machines, the LED clock
+    const a = seq("shelving", { w: 1.2, seed: 41 }), b = seq("shelving", { w: 1.2, seed: 42 });
+    top("computer", a.c - 0.28, 0.24, 1.17, 0, { seed: 3 }); top("computer", a.c + 0.28, 0.24, 1.17, 0, { seed: 6 }); top("computer", b.c - 0.28, 0.24, 1.17, 0, { seed: 9 }); top("carton", b.c, 0.25, 2.0, 0, { size: "small" });
+    hang("ledclock", a.c, 2.3);
+    if (!o.inner) K.F.push({ k: "carton", at: floorAt(0.4, 0.3), ry: ryW + 0.25, size: "mid" }, { k: "bin", at: floorAt(0.95, 0.28), ry: 0 });      // (an inner room keeps the floor by its plate clear)
+    S.push(K.front(R, wall, b.c + 0.25, 0.3, 1.17), floorAt(0.7, 0.85));
+  } else if (type === "break2") {                // v8.15 Act 5: a break room: a table against the wall, the kettle, a fridge (and a cooler where there is room)
+    const a = seq("table"); top("kettle", a.c + 0.32 * dir, 0.3, 0.74); top("mug", a.c - 0.2 * dir, 0.32, 0.74, 0, { red: true }); top("mug", a.c - 0.38 * dir, 0.55, 0.74);
+    K.F.push({ k: "stackchair", at: K.front(R, wall, a.c - 0.15 * dir, 1.2, 0), ry: ryW + Math.PI + 0.3 });
+    s += dir * 0.75; const b = seq("fridge"); if (!o.short) seq("cooler"); hang("clock", a.c, 2.1);
+    S.push(K.front(R, wall, a.c + 0.05 * dir, 0.42, 0.74), floorAt(0.6, 0.8));
+  } else if (type === "lost") {                  // v8.15 staff room: the lost-and-found back room
+    const a = seq("shelving", { w: 1.2, seed: 61 }), b = seq("shelving", { w: 1.2, seed: 62 }), c = seq("cabinet");
+    top("carton", a.c - 0.2, 0.25, 2.0, 0, { size: "mid" }); top("sack", b.c, 0.25, 1.17); top("carton", b.c + 0.2, 0.25, 2.0, 0, { size: "small" }); top("mug", c.c, 0.3, 1.32);
+    hang("noticeboard", s + dir * 0.85, 1.6);
+    K.F.push({ k: "coatstand", at: floorAt(0.45, 0.35), ry: 0.6 }, { k: "sack", at: floorAt(1.25, 0.4), ry: ryW + 0.4 }, { k: "carton", at: K.front(R, wall, a.c, 0.8, 0), ry: ryW + 0.3, size: "big" });
+    S.push(K.front(R, wall, a.c + 0.15, 0.3, 1.17), floorAt(0.9, 1.0));
   } else if (type === "bare") {
     S.push(floorAt(1.5, 1.5));
   }
@@ -2497,16 +2520,44 @@ function denDress(h, sp, idx) {
   // the main room: furnish the side wall away from any opening; the opening side keeps its middle clear
   const ws = sp.staffSide || 0, freeSide = t ? -t : ws ? -ws : (sp.free || 1);      // (with no opening, the side away from O.'s scrawl)
   const wall1 = freeSide < 0 ? "L" : "R";
-  const spots1 = denLayout(K, sp.type || "store", R1, wall1, true, { seed: idx });
+  const spots1 = denLayout(K, sp.type || "store", R1, wall1, true, { seed: idx, short: !!sp.crate });
   denShell(K, R1, sp.type, 0);
   // back corners of the main room (beside the panel): a plant or a box, never in front of the panel
   const cs = -freeSide, cx = xa + cs * 1.45;
-  if (!(sp.items || []).some(it => it.kind === "vent")) K.F.push({ k: sp.type === "office" ? "plant" : "carton", at: K.at(cx, 5.6), ry: 0.4, size: "mid", seed: idx });
-  if (!t && !ws) spots1.push(K.at(xa + cs * 1.35, 3.9));
+  if (!sp.crate && !(sp.items || []).some(it => it.kind === "vent")) K.F.push({ k: sp.type === "office" ? "plant" : "carton", at: K.at(cx, 5.6), ry: 0.4, size: "mid", seed: idx });
+  if (sp.crate) {}                                                       // (Act 5: that corner is the crate's, and the hatch is by the other)
+  else if (!t && !ws) spots1.push(K.at(xa + cs * 1.35, 3.9));
   else spots1.push(K.at(xa + cs * 1.35, 2.55));
   // the second room
   let R2 = null, spots2 = [];
-  if (t && rec.t) {                                                     // Act 3: den() built it behind the slot
+  if (sp.crate) {
+    // v8.15 Act 5: the way further in is shut until the den's own crate is on the plate just inside a floor hatch. The crate fits through the
+    // hatch (1.1 m wide, 1.2 m high); you do not. Slot dens (den() `two`): a shutter over the slot, so the portal shot waits for the crate.
+    // One-room dens: a new room behind the side wall, its doorway shut the same way (a timed button inside always lets you out).
+    // The crate never leaves: an amber curtain in the den doorway, and `denBox` (updateFields) for every other way out
+    const a = t > 0 ? xa + 2 : xa - 2.5, b = a + 0.5, x0 = t > 0 ? xa + 2.5 : xa - 6.5, id = "den" + idx, zr = (e0, e1) => [Math.min(Z(e0), Z(e1)), Math.max(Z(e0), Z(e1))];
+    const hatch = () => [zb(a, sy, 4.6, b, sy + 2.7, 4.8), zb(a, sy + 1.2, 4.8, b, sy + 2.7, 5.9), zb(a, sy, 5.9, b, sy + 2.7, 6)];
+    h.doors = h.doors || []; h.plates = h.plates || []; h.cubes = h.cubes || [];
+    if (rec.t) {
+      const [z0, z1] = zr(4.6, 6), wi = B.findIndex(q => q.min[0] === a && q.max[0] === b && q.min[1] === sy && Math.abs(q.max[1] - sy - 2.7) < 1e-6 && Math.abs(q.min[2] - z0) < 1e-6 && Math.abs(q.max[2] - z1) < 1e-6);
+      if (wi < 0) throw new Error("no slot wall"); B.splice(wi, 1); B.push(...hatch());
+      R2 = { x0: rec.x2[0], x1: rec.x2[1], d0: 2, d1: 6 };
+      const [s0, s1] = zr(3.4, 4.6); h.doors.push({ id, min: [a + 0.2, sy + 1.3, s0], max: [a + 0.32, sy + 2.15, s1], rise: 0.9, need: 1 });
+    } else {
+      const wi = B.indexOf(rec.side[t]); if (wi >= 0) B.splice(wi, 1);
+      B.push(zb(a, sy, 2, b, sy + 2.7, 3.4), zb(a, sy + 2.2, 3.4, b, sy + 2.7, 4.6), ...hatch());
+      R2 = denRoom(h, rec, x0, x0 + 4, 2, 6, { L: t > 0 ? false : undefined, R: t > 0 ? undefined : false });
+      const [s0, s1] = zr(3.4, 4.6); h.air.push([a, sy, s0, b, sy + 2.2, s1]);
+      h.doors.push({ id, min: [a + 0.1, sy, zr(3.45, 4.55)[0]], max: [a + 0.4, sy + 2.2, zr(3.45, 4.55)[1]], rise: 2.45, need: 1 });
+      h.plates.push({ pos: [t > 0 ? x0 + 1.9 : x0 + 2.1, sy, Z(3.9)], door: id, hold: 2.5 });
+    }
+    const [h0, h1] = zr(4.8, 5.9); h.air.push([a, sy, h0, b, sy + 1.2, h1]);
+    h.plates.push({ pos: [t > 0 ? x0 + 0.3 : x0 + 3.7, sy, Z(5.35)], door: id });                    // half under the wall: a crate set down in the hatch presses it
+    h.cubes.push([xa + t * 1.45, sy + 0.36, Z(2.5), "den"]);
+    const [c0, c1] = zr(0.95, 1.05); h.curtains = (h.curtains || []).concat([{ min: [xa - 0.75, sy, c0], max: [xa + 0.75, sy + 2.3, c1] }]);
+    h.denIn = { door: id, min: [t > 0 ? x0 : x0 - 0.6, sy - 0.6, zr(1.4, 11)[0]], max: [t > 0 ? x0 + 4.6 : x0 + 4, sy + 2.9, zr(1.4, 11)[1]] };
+    const [b0, b1] = zr(0.7, 11); h.denBox = { min: [Math.min(xa - 2.6, x0 - 0.6), sy - 0.6, b0], max: [Math.max(xa + 2.6, x0 + 4.6), sy + 2.9, b1] };
+  } else if (t && rec.t) {                                              // Act 3: den() built it behind the slot
     R2 = { x0: rec.x2[0], x1: rec.x2[1], d0: 2, d1: 6 };
   } else if (sp.timed) {                                                // Act 4: behind a shutter on a timed button
     const a = t > 0 ? xa + 2 : xa - 2.5, b = a + 0.5, wi = B.indexOf(rec.side[t]); if (wi >= 0) B.splice(wi, 1);
@@ -2520,9 +2571,10 @@ function denDress(h, sp, idx) {
   if (R2) {
     spaces.push(R2);
     const lo = t < 0;                                                   // pack the back wall from the far end
-    spots2 = denLayout(K, sp.type2 || sp.type || "store", R2, sp.staff ? "F" : "B", !lo ? false : true, { seed: idx + 50 });      // (with a staff door in its back wall, the front wall takes the furniture)
+    spots2 = denLayout(K, sp.type2 || sp.type || "store", R2, sp.staff ? "F" : "B", !lo ? false : true, { seed: idx + 50, short: !!sp.crate, inner: !!sp.crate });      // (with a staff door in its back wall, the front wall takes the furniture)
     denShell(K, R2, sp.type2 || sp.type, 0);
-    if (!rec.t) K.F.push({ k: "carton", at: K.at(t > 0 ? R2.x1 - 0.4 : R2.x0 + 0.4, 2.4), ry: 0.3, size: "mid" });
+    if (!rec.t && !sp.staff) K.F.push({ k: "carton", at: K.at(t > 0 ? R2.x1 - 0.4 : R2.x0 + 0.4, 2.4), ry: 0.3, size: "mid" });
+    if (sp.grille) denGrille(h, rec, R2, zb, K);
   }
   // the staff room: deepest, behind a key-card door
   let R3 = null, spots3 = [];
@@ -2555,7 +2607,8 @@ function denDress(h, sp, idx) {
   for (const it of sp.items || []) {
     if (it.badge) { const p = pick(it.space); h.badge = [p[0], p[1] + (p[1] - sy > 0.3 ? 0.45 : 0.95), p[2]]; continue; }      // a card over a desk or shelf hangs lower, so you can reach it
     if (it.kind === "breaker") { const inR2 = it.space === 1 && R2; h.breakers = (h.breakers || []).concat([Object.assign({ pos: [inR2 ? (R2.x0 + R2.x1) / 2 + 0.6 : xa - freeSide * 1.4, sy + 1.45, Z(2.0)], n: [0, 0, out] }, it, { kind: undefined, space: undefined })]); continue; }
-    if (it.kind === "vent") { h.vents = (h.vents || []).concat([Object.assign({ pos: [xa - freeSide * 1.35, sy + 0.45, Z(6)], n: [0, 0, -out], exitDen: true }, it, { kind: undefined, space: undefined })]); continue; }
+    if (it.kind === "vent" && sp.crate) { const vx = xa + freeSide * 1.35; for (let i = K.F.length - 1; i >= 0; i--) if (K.F[i].k === "carton" && Math.abs(K.F[i].at[0] - vx) < 0.9 && Math.abs(K.F[i].at[2] - Z(6)) < 1.2 && K.F[i].at[1] - sy < 0.5) K.F.splice(i, 1); }      // nothing on the floor in front of the vent
+    if (it.kind === "vent") { h.vents = (h.vents || []).concat([Object.assign({ pos: [xa - (sp.crate ? -1 : 1) * freeSide * 1.35, sy + 0.45, Z(6)], n: [0, 0, -out], exitDen: true }, it, { kind: undefined, space: undefined })]); continue; }
     items.push(Object.assign({ pos: pick(it.space) }, it, { space: undefined }));
   }
   if (sp.patch) (h.loose = h.loose || []).push(["box", xa + freeSide * 1.996, sy + 1.55, Z(4.85), 0.006, 0.34, 0.46, 0xb9c0c6]);    // a clean, sticker-shaped patch on the grimy wall
@@ -2564,7 +2617,8 @@ function denDress(h, sp, idx) {
   if (sp.lines) for (const [n, line] of sp.lines) { const s = spaces[n]; if (s) (h.trig = h.trig || []).push({ min: [s.x0, sy - 0.2, Math.min(Z(s.d0), Z(s.d1))], max: [s.x1, sy + 2.7, Math.max(Z(s.d0), Z(s.d1))], line }); }
   // O.'s scrawl (den() put it on the -(t || 1) side wall): where furniture now stands in front of it, it moves to a bare wall further in
   const sg = h.signs.find(g => g.kind === "scrawl" && Math.abs(g.pos[1] - (sy + 1.75)) < 0.01 && Math.abs(g.pos[2] - Z(4.3)) < 0.01 && Math.abs(Math.abs(g.pos[0] - xa) - 1.999) < 0.01);
-  if (sg && Math.sign(sg.pos[0] - xa) === freeSide) {
+  if (sg && Math.sign(sg.pos[0] - xa) === freeSide && sp.crate && rec.t) { sg.pos = [sg.pos[0], sy + 1.5, Z(5.3)]; sg.w = 1.3; sg.h = 0.42; }      // v8.15: Act 5 slot dens have a second scrawl on the inner room's front wall, so this one stays, small, past the furniture
+  else if (sg && Math.sign(sg.pos[0] - xa) === freeSide) {
     const R = R3 && !R2 ? R3 : R2 && !R3 ? R2 : R3;
     if (R && R.d0 === 2) { sg.pos = [(R.x0 + R.x1) / 2, sy + 1.6, Z(2) + out * 0.001]; sg.n = [0, 0, out]; }
     else if (R) { const fx = t > 0 ? R.x1 : R.x0; sg.pos = [fx - Math.sign(fx - (R.x0 + R.x1) / 2) * 0.001, sy + 1.6, Z((R.d0 + R.d1) / 2)]; sg.n = [-Math.sign(fx - (R.x0 + R.x1) / 2), 0, 0]; }
@@ -2573,12 +2627,39 @@ function denDress(h, sp, idx) {
   if (sp.art) h.art = sp.art;
   h.denSpaces = spaces;
 }
-// O.'s pages 1 to 4 and the tapes 1 to 4 (the rest come with the later batches)
+// v8.15 Gauntlet: a grille in the inner room's floor, and under it the first sight of the service level: raw concrete, pipes, a cable tray,
+// a pallet of spare panels, one of O.'s painted arrows. Nothing down there can be reached; the grille is solid (lv.hidden) and takes no portal
+function denGrille(h, rec, R2, zb, K) {
+  const { sy, zs, out } = rec, Z = d => zs + out * d, B = h.boxes, gx0 = R2.x0 + 1.0, gx1 = gx0 + 1.3, gd0 = 2.35, gd1 = 3.65, y0 = sy - 4.2;
+  const zr = (e0, e1) => [Math.min(Z(e0), Z(e1)), Math.max(Z(e0), Z(e1))];
+  const fi = B.findIndex(q => q.min[0] === R2.x0 && q.max[0] === R2.x1 && q.max[1] === sy && Math.abs(q.min[1] - (sy - 0.5)) < 1e-6);
+  if (fi < 0) throw new Error("no inner floor"); B.splice(fi, 1);
+  B.push(zb(R2.x0, sy - 0.5, 2, gx0, sy, 6.5), zb(gx1, sy - 0.5, 2, R2.x1, sy, 6.5), zb(gx0, sy - 0.5, 2, gx1, sy, gd0), zb(gx0, sy - 0.5, gd1, gx1, sy, 6.5));
+  B.push(zb(R2.x0 - 0.5, y0 - 0.5, 2, R2.x1 + 0.5, y0, 6.5), zb(R2.x0 - 0.5, y0, 2, R2.x0, sy - 0.5, 6.5), zb(R2.x1, y0, 2, R2.x1 + 0.5, sy - 0.5, 6.5), zb(R2.x0, y0, 6, R2.x1, sy - 0.5, 6.5));      // the service level's floor and walls
+  const fl = K.F.findIndex(q => q.k === "floor" && Math.abs(q.at[0] - (R2.x0 + R2.x1) / 2) < 0.01 && Math.abs(q.at[2] - Z(4)) < 0.01);      // the lino is laid round the hole
+  if (fl >= 0) { const f0 = K.F[fl], piece = (xA, xB, dA, dB) => Object.assign({}, f0, { at: [(xA + xB) / 2, f0.at[1], Z((dA + dB) / 2)], w: xB - xA, d: dB - dA });
+    K.F.splice(fl, 1, piece(R2.x0, gx0, 2, 6), piece(gx1, R2.x1, 2, 6), piece(gx0, gx1, 2, gd0), piece(gx0, gx1, gd1, 6)); }
+  const [a0, a1] = zr(2, 6), [g0, g1] = zr(gd0, gd1);
+  h.air.push([R2.x0, y0, a0, R2.x1, sy - 0.5, a1], [gx0, sy - 0.5, g0, gx1, sy, g1]);
+  (h.hidden = h.hidden || []).push(Object.assign(zb(gx0, sy - 0.08, gd0, gx1, sy, gd1), { furn: true }));
+  const L = h.loose = h.loose || [], zc = (g0 + g1) / 2, xc = (gx0 + gx1) / 2, steel = 0x4b5258;
+  for (let i = 0; i < 9; i++) L.push(["box", gx0 + 0.07 + i * (gx1 - gx0 - 0.14) / 8, sy - 0.03, zc, 0.035, 0.05, g1 - g0, steel]);
+  L.push(["box", xc, sy - 0.03, g0 + 0.03, gx1 - gx0, 0.06, 0.06, steel], ["box", xc, sy - 0.03, g1 - 0.03, gx1 - gx0, 0.06, 0.06, steel], ["box", xc, sy - 0.035, zc, gx1 - gx0, 0.04, 0.035, steel]);
+  const zm = (a0 + a1) / 2, zo = d => zs + out * d;
+  L.push(["cyl", xc - 0.1, sy - 1.3, zm, 0.16, 4.0, 0, 0x8a4a32, 0, Math.PI / 2], ["cyl", xc, sy - 1.75, zo(2.5), 0.09, 4.0, 0, 0x6f7a80, 0, Math.PI / 2], ["cyl", xc, sy - 1.75, zo(2.68), 0.06, 4.0, 0, 0xb9a23a, 0, Math.PI / 2],      // pipes
+    ["box", xc, sy - 2.2, zo(3.5), 4.0, 0.06, 0.5, 0x3d4347], ["box", xc, sy - 2.14, zo(3.4), 4.0, 0.05, 0.05, 0x1c1f22], ["box", xc, sy - 2.14, zo(3.6), 4.0, 0.05, 0.05, 0xc5482e],     // a cable tray and its cables
+    ["box", xc + 0.45, y0 + 0.08, zo(3.05), 1.3, 0.16, 1.0, 0x8b6b43], ["box", xc + 0.45, y0 + 0.24, zo(3.05), 1.2, 0.14, 0.95, 0xe6e9ec], ["box", xc + 0.5, y0 + 0.38, zo(3.07), 1.2, 0.14, 0.95, 0xdfe3e6, 0.07],      // a pallet of spare white panels
+    ["box", xc - 0.4, y0 + 0.012, zo(2.95), 0.16, 0.02, 0.9, 0xe2b93b], ["box", xc - 0.4, y0 + 0.012, zo(3.3), 0.5, 0.02, 0.14, 0xe2b93b, 0.75], ["box", xc - 0.4, y0 + 0.013, zo(3.3), 0.5, 0.02, 0.14, 0xe2b93b, -0.75]);   // O.'s arrow
+  h.lamps.push(lamp(xc + 1.2, sy - 1.0, zo(3.6), .5, 5, 1, .72, .42));
+}
+// O.'s pages 1 to 6 and the tapes 1 to 4 (the rest come with the later batches)
 const O_PAGES = {
   1: { title: "O.'s page 1", text: ["Somebody came in from the car park tonight. Wet through, a parcel under one arm, asking for a signature.", "SHE told them to wait. Then she told them to take the lift. I watched it go down on the board.", "I have been here long enough to know what the lift means. I am going to keep an eye on this one. - O."] },
   2: { title: "O.'s page 2", text: ["The courier is still going. Four rooms in and still holding on to the parcel like it matters.", "It does, I suppose. Nobody has had post in years. I checked the address on the label while she was busy with the lasers. It says SUPERVISOR. There is no supervisor.", "I have left the door to this room open. If you are reading this, that was for you. - O."] },
   3: { title: "O.'s page 3", text: ["She has started calling you the delivery. She did that to me once. Not the delivery. The volunteer.", "Things I have learned in here: the sentries never look behind themselves. The cameras can be knocked off a wall. She does not come into the walls. She cannot see in here.", "Keep the parcel. Do not let her sign for it. - O."] },
-  4: { title: "O.'s page 4", text: ["Everybody went home at 8:38. That is what the clocks say. I stopped them so I would not forget.", "Nobody came back. She kept the tests running anyway. She says it is what they would have wanted.", "I have a place further in. I keep things there. If you get that far, knock. - O."] }
+  4: { title: "O.'s page 4", text: ["Everybody went home at 8:38. That is what the clocks say. I stopped them so I would not forget.", "Nobody came back. She kept the tests running anyway. She says it is what they would have wanted.", "I have a place further in. I keep things there. If you get that far, knock. - O."] },
+  5: { title: "O.'s page 5", text: ["I rang Physics from their own telephone. It rang in the next room. I went and answered it. It was me.", "There is a switch in here for her microphone. With it off she only talks in the rooms she is watching. I left it off for a year. It was the quietest year.", "Turn it on if you miss her. I did, in the end. - O."] },
+  6: { title: "O.'s page 6", text: ["The rooms have started to repeat. Not the same rooms. The same ideas, in a different order. She is running out, and she knows it.", "Behind the walls it is not like out there. Nobody finished it. Girders, pallets, the sentries they never switched on, stacked like chairs.", "The test track ends. The building does not. Remember that when the lift stops where it should not. - O."] }
 };
 const HM_TAPES = {
   1: { title: "Hold Music: lost reel 1", lines: ["TED: Welcome back to Hold Music. My guest tonight is a sock.", "LINT: I am a gym sock. There is a difference.", "TED: Is there.", "LINT: I have been places, Ted. I have been to the gym.", "TED: Once.", "LINT: Once is places."] },
@@ -2590,7 +2671,8 @@ const LINT_TRACES = {
   1: { name: "A length of yellow thread, snagged on a nail", look: "thread" },
   2: { name: "A googly eye, under the desk", look: "eye" },
   3: { name: "A visitor lanyard clip, no lanyard", look: "clip" },
-  4: { name: "A ball of yellow fluff, filed under L", look: "fluff" }
+  4: { name: "A ball of yellow fluff, filed under L", look: "fluff" },
+  5: { name: "A length of yellow thread, tagged UNCLAIMED", look: "thread" }
 };
 const denCard = n => ({ badge: true, space: n });
 const DEN_SPEC = {
@@ -2629,7 +2711,19 @@ const DEN_SPEC = {
   "Moving Target": { type: "records", timed: 1, type2: "records", items: [denCard(1)] },
   "Terminal Velocity": { type: "workshop", timed: 1, type2: "records", items: [{ id: "clock", kind: "clock" }], art: "scream",
     staff: { cards: 11, type: "recoff", items: [Object.assign({ id: "lint4", kind: "pickup" }, LINT_TRACES[4]), { kind: "safe", art: "scream", item: Object.assign({ id: "tape4", kind: "tape" }, HM_TAPES[4]) }] },
-    lines: [[2, "The Records office. Everything that ever happened here is in this room, in alphabetical order. I am filed under S. Nobody has ever opened S."]] }
+    lines: [[2, "The Records office. Everything that ever happened here is in this room, in alphabetical order. I am filed under S. Nobody has ever opened S."]] },
+  // v8.15 (dens plan Batch 3): Act 5, rooms 31 to 38. `crate`: the inner room opens while the den's own crate is on the plate behind the floor hatch
+  "Walkway": { type: "office2", type2: "server", crate: true, items: [{ id: "mic", kind: "breaker", label: "Microphone", fx: "mic" }, Object.assign({ id: "page5", kind: "page", space: 1 }, O_PAGES[5])] },
+  "Updraft": { type: "break2", type2: "server", crate: true, timed: 1, items: [denCard(1)] },
+  "Primer": { type: "workshop", type2: "break2", crate: true, timed: 1, items: [denCard(1), { id: "vent", kind: "vent", to: "The Last Word", skip: "Crate Seven" }] },
+  "Crate Seven": { type: "store", type2: "office", crate: true, items: [{ id: "stk-7", kind: "sticker", sticker: "seven", space: 1 }] },
+  "The Last Word": { type: "office2", type2: "break2", crate: true, timed: 1, items: [{ id: "clock", kind: "clock", space: 1 }] },
+  "Cold Storage": { type: "server", type2: "office", crate: true, items: [denCard(1), Object.assign({ id: "page6", kind: "page" }, O_PAGES[6])] },
+  "Retrieval": { type: "break2", type2: "server", crate: true, timed: 1,
+    staff: { cards: 14, type: "lost", items: [{ id: "stk-lost", kind: "sticker", sticker: "lost" }, Object.assign({ id: "lint5", kind: "pickup" }, LINT_TRACES[5])] },
+    lines: [[2, "The lost-and-found back room. Everything in here is lost. Nothing in here has been found. I named it in a hopeful year."]] },
+  "Gauntlet": { type: "office2", type2: "server", crate: true, grille: true, items: [{ id: "clock", kind: "clock" }],
+    lines: [[1, "Do not look through that grille. There is nothing under this facility except more facility, and none of it is finished, and none of it is yours."]] }
 };
 // LEVEL_FUNCS wraps each room function with this: a room in this batch has its den dressed, and its chamber card goes where DEN_SPEC says
 function denWrap(f, i) {
@@ -3318,6 +3412,7 @@ function buildLevel(idx) {
   const out = {};
   bakeFaces(lv.boxes, lv.boxes, lv.lamps, W.air, out);
   if (furn) { levelGroup.add(furn.group); for (const b of furn.solids) lv.boxes.push(b); W.furn = furn; }
+  for (const b of lv.hidden || []) lv.boxes.push(b);                        // v8.15: solid, never drawn (the grille's bars are loose props)
   for (const m in out) { const mesh = new THREE.Mesh(geoFrom(out[m]), MAT[m]); mesh.frustumCulled = false; levelGroup.add(mesh); }
   // ceiling fixtures (a lamp hung just under a ceiling with no fixture of its own gets one, or it baked a bare bright oval onto the ceiling)
   for (const L of lv.lamps) {
@@ -3448,7 +3543,7 @@ function buildLevel(idx) {
     const A = raft ? makeRaft() : makeCube(), Bg = raft ? { group: new THREE.Group(), mats: [] } : makeCube(); Bg.group.visible = false;
     const sh = new THREE.Mesh(SHADOW_GEO, new THREE.MeshBasicMaterial({ map: SHADOW_TEX, transparent: true, depthWrite: false, opacity: .6, polygonOffset: true, polygonOffsetFactor: -2 })); sh.visible = false; sh.frustumCulled = false; sh.renderOrder = 2;
     scene.add(A.group, Bg.group, sh);
-    W.cubes.push({ p: new V3(...c), v: new V3(), spawn: c.slice(), mesh: A.group, ghost: Bg.group, mats: A.mats, gmats: Bg.mats, shadow: sh, held: false, hv: new V3(), yaw: 0, q: new QT(), pv: new V3(...c), raft, prism: tag === "prism", seven: tag === "seven", yaw0: raft ? 0 : c0[4] || 0 });
+    W.cubes.push({ p: new V3(...c), v: new V3(), spawn: c.slice(), mesh: A.group, ghost: Bg.group, mats: A.mats, gmats: Bg.mats, shadow: sh, held: false, hv: new V3(), yaw: 0, q: new QT(), pv: new V3(...c), raft, prism: tag === "prism", seven: tag === "seven", den: tag === "den", yaw0: raft ? 0 : c0[4] || 0 });
     if (tag) v5Dress(W.cubes[W.cubes.length - 1], A);
   }
   // sentries (turret robots)
@@ -4226,6 +4321,7 @@ function setCubeState(c, pos, q, lin, ang) {
 // can't climb back to); then it drops just in front of the player, on solid floor away from acid.
 function cubeHome(c) {
   const sp = new V3(...c.spawn), pl = player;
+  if (c.den) return sp;                                                    // v8.15: a den's own crate always goes back to its corner of the den
   if (c.kind === "sentry" || state !== "play" || Math.abs(pl.p.y - HY - (sp.y - 0.35)) < 2.5) return sp;
   const f = viewDir(new V3()); f.y = 0; if (f.lengthSq() < 1e-4) f.set(0, 0, -1); f.normalize();
   for (const d of [1.4, 1.0, -1.2]) {
@@ -6381,7 +6477,14 @@ function updateFields(dt) {
       const pb = { min: [player.p.x - HX, player.p.y - HY, player.p.z - HZ()], max: [player.p.x + HX, player.p.y + HY, player.p.z + HZ()] };
       if (!f.curtain && boxOverlap(pb, f) && f.cool <= 0) { f.cool = 1; if (portals[0].on || portals[1].on) { clearPortals(); updateCross(); sfx.field(); toast("Portals reset"); if (!run.said.field) { run.said.field = 1; say("fieldHit"); } } }
     }
-    for (const c of props()) if (boxOverlap(cubeBox(c), f)) { respawnCube(c); }
+    for (const c of props()) if ((!f.curtain || c.den) && boxOverlap(cubeBox(c), f)) { respawnCube(c); if (f.curtain && state === "play") toast("The crate stays in here"); }      // v8.15: a den's curtain only takes the den's own crate
+  }
+  const db = world.lv.denBox;                                               // v8.15: however it gets out (a portal, a throw), a den's crate is put back
+  if (db) for (const c of world.cubes) if (c.den && (c.p.x < db.min[0] || c.p.x > db.max[0] || c.p.y < db.min[1] || c.p.y > db.max[1] || c.p.z < db.min[2] || c.p.z > db.max[2])) { respawnCube(c); if (state === "play") toast("The crate stays in here"); }
+  const di = world.lv.denIn;                                                // and if it is left shut in the inner room with nobody in there, it goes back to its corner, so the way in can always be opened again
+  if (di && state === "play") {
+    const dd = world.doors.find(q => q.id === di.door), inB = p => p.x > di.min[0] && p.x < di.max[0] && p.y > di.min[1] && p.y < di.max[1] && p.z > di.min[2] && p.z < di.max[2];
+    if (dd && dd.t <= 0 && !inB(player.p)) for (const c of world.cubes) if (c.den && !c.held && inB(c.p)) respawnCube(c);
   }
 }
 const HZ = () => HX;
