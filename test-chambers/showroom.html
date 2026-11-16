@@ -103,12 +103,20 @@ h4 { margin: 4px 2px 8px; font-size: 11px; letter-spacing: .22em; color: var(--d
         <button id="bDen" data-tip="A fully furnished den: every room type's pieces together, for the frame rate">Den</button>
         <button id="bSpin" class="on" data-tip="Turn the piece slowly (drag to look round it yourself)">Spin</button>
         <button id="bSwing" data-tip="Swing the painting aside to see the white panel behind it" hidden>Swing</button>
+        <button id="bArt" data-tip="See the painting flat, full size">View</button>
         <label data-tip="How long it has been there: 0 is new, 1 is years of grime">Grime <input id="grime" type="range" min="0" max="1" step="0.25" value="0"></label>
       </div>
     </div>
   </main>
 </div>
 <div id="tip"></div>
+<div class="ov" id="ovArt" hidden>
+  <div class="card" style="width:min(1000px,100%);padding:14px">
+    <button class="pill ghost x" id="bArtX" data-tip="Close">Done</button>
+    <h2 id="artTitle" style="margin:4px 4px 10px"></h2>
+    <div id="artBox" style="border:10px solid #8a6f33;border-radius:3px;box-shadow:0 0 0 2px #4d3c1a inset,0 8px 30px rgba(0,0,0,.6);line-height:0"></div>
+  </div>
+</div>
 <div class="ov" id="ovHelp" hidden>
   <div class="card">
     <button class="pill ghost x" id="bHelpX" data-tip="Close">Done</button>
@@ -119,7 +127,7 @@ h4 { margin: 4px 2px 8px; font-size: 11px; letter-spacing: .22em; color: var(--d
       <li><b>Pieces:</b> tap one to see it. Drag to look round it, pinch or scroll to zoom. An orange dot means it is solid in the game (you bump into it; it takes no portals).</li>
       <li><b>Grime</b> shows how it looks deeper in the game, from new (0) to years old (1).</li>
       <li><b>Den</b> puts most of the kit in one room. The painting's <b>Swing</b> shows the white panel behind it.</li>
-      <li>The painting here is a stand-in. The real picture comes later.</li>
+      <li>The painting is "The Long Valley, Evening", an original landscape painted in code. <b>View</b> shows it flat and full size.</li>
     </ul>
   </div>
 </div>
@@ -133,7 +141,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { Furn, KIT_VERSION } from "./furniture.js";
 
-const VERSION = "v1.0";
+const VERSION = "v1.1";
 const $ = id => document.getElementById(id);
 $("ver").textContent = VERSION + " · " + KIT_VERSION;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js").catch(() => {});
@@ -291,6 +299,8 @@ canvas.addEventListener("wheel", e => { e.preventDefault(); orbit.dist = Math.ma
     wrap.append(row); $("pieces").append(wrap);
   }
 }
+$("bArt").onclick = () => { const c = Furn.art(); c.style.width = "100%"; c.style.height = "auto"; $("artTitle").textContent = Furn.PAINTING.title; $("artBox").replaceChildren(c); $("ovArt").hidden = false; };
+$("bArtX").onclick = () => $("ovArt").hidden = true; $("ovArt").onclick = e => { if (e.target.id === "ovArt") $("ovArt").hidden = true; };
 $("bPiece").onclick = () => setMode("piece"); $("bDen").onclick = () => setMode("den");
 $("bSpin").onclick = () => { spin = !spin; $("bSpin").classList.toggle("on", spin); };
 $("bSwing").onclick = () => { swingOn = !swingOn; $("bSwing").classList.toggle("on", swingOn); };
@@ -324,6 +334,7 @@ const CHECKS = [
   ["trap", "No trap gaps", "No gap between solid furniture and walls a body can wedge into (and the checker catches a planted one)."],
   ["grime", "Grime by depth", "Every material looks different new and after years."],
   ["hinge", "Painting swings", "The painting turns on its hinge and back."],
+  ["art", "Painting painted", "The landscape paints itself and is not blank."],
   ["match", "Matches the pick-ups", "The kit's mug and small box are the same size as the pick-up mug and box."],
   ["fps", "Frame rate, furnished den", "Renders the den empty, then furnished, for 2 seconds each. 50 fps or better furnished passes."]
 ];
@@ -374,6 +385,8 @@ async function runChecks() {
   // hinge
   const pnt = Furn.make("painting", {}, 0); Furn.swing(pnt, 1); const r1 = pnt.userData.pivot.rotation.y; Furn.swing(pnt, 0); const r0 = pnt.userData.pivot.rotation.y;
   done("hinge", Math.abs(r1 + 1.75) < 1e-6 && r0 === 0 ? "pass" : "fail", `Open ${(-r1 * 180 / Math.PI).toFixed(0)}°, shut ${(r0 * 180 / Math.PI).toFixed(0)}°.`);
+  { const t1 = performance.now(), c = Furn.art(), ms = performance.now() - t1, px = c.getContext("2d").getImageData(0, 0, c.width, c.height).data; let lo = 255, hi = 0; for (let i = 0; i < px.length; i += 4001 * 4) { const l = (px[i] + px[i + 1] + px[i + 2]) / 3; lo = Math.min(lo, l); hi = Math.max(hi, l); }
+    done("art", hi - lo > 120 ? "pass" : "fail", `${c.width} × ${c.height}, ${ms < 5 ? "already painted" : "painted in " + ms.toFixed(0) + " ms"}; darkest ${lo.toFixed(0)}, lightest ${hi.toFixed(0)}.`); }
   // matches the pick-ups (mug: 0.05 m radius, 0.11 m tall; box 0.18 x 0.14 x 0.12)
   const mb3 = Furn.template("mug", {}).box, cb3 = Furn.template("carton", { size: "small" }).box;
   const mugOk = Math.abs((mb3.max.y - mb3.min.y) - 0.11) < 0.005 && Math.abs(mb3.max.z - 0.05) < 0.006;
