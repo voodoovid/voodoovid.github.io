@@ -103,7 +103,7 @@ h4 { margin: 4px 2px 8px; font-size: 11px; letter-spacing: .22em; color: var(--d
         <button id="bDen" data-tip="A fully furnished den: every room type's pieces together, for the frame rate">Den</button>
         <button id="bSpin" class="on" data-tip="Turn the piece slowly (drag to look round it yourself)">Spin</button>
         <button id="bSwing" data-tip="Swing the painting aside to see the white panel behind it" hidden>Swing</button>
-        <button id="bArt" data-tip="See the painting flat, full size">View</button>
+        <button id="bArt" data-tip="See the painting flat, full size (pick Landscape painting first to see that one)">View</button>
         <label data-tip="How long it has been there: 0 is new, 1 is years of grime">Grime <input id="grime" type="range" min="0" max="1" step="0.25" value="0"></label>
       </div>
     </div>
@@ -127,7 +127,7 @@ h4 { margin: 4px 2px 8px; font-size: 11px; letter-spacing: .22em; color: var(--d
       <li><b>Pieces:</b> tap one to see it. Drag to look round it, pinch or scroll to zoom. An orange dot means it is solid in the game (you bump into it; it takes no portals).</li>
       <li><b>Grime</b> shows how it looks deeper in the game, from new (0) to years old (1).</li>
       <li><b>Den</b> puts most of the kit in one room. The painting's <b>Swing</b> shows the white panel behind it.</li>
-      <li>The painting is "Signature Required": a play on The Scream with the courier screaming, painted in code. <b>View</b> shows it flat and full size.</li>
+      <li>There are two paintings, both painted in code: "Signature Required" (a play on The Scream with the courier screaming) and "The Long Valley, Evening" (a landscape). <b>View</b> shows the one you last picked, flat and full size.</li>
     </ul>
   </div>
 </div>
@@ -141,7 +141,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { Furn, KIT_VERSION } from "./furniture.js";
 
-const VERSION = "v1.2";
+const VERSION = "v1.3";
 const $ = id => document.getElementById(id);
 $("ver").textContent = VERSION + " · " + KIT_VERSION;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js").catch(() => {});
@@ -193,7 +193,8 @@ const sCeil = new THREE.Mesh(new THREE.BoxGeometry(6, 0.1, 6), DARK); sCeil.posi
 const plinth = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.75, 0.55), new THREE.MeshStandardMaterial({ color: 0x3a4048, roughness: .7 })); plinth.position.y = 0.375; stage.add(plinth);
 const behind = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.0, 0.02), WHITE); behind.visible = false; stage.add(behind);    // the white panel behind the painting
 const DESKTOP = new Set(["desklamp", "computer", "keyboard", "phone", "intray", "kettle", "mug"]);
-const WALL_Y = { clock: 2.0, noticeboard: 1.55, whiteboard: 1.45, toolboard: 1.35, painting: 1.6, skirting: 0, door: 0 };
+const WALL_Y = { clock: 2.0, noticeboard: 1.55, whiteboard: 1.45, toolboard: 1.35, painting: 1.6, landscape: 1.6, skirting: 0, door: 0 };
+const isArt = k => k === "painting" || k === "landscape";
 
 // ---------- the den: most of the kit in one 6 x 4.5 m room (office, break corner, store wall) ----------
 const den = new THREE.Group(); den.visible = false; scene.add(den);
@@ -213,7 +214,7 @@ const DEN_LIST = [
   { k: "intray", at: [-1.72, 0.75, bz + 0.55], ry: 0.2 }, { k: "desklamp", at: [-2.85, 0.75, bz + 0.2], ry: 0.5 }, { k: "mug", at: [-2.02, 0.75, bz + 0.6], red: true },
   { k: "cabinet", at: [-1.25, 0, bz + 0.31] }, { k: "cabinet", at: [-0.78, 0, bz + 0.31] },
   { k: "whiteboard", at: [-2.0, 1.45, bz] }, { k: "clock", at: [-0.8, 2.0, bz] }, { k: "painting", at: [lx, 1.6, -1.0], turn: 1 },
-  { k: "plant", at: [lx + 0.35, 0, 1.85] }, { k: "bin", at: [-1.5, 0, bz + 0.85] }, { k: "coatstand", at: [lx + 0.45, 0, 1.1] },
+  { k: "landscape", at: [lx, 1.75, 1.45], turn: 1 }, { k: "plant", at: [lx + 0.35, 0, 1.85] }, { k: "bin", at: [-1.5, 0, bz + 0.85] }, { k: "coatstand", at: [lx + 0.45, 0, 1.1] },
   { k: "door", at: [lx, 0, 0.2], turn: 1, label: "Records" },
   // break corner (fridge, cooler and vending machine along the right wall; every solid gap is shut or at least 75 cm)
   { k: "sofa", at: [1.4, 0, bz + 0.43], w: 1.6 }, { k: "noticeboard", at: [1.4, 1.55, bz] },
@@ -249,11 +250,11 @@ function showPiece(k) {
   const info = Furn.PIECES[k], o = k === "door" ? { label: "Records" } : k === "floor" ? { w: 2, d: 2, type: "carpet" } : {};
   shown = Furn.make(k, o, grime);
   const desk = DESKTOP.has(k), wy = WALL_Y[k];
-  plinth.visible = desk; sCeil.visible = !!info.ceil; behind.visible = k === "painting";
+  plinth.visible = desk; sCeil.visible = !!info.ceil; behind.visible = isArt(k); behind.rotation.z = k === "landscape" ? Math.PI / 2 : 0;
   if (info.wall) shown.position.set(0, wy !== undefined ? wy : 1.4, -0.6);
   else if (info.ceil) shown.position.set(0, 2.7, 0);
   else shown.position.set(0, desk ? 0.75 : 0, 0);
-  if (k === "painting") { behind.position.set(0, 1.6, -0.59); Furn.swing(shown, swingOn ? 1 : 0); }
+  if (isArt(k)) { behind.position.set(0, 1.6, -0.59); Furn.swing(shown, swingOn ? 1 : 0); }
   stage.add(shown);
   const box = new THREE.Box3().setFromObject(shown), c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
   orbit.target.copy(c); orbit.dist = Math.max(0.6, Math.max(sz.x, sz.y, sz.z) * 1.9 + 0.35) * (cam.aspect < 1 ? Math.pow(cam.aspect, -0.85) : 1);      // a tall, narrow view (iPhone) stands further back
@@ -261,7 +262,7 @@ function showPiece(k) {
   const t = Furn.template(k, o);
   $("hudName").textContent = info.name.toUpperCase();
   $("cap").innerHTML = `<b>${info.name}</b> · ${info.group}<br>${info.info}<br><span style="opacity:.7">${Math.round(t.tris).toLocaleString()} triangles · ${t.parts.length} materials${t.solid.length ? " · solid" : ""}</span>`;
-  $("bSwing").hidden = k !== "painting";
+  $("bSwing").hidden = !isArt(k);
   document.querySelectorAll(".grp button").forEach(b => b.classList.toggle("on", b.dataset.k === k));
 }
 function setMode(m) {
@@ -299,7 +300,7 @@ canvas.addEventListener("wheel", e => { e.preventDefault(); orbit.dist = Math.ma
     wrap.append(row); $("pieces").append(wrap);
   }
 }
-$("bArt").onclick = () => { const c = Furn.art(); c.style.width = "100%"; c.style.height = "auto"; $("artTitle").textContent = Furn.PAINTING.title; $("artBox").replaceChildren(c); $("ovArt").hidden = false; };
+$("bArt").onclick = () => { const which = curK === "landscape" ? "valley" : "scream", c = Furn.art(which); c.style.width = "100%"; c.style.height = "auto"; $("artTitle").textContent = Furn.PAINTINGS[which].title; $("artBox").parentNode.style.width = which === "valley" ? "min(1000px,100%)" : "min(560px,100%)"; $("artBox").replaceChildren(c); $("ovArt").hidden = false; };
 $("bArtX").onclick = () => $("ovArt").hidden = true; $("ovArt").onclick = e => { if (e.target.id === "ovArt") $("ovArt").hidden = true; };
 $("bPiece").onclick = () => setMode("piece"); $("bDen").onclick = () => setMode("den");
 $("bSpin").onclick = () => { spin = !spin; $("bSpin").classList.toggle("on", spin); };
@@ -315,7 +316,7 @@ function frame(now) {
   fpsAcc += dt; fpsN++; if (fpsAcc > 0.5) { fpsShow = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0; $("fps").textContent = fpsShow.toFixed(0) + " fps"; }
   orbit.idle += dt; if (spin && orbit.idle > 1.5 && !(mode === "piece" && Furn.PIECES[curK].wall)) orbit.yaw += dt * 0.35;
   swingA += ((swingOn ? 1 : 0) - swingA) * Math.min(1, dt * 4);
-  if (mode === "piece" && curK === "painting" && shown) Furn.swing(shown, swingA);
+  if (mode === "piece" && isArt(curK) && shown) Furn.swing(shown, swingA);
   if (mode === "den" && denBuilt) for (const p of denBuilt.paintings) if (p.userData.pivot) Furn.swing(p, swingA);
   const cp = Math.cos(orbit.pitch);
   cam.position.set(orbit.target.x + Math.sin(orbit.yaw) * cp * orbit.dist, orbit.target.y + Math.sin(orbit.pitch) * orbit.dist, orbit.target.z + Math.cos(orbit.yaw) * cp * orbit.dist);
@@ -334,7 +335,7 @@ const CHECKS = [
   ["trap", "No trap gaps", "No gap between solid furniture and walls a body can wedge into (and the checker catches a planted one)."],
   ["grime", "Grime by depth", "Every material looks different new and after years."],
   ["hinge", "Painting swings", "The painting turns on its hinge and back."],
-  ["art", "Painting painted", "The picture paints itself and is not blank."],
+  ["art", "Paintings painted", "Both pictures paint themselves and are not blank."],
   ["match", "Matches the pick-ups", "The kit's mug and small box are the same size as the pick-up mug and box."],
   ["fps", "Frame rate, furnished den", "Renders the den empty, then furnished, for 2 seconds each. 50 fps or better furnished passes."]
 ];
@@ -385,8 +386,10 @@ async function runChecks() {
   // hinge
   const pnt = Furn.make("painting", {}, 0); Furn.swing(pnt, 1); const r1 = pnt.userData.pivot.rotation.y; Furn.swing(pnt, 0); const r0 = pnt.userData.pivot.rotation.y;
   done("hinge", Math.abs(r1 + 1.75) < 1e-6 && r0 === 0 ? "pass" : "fail", `Open ${(-r1 * 180 / Math.PI).toFixed(0)}°, shut ${(r0 * 180 / Math.PI).toFixed(0)}°.`);
-  { const t1 = performance.now(), c = Furn.art(), ms = performance.now() - t1, px = c.getContext("2d").getImageData(0, 0, c.width, c.height).data; let lo = 255, hi = 0; for (let i = 0; i < px.length; i += 4001 * 4) { const l = (px[i] + px[i + 1] + px[i + 2]) / 3; lo = Math.min(lo, l); hi = Math.max(hi, l); }
-    done("art", hi - lo > 120 ? "pass" : "fail", `${c.width} × ${c.height}, ${ms < 5 ? "already painted" : "painted in " + ms.toFixed(0) + " ms"}; darkest ${lo.toFixed(0)}, lightest ${hi.toFixed(0)}.`); }
+  { const out = []; let ok = true;
+    for (const which of ["scream", "valley"]) { const t1 = performance.now(), c = Furn.art(which), ms = performance.now() - t1, px = c.getContext("2d").getImageData(0, 0, c.width, c.height).data; let lo = 255, hi = 0; for (let i = 0; i < px.length; i += 4001 * 4) { const l = (px[i] + px[i + 1] + px[i + 2]) / 3; lo = Math.min(lo, l); hi = Math.max(hi, l); }
+      if (hi - lo <= 120) ok = false; out.push(`${Furn.PAINTINGS[which].title}: ${c.width} × ${c.height}, ${ms < 5 ? "already painted" : "painted in " + ms.toFixed(0) + " ms"}`); }
+    done("art", ok ? "pass" : "fail", out.join("; ") + "."); }
   // matches the pick-ups (mug: 0.05 m radius, 0.11 m tall; box 0.18 x 0.14 x 0.12)
   const mb3 = Furn.template("mug", {}).box, cb3 = Furn.template("carton", { size: "small" }).box;
   const mugOk = Math.abs((mb3.max.y - mb3.min.y) - 0.11) < 0.005 && Math.abs(mb3.max.z - 0.05) < 0.006;

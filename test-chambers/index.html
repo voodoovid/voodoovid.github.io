@@ -524,7 +524,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { Furn } from "./furniture.js";                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.8";
+const VERSION = "v8.9";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const IT_TEST = /[?&]itemtest\b/.test(location.search), SPFX = IT_TEST ? "testchambers.itest." : "testchambers.";
 const $ = id => document.getElementById(id);
@@ -7593,7 +7593,7 @@ function levelItemTest() {
     { k: "desklamp", at: [15.15, 0.75, bz + 0.2], ry: 0.5 }, { k: "phone", at: [16.2, 0.75, bz + 0.25], ry: -0.3 }, { k: "mug", at: [16.25, 0.75, bz + 0.6], red: true },
     { k: "clock", at: [17, 2.15, bz] }, { k: "painting", at: [15, 1.6, -3.6], turn: 1 }, { k: "noticeboard", at: [19, 1.5, -3.6], turn: 3 },
     { k: "plant", at: [18.6, 0, -2.45] }, { k: "bin", at: [15.35, 0, -4.4] },
-    { k: "sofa", at: [4.5, 0, W - 0.43], turn: 2 }, { k: "cooler", at: [5.51, 0, W - 0.16], turn: 2 }, { k: "plant", at: [2.7, 0, W - 0.4], seed: 9 }
+    { k: "landscape", at: [4.5, 1.75, W], turn: 2 }, { k: "sofa", at: [4.5, 0, W - 0.43], turn: 2 }, { k: "cooler", at: [5.51, 0, W - 0.16], turn: 2 }, { k: "plant", at: [2.7, 0, W - 0.4], seed: 9 }
   ];
   return Object.assign(h, { num: 1, name: "Item Test", track: 0, par: [120, 0], say: {
     intro: ["Item test. Pick things up. Open things. Try not to take anything that is not on the list."], hint: ["The breaker is on the wall."], hint2: ["The blue card is behind the red door."],

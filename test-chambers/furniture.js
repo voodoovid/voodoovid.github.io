@@ -15,9 +15,9 @@
 // share materials. Small things are never solid; solid pieces are blocks with no gap a player could get caught in.
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import { paintLandscape, PAINTING } from "./painting.js";
+import { paint, PAINTINGS } from "./painting.js";
 
-export const KIT_VERSION = "kit 1.2";
+export const KIT_VERSION = "kit 1.3";
 const TAU = Math.PI * 2, PLAYER_W = 0.6, CATCH = 0.75;      // a gap between 2 cm and 75 cm is one a body can wedge into
 
 // ---------- textures (canvas, made once) ----------
@@ -196,8 +196,12 @@ const TEX = {
     for (let i = 0; i < 800; i++) { g.fillStyle = `rgba(90,75,50,${r() * 0.2})`; g.fillRect(r() * w, r() * h, 1, 1); }
   }),
   art: () => {                                  // the painting: "Signature Required" (painting.js), painted once (about a second) and kept
-    if (!texCache.art) { const c = document.createElement("canvas"); paintLandscape(c); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.userData.canvas = c; texCache.art = t; }
-    return texCache.art;
+    return TEX.artOf("scream");
+  },
+  artOf: (which = "scream") => {                  // "scream" or "valley": painted once (about a second each) and kept
+    const key = "art:" + which;
+    if (!texCache[key]) { const c = document.createElement("canvas"); paint(c, which); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.userData.canvas = c; texCache[key] = t; }
+    return texCache[key];
   },
   lampShade: () => canvasTex("lampShade", 64, 64, (g, w, h) => { g.fillStyle = "#2f5c3a"; g.fillRect(0, 0, w, h); for (let y = 0; y < h; y += 4) { g.fillStyle = "rgba(255,255,255,.06)"; g.fillRect(0, y, w, 2); } }),
   blob: () => canvasTex("blob", 128, 128, (g, w, h) => {              // soft contact shadow under a floor piece
@@ -451,7 +455,9 @@ const PIECES = {
       K.lathe("fabGrey", [[0.02, 1.7], [0.16, 1.62], [0.2, 1.45], [0.22, 1.0], [0.24, 0.85], [0.0, 0.84]], 0, 0, 0.18, 14);
       K.pop(); K.shadow(0.7, 0.7);
     } },
-  painting: { name: "Framed painting", group: "Office", wall: true, hinge: true, info: "\"Signature Required\": a play on The Scream with the courier screaming, painted in code, in a hinged gilt frame that swings aside.",
+  landscape: { name: "Landscape painting", group: "Office", wall: true, hinge: true, art: "valley", info: "\"The Long Valley, Evening\": an original landscape in the manner of the old masters, painted in code. Same hinged gilt frame.",
+    build(K, o) { PIECES.painting.build(K, { ...o, w: o.w || 0.9, h: o.h || 0.7 }); } },
+  painting: { name: "Framed painting", group: "Office", wall: true, hinge: true, art: "scream", info: "\"Signature Required\": a play on The Scream with the courier screaming, painted in code, in a hinged gilt frame that swings aside.",
     build(K, o) {
       const W = o.w || 0.7, H = o.h || 0.9;
       K.box("canvasBk", W, H, 0.025, 0, 0, 0.03);
@@ -694,11 +700,11 @@ function plateMesh(p) {
 }
 // the painting: the frame turns about its left edge. `art` is a canvas (the real picture, drawn in code) or the stand-in.
 function hinged(g, t, o, step) {
-  const W = o.w || 0.7, H = o.h || 0.9, f = 0.07, pivot = new THREE.Group(), wrap = new THREE.Group();
+  const which = t.P.art || "scream", W = o.w || PAINTINGS[which].m[0], H = o.h || PAINTINGS[which].m[1], f = 0.07, pivot = new THREE.Group(), wrap = new THREE.Group();
   pivot.position.set(-W / 2 - f, 0, 0.012); wrap.add(pivot);
   g.position.set(W / 2 + f, 0, -0.012); pivot.add(g);
-  const art = o.art instanceof HTMLCanvasElement ? Object.assign(new THREE.CanvasTexture(o.art), { colorSpace: THREE.SRGBColorSpace }) : TEX.art();
-  const face = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshStandardMaterial({ map: art, color: 0xd8d8d8, emissive: 0x6a6a6a, emissiveMap: art, roughness: .6, metalness: 0, aoMap: TEX.dirt(), aoMapIntensity: 0.2 + 0.6 * step / 4 }));
+  const art = o.art instanceof HTMLCanvasElement ? Object.assign(new THREE.CanvasTexture(o.art), { colorSpace: THREE.SRGBColorSpace }) : TEX.artOf(which);
+  const face = new THREE.Mesh(new THREE.PlaneGeometry(W, H), new THREE.MeshStandardMaterial({ map: art, color: 0xd8d8d8, emissive: 0x8c8c8c, emissiveMap: art, roughness: .6, metalness: 0, aoMap: TEX.dirt(), aoMapIntensity: 0.2 + 0.6 * step / 4 }));
   face.position.z = 0.0435; face.userData.ownMat = 1; g.add(face);
   wrap.userData = { t, pivot, face, open: 0 };
   return wrap;
@@ -776,5 +782,5 @@ function setEnv(t) { if (t === ENVMAP) return; ENVMAP = t; for (const m of matCa
 const list = () => Object.entries(PIECES).map(([k, P]) => ({ k, name: P.name, group: P.group, info: P.info, solid: !!P.solid, wall: !!P.wall, ceil: !!P.ceil }));
 function preload(grimes = [0]) { for (const k in PIECES) template(k, {}); for (const g of grimes) for (const k in MDEF) mat(k, grimeStep(g)); }      // build up front, so nothing waits later
 
-const art = () => TEX.art().userData.canvas;          // the painted canvas (paints it if it has not been yet)
-export const Furn = { setEnv, art, PAINTING, list, make: makePiece, room, swing, setArt, gapCheck, template, preload, grimeStep, PIECES, MDEF, PLAYER_W, CATCH, KIT_VERSION };
+const art = (which = "scream") => TEX.artOf(which).userData.canvas;          // a painted canvas (paints it if it has not been yet)
+export const Furn = { setEnv, art, PAINTINGS, list, make: makePiece, room, swing, setArt, gapCheck, template, preload, grimeStep, PIECES, MDEF, PLAYER_W, CATCH, KIT_VERSION };
