@@ -111,7 +111,7 @@ h4 { margin: 4px 2px 8px; font-size: 11px; letter-spacing: .22em; color: var(--d
 </div>
 <div id="tip"></div>
 <div class="ov" id="ovArt" hidden>
-  <div class="card" style="width:min(1000px,100%);padding:14px">
+  <div class="card" style="width:min(560px,100%);padding:14px">
     <button class="pill ghost x" id="bArtX" data-tip="Close">Done</button>
     <h2 id="artTitle" style="margin:4px 4px 10px"></h2>
     <div id="artBox" style="border:10px solid #8a6f33;border-radius:3px;box-shadow:0 0 0 2px #4d3c1a inset,0 8px 30px rgba(0,0,0,.6);line-height:0"></div>
@@ -127,7 +127,7 @@ h4 { margin: 4px 2px 8px; font-size: 11px; letter-spacing: .22em; color: var(--d
       <li><b>Pieces:</b> tap one to see it. Drag to look round it, pinch or scroll to zoom. An orange dot means it is solid in the game (you bump into it; it takes no portals).</li>
       <li><b>Grime</b> shows how it looks deeper in the game, from new (0) to years old (1).</li>
       <li><b>Den</b> puts most of the kit in one room. The painting's <b>Swing</b> shows the white panel behind it.</li>
-      <li>The painting is "The Long Valley, Evening", an original landscape painted in code. <b>View</b> shows it flat and full size.</li>
+      <li>The painting is "Signature Required": a play on The Scream with the courier screaming, painted in code. <b>View</b> shows it flat and full size.</li>
     </ul>
   </div>
 </div>
@@ -141,7 +141,7 @@ import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { Furn, KIT_VERSION } from "./furniture.js";
 
-const VERSION = "v1.1";
+const VERSION = "v1.2";
 const $ = id => document.getElementById(id);
 $("ver").textContent = VERSION + " · " + KIT_VERSION;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js").catch(() => {});
@@ -191,7 +191,7 @@ const sFloor = new THREE.Mesh(new THREE.BoxGeometry(6, 0.1, 6), DARK); sFloor.po
 const sWall = new THREE.Mesh(new THREE.BoxGeometry(6, 3.2, 0.1), DARK); sWall.position.set(0, 1.6, -0.65); stage.add(sWall);
 const sCeil = new THREE.Mesh(new THREE.BoxGeometry(6, 0.1, 6), DARK); sCeil.position.y = 2.75; stage.add(sCeil);
 const plinth = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.75, 0.55), new THREE.MeshStandardMaterial({ color: 0x3a4048, roughness: .7 })); plinth.position.y = 0.375; stage.add(plinth);
-const behind = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.8, 0.02), WHITE); behind.visible = false; stage.add(behind);    // the white panel behind the painting
+const behind = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.0, 0.02), WHITE); behind.visible = false; stage.add(behind);    // the white panel behind the painting
 const DESKTOP = new Set(["desklamp", "computer", "keyboard", "phone", "intray", "kettle", "mug"]);
 const WALL_Y = { clock: 2.0, noticeboard: 1.55, whiteboard: 1.45, toolboard: 1.35, painting: 1.6, skirting: 0, door: 0 };
 
@@ -334,7 +334,7 @@ const CHECKS = [
   ["trap", "No trap gaps", "No gap between solid furniture and walls a body can wedge into (and the checker catches a planted one)."],
   ["grime", "Grime by depth", "Every material looks different new and after years."],
   ["hinge", "Painting swings", "The painting turns on its hinge and back."],
-  ["art", "Painting painted", "The landscape paints itself and is not blank."],
+  ["art", "Painting painted", "The picture paints itself and is not blank."],
   ["match", "Matches the pick-ups", "The kit's mug and small box are the same size as the pick-up mug and box."],
   ["fps", "Frame rate, furnished den", "Renders the den empty, then furnished, for 2 seconds each. 50 fps or better furnished passes."]
 ];

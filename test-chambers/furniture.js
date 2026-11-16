@@ -17,7 +17,7 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { paintLandscape, PAINTING } from "./painting.js";
 
-export const KIT_VERSION = "kit 1.1";
+export const KIT_VERSION = "kit 1.2";
 const TAU = Math.PI * 2, PLAYER_W = 0.6, CATCH = 0.75;      // a gap between 2 cm and 75 cm is one a body can wedge into
 
 // ---------- textures (canvas, made once) ----------
@@ -195,7 +195,7 @@ const TEX = {
     g.fillStyle = "#c9bc9c"; g.fillRect(0, 0, w, h); const r = rng(41);
     for (let i = 0; i < 800; i++) { g.fillStyle = `rgba(90,75,50,${r() * 0.2})`; g.fillRect(r() * w, r() * h, 1, 1); }
   }),
-  art: () => {                                  // the painting: "The Long Valley, Evening" (painting.js), painted once (about a second) and kept
+  art: () => {                                  // the painting: "Signature Required" (painting.js), painted once (about a second) and kept
     if (!texCache.art) { const c = document.createElement("canvas"); paintLandscape(c); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.userData.canvas = c; texCache.art = t; }
     return texCache.art;
   },
@@ -451,9 +451,9 @@ const PIECES = {
       K.lathe("fabGrey", [[0.02, 1.7], [0.16, 1.62], [0.2, 1.45], [0.22, 1.0], [0.24, 0.85], [0.0, 0.84]], 0, 0, 0.18, 14);
       K.pop(); K.shadow(0.7, 0.7);
     } },
-  painting: { name: "Framed painting", group: "Office", wall: true, hinge: true, info: "\"The Long Valley, Evening\": an original landscape painted in code, in a hinged gilt frame that swings aside.",
+  painting: { name: "Framed painting", group: "Office", wall: true, hinge: true, info: "\"Signature Required\": a play on The Scream with the courier screaming, painted in code, in a hinged gilt frame that swings aside.",
     build(K, o) {
-      const W = o.w || 0.9, H = o.h || 0.7;
+      const W = o.w || 0.7, H = o.h || 0.9;
       K.box("canvasBk", W, H, 0.025, 0, 0, 0.03);
       const f = 0.07;
       for (const [w, h, x, y] of [[W + 2 * f, f, 0, H / 2 + f / 2], [W + 2 * f, f, 0, -H / 2 - f / 2], [f, H, -W / 2 - f / 2, 0], [f, H, W / 2 + f / 2, 0]]) { K.box("brass", w, h, 0.05, x, y, 0.035); K.box("woodDk", w * 0.98, h * 0.4, 0.056, x, y, 0.035); }
@@ -694,7 +694,7 @@ function plateMesh(p) {
 }
 // the painting: the frame turns about its left edge. `art` is a canvas (the real picture, drawn in code) or the stand-in.
 function hinged(g, t, o, step) {
-  const W = o.w || 0.9, H = o.h || 0.7, f = 0.07, pivot = new THREE.Group(), wrap = new THREE.Group();
+  const W = o.w || 0.7, H = o.h || 0.9, f = 0.07, pivot = new THREE.Group(), wrap = new THREE.Group();
   pivot.position.set(-W / 2 - f, 0, 0.012); wrap.add(pivot);
   g.position.set(W / 2 + f, 0, -0.012); pivot.add(g);
   const art = o.art instanceof HTMLCanvasElement ? Object.assign(new THREE.CanvasTexture(o.art), { colorSpace: THREE.SRGBColorSpace }) : TEX.art();
