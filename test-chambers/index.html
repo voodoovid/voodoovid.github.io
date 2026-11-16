@@ -521,9 +521,10 @@ import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { Furn } from "./furniture.js";                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.5";
+const VERSION = "v8.6";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const IT_TEST = /[?&]itemtest\b/.test(location.search), SPFX = IT_TEST ? "testchambers.itest." : "testchambers.";
 const $ = id => document.getElementById(id);
@@ -3008,8 +3009,19 @@ function buildLevel(idx) {
   for (const sg of lv.signs) if (sg.kind === "chamber" && /^TEST CHAMBER/.test(sg.a)) sg.a = "TEST CHAMBER " + String(lv.num).padStart(2, "0");   // numbered by the chamber it belongs to
   const W = world = { idx, lv, solids: lv.boxes, air: lv.air.map(a => bx(...a)), doors: [], plates: [], cubes: [], camProps: [], acid: [], fx: [], t: 0, dyn: [], sentries: [], beams: [], receivers: [], fields: [], gravs: [], pools: [], offices: [], cams: [], movers: [], glass: [], spinners: [], core: null, walks: [], streams: [], sprayers: [], sparkers: [], sockets: [], crushers: [], shifters: [], switches: [], blobs: [], patches: [], ev: {} };
   // static surfaces
+  // v8.6: furniture (`lv.furn`, the kit in furniture.js). Its lamps join the bake; its solid boxes join the level AFTER the bake, so they
+  // block you, crates and shots and take no portals, but are never drawn (the furniture's own meshes are the look)
+  let furn = null;
+  if (lv.furn && lv.furn.length) try {
+    Furn.setEnv(ENV);
+    const pre = Furn.room(lv.furn, { shadows: false }); pre.group.traverse(o => o.geometry && o.geometry.dispose());
+    if (lv.furnLights !== false) for (const L of pre.lamps) lv.lamps.push(lamp(...L));
+    furn = Furn.room(lv.furn, { grime: lv.furnGrime !== undefined ? lv.furnGrime : lintGrimeOf(idx + 1), walls: lv.boxes, shade: (x, y, z) => shadeVertex([x, y, z], [0, 1, 0], 1, lv.boxes, lv.lamps) });
+    if (furn.warnings.length) console.warn("furniture in " + ROOM_NAMES[idx] + ":\n" + furn.warnings.join("\n"));
+  } catch (e) { console.error(e); furn = null; }
   const out = {};
   bakeFaces(lv.boxes, lv.boxes, lv.lamps, W.air, out);
+  if (furn) { levelGroup.add(furn.group); for (const b of furn.solids) lv.boxes.push(b); W.furn = furn; }
   for (const m in out) { const mesh = new THREE.Mesh(geoFrom(out[m]), MAT[m]); mesh.frustumCulled = false; levelGroup.add(mesh); }
   // ceiling fixtures (a lamp hung just under a ceiling with no fixture of its own gets one, or it baked a bare bright oval onto the ceiling)
   for (const L of lv.lamps) {
@@ -7572,6 +7584,17 @@ function levelItemTest() {
   h.items.push({ id: "blue", kind: "card", key: "it-blue", label: "BLUE", color: "#2b6fd6", pos: [a[0] - 1, 0, a[2]] }, { id: "stk-7", kind: "sticker", sticker: "seven", pos: [a[0] + 1, 0, a[2]] },
     { id: "stk-fr", kind: "sticker", sticker: "fragile", pos: [b[0] - 1, 0, b[2]] }, { id: "tape2", kind: "tape", title: "Store room", pos: [b[0] + 1, 0, b[2]], lines: ["The second tape. Behind two locks."] });
   h.signs.push(chSign(1, "ITEM TEST", 4.6, 4.4));
+  // v8.6: the furniture kit in the game. Behind door A, a small office (the red card opens it); out in the hall, a waiting corner
+  const bz = -5.6;
+  h.furn = [
+    { k: "floor", at: [17, 0, -3.8], w: 4, d: 3.6, type: "carpet" }, { k: "skirting", at: [17, 0, bz], len: 4 }, { k: "ceillight", at: [17, 2.8, -3.6] },
+    { k: "desk", at: [15.75, 0, bz + 0.375] }, { k: "cabinet", at: [16.735, 0, bz + 0.31] }, { k: "cabinet", at: [17.205, 0, bz + 0.31] },
+    { k: "chair", at: [15.8, 0, -4.45], ry: Math.PI + 0.3 }, { k: "computer", at: [15.5, 0.75, bz + 0.3] }, { k: "keyboard", at: [15.55, 0.75, bz + 0.62] },
+    { k: "desklamp", at: [15.15, 0.75, bz + 0.2], ry: 0.5 }, { k: "phone", at: [16.2, 0.75, bz + 0.25], ry: -0.3 }, { k: "mug", at: [16.25, 0.75, bz + 0.6], red: true },
+    { k: "clock", at: [17, 2.15, bz] }, { k: "painting", at: [15, 1.6, -3.6], turn: 1 }, { k: "noticeboard", at: [19, 1.5, -3.6], turn: 3 },
+    { k: "plant", at: [18.6, 0, -2.45] }, { k: "bin", at: [15.35, 0, -4.4] },
+    { k: "sofa", at: [4.5, 0, W - 0.43], turn: 2 }, { k: "cooler", at: [5.51, 0, W - 0.16], turn: 2 }, { k: "plant", at: [2.7, 0, W - 0.4], seed: 9 }
+  ];
   return Object.assign(h, { num: 1, name: "Item Test", track: 0, par: [120, 0], say: {
     intro: ["Item test. Pick things up. Open things. Try not to take anything that is not on the list."], hint: ["The breaker is on the wall."], hint2: ["The blue card is behind the red door."],
     done: ["Everything found, or not. The test is over either way."] } });

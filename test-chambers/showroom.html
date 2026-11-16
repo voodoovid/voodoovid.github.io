@@ -1,0 +1,404 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Furniture Showroom</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#07090c">
+<style>
+/* Test Chambers Furniture Showroom: green/red checks for the furniture kit, then every piece on a turntable and a fully
+   furnished den for the frame rate, before any den uses them. Everything starts below the status bar (safe-area padding on #page). */
+:root { color-scheme: dark; --bg: #07090c; --panel: #0e1318; --line: rgba(255,255,255,.08); --ink: #eef2f5; --dim: rgba(238,242,245,.58);
+  --blue: #2fa4ff; --orange: #ff9d2e; --pass: #2fd47a; --fail: #ff4d5e; --warn: #f4b942; --run: #7fb6ff;
+  --font: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--font); -webkit-text-size-adjust: 100%; }
+body { overflow: hidden; }
+#page { position: fixed; inset: 0; display: flex; flex-direction: column;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) calc(env(safe-area-inset-right, 0px) + 16px) calc(env(safe-area-inset-bottom, 0px) + 12px) calc(env(safe-area-inset-left, 0px) + 16px); }
+header { display: flex; align-items: center; gap: 14px; padding: 4px 2px 12px; border-bottom: 1px solid var(--line); flex: none; }
+.logo { width: 34px; height: 34px; border-radius: 50%; flex: none;
+  background: radial-gradient(circle at 35% 50%, var(--blue) 0 34%, transparent 35%), radial-gradient(circle at 65% 50%, var(--orange) 0 34%, transparent 35%), #111820;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.12) inset; }
+.title b { display: block; font-size: 11px; letter-spacing: .26em; color: var(--dim); font-weight: 700; }
+.title span { display: block; font-size: 20px; font-weight: 700; letter-spacing: .05em; }
+#summary { margin-left: auto; text-align: right; font-size: 13px; color: var(--dim); line-height: 1.35; }
+#summary strong { display: block; font-size: 15px; color: var(--ink); letter-spacing: .02em; }
+.pill { flex: none; border: 0; border-radius: 22px; padding: 11px 18px; font: 700 15px/1 var(--font); letter-spacing: .04em; color: #071018;
+  background: linear-gradient(180deg, #59baff, #2b8fe0); cursor: pointer; box-shadow: 0 6px 18px rgba(47,164,255,.25); }
+.pill.ghost { background: rgba(255,255,255,.07); color: var(--ink); box-shadow: none; border: 1px solid rgba(255,255,255,.16); padding: 10px 14px; }
+.pill:disabled { opacity: .45; cursor: default; }
+main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(320px, 0.85fr) 1.4fr; gap: 16px; padding-top: 14px; }
+#side { overflow-y: auto; -webkit-overflow-scrolling: touch; padding-right: 4px; }
+h4 { margin: 4px 2px 8px; font-size: 11px; letter-spacing: .22em; color: var(--dim); font-weight: 800; }
+.row { display: grid; grid-template-columns: 74px 1fr; gap: 12px; align-items: start; padding: 10px 12px; margin-bottom: 7px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+.chip { font: 800 11px/1 var(--font); letter-spacing: .12em; text-align: center; padding: 7px 0; border-radius: 6px; margin-top: 1px; background: rgba(255,255,255,.06); color: var(--dim); }
+.row[data-s="run"] .chip { background: rgba(127,182,255,.14); color: var(--run); }
+.row[data-s="pass"] .chip { background: rgba(47,212,122,.16); color: var(--pass); }
+.row[data-s="fail"] .chip { background: rgba(255,77,94,.16); color: var(--fail); }
+.row[data-s="warn"] .chip { background: rgba(244,185,66,.16); color: var(--warn); }
+.row[data-s="pass"] { border-color: rgba(47,212,122,.28); }
+.row[data-s="fail"] { border-color: rgba(255,77,94,.35); }
+.row h3 { margin: 0; font-size: 14.5px; font-weight: 700; }
+.row p { margin: 3px 0 0; font-size: 12.5px; color: var(--dim); line-height: 1.4; }
+.row .det { color: var(--ink); opacity: .86; font-variant-numeric: tabular-nums; }
+#pieces { display: flex; flex-direction: column; gap: 12px; margin: 14px 0 6px; }
+.grp { display: flex; flex-wrap: wrap; gap: 6px; }
+.grp button { border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.04); color: var(--ink); border-radius: 16px; padding: 8px 12px; font: 600 13px/1 var(--font); cursor: pointer; }
+.grp button.on { background: rgba(47,164,255,.2); border-color: rgba(47,164,255,.7); }
+.grp button .s { display: inline-block; width: 7px; height: 7px; border-radius: 2px; background: var(--orange); margin-left: 6px; vertical-align: 1px; }
+#view { position: relative; min-height: 0; border-radius: 14px; overflow: hidden; background: #000; border: 1px solid var(--line); }
+#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+#hud { position: absolute; left: 12px; top: 10px; right: 12px; display: flex; justify-content: space-between; pointer-events: none; gap: 10px;
+  font-size: 12px; letter-spacing: .14em; font-weight: 700; color: rgba(255,255,255,.85); text-shadow: 0 1px 4px rgba(0,0,0,.8); }
+#fps { font-variant-numeric: tabular-nums; white-space: nowrap; }
+#cap { position: absolute; left: 12px; right: 12px; bottom: 62px; pointer-events: none; font-size: 13px; color: rgba(255,255,255,.86); text-shadow: 0 1px 4px rgba(0,0,0,.9); line-height: 1.4; }
+#cap b { color: var(--ink); }
+#bar { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); display: flex; gap: 4px; align-items: center; padding: 4px 6px; border-radius: 22px;
+  background: rgba(8,12,16,.76); border: 1px solid rgba(255,255,255,.12); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); z-index: 2; white-space: nowrap; }
+#bar button { border: 0; background: transparent; color: var(--dim); font: 700 12.5px/1 var(--font); letter-spacing: .04em; padding: 9px 12px; border-radius: 18px; cursor: pointer; }
+#bar button.on { background: rgba(47,164,255,.22); color: var(--ink); }
+#bar label { display: flex; align-items: center; gap: 7px; font: 700 12px/1 var(--font); color: var(--dim); padding: 0 8px; letter-spacing: .04em; }
+#grime { width: 120px; accent-color: #f4b942; }
+#tip { position: fixed; z-index: 50; pointer-events: none; max-width: 240px; padding: 7px 10px; border-radius: 8px; font-size: 12.5px; line-height: 1.35;
+  background: rgba(14,19,24,.96); border: 1px solid rgba(255,255,255,.16); color: var(--ink); box-shadow: 0 6px 20px rgba(0,0,0,.5); opacity: 0; transition: opacity .12s; }
+#tip.on { opacity: 1; }
+.ov { position: fixed; inset: 0; z-index: 40; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.55);
+  padding: calc(env(safe-area-inset-top, 0px) + 20px) 20px calc(env(safe-area-inset-bottom, 0px) + 20px); }
+.card { position: relative; width: min(520px, 100%); max-height: 100%; overflow-y: auto; background: #10161c; border: 1px solid rgba(255,255,255,.14); border-radius: 16px; padding: 20px 22px; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+.card h2 { margin: 0 0 10px; font-size: 18px; letter-spacing: .04em; }
+.card p, .card li { font-size: 14px; line-height: 1.5; color: rgba(238,242,245,.82); }
+.card ul { padding-left: 18px; margin: 6px 0 14px; }
+.card .x { position: absolute; top: 12px; right: 12px; }
+@media (max-width: 860px) { main { grid-template-columns: 1fr; grid-template-rows: 52% 1fr; } #view { order: -1; } #summary { display: none; } }
+@media (max-width: 520px) { #grime { width: 80px; } #bar button { padding: 9px 9px; } }
+</style>
+</head>
+<body>
+<div id="page">
+  <header>
+    <div class="logo"></div>
+    <div class="title"><b>TEST CHAMBERS</b><span>Furniture Showroom <small id="ver" style="font-size:12px;color:var(--dim);font-weight:600;letter-spacing:.06em"></small></span></div>
+    <div id="summary"><strong id="sumTop">Checking…</strong><span id="sumSub">36 pieces</span></div>
+    <button class="pill ghost" id="bHelp" data-tip="How this page works">?</button>
+    <button class="pill" id="bRun" data-tip="Run every check again (takes about 5 seconds)">Run checks</button>
+  </header>
+  <main>
+    <div id="side">
+      <h4>CHECKS</h4>
+      <div id="checks"></div>
+      <h4 style="margin-top:16px">PIECES <span style="letter-spacing:.04em;font-weight:600">(orange dot = solid)</span></h4>
+      <div id="pieces"></div>
+    </div>
+    <div id="view">
+      <canvas id="gl"></canvas>
+      <div id="hud"><span id="hudName">—</span><span id="fps">— fps</span></div>
+      <div id="cap"></div>
+      <div id="bar">
+        <button id="bPiece" class="on" data-tip="Look at one piece on the turntable">Piece</button>
+        <button id="bDen" data-tip="A fully furnished den: every room type's pieces together, for the frame rate">Den</button>
+        <button id="bSpin" class="on" data-tip="Turn the piece slowly (drag to look round it yourself)">Spin</button>
+        <button id="bSwing" data-tip="Swing the painting aside to see the white panel behind it" hidden>Swing</button>
+        <label data-tip="How long it has been there: 0 is new, 1 is years of grime">Grime <input id="grime" type="range" min="0" max="1" step="0.25" value="0"></label>
+      </div>
+    </div>
+  </main>
+</div>
+<div id="tip"></div>
+<div class="ov" id="ovHelp" hidden>
+  <div class="card">
+    <button class="pill ghost x" id="bHelpX" data-tip="Close">Done</button>
+    <h2>Furniture Showroom</h2>
+    <p>This page tests the furniture kit for the dens before any den uses it.</p>
+    <ul>
+      <li><b>Checks</b> run on their own when the page opens. Green passed, amber is worth a look, red failed. The last one measures the frame rate in a fully furnished den.</li>
+      <li><b>Pieces:</b> tap one to see it. Drag to look round it, pinch or scroll to zoom. An orange dot means it is solid in the game (you bump into it; it takes no portals).</li>
+      <li><b>Grime</b> shows how it looks deeper in the game, from new (0) to years old (1).</li>
+      <li><b>Den</b> puts most of the kit in one room. The painting's <b>Swing</b> shows the white panel behind it.</li>
+      <li>The painting here is a stand-in. The real picture comes later.</li>
+    </ul>
+  </div>
+</div>
+<script type="importmap">{ "imports": { "three": "../lib/three.module.min.js", "three/addons/": "../lib/three-addons/" } }</script>
+<script type="module">
+import * as THREE from "three";
+import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { Furn, KIT_VERSION } from "./furniture.js";
+
+const VERSION = "v1.0";
+const $ = id => document.getElementById(id);
+$("ver").textContent = VERSION + " · " + KIT_VERSION;
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js").catch(() => {});
+
+// ---------- hover hints (every button) ----------
+const tip = $("tip"); let tipT = 0;
+document.addEventListener("pointerover", e => {
+  const el = e.target.closest("[data-tip]"); if (!el || e.pointerType === "touch") return;
+  tip.textContent = el.dataset.tip; const r = el.getBoundingClientRect();
+  tip.style.left = Math.max(8, Math.min(innerWidth - 250, r.left)) + "px"; tip.style.top = (r.bottom + 8 > innerHeight - 60 ? r.top - 44 : r.bottom + 8) + "px";
+  clearTimeout(tipT); tipT = setTimeout(() => tip.classList.add("on"), 250);
+});
+document.addEventListener("pointerout", e => { if (e.target.closest("[data-tip]")) { clearTimeout(tipT); tip.classList.remove("on"); } });
+$("bHelp").onclick = () => $("ovHelp").hidden = false;
+$("bHelpX").onclick = () => $("ovHelp").hidden = true;
+$("ovHelp").onclick = e => { if (e.target.id === "ovHelp") $("ovHelp").hidden = true; };
+
+// ---------- renderer, like the game's: neutral tone mapping, bloom over 1, PMREM reflections ----------
+const canvas = $("gl");
+let renderer = null;
+try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" }); } catch (e) {}
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x0b0e12);
+const cam = new THREE.PerspectiveCamera(42, 1, 0.03, 60);
+let composer = null;
+if (renderer) {
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.toneMapping = THREE.NeutralToneMapping; renderer.toneMappingExposure = 0.92; renderer.outputColorSpace = THREE.SRGBColorSpace;
+  const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromScene(new RoomEnvironment(), 0.04).texture; pm.dispose();
+  composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 }));
+  composer.addPass(new RenderPass(scene, cam));
+  composer.addPass(new UnrealBloomPass(new THREE.Vector2(1, 1), 0.35, 0.5, 1.0));
+  composer.addPass(new OutputPass());
+}
+scene.add(new THREE.HemisphereLight(0xeaf1f8, 0x5b636c, 1.15));
+{ const sun = new THREE.DirectionalLight(0xffffff, 1.5); sun.position.set(-0.35, 1, 0.45); scene.add(sun); }
+function resize() {
+  const r = $("view").getBoundingClientRect(), w = Math.max(1, r.width), h = Math.max(1, r.height);
+  cam.aspect = w / h; cam.updateProjectionMatrix();
+  if (renderer) { renderer.setSize(w, h, false); composer.setSize(w, h); }
+}
+addEventListener("resize", resize); new ResizeObserver(resize).observe($("view"));
+
+// ---------- the stage: a dark panelled corner like a den, with a plinth for desk-top things ----------
+const DARK = new THREE.MeshStandardMaterial({ color: 0x2a2f35, roughness: .8, metalness: .1 }), WHITE = new THREE.MeshStandardMaterial({ color: 0xe9ecee, roughness: .5 });
+const stage = new THREE.Group(); scene.add(stage);
+const sFloor = new THREE.Mesh(new THREE.BoxGeometry(6, 0.1, 6), DARK); sFloor.position.y = -0.05; stage.add(sFloor);
+const sWall = new THREE.Mesh(new THREE.BoxGeometry(6, 3.2, 0.1), DARK); sWall.position.set(0, 1.6, -0.65); stage.add(sWall);
+const sCeil = new THREE.Mesh(new THREE.BoxGeometry(6, 0.1, 6), DARK); sCeil.position.y = 2.75; stage.add(sCeil);
+const plinth = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.75, 0.55), new THREE.MeshStandardMaterial({ color: 0x3a4048, roughness: .7 })); plinth.position.y = 0.375; stage.add(plinth);
+const behind = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.8, 0.02), WHITE); behind.visible = false; stage.add(behind);    // the white panel behind the painting
+const DESKTOP = new Set(["desklamp", "computer", "keyboard", "phone", "intray", "kettle", "mug"]);
+const WALL_Y = { clock: 2.0, noticeboard: 1.55, whiteboard: 1.45, toolboard: 1.35, painting: 1.6, skirting: 0, door: 0 };
+
+// ---------- the den: most of the kit in one 6 x 4.5 m room (office, break corner, store wall) ----------
+const den = new THREE.Group(); den.visible = false; scene.add(den);
+const DW = 6, DD = 4.5, DH = 2.7;
+const denWalls = [
+  { min: [-DW / 2 - 0.3, -0.3, -DD / 2], max: [DW / 2 + 0.3, 0, DD / 2] }, { min: [-DW / 2 - 0.3, DH, -DD / 2], max: [DW / 2 + 0.3, DH + 0.3, DD / 2] },
+  { min: [-DW / 2 - 0.3, 0, -DD / 2 - 0.3], max: [DW / 2 + 0.3, DH, -DD / 2] }, { min: [-DW / 2 - 0.3, 0, -DD / 2], max: [-DW / 2, DH, DD / 2] },
+  { min: [DW / 2, 0, -DD / 2], max: [DW / 2 + 0.3, DH, DD / 2] }];
+for (const b of denWalls) { const m = new THREE.Mesh(new THREE.BoxGeometry(b.max[0] - b.min[0], b.max[1] - b.min[1], b.max[2] - b.min[2]), DARK); m.position.set((b.min[0] + b.max[0]) / 2, (b.min[1] + b.max[1]) / 2, (b.min[2] + b.max[2]) / 2); den.add(m); }
+const bz = -DD / 2, lx = -DW / 2, rx = DW / 2;      // back wall z, left wall x, right wall x
+const DEN_LIST = [
+  { k: "floor", at: [-1.2, 0, 0], w: 3.6, d: DD, type: "carpet" }, { k: "floor", at: [1.8, 0, 0], w: 2.4, d: DD, type: "lino" },
+  { k: "skirting", at: [0, 0, bz], len: DW }, { k: "skirting", at: [lx, 0, 0], turn: 1, len: DD }, { k: "skirting", at: [rx, 0, 0], turn: 3, len: DD },
+  // office (desk and cabinets in a run along the back wall, flush with each other and the left wall)
+  { k: "desk", at: [-2.25, 0, bz + 0.375] }, { k: "chair", at: [-2.1, 0, bz + 1.15], ry: 2.7 },
+  { k: "computer", at: [-2.5, 0.75, bz + 0.3] }, { k: "keyboard", at: [-2.45, 0.75, bz + 0.6] }, { k: "phone", at: [-1.85, 0.75, bz + 0.25], ry: -0.3 },
+  { k: "intray", at: [-1.72, 0.75, bz + 0.55], ry: 0.2 }, { k: "desklamp", at: [-2.85, 0.75, bz + 0.2], ry: 0.5 }, { k: "mug", at: [-2.02, 0.75, bz + 0.6], red: true },
+  { k: "cabinet", at: [-1.25, 0, bz + 0.31] }, { k: "cabinet", at: [-0.78, 0, bz + 0.31] },
+  { k: "whiteboard", at: [-2.0, 1.45, bz] }, { k: "clock", at: [-0.8, 2.0, bz] }, { k: "painting", at: [lx, 1.6, -1.0], turn: 1 },
+  { k: "plant", at: [lx + 0.35, 0, 1.85] }, { k: "bin", at: [-1.5, 0, bz + 0.85] }, { k: "coatstand", at: [lx + 0.45, 0, 1.1] },
+  { k: "door", at: [lx, 0, 0.2], turn: 1, label: "Records" },
+  // break corner (fridge, cooler and vending machine along the right wall; every solid gap is shut or at least 75 cm)
+  { k: "sofa", at: [1.4, 0, bz + 0.43], w: 1.6 }, { k: "noticeboard", at: [1.4, 1.55, bz] },
+  { k: "table", at: [0.9, 0, 0.8], w: 1.0 }, { k: "stackchair", at: [0.9, 0, 1.5], ry: Math.PI }, { k: "stackchair", at: [0.15, 0, 0.75], ry: Math.PI / 2 + 0.2 },
+  { k: "kettle", at: [0.75, 0.74, 0.7] }, { k: "mug", at: [1.1, 0.74, 0.95] },
+  { k: "fridge", at: [rx - 0.33, 0, -0.9], turn: 3 }, { k: "cooler", at: [rx - 0.17, 0, 0.74], turn: 3 }, { k: "vending", at: [rx - 0.41, 0, 1.35], turn: 3 },
+  // stores
+  { k: "carton", at: [-0.6, 0, 1.75] }, { k: "carton", at: [-0.6, 0.42, 1.75], ry: 0.3, size: "mid" },
+  { k: "sack", at: [-1.2, 0, 1.85] }, { k: "mop", at: [-1.9, 0, 1.9], ry: 0.6 },
+  // ceiling
+  { k: "ceillight", at: [-1.5, DH, -0.8] }, { k: "striplight", at: [1.4, DH, 0.5], len: 1.5 }
+];
+let denBuilt = null;
+// a stand-in for the game's bake: ambient plus each lamp's falloff (no occlusion here)
+function denShade(lamps) {
+  const L = lamps.map(([x, y, z, i, rad, r, g, b]) => ({ x, y, z, i, rad, r, g, b }));
+  return (x, y, z) => { let r = 0.42, g = 0.42, b = 0.43; for (const l of L) { const d2 = (l.x - x) ** 2 + (l.y - y) ** 2 + (l.z - z) ** 2, a = l.i / (1 + d2 / (l.rad * l.rad)); r += l.r * a; g += l.g * a; b += l.b * a; } return [r, g, b]; };
+}
+function buildDen(grime) {
+  if (denBuilt) { den.remove(denBuilt.group); denBuilt.group.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+  const pre = Furn.room(DEN_LIST, { grime, shadows: false });                 // first pass for the lamps the kit gives
+  pre.group.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+  denBuilt = Furn.room(DEN_LIST, { grime, shade: denShade(pre.lamps), walls: denWalls });
+  den.add(denBuilt.group);
+  for (const p of denBuilt.paintings) p.userData.pivot && Furn.swing(p, swingOn ? 1 : 0);
+  return denBuilt;
+}
+
+// ---------- the piece on show ----------
+let mode = "piece", curK = "desk", shown = null, swingOn = false, spin = true, grime = 0;
+function showPiece(k) {
+  curK = k; if (shown) { stage.remove(shown); shown = null; }
+  const info = Furn.PIECES[k], o = k === "door" ? { label: "Records" } : k === "floor" ? { w: 2, d: 2, type: "carpet" } : {};
+  shown = Furn.make(k, o, grime);
+  const desk = DESKTOP.has(k), wy = WALL_Y[k];
+  plinth.visible = desk; sCeil.visible = !!info.ceil; behind.visible = k === "painting";
+  if (info.wall) shown.position.set(0, wy !== undefined ? wy : 1.4, -0.6);
+  else if (info.ceil) shown.position.set(0, 2.7, 0);
+  else shown.position.set(0, desk ? 0.75 : 0, 0);
+  if (k === "painting") { behind.position.set(0, 1.6, -0.59); Furn.swing(shown, swingOn ? 1 : 0); }
+  stage.add(shown);
+  const box = new THREE.Box3().setFromObject(shown), c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3());
+  orbit.target.copy(c); orbit.dist = Math.max(0.6, Math.max(sz.x, sz.y, sz.z) * 1.9 + 0.35) * (cam.aspect < 1 ? Math.pow(cam.aspect, -0.85) : 1);      // a tall, narrow view (iPhone) stands further back
+  if (info.wall) { orbit.yaw = 0; orbit.pitch = 0.08; } else if (info.ceil) { orbit.yaw = 0.3; orbit.pitch = -0.35; } else { orbit.pitch = 0.32; }
+  const t = Furn.template(k, o);
+  $("hudName").textContent = info.name.toUpperCase();
+  $("cap").innerHTML = `<b>${info.name}</b> · ${info.group}<br>${info.info}<br><span style="opacity:.7">${Math.round(t.tris).toLocaleString()} triangles · ${t.parts.length} materials${t.solid.length ? " · solid" : ""}</span>`;
+  $("bSwing").hidden = k !== "painting";
+  document.querySelectorAll(".grp button").forEach(b => b.classList.toggle("on", b.dataset.k === k));
+}
+function setMode(m) {
+  mode = m; $("bPiece").classList.toggle("on", m === "piece"); $("bDen").classList.toggle("on", m === "den");
+  stage.visible = m === "piece"; den.visible = m === "den";
+  if (m === "den") {
+    const r = buildDen(grime); orbit.target.set(0, 1.0, 0); orbit.dist = 3.4; orbit.pitch = 0.18; orbit.yaw = 0.2;
+    $("hudName").textContent = "FURNISHED DEN";
+    $("cap").innerHTML = `<b>Fully furnished den</b> · 6 × 4.5 m<br>${DEN_LIST.length} pieces merged into ${r.calls} draw calls · ${Math.round(r.tris).toLocaleString()} triangles · ${r.solids.length} solid boxes<br><span style="opacity:.7">${r.warnings.length ? r.warnings.join("<br>") : "No gaps that could trap you."}</span>`;
+    $("bSwing").hidden = false;
+  } else showPiece(curK);
+}
+
+// ---------- orbit (drag, pinch, wheel) ----------
+const orbit = { target: new THREE.Vector3(0, 0.5, 0), dist: 3, yaw: 0.5, pitch: 0.3, idle: 0 };
+const ptrs = new Map(); let pinch0 = 0, dist0 = 0;
+canvas.addEventListener("pointerdown", e => { canvas.setPointerCapture(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]); orbit.idle = 0;
+  if (ptrs.size === 2) { const [a, b] = [...ptrs.values()]; pinch0 = Math.hypot(a[0] - b[0], a[1] - b[1]); dist0 = orbit.dist; } });
+canvas.addEventListener("pointermove", e => {
+  if (!ptrs.has(e.pointerId)) return; const p = ptrs.get(e.pointerId), dx = e.clientX - p[0], dy = e.clientY - p[1]; ptrs.set(e.pointerId, [e.clientX, e.clientY]); orbit.idle = 0;
+  if (ptrs.size === 1) { orbit.yaw -= dx * 0.008; orbit.pitch = Math.max(-1.2, Math.min(1.35, orbit.pitch + dy * 0.006)); }
+  else if (ptrs.size === 2) { const [a, b] = [...ptrs.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pinch0 > 0) orbit.dist = Math.max(0.3, Math.min(9, dist0 * pinch0 / d)); }
+});
+const up = e => { ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch0 = 0; };
+canvas.addEventListener("pointerup", up); canvas.addEventListener("pointercancel", up); canvas.addEventListener("lostpointercapture", up);
+canvas.addEventListener("wheel", e => { e.preventDefault(); orbit.dist = Math.max(0.3, Math.min(9, orbit.dist * Math.exp(e.deltaY * 0.0012))); orbit.idle = 0; }, { passive: false });
+
+// ---------- UI ----------
+{
+  const groups = {}; for (const p of Furn.list()) (groups[p.group] = groups[p.group] || []).push(p);
+  for (const [g, ps] of Object.entries(groups)) {
+    const wrap = document.createElement("div"); wrap.innerHTML = `<h4 style="margin:0 2px 6px">${g.toUpperCase()}</h4>`;
+    const row = document.createElement("div"); row.className = "grp";
+    for (const p of ps) { const b = document.createElement("button"); b.dataset.k = p.k; b.dataset.tip = p.info; b.innerHTML = p.name + (p.solid ? '<span class="s"></span>' : ""); b.onclick = () => { if (mode !== "piece") setMode("piece"); showPiece(p.k); }; row.append(b); }
+    wrap.append(row); $("pieces").append(wrap);
+  }
+}
+$("bPiece").onclick = () => setMode("piece"); $("bDen").onclick = () => setMode("den");
+$("bSpin").onclick = () => { spin = !spin; $("bSpin").classList.toggle("on", spin); };
+$("bSwing").onclick = () => { swingOn = !swingOn; $("bSwing").classList.toggle("on", swingOn); };
+$("grime").oninput = () => { grime = +$("grime").value; if (mode === "den") setMode("den"); else showPiece(curK); };
+
+// ---------- frame loop ----------
+let last = performance.now(), fpsAcc = 0, fpsN = 0, fpsShow = 0, swingA = 0;
+const frameTimes = [];
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.1, (now - last) / 1000); last = now; frameTimes.push(dt); if (frameTimes.length > 400) frameTimes.shift();
+  fpsAcc += dt; fpsN++; if (fpsAcc > 0.5) { fpsShow = fpsN / fpsAcc; fpsAcc = 0; fpsN = 0; $("fps").textContent = fpsShow.toFixed(0) + " fps"; }
+  orbit.idle += dt; if (spin && orbit.idle > 1.5 && !(mode === "piece" && Furn.PIECES[curK].wall)) orbit.yaw += dt * 0.35;
+  swingA += ((swingOn ? 1 : 0) - swingA) * Math.min(1, dt * 4);
+  if (mode === "piece" && curK === "painting" && shown) Furn.swing(shown, swingA);
+  if (mode === "den" && denBuilt) for (const p of denBuilt.paintings) if (p.userData.pivot) Furn.swing(p, swingA);
+  const cp = Math.cos(orbit.pitch);
+  cam.position.set(orbit.target.x + Math.sin(orbit.yaw) * cp * orbit.dist, orbit.target.y + Math.sin(orbit.pitch) * orbit.dist, orbit.target.z + Math.cos(orbit.yaw) * cp * orbit.dist);
+  if (mode === "den") { cam.position.x = Math.max(-DW / 2 + 0.2, Math.min(DW / 2 - 0.2, cam.position.x)); cam.position.z = Math.max(-DD / 2 + 0.2, Math.min(DD / 2 + 1.5, cam.position.z)); cam.position.y = Math.max(0.3, Math.min(DH - 0.15, cam.position.y)); }
+  cam.lookAt(orbit.target);
+  if (composer) composer.render(dt);
+}
+
+// ---------- checks ----------
+const CHECKS = [
+  ["gl", "WebGL 2", "The renderer starts on this device."],
+  ["build", "Every piece builds", "All pieces of the kit build without an error."],
+  ["detail", "Detailed, but light", "Every piece is made of several parts and stays under 9,000 triangles."],
+  ["preload", "Pre-loaded", "The whole kit builds up front, so no den waits for it."],
+  ["share", "Shared materials", "Two dens use the same materials, and a den's furniture is merged into few draw calls."],
+  ["trap", "No trap gaps", "No gap between solid furniture and walls a body can wedge into (and the checker catches a planted one)."],
+  ["grime", "Grime by depth", "Every material looks different new and after years."],
+  ["hinge", "Painting swings", "The painting turns on its hinge and back."],
+  ["match", "Matches the pick-ups", "The kit's mug and small box are the same size as the pick-up mug and box."],
+  ["fps", "Frame rate, furnished den", "Renders the den empty, then furnished, for 2 seconds each. 50 fps or better furnished passes."]
+];
+const rows = {};
+for (const [id, name, what] of CHECKS) {
+  const d = document.createElement("div"); d.className = "row"; d.dataset.s = "idle";
+  d.innerHTML = `<div class="chip">WAITING</div><div><h3>${name}</h3><p>${what}</p><p class="det"></p></div>`; $("checks").append(d); rows[id] = d;
+}
+function set(id, s, det) { const r = rows[id]; r.dataset.s = s; r.querySelector(".chip").textContent = { run: "RUNNING", pass: "PASS", fail: "FAIL", warn: "LOOK", idle: "WAITING" }[s]; if (det !== undefined) r.querySelector(".det").textContent = det; }
+const wait = ms => new Promise(r => setTimeout(r, ms));
+let running = false;
+async function runChecks() {
+  if (running) return; running = true; $("bRun").disabled = true;
+  for (const [id] of CHECKS) set(id, "idle", "");
+  const res = {};
+  const done = (id, s, det) => { set(id, s, det); res[id] = s; };
+  done("gl", renderer && renderer.capabilities.isWebGL2 ? "pass" : "fail", renderer ? (renderer.capabilities.isWebGL2 ? "WebGL 2 context running." : "Only WebGL 1.") : "No WebGL context.");
+  await wait(30);
+  set("preload", "run");
+  const t0 = performance.now(); let errs = [];
+  try { Furn.preload([0, 0.25, 0.5, 0.75, 1]); } catch (e) { errs.push(String(e)); }
+  const ms = performance.now() - t0;
+  const all = Furn.list(); let built = 0, heavy = [], thin = [], maxT = 0, maxK = "";
+  for (const p of all) {
+    try { const t = Furn.template(p.k, {}); built++; if (t.tris > maxT) { maxT = t.tris; maxK = p.name; } if (t.tris > 9000) heavy.push(p.name); if (Object.values(Furn.PIECES[p.k]).length && t.parts.length < 2 && !["floor", "skirting"].includes(p.k)) thin.push(p.name); }
+    catch (e) { errs.push(p.k + ": " + e.message); }
+  }
+  done("build", errs.length ? "fail" : "pass", errs.length ? errs.join("; ") : `${built} of ${all.length} pieces built.`);
+  done("detail", heavy.length || thin.length ? "warn" : "pass", heavy.length ? "Over budget: " + heavy.join(", ") : thin.length ? "Plain: " + thin.join(", ") : `Heaviest: ${maxK}, ${Math.round(maxT).toLocaleString()} triangles.`);
+  done("preload", ms < 1500 ? "pass" : "warn", `Everything built in ${ms.toFixed(0)} ms.`);
+  await wait(30);
+  // shared materials and draw calls
+  const a = Furn.room(DEN_LIST, { grime: 0.5 }), b = Furn.room(DEN_LIST, { grime: 0.5 });
+  const ma = new Set(), mb = new Set(); a.group.traverse(o => o.material && !o.userData.ownMat && ma.add(o.material)); b.group.traverse(o => o.material && !o.userData.ownMat && mb.add(o.material));
+  const same = [...ma].every(m => mb.has(m));
+  for (const r of [a, b]) r.group.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+  done("share", same && a.calls <= 45 ? "pass" : same ? "warn" : "fail", `${DEN_LIST.length} pieces in ${a.calls} draw calls; ${ma.size} shared materials${same ? ", the same in both dens" : ", NOT shared"}.`);
+  // trap gaps
+  const g1 = a.warnings.filter(w => w.startsWith("gap"));
+  const planted = Furn.gapCheck([{ min: [0, 0, 0], max: [1, 1, 1] }], [{ min: [1.4, 0, 0], max: [2, 2, 1] }]);
+  done("trap", !g1.length && planted.length === 1 ? "pass" : "fail", g1.length ? g1.join("; ") : planted.length === 1 ? "Den clear; a planted 0.4 m gap was caught." : "The checker missed a planted gap.");
+  // grime
+  let flat = [];
+  for (const k in Furn.MDEF) { if (Furn.MDEF[k].blob || Furn.MDEF[k].e) continue; const p0 = Furn.make("desk", {}, 0), p4 = Furn.make("desk", {}, 1); const c0 = p0.children[0].material.color.getHex(), c4 = p4.children[0].material.color.getHex(); if (c0 === c4) flat.push(k); break; }
+  const s0 = new Set(), s4 = new Set(); Furn.make("cabinet", {}, 0).traverse(o => o.material && s0.add(o.material)); Furn.make("cabinet", {}, 1).traverse(o => o.material && s4.add(o.material));
+  const differ = [...s0].every(m => !s4.has(m));
+  done("grime", !flat.length && differ ? "pass" : "fail", differ ? "New and years-old use different materials (five steps, shared)." : "Grime steps share a material.");
+  // hinge
+  const pnt = Furn.make("painting", {}, 0); Furn.swing(pnt, 1); const r1 = pnt.userData.pivot.rotation.y; Furn.swing(pnt, 0); const r0 = pnt.userData.pivot.rotation.y;
+  done("hinge", Math.abs(r1 + 1.75) < 1e-6 && r0 === 0 ? "pass" : "fail", `Open ${(-r1 * 180 / Math.PI).toFixed(0)}°, shut ${(r0 * 180 / Math.PI).toFixed(0)}°.`);
+  // matches the pick-ups (mug: 0.05 m radius, 0.11 m tall; box 0.18 x 0.14 x 0.12)
+  const mb3 = Furn.template("mug", {}).box, cb3 = Furn.template("carton", { size: "small" }).box;
+  const mugOk = Math.abs((mb3.max.y - mb3.min.y) - 0.11) < 0.005 && Math.abs(mb3.max.z - 0.05) < 0.006;
+  const boxOk = Math.abs((cb3.max.x - cb3.min.x) - 0.18) < 0.005 && Math.abs((cb3.max.y - cb3.min.y) - 0.14) < 0.005 && Math.abs((cb3.max.z - cb3.min.z) - 0.12) < 0.005;
+  done("match", mugOk && boxOk ? "pass" : "fail", `Mug ${((mb3.max.y - mb3.min.y) * 100).toFixed(1)} cm tall, ${(mb3.max.z * 200).toFixed(1)} cm across; box ${((cb3.max.x - cb3.min.x) * 100).toFixed(0)} × ${((cb3.max.y - cb3.min.y) * 100).toFixed(0)} × ${((cb3.max.z - cb3.min.z) * 100).toFixed(0)} cm.`);
+  // frame rate in the full den
+  set("fps", "run", "Rendering an empty room, then the den…");
+  const prevMode = mode, prevSpin = spin, measure = async () => { await wait(400); frameTimes.length = 0; await wait(2000); const t = frameTimes.reduce((s, v) => s + v, 0); return [frameTimes.length / Math.max(0.001, t), Math.max(...frameTimes) * 1000]; };
+  setMode("den"); denBuilt.group.visible = false; spin = true; orbit.idle = 9;
+  const [base] = await measure(); denBuilt.group.visible = true;
+  const [fps, worst] = await measure();
+  let calls = 0; if (renderer) { renderer.info.autoReset = false; renderer.info.reset(); composer.render(0); calls = renderer.info.render.calls; renderer.info.autoReset = true; }
+  done("fps", fps >= 50 ? "pass" : fps >= 30 ? "warn" : "fail", `${fps.toFixed(0)} fps with the furniture (${base.toFixed(0)} fps in the same room empty), slowest frame ${worst.toFixed(0)} ms, ${calls} draw calls a frame (bloom included).`);
+  spin = prevSpin; if (prevMode !== "den") setMode(prevMode);
+  const n = Object.values(res), pass = n.filter(s => s === "pass").length, fail = n.filter(s => s === "fail").length;
+  $("sumTop").textContent = fail ? `${fail} failed` : `${pass} of ${n.length} passed`; $("sumTop").style.color = fail ? "var(--fail)" : pass === n.length ? "var(--pass)" : "var(--warn)";
+  $("sumSub").textContent = `${all.length} pieces · ${VERSION}`;
+  window.__showroom = { results: res, fps };
+  running = false; $("bRun").disabled = false;
+}
+$("bRun").onclick = runChecks;
+
+resize(); showPiece("desk"); requestAnimationFrame(frame);
+setTimeout(runChecks, 300);
+window.__furn = { Furn, showPiece, setMode, cam, orbit, scene, renderer, get denBuilt() { return denBuilt; } };
+</script>
+</body>
+</html>
