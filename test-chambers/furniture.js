@@ -18,7 +18,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { paint, PAINTINGS } from "./painting.js";
 import { handWrite } from "./hand.js";               // v8.19: hand-written labels
 
-export const KIT_VERSION = "kit 1.6";
+export const KIT_VERSION = "kit 1.7";
 const TAU = Math.PI * 2, PLAYER_W = 0.6, CATCH = 0.75;      // a gap between 2 cm and 75 cm is one a body can wedge into
 
 // ---------- textures (canvas, made once) ----------
@@ -32,6 +32,17 @@ function canvasTex(key, w, h, paint, o = {}) {
   if (o.rep) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(o.rep[0], o.rep[1]); }
   t.anisotropy = o.aniso || 4; t.userData.canvas = c;
   return (texCache[key] = t);
+}
+// v8.21: the LED clock's flicker overlays: only the failing dots, painted bright on a transparent texture (same layout as `ledclock`); `tick` pulses them
+const LED_SEG = { b: [1, 0.1, 1, 0.9], c: [1, 1.1, 1, 1.9], e: [0, 1.1, 0, 1.9], g: [0.12, 1, 0.88, 1] };
+function ledFlick(key, groups) {
+  return canvasTex(key, 768, 256, (g, w, h) => {
+    const sz = 92, oy = 34; g.clearRect(0, 0, w, h);
+    for (const [ox, seg, idx] of groups) for (const i of idx) {
+      const [x0, y0, x1, y1] = LED_SEG[seg], t = i / 6, x = ox + (x0 + (x1 - x0) * t) * sz, y = oy + (y0 + (y1 - y0) * t) * sz;
+      g.shadowColor = "rgba(90,255,110,.9)"; g.shadowBlur = 14; g.fillStyle = "#7dff86"; g.beginPath(); g.arc(x, y, sz * 0.075, 0, Math.PI * 2); g.fill(); g.shadowBlur = 0;
+    }
+  }, { aniso: 8 });
 }
 function rng(seed) { let s = seed >>> 0 || 1; return () => ((s = Math.imul(s ^ (s >>> 15), 2246822519) ^ Math.imul(s ^ (s >>> 13), 3266489917)) >>> 0) / 4294967296; }
 const hand = (g, size, w = 600) => { g.font = `${w} ${size}px "Marker Felt", "Comic Sans MS", "Segoe Print", cursive`; g._hs = size; };
@@ -182,6 +193,8 @@ const TEX = {
     digit(430, oy, sz, 3);
     digit(600, oy, sz, 8, { g: i => (i === 2 || i === 4 ? 0 : 1), c: i => (i >= 4 ? 0.35 : 1) });   // the last 8: two dots dead in its middle bar, the foot of its lower-right bar fading (still reads 8)
   }, { aniso: 8 }),
+  ledflickA: () => ledFlick("ledflickA", [[210, "e", [5, 6]], [210, "b", [4]]]),      // v8.21: the hour 8's dead dots, lit again now and then
+  ledflickB: () => ledFlick("ledflickB", [[600, "g", [2, 4]]]),                         // v8.21: the last 8's middle-bar dots
   notices: () => canvasTex("notices", 512, 340, (g, w, h) => {        // the noticeboard's papers
     const r = rng(21);
     const paper = (x, y, pw, ph, rot, col, lines, title) => {
@@ -278,7 +291,8 @@ const MDEF = {
   keys:     { c: 0xffffff, r: .55, m: 0, map: "keys" },  notices: { c: 0xffffff, r: .85, m: 0, map: "notices" }, board: { c: 0xcfd1ce, r: .35, m: 0, map: "whiteboard" },
   vend:     { c: 0xffffff, r: .35, m: .1, map: "vend", e: [.35, .35, .35], emap: true },  toolbd: { c: 0xffffff, r: .85, m: 0, map: "toolboard" },
   clock:    { c: 0xd0d0cc, r: .5, m: 0, map: "clock" },  flipcard: { c: 0xffffff, r: .45, m: 0, map: "flipclock" },
-  ledface:  { c: 0xffffff, r: .25, m: 0, map: "ledclock", e: [1.5, 1.5, 1.5], emap: true },  smoked: { c: 0x1c2a22, r: .06, m: 0, t: .3 },
+  ledface:  { c: 0xffffff, r: .25, m: 0, map: "ledclock", e: [1.5, 1.5, 1.5], emap: true },
+  ledflickA: { c: 0x000000, r: .25, m: 0, map: "ledflickA", e: [1.5, 1.5, 1.5], emap: true, t: 0 }, ledflickB: { c: 0x000000, r: .25, m: 0, map: "ledflickB", e: [1.5, 1.5, 1.5], emap: true, t: 0 },  smoked: { c: 0x1c2a22, r: .06, m: 0, t: .3 },
   plasOrg:  { c: 0xc8662a, r: .38, m: 0 },  canvasBk: { c: 0xffffff, r: .95, m: 0, map: "canvasBack" },
   carpet:   { c: 0xffffff, r: .98, m: 0, map: "carpet" }, lino: { c: 0xffffff, r: .45, m: 0, map: "lino" },
   glass:    { c: 0xcfe3ea, r: .08, m: 0, t: .16 },  water: { c: 0x8fc4e8, r: .05, m: 0, t: .55 },
@@ -314,6 +328,7 @@ function mat(key, step, vc = false) {
   }
   if ((vc || d.vc) && !d.blob && !d.e) m.vertexColors = true;          // a room's light, baked per piece (see room())
   m.userData.furn = 1;
+  if (key === "ledflickA" || key === "ledflickB") { m.userData.flick = key; m.transparent = true; m.depthWrite = false; m.opacity = 0; m.emissiveIntensity = 0; m.visible = false; }
   matCache.set(id, m); return m;
 }
 
@@ -480,6 +495,7 @@ const PIECES = {
       const W = 0.5, H = 0.2, D = 0.06;
       K.rbox("black", W, H, D, 0.012, 0, 0, D / 2);
       K.plane("ledface", W - 0.04, H - 0.04, 0, 0, D + 0.0015);
+      K.plane("ledflickA", W - 0.04, H - 0.04, 0, 0, D + 0.0025); K.plane("ledflickB", W - 0.04, H - 0.04, 0, 0, D + 0.0035);      // the failing dots that flicker
       K.plane("smoked", W - 0.03, H - 0.03, 0, 0, D + 0.005);
       K.box("steelDk", 0.08, 0.02, 0.04, 0, -H / 2 - 0.006, D / 2);                // cable gland under it
       K.cyl("black", 0.005, 0.005, 0.35, 0.02, -H / 2 - 0.18, 0.02, 6);            // the flex running down the wall
@@ -900,5 +916,13 @@ function setEnv(t) { if (t === ENVMAP) return; ENVMAP = t; for (const m of matCa
 const list = () => Object.entries(PIECES).map(([k, P]) => ({ k, name: P.name, group: P.group, info: P.info, solid: !!P.solid, wall: !!P.wall, ceil: !!P.ceil }));
 function preload(grimes = [0]) { for (const k in PIECES) template(k, {}); for (const g of grimes) for (const k in MDEF) mat(k, grimeStep(g)); }      // build up front, so nothing waits later
 
+// v8.21: LED clock flicker: now and then one failing dot lights for a moment, partly, then drops out again (call every frame with time in seconds)
+function flick(t, a, b, c) { const v = Math.sin(t * a) * Math.sin(t * b + c) * Math.sin(t * 1.7 + c * 2); return v > 0.62 ? Math.min(1, (v - 0.62) * 4) * 0.8 : 0; }
+function tick(time) {
+  for (const m of matCache.values()) if (m.userData.flick) {
+    const v = m.userData.flick === "ledflickA" ? flick(time, 9.1, 2.3, 0.4) : flick(time, 7.3, 3.1, 2.1);
+    m.opacity = v; m.emissiveIntensity = v; m.visible = v > 0.02;
+  }
+}
 const art = (which = "scream") => TEX.artOf(which).userData.canvas;          // a painted canvas (paints it if it has not been yet)
-export const Furn = { setEnv, art, PAINTINGS, list, make: makePiece, room, swing, setArt, gapCheck, template, preload, grimeStep, PIECES, MDEF, PLAYER_W, CATCH, KIT_VERSION };
+export const Furn = { tick, setEnv, art, PAINTINGS, list, make: makePiece, room, swing, setArt, gapCheck, template, preload, grimeStep, PIECES, MDEF, PLAYER_W, CATCH, KIT_VERSION };
