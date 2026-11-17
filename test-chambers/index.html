@@ -582,7 +582,7 @@ import { Furn } from "./furniture.js";
 import { GLYPHS as HAND_GLYPHS, handWrite, handBlock, handWidth } from "./hand.js";      // v8.19: hand-lettering                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.36";
+const VERSION = "v8.37";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const SC_TEST = /[?&]secretstest\b/.test(location.search), IT_TEST = SC_TEST || /[?&]itemtest\b/.test(location.search), SPFX = SC_TEST ? "testchambers.stest." : IT_TEST ? "testchambers.itest." : "testchambers.";      // v8.35: ?secretstest plays only the Secrets Test room
 const $ = id => document.getElementById(id);
@@ -1455,8 +1455,7 @@ function level2() {
       done: ["The cube did all the work, but I will put your name on it anyway."]
     }
   };
-  den(lv, { W: 10, side: 0, x: 6.5, scr: ["THE CUBE NEVER COMPLAINS.", "I ENVY IT.  - O."],      // v7.5: the near wall, over the start bank
-    line: "You are inside a wall. I would like to be clear that the wall is not part of the test, and neither is whatever is written on it." });
+  // v8.37 (Batch I-3a): the den that was here is cut; what it held is in a hidden corner (I3, above CHAMBERS)
   return lv;
 }
 function level3() {
@@ -1486,8 +1485,7 @@ function level3() {
       done: ["That was almost graceful. I have logged it as an accident."]
     }
   };
-  den(lv, { W: 12, side: 1, x: 4, scr: ["IT IS NOT THE FALL THAT TAKES TIME.", "IT IS THE WALK BACK UP.  - O."],      // v7.5: the far wall over the start bank; it throws you back, never across
-    line: "That room is behind the wall. Walls do not have rooms behind them. I have checked. I am going to check again." });
+  // v8.37 (Batch I-3a): the den that was here is cut; what it held is in a hidden corner (I3, above CHAMBERS)
   return lv;
 }
 function level4() {
@@ -1516,8 +1514,7 @@ function level4() {
       done: ["Well done. I will be very surprised if this keeps happening."]
     }
   };
-  den(lv, { W: 8, side: 1, x: 5, scr: ["I WAITED FOR THE LIFT FOR A WEEK.", "THEN I NOTICED THE DOOR.  - O."],      // v7.5: the far wall between the start block and the step
-    line: "You have found a ledge. It is not on my plans. I will record it as a ledge that nobody found." });
+  // v8.37 (Batch I-3a): the den that was here is cut; what it held is in a hidden corner (I3, above CHAMBERS)
   return lv;
 }
 function level5() {
@@ -3260,12 +3257,7 @@ const LINT_TRACES = {
 };
 const denCard = n => ({ badge: true, space: n });
 const DEN_SPEC = {
-  "Line Of Sight": { type: "store", v: 0, items: [denCard(0)] },
-  "Delivery": { type: "cleaner", v: 0, items: [{ id: "stk-tl", kind: "sticker", sticker: "tl" }] },
-  "Drop Box": { type: "store", v: 1, items: [denCard(0)] },
-  "Freefall": { type: "cleaner", v: 1, items: [Object.assign({ id: "page1", kind: "page" }, O_PAGES[1])] },
-  "Lift": { type: "store", v: 2, items: [denCard(0)] },
-  "Special Delivery": { type: "store", v: 3, staffSide: 1, items: [{ id: "clock", kind: "clock" }], art: "valley",
+  "Special Delivery": { type: "store", v: 3, staffSide: 1, items: [{ id: "clock", kind: "clock" }, Object.assign({ id: "page1", kind: "page", gid: "Freefall:page1" }, O_PAGES[1])], art: "valley",
     staff: { cards: 2, type: "break", items: [Object.assign({ id: "tape1", kind: "tape" }, HM_TAPES[1]), Object.assign({ id: "lint1", kind: "pickup", nail: true }, LINT_TRACES[1]), { kind: "safe", item: { id: "supmug", kind: "pickup", look: "mug", name: "A mug that says WORLD'S OKAYEST SUPERVISOR" } }] },       // v8.30: behind the landscape
     lines: [[1, "This is the staff break room. The kettle was still warm for about a year. Do not touch the mugs. They are evidence."]] },
   "Redirect": { type: "office", v: 0, items: [Object.assign({ id: "page2", kind: "page" }, O_PAGES[2])] },
@@ -3318,6 +3310,7 @@ function denWrap(f, i) {
       const sp = DEN_SPEC[l.name];
       delete l.badge;                                                  // chambers 1 to 13: the card is in a den, not out in the room
       if (sp) try { denDress(l, sp, i + 1); } catch (e) { console.error("den " + l.name, e); }
+      try { if (I3[l.name]) I3[l.name](l); } catch (e) { console.error("secrets " + l.name, e); (l.secretErr = l.secretErr || []).push(String(e.message || e)); }      // v8.37: rooms 1 to 8 (and later batches): hidden corners, the one den, seams
     }
     if (isBS(i)) {                                                     // v8.16: rooms 39 to 45 are backstage
       delete l.badge;                                                  // chambers 17 to 19: the card is in a den
@@ -3984,8 +3977,7 @@ function level55() {
   h.boxes.push(bx(12, 0, 0, 12.5, 1.25, 10, "dark"), bx(12, 2.65, 0, 12.5, 7, 10, "dark"), bx(12, 1.25, 0, 12.5, 2.65, 3.6, "dark"), bx(12, 1.25, 6.4, 12.5, 2.65, 10, "dark"));   // a wall with a window too high to climb through
   whiteOn(h, bx(4, 0, 0, 9, 3.2, 0.1)); whiteOn(h, bx(20.4, 0, 0.6, 22, 3.2, 3.2));         // a panel on this side, one white pillar beyond the wall
   h.badge = [20.6, 0.9, 9.3];
-  den(h, { W: 10, side: 1, x: 7, scr: ["LOOKING IS HALF THE TEST.", "THE OTHER HALF IS LOOKING HARDER.  - O."],      // v7.5: the far wall, before the window wall; nothing there to see past it
-    line: "Another cupboard. I keep finding these. I did not build them, which I find more upsetting than if I had." });
+  // v8.37 (Batch I-3a): the den that was here is cut; what it held is in a hidden corner (I3, above CHAMBERS)
   h.signs.push(chSign(1, "LINE OF SIGHT", 5.5, 5));
   return Object.assign(h, {
     num: 3, name: "Line Of Sight", track: 2, par: [70, 2],
@@ -4009,8 +4001,7 @@ function level56() {
   h.cubes = [[3, 0.35, 3]]; h.plates = [{ pos: [17, 0, 8.3], door: "d1" }]; h.doors = [exitDoor(26, 5)];
   h.lamps.push(lamp(17, 2.3, 8.3, .5, 5));
   h.badge = [24.8, 0.9, 9.3];
-  den(h, { W: 10, side: 0, x: 9.5, scr: ["I FOLLOWED THE CUBE DOWN.", "IT DID NOT WAIT.  - O."],      // v7.5: orange on its panel, then into the held floor portal
-    line: "That is not the cell. It is a different cell. Nobody is in it. Please do not wave at it." });
+  // v8.37 (Batch I-3a): the den that was here is cut; what it held is in a hidden corner (I3, above CHAMBERS)
   h.signs.push(chSign(2, "DROP BOX", 5.5));
   return Object.assign(h, {
     num: 5, name: "Drop Box", track: 0, par: [70, 1],
@@ -4335,6 +4326,54 @@ function secretAudit(only) {
   return { version: VERSION, rows, global, wayTally, plateDens };
 }
 
+/* =====================================================================================
+   v8.37 Batch I step I-3a: the secrets of rooms 1 to 8 (plan: the Project's batchI-plan.md).
+   Five dens are cut (Line Of Sight, Delivery, Drop Box, Freefall, Lift). What they held is in hidden corners, and
+   Special Delivery keeps its den behind a crooked panel. Rules, proved per room by secretAudit (secrets.html):
+   nothing here is seen from the route; every one is seen from some spot off it; every one holds something you can take
+   with no key cards (a chamber card counts). Rooms 1, 5 and 6 have nothing at all.
+   ===================================================================================== */
+// a hidden nook behind a panel left ajar (a flap): the panel covers the opening, hinged at one end, the other end standing off the wall a hand's width.
+// It is never solid: you walk through it. The nook's lamp shows as a thin line of light along the free edge.
+function leafNook(h, o) {
+  const S = corner(h, Object.assign({}, o, { cover: o.id + "-leaf" }));
+  const n = S.open.n, c = S.open.c, ax = n[0] ? 0 : 2, lat = 2 - ax, hh = S.open.h, w = S.open.w;
+  const mn = [0, c[1] - hh / 2 - 0.05, 0], mx = [0, c[1] + hh / 2 + 0.05, 0];
+  mn[ax] = Math.min(c[ax], c[ax] + n[ax] * 0.04); mx[ax] = Math.max(c[ax], c[ax] + n[ax] * 0.04);
+  mn[lat] = c[lat] - w / 2 - 0.12; mx[lat] = c[lat] + w / 2 + 0.12;
+  loosePiece(h, { id: o.id + "-leaf", kind: "flap", min: mn, max: mx, fall: n.slice(), open: 0.13, look: "conc" });
+  return S;
+}
+const I3 = {
+  // 2. The Ted & Lint gun sticker (it was in Delivery's den): a nook in the far wall past the pit, behind a panel that hangs a hand's width open. No portal needed
+  "One Way": h => {
+    leafNook(h, { id: "stk-tl", wall: "z1", a: 19, y: 0, w: 1.2, hh: 1.1, d: 0.9, lit: true, way: "flap", seen: [[14, 0, 3]],
+      find: { gid: "Delivery:stk-tl", kind: "sticker", sticker: "tl", r: 1.2 } });
+  },
+  // 3. Key card 1: in the slot between the white pillar by the exit and the near wall. Every line of sight from the hall's floor hits the pillar; look along the wall from the west
+  "Line Of Sight": h => {
+    h.boxes.push(bx(19, 0, 0.3, 20.4, 3.2, 0.6, "dark"));                                    // a long lip on the slot's mouth: nothing seen through the window at a slant reaches into it
+    const S = corner(h, { id: "card1", perch: [20.55, 0, 0.2], badge: true, by: 0.6, br: 1.1, way: "look", seen: [[18.5, 0, 0.32]] }); S.open.w = 0.3; S.open.h = 0.3;
+    obsWindow(h, { w: "z1", a: 17, y: 4.6, props: ["chair"] });
+  },
+  // 4. Key card 2: on a tray high on the closet's west wall. The tray has a lip: from the floor, and through the window, you only see the lip. Stand on the crate and jump
+  "Delivery": h => {
+    h.boxes.push(bx(0, 2.15, 7.3, 0.7, 2.25, 9.3, "dark"), bx(0.64, 2.25, 7.3, 0.7, 2.7, 9.3, "dark"), bx(0, 2.25, 7.3, 0.7, 2.7, 7.36, "dark"), bx(0, 2.25, 9.24, 0.7, 2.7, 9.3, "dark"));
+    corner(h, { id: "card2", perch: [0.35, 2.25, 8.3], badge: true, by: 0.3, br: 1.1, way: "jump", seen: [[1.1, 1.7, 8.3]], tell: { min: [0, 2.15, 7.3], max: [0.7, 2.7, 9.3] } });
+  },
+  // 7. Key card 3: in a nook behind the step, behind a panel hanging ajar
+  "Lift": h => {
+    leafNook(h, { id: "card3", wall: "z1", a: 5, y: 0, w: 1.2, hh: 1.1, d: 0.9, lit: true, badge: true, by: 0.9, br: 1.1, way: "flap", seen: [[5, 0, 3]] });
+    obsWindow(h, { w: "z0", a: 11.5, y: 7.0, props: ["chair", "mug"] });
+  },
+  // 8. The den stays (Special Delivery's staff room is behind it), but its doorway has a crooked panel in it: a crate sent fast through a wall portal at the far wall knocks it in.
+  // O.'s page 1 is in it now (it was in Freefall's den)
+  "Special Delivery": h => {
+    h.route = [[2.6, 14, 1.7], [6.6, 14, 1.8], [6, 0, 5.5], [4, 0, 5], [9.5, 0, 6], [19, 0, 6], [26, 0, 6], [30, 0, 6]];                 // where the solver stands (for the check)
+    loosePiece(h, { id: "den8-panel", kind: "panel", min: [3.25, 3.2, 12.02], max: [4.75, 5.5, 12.15], fall: [0, 0, 1], speed: 6, tilt: 0.04 });
+    (h.secrets = h.secrets || []).push({ kind: "den", what: "den", id: "den8", open: { c: [4, 4.35, 12], n: [0, 0, -1], w: 1.5, h: 2.3 }, finds: ["page1", "clock"], badge: false, way: "fling", cover: "den8-panel", seen: [[4, 0, 8]] });
+  }
+};
 const CHAMBERS = [
   // v6.0 (Batch 1): the Act 1 order from the room map. Rooms past 23 keep their v5.3 form at their new number until their own batch arrives. Room 22 (Dead Drop) came in Batch 3 (v6.2).
   ["Orientation", level1, level54, level55], ["Deliveries", level2, level56], ["Up And Over", level3, level4, level5],
