@@ -582,7 +582,7 @@ import { Furn } from "./furniture.js";
 import { GLYPHS as HAND_GLYPHS, handWrite, handBlock, handWidth } from "./hand.js";      // v8.19: hand-lettering                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.33";
+const VERSION = "v8.34";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const IT_TEST = /[?&]itemtest\b/.test(location.search), SPFX = IT_TEST ? "testchambers.itest." : "testchambers.";
 const $ = id => document.getElementById(id);
@@ -7135,7 +7135,7 @@ document.addEventListener("pointerlockerror", () => { lockFailed = true; });
 function tryLock() { setTimeout(() => { if (!document.pointerLockElement) lockFailed = true; }, 600); tryLock0(); }
 function tryLock0() { if (!canvas.requestPointerLock || document.pointerLockElement) return; try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
 canvas.addEventListener("mousedown", e => {
-  if (state === "cut" && Cut.walking) { enterMouseMode(); if (!document.pointerLockElement) lockPointer(); return; }      // v8.31: a click in the opening's corridor locks the aim
+  if (state === "cut" && Cut.walking) { if ((e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) || performance.now() - lastTouchT < 1500) return; enterMouseMode(); if (!document.pointerLockElement) lockPointer(); return; }      // v8.34: a finger's own mouse events must not switch the corridor to mouse mode      // v8.31: a click in the opening's corridor locks the aim
   if (state !== "play") return;
   enterMouseMode();
   if (!isTouch && !document.pointerLockElement) { lockPointer(); return; }
@@ -7228,7 +7228,7 @@ for (const ev of ["touchend", "touchcancel"]) addEventListener(ev, e => {
 addEventListener("blur", () => { resetSticks(); resetPadCentre(); }); addEventListener("focus", () => { resetSticks(); resetPadCentre(); }); addEventListener("pageshow", () => { resetSticks(); resetPadCentre(); });
 document.addEventListener("visibilitychange", () => { resetSticks(); resetPadCentre(); });
 addEventListener("gamepadconnected", () => resetPadCentre()); addEventListener("gamepaddisconnected", () => resetPadCentre());
-stageEl.addEventListener("touchmove", e => { if (state === "play" || Lift.on) e.preventDefault(); }, { passive: false });
+stageEl.addEventListener("touchmove", e => { if (state === "play" || Lift.on || Cut.walking) e.preventDefault(); }, { passive: false });      // v8.34: also in the opening's corridor (Safari took the drag for a pan, cancelled the pointer and the stick let go)
 document.addEventListener("gesturestart", e => e.preventDefault());
 
 /* ---------- controller ---------- */
@@ -8387,9 +8387,9 @@ function buildCar() {
   for (const sx of [-1, 1]) plane(M.glass, D - 0.12, H, sx * (W / 2 - 0.03), H / 2, 0, -sx * Math.PI / 2);
   box(M.darkSteel, W - 0.2, 0.18, 0.04, 0, 0.09, D / 2 - 0.07); for (const sx of [-1, 1]) box(M.darkSteel, 0.04, 0.18, D - 0.3, sx * (W / 2 - 0.07), 0.09, 0.1);   // kick plates
   box(M.steel, W - 0.5, 0.1, 0.05, 0, H - 0.1, D / 2 - 0.06); for (const sx of [-1, 1]) box(M.steel, 0.05, 0.1, D - 0.5, sx * (W / 2 - 0.06), H - 0.1, 0.1);
-  box(M.steel, W - 0.5, 0.05, 0.05, 0, 1.0, D / 2 - 0.16); for (const sx of [-1, 1]) box(M.steel, 0.05, 0.05, D - 0.9, sx * (W / 2 - 0.16), 1.0, 0.2);   // handrail
+  box(M.steel, W - 0.5, 0.05, 0.05, 0, 1.0, D / 2 - 0.16); for (const sx of [-1, 1]) box(M.steel, 0.05, 0.05, 2.0, sx * (W / 2 - 0.16), 1.0, 0.65);   // handrail (v8.34: starts at z -0.35, well clear of the button console)
   for (const x of [-1.2, 0, 1.2]) box(M.steel, 0.04, 0.04, 0.12, x, 1.0, D / 2 - 0.1);
-  for (const sx of [-1, 1]) for (const z of [-0.9, 0.3, 1.4]) box(M.steel, 0.12, 0.04, 0.04, sx * (W / 2 - 0.1), 1.0, z);
+  for (const sx of [-1, 1]) for (const z of [-0.2, 0.6, 1.4]) box(M.steel, 0.12, 0.04, 0.04, sx * (W / 2 - 0.1), 1.0, z);
   // the front: two steel panels and a header round the doorway, a floor display, a call panel
   const pw = (W - DW) / 2;
   for (const sx of [-1, 1]) box(M.brushed, pw, H, 0.08, sx * (DW / 2 + pw / 2), H / 2, -D / 2 + 0.04);
@@ -8412,32 +8412,35 @@ function buildCar() {
   box(M.darkSteel, 0.72, 0.2, 0.02, 0, DH + 0.3, -D / 2 + 0.09); plane(new THREE.MeshBasicMaterial({ map: itex, color: new THREE.Color(1.6, 1.6, 1.6) }), 0.66, 0.165, 0, DH + 0.3, -D / 2 + 0.101);
   // v8.28: a full control panel (speaker, 14 floor buttons, door open/close, alarm, call, a key switch) and the company plate beside the door
   const lamps = [];
-  { const PX = DW / 2 + 0.5, PW = 0.36, PH = 1.0, PY = 1.25, pz = -D / 2 + 0.11, cw = 256, ch = 704;
+  { const PX = DW / 2 + 0.5, PW = 0.36, PH = 1.0, PY = 1.35, pz = -D / 2 + 0.2, cw = 256, ch = 704;      // v8.34: a console that stands 12 cm out, in front of the door leaves' path (they overlapped the flush panel when open, and the panel's backing was coplanar with its face)
     const wx = x => PX + (x - cw / 2) * PW / cw, wy = y => PY + PH / 2 - y * PH / ch;
-    box(M.darkSteel, PW, PH, 0.03, PX, PY, -D / 2 + 0.095);
-    const tex = canvasTex(cw, ch, (c, w, h) => {
+    { const top = PY + PH / 2 + 0.4, bot = PY - PH / 2 - 0.05; box(M.darkSteel, PW + 0.04, top - bot, 0.115, PX, (top + bot) / 2, -D / 2 + 0.1375); }      // the console body: front face 5 mm behind the button face
+    const tex = canvasTex(cw * 2, ch * 2, (c, w2, h2) => {
+      c.scale(2, 2); const w = w2 / 2, h = h2 / 2;      // v8.34: twice the resolution, so the small labels hold up at a distance
       c.fillStyle = "#15171a"; c.fillRect(0, 0, w, h); c.strokeStyle = "#3a3f46"; c.lineWidth = 3; c.strokeRect(4, 4, w - 8, h - 8);
       c.fillStyle = "#07080a"; for (let r = 0; r < 5; r++) for (let q = 0; q < 12; q++) { c.beginPath(); c.arc(40 + q * 16 + (r % 2) * 8, 52 + r * 15, 3.2, 0, 6.3); c.fill(); }     // the speaker grille
       c.fillStyle = "#8d949c"; c.font = "700 15px Helvetica, Arial, sans-serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("SPEAK", w / 2, 112);
       c.font = "700 21px Helvetica, Arial, sans-serif"; c.fillStyle = "#cfd5db";
-      for (let i = 0; i < 14; i++) { const col = i % 2, row = Math.floor(i / 2), n = 14 - i; c.fillText("B" + n, 84 + col * 88, 156 + row * 58 + 0.5); }
+      for (let i = 0; i < 14; i++) { const col = i % 2, row = Math.floor(i / 2), n = 14 - i; c.fillText("B" + n, 84 + col * 88, 156 + row * 50 + 0.5); }
       c.font = "700 14px Helvetica, Arial, sans-serif"; c.fillStyle = "#8d949c"; c.fillText("OPEN", 84, 545); c.fillText("CLOSE", 172, 545); c.fillText("ALARM", 84, 628); c.fillText("CALL", 172, 628);
       c.fillStyle = "#c9ced4"; c.font = "700 13px Helvetica, Arial, sans-serif"; c.fillText("SERVICE KEY", w / 2, 672); c.fillStyle = "#0a0b0c"; c.beginPath(); c.arc(w / 2, 692, 4, 0, 6.3); c.fill();
-    }, true);
-    const face = new THREE.Mesh(new THREE.PlaneGeometry(PW - 0.01, PH - 0.01), new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(0.95, 0.95, 0.95) })); face.position.set(PX, PY, pz); g.add(face);
-    const btn = (px, py, r, lit) => { const o = new THREE.Mesh(new THREE.RingGeometry(r * 0.62, r, 24), lit ? M.amber : M.brushed); o.position.set(wx(px), wy(py), pz + 0.002); g.add(o); const cap = new THREE.Mesh(new THREE.CircleGeometry(r * 0.62, 20), new THREE.MeshBasicMaterial({ color: lit ? 0x3a2a14 : 0x090a0b, transparent: true, opacity: 0.55 })); cap.position.set(wx(px), wy(py), pz + 0.0015); g.add(cap); return o; };
-    for (let i = 0; i < 14; i++) btn(84 + (i % 2) * 88, 156 + Math.floor(i / 2) * 58 + 20, 0.0155, false);
+    }, false);
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(PW - 0.01, PH - 0.01), new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(0.95, 0.95, 0.95), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); face.position.set(PX, PY, pz); g.add(face);
+    const btn = (px, py, r, lit) => { const o = new THREE.Mesh(new THREE.RingGeometry(r * 0.62, r, 24), lit ? M.amber : M.brushed); o.position.set(wx(px), wy(py), pz + 0.005); g.add(o); const cap = new THREE.Mesh(new THREE.CircleGeometry(r * 0.62, 20), new THREE.MeshBasicMaterial({ color: lit ? 0x3a2a14 : 0x090a0b, transparent: true, opacity: 0.55, depthWrite: false })); cap.position.set(wx(px), wy(py), pz + 0.003); g.add(cap); return o; };
+    for (let i = 0; i < 14; i++) btn(84 + (i % 2) * 88, 156 + Math.floor(i / 2) * 50 + 20, 0.0155, false);      // v8.34: rows 50 px apart (58 ran the B2 / B1 buttons into OPEN / CLOSE)
     btn(84, 514, 0.017, false); const cl = btn(172, 514, 0.017, true); lamps.push(cl);
     btn(84, 598, 0.017, false); btn(172, 598, 0.017, false);
-    const st = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.03), M.amber); st.position.set(PX, PY + PH / 2 - 0.03, pz + 0.002); g.add(st); lamps.push(st);
+    const st = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.03), M.amber); st.position.set(PX, PY + PH / 2 - 0.03, pz + 0.005); g.add(st); lamps.push(st);
     // v8.32: the left-hand name plate is gone. Over the button panel, centred, sits the logo mark only (drawLogo "mark"), fitted like hardware:
     // a brushed-steel bezel with four screws round a dark shadow gap, the silver tile set back inside it
-    { const LY = PY + PH / 2 + 0.3, S0 = 0.3, wz = -D / 2 + 0.085, lt = canvasTex(256, 256, (c, w, h) => drawLogo(c, w, h, "mark"), true);
-      box(M.darkSteel, S0 + 0.1, S0 + 0.1, 0.004, PX, LY, wz + 0.002);                                       // a thin dark backing: the shadow round the bezel
-      for (const [bw, bh, bx2, by2] of [[S0 + 0.08, 0.026, 0, (S0 + 0.054) / 2], [S0 + 0.08, 0.026, 0, -(S0 + 0.054) / 2], [0.026, S0 + 0.028, (S0 + 0.054) / 2, 0], [0.026, S0 + 0.028, -(S0 + 0.054) / 2, 0]]) box(M.brushed, bw, bh, 0.016, PX + bx2, LY + by2, wz + 0.008);
-      box(M.darkSteel, S0 + 0.012, S0 + 0.012, 0.004, PX, LY, wz + 0.004);                                           // the shadow gap: a dark ring round the tile
-      const tile = new THREE.Mesh(new THREE.PlaneGeometry(S0 - 0.006, S0 - 0.006), new THREE.MeshBasicMaterial({ map: lt, color: new THREE.Color(0.9, 0.9, 0.9) })); tile.position.set(PX, LY, wz + 0.0065); g.add(tile);
-      for (const sx2 of [-1, 1]) for (const sy2 of [-1, 1]) { const sc2 = new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.006, 14), M.steel); sc2.rotation.x = Math.PI / 2; sc2.position.set(PX + sx2 * (S0 + 0.054) / 2, LY + sy2 * (S0 + 0.054) / 2, wz + 0.018); g.add(sc2); }
+    { const LY = PY + PH / 2 + 0.2, S0 = 0.15, gp = 0.006, bt = 0.016, cc = S0 / 2 + gp + bt / 2, wz = pz - 0.005, lt = canvasTex(256, 256, (c, w, h) => drawLogo(c, w, h, "mark"), false);
+      // v8.34: half the size (S0 0.3 -> 0.15), on the console's front face. Layers (each at least 3 mm apart, nothing coplanar): dark backing, bezel, shadow gap, tile
+      box(M.darkSteel, S0 + 2 * gp + 2 * bt + 0.008, S0 + 2 * gp + 2 * bt + 0.008, 0.004, PX, LY, wz + 0.002);
+      for (const [bw, bh, bx2, by2] of [[S0 + 2 * gp + 2 * bt, bt, 0, cc], [S0 + 2 * gp + 2 * bt, bt, 0, -cc], [bt, S0 + 2 * gp, cc, 0], [bt, S0 + 2 * gp, -cc, 0]]) box(M.brushed, bw, bh, 0.012, PX + bx2, LY + by2, wz + 0.01);
+      box(M.darkSteel, S0 + 2 * gp, S0 + 2 * gp, 0.002, PX, LY, wz + 0.005);                                          // the shadow gap: a dark ring round the tile
+      const tile = new THREE.Mesh(new THREE.PlaneGeometry(S0 - 0.006, S0 - 0.006), new THREE.MeshBasicMaterial({ map: lt, color: new THREE.Color(0.9, 0.9, 0.9), polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })); tile.position.set(PX, LY, wz + 0.0075);
+      g.add(tile);
+      for (const sx2 of [-1, 1]) for (const sy2 of [-1, 1]) { const sc2 = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.0035, 0.004, 12), M.steel); sc2.rotation.x = Math.PI / 2; sc2.position.set(PX + sx2 * cc, LY + sy2 * cc, wz + 0.018); g.add(sc2); }
     }
   }
   // two door leaves (glass in a steel frame) that slide sideways behind the front panels
@@ -8467,7 +8470,7 @@ function buildCar() {
     if (sp.spot <= 1) { parent = leaves[sp.spot].g; grp.position.set((sp.u - .5) * 0.5, yy(sp.v), 0.008); }
     else if (sp.spot === 2) { const s2 = sp.u < .5 ? -1 : 1; let z = -1.3 + ((sp.u * 2) % 1) * 2.7; if (Math.abs(z - 0.3) < 0.3) z += 0.6; grp.position.set(s2 * (W / 2 - 0.038), yy(sp.v), z); grp.rotation.y = -s2 * Math.PI / 2; }
     else if (sp.spot === 3) { let x = (sp.u - .5) * 3.2; if (Math.abs(x) < 0.32) x += x < 0 ? -0.42 : 0.42; grp.position.set(x, yy(sp.v), D / 2 - 0.038); grp.rotation.y = Math.PI; }
-    else { glass = false; grp.position.set(DW / 2 + 0.5 + (sp.u - .5) * 0.2, 1.88 + sp.v * 0.25, -D / 2 + 0.084); }
+    else { glass = false; grp.position.set(-(DW / 2 + 0.5) + (sp.u - .5) * 0.2, 2.8 + sp.v * 0.15, -D / 2 + 0.084); }      // v8.34: above the door leaves' path on the left front panel (it was behind the logo plate: the white sliver)
     if (glass) {
       const c = document.createElement("canvas"); c.width = tex.image.width; c.height = tex.image.height; const cg = c.getContext("2d");
       cg.drawImage(tex.image, 0, 0); cg.globalCompositeOperation = "source-in"; cg.fillStyle = "#ddd8ca"; cg.fillRect(0, 0, c.width, c.height);

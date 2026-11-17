@@ -236,7 +236,9 @@ const TEX = {
         g.fillStyle = "#cfd4da"; sans(g, 8, 700); g.textAlign = "center"; g.fillText(String.fromCharCode(65 + row) + (c + 1), x + 12, y + 58);
       }
     }
-    g.fillStyle = "#0e1a10"; g.fillRect(194, 40, 50, 24); g.fillStyle = "#6dff8f"; g.font = "bold 12px Courier New, monospace"; g.fillText("EMPTY", 198, 57);
+    // v8.34: the EMPTY lamp sits wholly on the side panel (x 186 to 252, right of the divider at 182) and is centred: the text used to inherit "center" from the label loop and ran across the divider ("E IPTY")
+    g.fillStyle = "#020b05"; g.fillRect(190, 38, 58, 28); g.strokeStyle = "#2f7a46"; g.lineWidth = 1.5; g.strokeRect(190.75, 38.75, 56.5, 26.5);
+    g.save(); g.textAlign = "center"; g.textBaseline = "middle"; g.font = "bold 13px Courier New, monospace"; g.shadowColor = "rgba(120,255,160,.9)"; g.shadowBlur = 6; g.fillStyle = "#c2ffd2"; g.fillText("EMPTY", 219, 52.5); g.restore();
     for (let i = 0; i < 12; i++) { g.fillStyle = "#9aa3ac"; g.fillRect(196 + (i % 3) * 16, 80 + Math.floor(i / 3) * 18, 12, 12); }
     g.fillStyle = "#050505"; g.fillRect(204, 170, 30, 6); g.fillRect(24, 430, 150, 54);
     g.fillStyle = "#c9a227"; sans(g, 13, 900); g.save(); g.translate(220, 330); g.rotate(-Math.PI / 2); g.textAlign = "center"; g.fillText("SNACKS", 0, 0); g.restore();
