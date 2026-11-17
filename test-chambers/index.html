@@ -576,7 +576,7 @@ import { Furn } from "./furniture.js";
 import { GLYPHS as HAND_GLYPHS, handWrite, handBlock, handWidth } from "./hand.js";      // v8.19: hand-lettering                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.26";
+const VERSION = "v8.27";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const IT_TEST = /[?&]itemtest\b/.test(location.search), SPFX = IT_TEST ? "testchambers.itest." : "testchambers.";
 const $ = id => document.getElementById(id);
@@ -3668,9 +3668,9 @@ function level48() {                       // v6.1 Scales: one camera, and it is
   den(h, { W: 14, side: 1, x: 6.5, scr: ["EVERYTHING HERE GETS WEIGHED.", "I WEIGHED MY OPTIONS AND HID.  - O."],      // v7.6: the far wall by the start, away from the ledge
     line: "Nothing in this wall is being weighed. Except, from now on, you." });
   return Object.assign(h, { num: 14, name: "Scales", track: 2, say: {
-    intro: ["The door up there is on a camera scale. It wants one camera. Not a person. Not a crate. A camera.", "There is exactly one camera in this room, and it is watching the floor. If it watches you for long enough, I start you again."],
-    hint: ["The camera is the weight. It just does not know it yet."], hint2: ["Cameras hang on walls. Walls, in here, can be made to stop holding things."],
-    done: ["You weighed my camera. On a scale. I have been reduced to a unit of measurement."] } });
+    intro: ["The door up there is on a scale. It is fussy about what it weighs.", "There is exactly one camera in this room, and it is watching the floor. If it watches you for long enough, I start you again."],
+    hint: ["You are the wrong weight. So is a crate. The scale wants something else that has been hanging about in here."], hint2: ["The only other thing in this room is on a wall. Walls, in here, can be made to stop holding things."],
+    done: ["The door is satisfied. I would like it on record that I am not."] } });
 }
 function level49() {                       // v6.6 Paperweight (kept, trimmed): the camera that watches the landing is also the weight you need
   // The only white in the room is a panel round each camera, both too high to walk into, so portals move nothing but cameras here. The door
@@ -4240,19 +4240,27 @@ const gunParts = { rings: new THREE.Group(), prongs: new THREE.Group(), core: nu
 gun.position.set(0.25, -0.24, -0.66); gun.rotation.y = 0.07; gun.scale.setScalar(0.5);
 // v8.5: the gun sticker (Options > Gun sticker). A curved decal wrapped round the rear of the barrel, behind the fins, on the side that faces you.
 // GUN_STK lists every copy (the view model's, then the courier's copy of the gun, which Self clones from this one); applyHand turns it to face you
-const GUN_STK = [], GUN_STK_GEO = [];
-{
-  const geo = new THREE.CylinderGeometry(0.0566, 0.0559, 0.068, 24, 1, true, Math.PI / 2 - 0.46, 0.92);      // 53 degrees of the barrel at z -0.096 .. -0.028, centred on +x
-  const geoR = geo.clone();
-  { const uv = geo.attributes.uv, uR = geoR.attributes.uv; for (let i = 0; i < uv.count; i++) { const u = uv.getX(i), v = uv.getY(i); uv.setXY(i, 1 - v, u); uR.setXY(i, v, 1 - u); } }   // the art runs along the barrel, rear to front, so it reads like a label; geoR is the same turned half round, for the right hand
-  GUN_STK_GEO.push(geo, geoR);
+const GUN_STK = [];
+// v8.27: the gun carries up to three flat stickers on the barrel (slots 0 to 2, each its own patch of the barrel) and one round sticker on the round butt (slot 3)
+const STK_OFF = [0, 0.66, -0.66], STK_W = 0.6;
+const STK_GEOS = STK_OFF.map(() => {
+  const geo = new THREE.CylinderGeometry(0.0566, 0.0559, 0.068, 24, 1, true, Math.PI / 2 - STK_W / 2, STK_W), geoR = geo.clone();
+  const uv = geo.attributes.uv, uR = geoR.attributes.uv; for (let i = 0; i < uv.count; i++) { const u = uv.getX(i), v = uv.getY(i); uv.setXY(i, 1 - v, u); uR.setXY(i, v, 1 - u); }   // the art runs along the barrel, rear to front, so it reads like a label; geoR is the same turned half round, for the right hand
+  return [geo, geoR];
+});
+for (let i = 0; i < 3; i++) {
   const mat = new THREE.MeshStandardMaterial({ transparent: true, alphaTest: 0.04, roughness: .55, metalness: 0, envMapIntensity: .5, polygonOffset: true, polygonOffsetFactor: -2, side: THREE.FrontSide });
-  const dec = new THREE.Mesh(geo, mat); dec.rotation.x = Math.PI / 2; dec.userData.gunSticker = 1;
-  const piv = new THREE.Group(); piv.position.z = -0.062; piv.add(dec); piv.userData.gunStkPivot = 1; piv.visible = false; gun.add(piv); GUN_STK.push(piv);
+  const dec = new THREE.Mesh(STK_GEOS[i][0], mat); dec.rotation.x = Math.PI / 2; dec.userData.gunSticker = 1;
+  const piv = new THREE.Group(); piv.position.z = -0.062; piv.add(dec); piv.userData.gunStkPivot = 1; piv.userData.slot = i; piv.visible = false; gun.add(piv); GUN_STK.push(piv);
+}
+{ // the butt: the round cap at the back of the gun (radius 0.044, face at z 0.16)
+  const mat = new THREE.MeshStandardMaterial({ transparent: true, alphaTest: 0.04, roughness: .55, metalness: 0, envMapIntensity: .5, polygonOffset: true, polygonOffsetFactor: -2, side: THREE.FrontSide });
+  const dec = new THREE.Mesh(new THREE.CircleGeometry(0.04, 32), mat); dec.position.z = 0.1612; dec.userData.gunSticker = 1;
+  const piv = new THREE.Group(); piv.add(dec); piv.userData.gunStkPivot = 1; piv.userData.slot = 3; piv.visible = false; gun.add(piv); GUN_STK.push(piv);
 }
 // v6.9: the gun is held in the left hand by default (Options > Gun hand); handSign() is -1 for left, +1 for right
 const handSign = () => opts.hand === "right" ? 1 : -1;
-function applyHand() { const k = handSign(); gun.position.x = 0.25 * k; gun.rotation.y = 0.07 * k; for (const p of GUN_STK) { p.rotation.z = k < 0 ? GUN_STK_PHI : Math.PI - GUN_STK_PHI; p.children[0].geometry = GUN_STK_GEO[k < 0 ? 0 : 1]; } }
+function applyHand() { const k = handSign(); gun.position.x = 0.25 * k; gun.rotation.y = 0.07 * k; for (const p of GUN_STK) { const sl = p.userData.slot; if (sl > 2) continue; p.rotation.z = k < 0 ? GUN_STK_PHI + STK_OFF[sl] : Math.PI - GUN_STK_PHI - STK_OFF[sl]; p.children[0].geometry = STK_GEOS[sl][k < 0 ? 0 : 1]; } }
 const GUN_STK_PHI = 0.78;       // where round the barrel the sticker sits (radians from the gun's +x side towards its top); tuned by eye in test renders
 let gunTint = new THREE.Color("#2fa4ff");
 function setGunColor(idx) { gunTint.set(idx ? "#ff9d2e" : "#2fa4ff"); }
@@ -5014,7 +5022,12 @@ function firePortal(idx) {
   if (Lift.on) return;          // v7.1: no shots while the lift is still moving (the next room is already built behind it)
   if (state !== "play" || !world) return;
   if (opts.challenge && run.used >= portalLimit()) { sfx.fizzle(); toast("Out of portals. Restart the room to try again."); return; }
-  if (portals[idx].locked) { sfx.fizzle(); toast("The facility is holding that portal open"); return; }     // a held portal is the level's, not yours
+  if (portals[idx].locked) {                                            // a held portal is the level's, not yours
+    // v8.27: the shot still knocks a camera off its wall (Doorway holds both portals, so its camera could never be shot down and chamber 1 always read 2 of 3)
+    const o2 = eyePos(new V3()), d2 = viewDir(new V3()), cs = camShot(castRay(o2, d2, 220, false, true));
+    if (cs) { kick = 1; setGunColor(idx); sfx.shoot(idx); dropCam(cs.c); fxOrb(idx, o2.clone().add(tmpA.copy(d2).multiplyScalar(0.5)), cs.p, -1, null); return; }
+    sfx.fizzle(); toast("The facility is holding that portal open"); return;
+  }
   const o = eyePos(new V3()), d = viewDir(new V3());
   const res = castRay(o, d, 220, false, true);
   kick = 1; $("cross").classList.remove("pulse"); void $("cross").offsetWidth; $("cross").classList.add("pulse");
@@ -5850,6 +5863,7 @@ function holdUpdate(dt) {
   const gap = tmpA.copy(target).sub(c.p);
   const viaPortal = ray.segs.length > 1 && dist > ray.segs[0].len;
   if (gap.length() > 1.4 && viaPortal) { setCubeState(c, target, c.q); c.pv.copy(target); c.snag = 0; c.far = true; return; }   // held out through a portal: it goes through
+  if (c.far && !viaPortal && ray.segs.length > 1 && gap.length() > 1.4) { setCubeState(c, target, c.q); c.pv.copy(target); c.snag = 0; c.far = false; return; }   // v8.27: you are backing out through the portal, so it comes back with you
   if (c.far && !viaPortal) {                                   // it went through and you didn't: it stays over there, set down where it is
     dropCube(true); c.body.setLinvel({ x: 0, y: Math.min(0, c.v.y), z: 0 }, true); c.body.setAngvel({ x: 0, y: 0, z: 0 }, true); c.v.set(0, 0, 0);
     sfx.drop(); toast(c.kind === "sentry" ? "The sentry stayed on the other side." : "The cube stayed on the other side."); return;
@@ -6744,7 +6758,7 @@ function sadosTick(dt) {
 
 /* ---------- on-screen helpers ---------- */
 const toastEl = $("toast"); let toastT = 0;
-function toast(t) { toastEl.textContent = t; toastEl.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove("on"), 2200); }
+function toast(t, ms = 2200) { toastEl.textContent = t; toastEl.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => toastEl.classList.remove("on"), ms); }
 const flashEl = $("flash"); let flashT = 0;
 function flash(kind) { flashEl.className = kind === "g" ? "g" : ""; void flashEl.offsetWidth; flashEl.classList.add("on"); clearTimeout(flashT); flashT = setTimeout(() => flashEl.classList.remove("on"), 90); }
 
@@ -6907,7 +6921,7 @@ click("bPause", pause);
 click("bFull", toggleFull); click("oFull", toggleFull);
 click("oReset", () => showOv("ovReset"));
 click("bResetNo", () => { syncOpts(); showOv("ovOptions"); });
-click("bResetYes", () => { for (const k of ["progress5", "finished5", "room", "best", "badges", "saidBadge", "tipDone", "saidFirst", "taught", "seenOpening", "story", "parcel", "lint", "lintFound", "finds", "keys", "power", "bopen", "stickers", "sticker", "saidFind", "clocks", "log_pages", "log_tapes", "ventSkip", "saidSafe", "bonusNew"]) { try { localStorage.removeItem(SPFX + k); } catch (e) {} } GunSticker.apply(); Bonus.dot(); optsFrom = "ovTitle"; goTitle(); toast("Progress reset"); });
+click("bResetYes", () => { for (const k of ["progress5", "finished5", "room", "best", "badges", "saidBadge", "tipDone", "saidFirst", "taught", "seenOpening", "story", "parcel", "lint", "lintFound", "stickersOn", "stkIntro", "finds", "keys", "power", "bopen", "stickers", "sticker", "saidFind", "clocks", "log_pages", "log_tapes", "ventSkip", "saidSafe", "bonusNew"]) { try { localStorage.removeItem(SPFX + k); } catch (e) {} } GunSticker.apply(); Bonus.dot(); optsFrom = "ovTitle"; goTitle(); toast("Progress reset"); });
 if (store.get("progress5", null) === null) store.set("progress5", Math.min(Math.floor(store.get("progress4", 0) / 2), CHAMBERS.length - 1));     // v4.3 groups rooms into chambers: keep roughly how far you had got
 function syncOpts() {
   const on = (id, v) => { const b = $(id); b.textContent = v ? "On" : "Off"; b.classList.toggle("on", !!v); };
@@ -7076,7 +7090,11 @@ for (const ev of ["touchend", "touchcancel"]) addEventListener(ev, e => {
   if (!e.touches.length) { resetSticks(); return; }
   if (stick.id !== null) { const r = stageEl.getBoundingClientRect(); if (![...e.touches].some(t => t.clientX - r.left < innerWidth * 0.5)) resetSticks(); }   // no finger left on the stick side
 }, true);
-addEventListener("blur", resetSticks); document.addEventListener("visibilitychange", () => { if (document.hidden) resetSticks(); });
+// v8.27: coming back to the game (switching to another app or tab and returning) also lets go of the touch stick and forgets what the controller's sticks
+// had settled to (see resetPadCentre below), because both can be stale after the page was hidden.
+addEventListener("blur", () => { resetSticks(); resetPadCentre(); }); addEventListener("focus", () => { resetSticks(); resetPadCentre(); }); addEventListener("pageshow", () => { resetSticks(); resetPadCentre(); });
+document.addEventListener("visibilitychange", () => { resetSticks(); resetPadCentre(); });
+addEventListener("gamepadconnected", () => resetPadCentre()); addEventListener("gamepaddisconnected", () => resetPadCentre());
 stageEl.addEventListener("touchmove", e => { if (state === "play" || Lift.on) e.preventDefault(); }, { passive: false });
 document.addEventListener("gesturestart", e => e.preventDefault());
 
@@ -7099,6 +7117,10 @@ let padFire = [false, false];
   { const gb = GamePad.settingsButton(); gb.dataset.tip = "See and change what each controller button does"; $("vOpt").before(gb); }
 }
 const padRest = [0, 0, 0, 0], padStill = [0, 0, 0, 0], padLast = [0, 0, 0, 0], padSum = [0, 0, 0, 0], padN = [0, 0, 0, 0];
+// v8.27: the joystick wandered after leaving the game and coming back. The learned stick centres (padRest) survived the trip, but a Bluetooth stick that slept,
+// reconnected or was held off-centre while the page was hidden no longer rests where it used to, so the old centre was subtracted and the view crept. Forget them
+// whenever the page is hidden, shown, loses or gains focus, or a controller connects or goes; they are learned again within 0.6 s of the stick being at rest.
+function resetPadCentre() { for (const a of [padRest, padStill, padLast, padSum, padN]) a.fill(0); }
 function readPad() {
   const pads = navigator.getGamepads ? navigator.getGamepads() : []; let gp = null;
   for (const p of pads) if (p && p.connected && p.axes.length >= 4) { gp = p; break; }
@@ -7110,7 +7132,7 @@ function readPad() {
   // v7.7: a Bluetooth stick jitters by a few hundredths every frame, which kept resetting the old frame-to-frame test, so the centre was never learned and the
   // view crept. Now an axis counts as at rest while it stays within 0.05 of where it settled; after 0.6 s its average becomes the centre.
   raw.forEach((v, i) => {
-    if (padStill[i] && Math.abs(v - padLast[i]) < 0.05 && Math.abs(v) < 0.35) { padSum[i] += v; padN[i]++; if (now - padStill[i] > 600) padRest[i] = padSum[i] / padN[i]; }
+    if (padStill[i] && Math.abs(v - padLast[i]) < 0.05 && Math.abs(v) < 0.2) { padSum[i] += v; padN[i]++; if (now - padStill[i] > 600) padRest[i] = padSum[i] / padN[i]; }
     else { padStill[i] = now; padLast[i] = v; padSum[i] = v; padN[i] = 1; }
   });
   if ((state !== "play" && !Lift.on) || anyOv()) return out;
@@ -8765,7 +8787,7 @@ const STICKERS = [
     g.fillStyle = "#f1c232"; g.font = "900 " + Math.round(h * 0.22) + "px Helvetica, Arial, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("!", -w * 0.16, -h * 0.02);
     g.fillStyle = "#14181c"; g.textAlign = "left"; g.font = "900 " + Math.round(h * 0.1) + "px Helvetica, Arial, sans-serif"; g.fillText("WARNING", w * 0.02, -h * 0.14);
     g.font = "800 " + Math.round(h * 0.062) + "px Helvetica, Arial, sans-serif"; g.fillText("DO NOT STAND", w * 0.02, -h * 0.01); g.fillText("IN FRONT OF", w * 0.02, h * 0.07); g.fillText("THIS SENTRY", w * 0.02, h * 0.15); g.restore(); } },
-  { id: "dot", name: "T&L dot", tip: "A round Ted & Lint sticker", paint: lintStk({ t: "dot", seed: 3, stage: 0, grime: 0 }) },
+  { id: "dot", round: true, name: "T&L dot", tip: "A round Ted & Lint sticker", paint: lintStk({ t: "dot", seed: 3, stage: 0, grime: 0 }) },
   { id: "bumper", name: "Hold Music bumper", tip: "Off the show's bumper sticker roll", paint: lintStk({ t: "bumper", seed: 5, stage: 0, grime: 0 }) },
   { id: "brb", name: "Be Right Back", tip: "Printed. Somebody meant it, once", paint: (g, w, h) => {
     g.save(); g.translate(w / 2, h / 2); g.rotate(-0.03); g.fillStyle = "#fbfaf4"; g.fillRect(-w * 0.45, -h * 0.3, w * 0.9, h * 0.6); g.strokeStyle = "#1f3f8a"; g.lineWidth = h * 0.03; g.strokeRect(-w * 0.42, -h * 0.26, w * 0.84, h * 0.52);
@@ -8779,31 +8801,43 @@ const GunSticker = (() => {
     if (texs[id]) return texs[id]; const s = STICKERS.find(s => s.id === id); if (!s) return null;
     const t = canvasTex(512, 384, g => { g.clearRect(0, 0, 512, 384); s.paint(g, 512, 384); }, false); t.anisotropy = 8; return (texs[id] = t);
   }
-  function apply() {
-    const id = store.get("sticker", ""), ok = id && store.get("stickers", []).includes(id), t = ok ? tex(id) : null;
-    for (const p of GUN_STK) { p.visible = !!t; const m = p.children[0] && p.children[0].material; if (m && t && m.map !== t) { m.map = t; m.needsUpdate = true; } }
+  // v8.27: several stickers at once ("stickersOn", in the order they were put on). Flat ones fill barrel slots 0 to 2, the round one goes on the butt
+  const MAXF = 3, isRound = id => { const s = STICKERS.find(s => s.id === id); return !!(s && s.round); };
+  const slotTex = {};
+  function texFor(id, slot) {      // a copy of the sticker's texture for one slot, a little crooked (the butt's is cropped to a square)
+    const key = id + ":" + slot; if (slotTex[key]) return slotTex[key]; const base = tex(id); if (!base) return null;
+    const t = base.clone(); t.needsUpdate = true; t.center.set(.5, .5); t.rotation = [0.07, -0.1, 0.12, 0.09][slot];
+    if (slot === 3) { t.repeat.set(0.75, 1); t.offset.set(0.125, 0); } return (slotTex[key] = t);
   }
+  function on() { let a = store.get("stickersOn", null); const have = store.get("stickers", []); if (a === null) { const o = store.get("sticker", ""); a = o ? [o] : []; } return a.filter(id => have.includes(id)); }
+  function layout(ids) { const flat = ids.filter(id => !isRound(id)).slice(-MAXF), round = ids.filter(isRound).slice(-1); return { flat, round: round[0] || "" }; }
+  function apply() {
+    const L = layout(on());
+    for (const p of GUN_STK) { const sl = p.userData.slot, id = sl === 3 ? L.round : (L.flat[sl] || ""), t = id ? texFor(id, sl) : null; p.visible = !!t; const m = p.children[0] && p.children[0].material; if (m && t && m.map !== t) { m.map = t; m.needsUpdate = true; } }
+  }
+  function toggle(id) { let a = on(); if (!id) a = []; else if (a.includes(id)) a = a.filter(x => x !== id); else a.push(id); const L = layout(a); store.set("stickersOn", [...L.flat, ...(L.round ? [L.round] : [])]); apply(); }
   function nameOf(id) { const s = STICKERS.find(s => s.id === id); return s ? s.name : "None"; }
-  function current() { const id = store.get("sticker", ""); return id && store.get("stickers", []).includes(id) ? id : ""; }
+  function current() { const a = on(); return a.length ? a.join(",") : ""; }
+  function label() { const a = on(); return a.length === 0 ? "None" : a.length === 1 ? nameOf(a[0]) : a.length + " stickers"; }
   function build(g = $("stkGrid"), noteEl = $("stkNote")) {      // the picker: every sticker, the found ones selectable, the rest "?" (v8.23: also drawn in Bonuses > Stickers)
-    const have = store.get("stickers", []), cur = current(); g.innerHTML = "";
+    const have = store.get("stickers", []), cur = on(); g.innerHTML = "";
     const tile = (id, name, tip, paint, lock) => {
-      const b = document.createElement("button"); b.type = "button"; b.className = "chbtn" + (id === cur ? " cur" : ""); b.dataset.tip = tip;
+      const b = document.createElement("button"); b.type = "button"; b.className = "chbtn" + ((id ? cur.includes(id) : cur.length === 0) ? " cur" : ""); b.dataset.tip = tip;
       const cv = document.createElement("canvas"); cv.width = 256; cv.height = 192; const cx = cv.getContext("2d");
       if (lock) { cx.fillStyle = "rgba(255,255,255,.18)"; cx.font = "800 96px Helvetica, Arial, sans-serif"; cx.textAlign = "center"; cx.textBaseline = "middle"; cx.fillText("?", 128, 100); }
       else if (paint) { cx.save(); cx.translate(28, 21); paint(cx, 200, 150); cx.restore(); }
       else { cx.strokeStyle = "rgba(255,255,255,.3)"; cx.lineWidth = 6; cx.beginPath(); cx.arc(128, 96, 44, 0, 6.3); cx.moveTo(97, 127); cx.lineTo(159, 65); cx.stroke(); }
       const sp = document.createElement("span"); sp.textContent = lock ? "Not found yet" : name;
-      b.append(cv, sp); if (lock) b.disabled = true; else b.addEventListener("click", () => { store.set("sticker", id); apply(); sfx.button(true); build(g, noteEl); syncStk(); });
+      b.append(cv, sp); if (lock) b.disabled = true; else b.addEventListener("click", () => { toggle(id); sfx.button(true); build(g, noteEl); syncStk(); });
       g.appendChild(b);
     };
     tile("", "None", "No sticker on the gun", null, false);
     for (const s of STICKERS) { const got = have.includes(s.id); if (s.secret && !got) continue; tile(s.id, s.name, got ? s.tip + ". Put it on the gun" : "Not found yet: somewhere in the facility", s.paint, !got); }
     const n = STICKERS.filter(s => !s.secret && have.includes(s.id)).length, N = STICKERS.filter(s => !s.secret).length;
-    noteEl.textContent = n ? "Found " + n + " of " + N + (have.includes("lint") ? ", and the secret one" : "") + ". Pick one for your portal gun." : "You have not found any stickers yet. They are hidden around the facility.";
+    noteEl.textContent = n ? "Found " + n + " of " + N + (have.includes("lint") ? ", and the secret one" : "") + ". Tap to put stickers on your portal gun or take them off: up to three flat ones on the barrel and one round one on the butt." : "You have not found any stickers yet. They are hidden around the facility.";
   }
-  function syncStk() { const b = $("oSticker"); if (b) b.textContent = nameOf(current()); }
-  return { apply, build, sync: syncStk, tex, nameOf, current };
+  function syncStk() { const b = $("oSticker"); if (b) b.textContent = label(); }
+  return { apply, build, sync: syncStk, tex, nameOf, current, toggle, on, layout };
 })();
 
 const Items = (() => {
@@ -9114,7 +9148,11 @@ const Items = (() => {
   function take(e) {
     const it = e.it; levelGroup.remove(e.g); L.splice(L.indexOf(e), 1); add("finds", e.gid); sfx.badge(); if (["card", "sticker", "tape", "page"].includes(it.kind)) Bonus.mark();
     if (it.kind === "card") { add("keys", it.key); toast("Key card: " + (it.label || it.key) + " · on your key ring"); }
-    else if (it.kind === "sticker") { add("stickers", it.sticker); toast("Gun sticker: " + GunSticker.nameOf(it.sticker) + " · put it on in Bonuses"); }
+    else if (it.kind === "sticker") {
+      add("stickers", it.sticker);
+      if (!store.get("stkIntro", 0) && !window.__tcSolo) { store.set("stkIntro", 1); toast("Gun sticker: " + GunSticker.nameOf(it.sticker) + ". Stickers go on your portal gun. Opening Bonuses so you can put it on.", 5200); setTimeout(() => { if (state === "play") Bonus.open("stickers", "play"); }, 5400); }       // v8.27: the first one says so for longer, then opens Bonuses at the stickers
+      else toast("Gun sticker: " + GunSticker.nameOf(it.sticker) + " · put it on in Bonuses", 3200);
+    }
     else if (it.kind === "tape") { toast("Tape: " + (it.title || "untitled")); Log.save("tapes", e.gid, { title: it.title || "Tape", lines: it.lines || [] }); Log.open("tapes", e.gid, "play"); }       // v8.18: a found reel plays straight away, as a Hold Music segment
     else if (it.kind === "page") { toast("Page: " + (it.title || "a page")); Log.save("pages", e.gid, { title: it.title || "Page", text: it.text || [] }); Log.open("pages", e.gid, "play"); }
     else if (it.kind === "clock") { run.time = Math.max(0, run.time - 30); toast("BONUS: Punch clock · 30 s off the chamber clock"); setTimeout(() => sfx.badge(), 400); add("clocks", e.gid); }
