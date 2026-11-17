@@ -18,7 +18,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { paint, PAINTINGS } from "./painting.js";
 import { handWrite } from "./hand.js";               // v8.19: hand-written labels
 
-export const KIT_VERSION = "kit 1.7";
+export const KIT_VERSION = "kit 1.8";
 const TAU = Math.PI * 2, PLAYER_W = 0.6, CATCH = 0.75;      // a gap between 2 cm and 75 cm is one a body can wedge into
 
 // ---------- textures (canvas, made once) ----------
@@ -148,22 +148,22 @@ const TEX = {
   flipclock: () => canvasTex("flipclock", 512, 256, (g, w, h) => {   // a split-flap desk clock's two windows: 8 | 38
     g.fillStyle = "#0b0b0c"; g.fillRect(0, 0, w, h);
     const card = (x, cw, txt) => {
-      const y = 22, ch = h - 44, mid = y + ch / 2;
+      const y = 10, ch = h - 20, mid = y + ch / 2;      // kit 1.8: taller cards, so the digits can be bigger
       for (const top of [true, false]) {                       // each card is two flaps, the top one catching a little more light
-        const y0 = top ? y : mid + 3, y1 = top ? mid - 3 : y + ch, gr = g.createLinearGradient(0, y0, 0, y1);
+        const y0 = top ? y : mid + 1, y1 = top ? mid - 1 : y + ch, gr = g.createLinearGradient(0, y0, 0, y1);
         gr.addColorStop(0, top ? "#3a3b3e" : "#25262a"); gr.addColorStop(1, top ? "#2a2b2e" : "#18191b");
         g.fillStyle = gr; g.beginPath(); g.roundRect(x, y0, cw, y1 - y0, top ? [10, 10, 2, 2] : [2, 2, 10, 10]); g.fill();
       }
       g.save(); g.beginPath(); g.rect(x, y, cw, ch); g.clip();
-      g.fillStyle = "#f1eee6"; g.textAlign = "center"; g.textBaseline = "middle"; g.font = `800 ${Math.round(ch * 0.84)}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
-      g.fillText(txt, x + cw / 2, mid + ch * 0.035);
-      const sh = g.createLinearGradient(0, mid + 3, 0, mid + 3 + ch * 0.07); sh.addColorStop(0, "rgba(0,0,0,.32)"); sh.addColorStop(1, "rgba(0,0,0,0)");
-      g.fillStyle = sh; g.fillRect(x, mid + 3, cw, ch * 0.07);                             // the top flap's soft shadow on the lower one
+      g.fillStyle = "#f1eee6"; g.textAlign = "center"; g.textBaseline = "middle"; g.font = `800 ${Math.round(ch * 0.93)}px "Helvetica Neue", Helvetica, Arial, sans-serif`; g.lineJoin = "round"; g.strokeStyle = "#f1eee6"; g.lineWidth = 4;      // kit 1.8: digits bigger and bolder, each in its own space so 38 never reads 3-8 run together
+      [...txt].forEach((ch2, i) => { const cx = x + cw * (txt.length === 1 ? 0.5 : i ? 0.745 : 0.255); g.strokeText(ch2, cx, mid + ch * 0.035); g.fillText(ch2, cx, mid + ch * 0.035); });
+      const sh = g.createLinearGradient(0, mid + 1, 0, mid + 1 + ch * 0.05); sh.addColorStop(0, "rgba(0,0,0,.28)"); sh.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = sh; g.fillRect(x, mid + 1, cw, ch * 0.05);                             // the top flap's soft shadow on the lower one
       g.restore();
-      g.fillStyle = "#050506"; g.fillRect(x - 2, mid - 3, cw + 4, 6);                      // the split
-      g.fillStyle = "#6c6e72"; for (const px of [x + 4, x + cw - 10]) g.fillRect(px, mid - 4, 6, 8);   // hinge pins
+      g.fillStyle = "#050506"; g.fillRect(x - 1, mid - 1, cw + 2, 2);                      // the split: a hairline (kit 1.8)
+      g.fillStyle = "#4a4c50"; for (const px of [x + 3, x + cw - 7]) g.fillRect(px, mid - 2, 4, 4);   // hinge pins, small
     };
-    card(28, 150, "8"); card(206, 278, "38");
+    card(12, 170, "8"); card(192, 308, "38");
   }),
   ledclock: () => canvasTex("ledclock", 768, 256, (g, w, h) => {     // green dot-LED digits, 8:38, two segments going
     g.fillStyle = "#030504"; g.fillRect(0, 0, w, h);
@@ -485,7 +485,7 @@ const PIECES = {
       K.rbox("plasOrg", W, H, D, 0.03, 0, H / 2 + 0.012, 0);                       // body
       K.box("black", W - 0.035, H - 0.04, 0.01, 0, H / 2 + 0.012, D / 2 - 0.003);   // the dark window
       K.plane("flipcard", W - 0.045, H - 0.05, 0, H / 2 + 0.012, D / 2 + 0.0025);
-      K.cyl("steelDk", 0.0016, 0.0016, W - 0.05, 0, H / 2 + 0.012, D / 2 + 0.004, 6, 0, 0, Math.PI / 2);   // the flaps' axle across the split
+      K.cyl("steelDk", 0.0008, 0.0008, W - 0.05, 0, H / 2 + 0.012, D / 2 + 0.004, 6, 0, 0, Math.PI / 2);   // the flaps' axle across the split
       K.plane("glass", W - 0.04, H - 0.045, 0, H / 2 + 0.012, D / 2 + 0.008);
       for (const sx of [-1, 1]) K.cyl("plasOrg", 0.012, 0.012, 0.008, sx * (W / 2 + 0.003), H / 2 + 0.03, -0.01, 12, 0, 0, Math.PI / 2);   // setting knobs
       for (const sx of [-1, 1]) K.box("rubber", 0.04, 0.012, D - 0.03, sx * (W / 2 - 0.04), 0.006, 0);   // feet

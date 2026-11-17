@@ -548,7 +548,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
     </div>
   </div>
 
-  <div id="fade">LIFT</div>
+  <div id="fade"></div>
   <div id="liftHud" hidden><div id="liftTo"></div><button type="button" id="liftSkip" data-tip="Skip the rest of the ride; you still walk out yourself">Skip</button></div>
   <div id="cut" hidden>
     <div class="bar t"></div><div class="bar b"></div>
@@ -576,7 +576,7 @@ import { Furn } from "./furniture.js";
 import { GLYPHS as HAND_GLYPHS, handWrite, handBlock, handWidth } from "./hand.js";      // v8.19: hand-lettering                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.27";
+const VERSION = "v8.28";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const IT_TEST = /[?&]itemtest\b/.test(location.search), SPFX = IT_TEST ? "testchambers.itest." : "testchambers.";
 const $ = id => document.getElementById(id);
@@ -628,6 +628,42 @@ function canvasTex(w, h, paint, repeat = true) {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = MAXANISO;
   if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
   return t;
+}
+/* =====================================================================================
+   v8.28 THE COMPANY LOGO: "Shutter Science" (mark A, picked by the user Nov 16, 2026): four shutter blades turning round an
+   orange centre, drawn here and nowhere else. One drawing serves the long panel on the corridor wall in the opening film and the
+   plate in every lift car, so to change the logo (the user plans to), change drawLogo() and nothing more.
+   mode "wall": mark and name side by side on a long silver panel with an orange stripe along the foot (layout 1).
+   mode "plate": mark above the name, for the small plate in a lift car.
+   ===================================================================================== */
+const LOGO = { name: "SHUTTER SCIENCE", sub: "TEST LABORATORIES", dark: "#2a2f36", orange: "#f08a24", grey: "#5a616b" };
+function logoMark(g, x, y, s) {            // the four blades and the centre, s = the mark's height and width
+  const u = s / 60; g.save(); g.translate(x, y); g.scale(u, u);
+  g.fillStyle = LOGO.dark; g.fillRect(0, 0, 40, 18); g.fillRect(42, 0, 18, 40); g.fillRect(20, 42, 40, 18); g.fillRect(0, 20, 18, 40);
+  g.fillStyle = LOGO.orange; g.fillRect(23, 23, 14, 14); g.restore();
+}
+function logoText(g, txt, x, y, px, spacing, align, weight) {      // spaced capitals, drawn letter by letter (letterSpacing is not everywhere)
+  g.font = `${weight || 800} ${px}px "Helvetica Neue", Helvetica, Arial, sans-serif`; g.textBaseline = "alphabetic"; g.textAlign = "left";
+  const ws = [...txt].map(c => g.measureText(c).width), tot = ws.reduce((a, b) => a + b, 0) + spacing * (txt.length - 1);
+  let cx = align === "center" ? x - tot / 2 : x; [...txt].forEach((c, i) => { g.fillText(c, cx, y); cx += ws[i] + spacing; }); return tot;
+}
+function drawLogo(g, w, h, mode) {
+  const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, "#dfe3e8"); gr.addColorStop(1, "#c3c9d0"); g.fillStyle = gr; g.fillRect(0, 0, w, h);      // a silver plate: smooth, no fine stripes (they shimmer)
+  g.strokeStyle = "#a9b0b8"; g.lineWidth = Math.max(3, h * 0.014); g.strokeRect(g.lineWidth / 2, g.lineWidth / 2, w - g.lineWidth, h - g.lineWidth);
+  g.fillStyle = "#9aa2ab"; for (const [x, y] of [[0.03, 0.12], [0.97, 0.12], [0.03, 0.78], [0.97, 0.78]]) { g.beginPath(); g.arc(x * w, y * h, Math.max(3, h * 0.022), 0, 6.3); g.fill(); }
+  const st = h * (mode === "wall" ? 0.075 : 0.06); g.fillStyle = LOGO.orange; g.fillRect(0, h - st, w, st);
+  const top = 0, bot = h - st;
+  if (mode === "wall") {
+    const ms = h * 0.58, gap = h * 0.2, np = h * 0.33, sp = np * 0.07, sb = h * 0.125;
+    g.font = `800 ${np}px "Helvetica Neue", Helvetica, Arial, sans-serif`; const probe = [...LOGO.name].reduce((a, c) => a + g.measureText(c).width + sp, -sp);
+    const x0 = (w - (ms + gap + probe)) / 2, cy = (top + bot) / 2, my = cy - ms / 2;
+    logoMark(g, x0, my, ms); g.fillStyle = LOGO.dark; logoText(g, LOGO.name, x0 + ms + gap, my + ms * 0.62, np, sp, "left", 800);
+    g.fillStyle = LOGO.grey; logoText(g, LOGO.sub, x0 + ms + gap, my + ms * 0.62 + sb * 1.55, sb, sb * 0.22, "left", 700);
+  } else {
+    const ms = h * 0.42, cx = w / 2; logoMark(g, cx - ms / 2, h * 0.09, ms);
+    g.fillStyle = LOGO.dark; logoText(g, LOGO.name, cx, h * 0.73, h * 0.115, h * 0.012, "center", 800);
+    g.fillStyle = LOGO.grey; logoText(g, LOGO.sub, cx, h * 0.865, h * 0.058, h * 0.012, "center", 700);
+  }
 }
 function whiteTex() {
   return canvasTex(1024, 1024, (g, w, h) => {
@@ -3945,6 +3981,7 @@ MAT.trimW = bakedMat(null, null, 0.45, 0.1, 0.5, 0xc9ced3);
   MAT.conc = bakedMat(C, null, 0.94, 0.0, 0.05, 0xb9b9b4); MAT.concF = bakedMat(C, null, 0.7, 0.0, 0.2, 0x9c9d9b);
   MAT.wwash = bakedMat(Wt, null, 0.8, 0.0, 0.2); MAT.wwashF = bakedMat(Wt, null, 0.55, 0.0, 0.45, 0xdfe3e6);
   MAT.girder = bakedMat(bsTex("girder"), null, 0.6, 0.35, 0.3); MAT.pallet = bakedMat(bsTex("pallet"), null, 0.9, 0.0, 0.05);
+  MAT.liner = bakedMat(canvasTex(8, 8, (g, w, h) => { g.fillStyle = "#5d666f"; g.fillRect(0, 0, w, h); }), null, 0.55, 0.15, 0.25);      // v8.28: the lift doorway's lining: plain dark steel, no fine streaks (they shimmer where you see them edge-on)
   MAT.clean = bakedMat(TEX.white, NRM_WHITE, 0.4, 0.0, 0.6, 0x9aa7b2); MAT.cleanF = bakedMat(TEX.white, NRM_WHITE, 0.24, 0.0, 0.9, 0x8693a0); }
 // the blast doors: brushed steel with recessed panels, a hazard band along the foot and a stencilled number
 const DOOR_STD = (() => {
@@ -7774,7 +7811,7 @@ const Cut = (() => {
     speaker(gTop, 1.6, 2.5, -11.99, 0);
 
     /* --- the lift --- */
-    const brushed = canvasTex(256, 256, (g) => { g.fillStyle = "#8d949b"; g.fillRect(0, 0, 256, 256); for (let i = 0; i < 1400; i++) { const v = 100 + R() * 110 | 0; g.fillStyle = `rgba(${v},${v + 4},${v + 8},.09)`; g.fillRect(R() * 256, 0, 1, 256); } }); brushed.repeat.set(3, 1);
+    const brushed = canvasTex(256, 256, (g) => { g.fillStyle = "#8d949b"; g.fillRect(0, 0, 256, 256); for (let i = 0; i < 90; i++) { const v = 105 + R() * 100 | 0; g.fillStyle = `rgba(${v},${v + 4},${v + 8},.07)`; g.fillRect(R() * 256, 0, 6 + R() * 14, 256); } }); brushed.repeat.set(1, 1);      // v8.28: broad soft bands, no 1 px stripes (they shimmered)
     const cab = std({ map: brushed, roughness: 0.5, metalness: 0.8, envMapIntensity: 0.45 }), cabDark = std({ color: 0x15171a, roughness: 0.6 });
     box(gLift, cab, 0.06, 2.5, 2.3, -1.13, 1.25, -13.25); box(gLift, cab, 0.06, 2.5, 2.3, 1.13, 1.25, -13.25); box(gLift, cab, 2.3, 2.5, 0.06, 0, 1.25, -14.43);
     box(gLift, cabDark, 2.3, 0.06, 2.3, 0, -0.02, -13.25); box(gLift, cabDark, 2.3, 0.06, 2.3, 0, 2.5, -13.25);
@@ -7812,6 +7849,8 @@ const Cut = (() => {
     const arrowMat = std({ map: arrow, transparent: true, roughness: 0.6, depthWrite: false });
     for (const z of [-5.5, 6.5, 18.5]) quad(gHall, arrowMat, 1.1, 2.2, 0, 0.006, z, -PI / 2, PI);
     box(gHall, frame, 0.14, 1.9, 9.4, HW / 2 - 0.05, 3.5, 9); box(gHall, std({ color: 0x1b2329, roughness: 0.5, envMapIntensity: 0.14 }), 0.06, 1.6, 9.0, HW / 2 - 0.13, 3.5, 9);       // the observation office: frosted glass, lights off
+    { const lt = canvasTex(2048, 364, (g, w, h) => drawLogo(g, w, h, "wall"), false);      // v8.28: the long silver panel on the left wall now carries the company logo (the drawing is `drawLogo`)
+      quad(gHall, std({ map: lt, roughness: 0.5, metalness: 0.45, envMapIntensity: 0.25, emissive: 0xffffff, emissiveMap: lt, emissiveIntensity: 0.05 }), 9.0, 1.6, HW / 2 - 0.1635, 3.5, 9, 0, -PI / 2); }
     // the door to chamber 01
     const ez = HZ0 + HL; box(gHall, frame, 2.9, 0.3, 0.3, 0, 3.15, ez - 0.1); box(gHall, frame, 0.22, 3.2, 0.3, -1.41, 1.6, ez - 0.1); box(gHall, frame, 0.22, 3.2, 0.3, 1.41, 1.6, ez - 0.1);
     const dPan = std({ color: 0x2a2f34, roughness: 0.35, metalness: 0.7, envMapIntensity: 0.3 }), edoor = [box(gHall, dPan, 1.3, 3.0, 0.1, -0.65, 1.5, ez + 0.08), box(gHall, dPan, 1.3, 3.0, 0.1, 0.65, 1.5, ez + 0.08)];       // behind the wall panels, so they slide out of sight
@@ -8158,6 +8197,14 @@ function carMats() {
   return _carM;
 }
 // the car, built round its floor centre; the doors are on the -z face (the way a yaw of 0 looks)
+function strangeFloor(n, k, t) {      // v8.28: floor text for a ride; k 0..1 is how strange the lift has become (0 = the normal "B05")
+  const base = "B" + String(n).padStart(2, "0"); if (k <= 0.02) return base;
+  const slot = Math.floor(t * 2.5), h = ((slot * 2654435761) >>> 0) / 4294967296, h2 = (((slot + 7) * 40503 * 2246822519) >>> 0) / 4294967296;
+  if (h > 0.18 + k * 0.5) return base;
+  const T1 = [base.slice(0, 2) + "?", "B?" + base.slice(2), "B0?", "?" + base.slice(1)], T2 = ["B3?", "B??", "B-?", "B" + (n % 7) + "?", "??" + base.slice(2), "B,,"], T3 = ["WHY", "B-NO", "!?", "B∞", "B???", "HELP", "B-??", "?!?!"];
+  const pool = k < 0.35 ? T1 : k < 0.7 ? T1.concat(T2) : T2.concat(T3, T3);
+  return pool[Math.floor(h2 * pool.length) % pool.length];
+}
 function buildCar() {
   const M = carMats(), g = new THREE.Group(), { W, D, H, DW, DH } = CAR;
   const box = (m, sx, sy, sz, x, y, z) => { const o = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), m); o.position.set(x, y, z); g.add(o); return o; };
@@ -8180,7 +8227,7 @@ function buildCar() {
   const pw = (W - DW) / 2;
   for (const sx of [-1, 1]) box(M.brushed, pw, H, 0.08, sx * (DW / 2 + pw / 2), H / 2, -D / 2 + 0.04);
   box(M.brushed, DW, H - DH, 0.08, 0, (DH + H) / 2, -D / 2 + 0.04);
-  for (const sx of [-1, 1]) box(M.steel, 0.05, DH, 0.12, sx * (DW / 2 + 0.025), DH / 2, -D / 2 + 0.06);
+  for (const sx of [-1, 1]) box(M.steel, 0.05, DH, 0.12, sx * (DW / 2 + 0.025), DH / 2, -D / 2 + 0.05);      // v8.28: 1 cm proud of the panels (the faces were flush and z-fought, the moiré down both sides of the doorway)
   // v7.7: the floor display: the floor number in amber segments, with a small arrow while the car moves (each car has its own)
   const icv = document.createElement("canvas"); icv.width = 512; icv.height = 128; const ig = icv.getContext("2d");
   const itex = new THREE.CanvasTexture(icv); itex.colorSpace = THREE.SRGBColorSpace; itex.anisotropy = 8;
@@ -8196,10 +8243,31 @@ function buildCar() {
   };
   setFloor(liftFloorTxt, 0);
   box(M.darkSteel, 0.72, 0.2, 0.02, 0, DH + 0.3, -D / 2 + 0.09); plane(new THREE.MeshBasicMaterial({ map: itex, color: new THREE.Color(1.6, 1.6, 1.6) }), 0.66, 0.165, 0, DH + 0.3, -D / 2 + 0.101);
-  const cp = box(M.darkSteel, 0.26, 0.56, 0.03, DW / 2 + 0.5, 1.25, -D / 2 + 0.095);
+  // v8.28: a full control panel (speaker, 14 floor buttons, door open/close, alarm, call, a key switch) and the company plate beside the door
   const lamps = [];
-  for (let i = 0; i < 5; i++) { const b = new THREE.Mesh(new THREE.CircleGeometry(0.03, 16), i === 4 ? M.amber : M.brushed); b.position.set(DW / 2 + 0.5, 1.44 - i * 0.09, -D / 2 + 0.112); g.add(b); if (i === 4) lamps.push(b); }
-  const st = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.03), M.amber); st.position.set(DW / 2 + 0.5, 1.5, -D / 2 + 0.112); g.add(st); lamps.push(st);
+  { const PX = DW / 2 + 0.5, PW = 0.36, PH = 1.0, PY = 1.25, pz = -D / 2 + 0.11, cw = 256, ch = 704;
+    const wx = x => PX + (x - cw / 2) * PW / cw, wy = y => PY + PH / 2 - y * PH / ch;
+    box(M.darkSteel, PW, PH, 0.03, PX, PY, -D / 2 + 0.095);
+    const tex = canvasTex(cw, ch, (c, w, h) => {
+      c.fillStyle = "#15171a"; c.fillRect(0, 0, w, h); c.strokeStyle = "#3a3f46"; c.lineWidth = 3; c.strokeRect(4, 4, w - 8, h - 8);
+      c.fillStyle = "#07080a"; for (let r = 0; r < 5; r++) for (let q = 0; q < 12; q++) { c.beginPath(); c.arc(40 + q * 16 + (r % 2) * 8, 52 + r * 15, 3.2, 0, 6.3); c.fill(); }     // the speaker grille
+      c.fillStyle = "#8d949c"; c.font = "700 15px Helvetica, Arial, sans-serif"; c.textAlign = "center"; c.textBaseline = "middle"; c.fillText("SPEAK", w / 2, 112);
+      c.font = "700 21px Helvetica, Arial, sans-serif"; c.fillStyle = "#cfd5db";
+      for (let i = 0; i < 14; i++) { const col = i % 2, row = Math.floor(i / 2), n = 14 - i; c.fillText("B" + n, 84 + col * 88, 156 + row * 58 + 0.5); }
+      c.font = "700 14px Helvetica, Arial, sans-serif"; c.fillStyle = "#8d949c"; c.fillText("OPEN", 84, 545); c.fillText("CLOSE", 172, 545); c.fillText("ALARM", 84, 628); c.fillText("CALL", 172, 628);
+      c.fillStyle = "#c9ced4"; c.font = "700 13px Helvetica, Arial, sans-serif"; c.fillText("SERVICE KEY", w / 2, 672); c.fillStyle = "#0a0b0c"; c.beginPath(); c.arc(w / 2, 692, 4, 0, 6.3); c.fill();
+    }, true);
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(PW - 0.01, PH - 0.01), new THREE.MeshBasicMaterial({ map: tex, color: new THREE.Color(0.95, 0.95, 0.95) })); face.position.set(PX, PY, pz); g.add(face);
+    const btn = (px, py, r, lit) => { const o = new THREE.Mesh(new THREE.RingGeometry(r * 0.62, r, 24), lit ? M.amber : M.brushed); o.position.set(wx(px), wy(py), pz + 0.002); g.add(o); const cap = new THREE.Mesh(new THREE.CircleGeometry(r * 0.62, 20), new THREE.MeshBasicMaterial({ color: lit ? 0x3a2a14 : 0x090a0b, transparent: true, opacity: 0.55 })); cap.position.set(wx(px), wy(py), pz + 0.0015); g.add(cap); return o; };
+    for (let i = 0; i < 14; i++) btn(84 + (i % 2) * 88, 156 + Math.floor(i / 2) * 58 + 20, 0.0155, false);
+    btn(84, 514, 0.017, false); const cl = btn(172, 514, 0.017, true); lamps.push(cl);
+    btn(84, 598, 0.017, false); btn(172, 598, 0.017, false);
+    const st = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.03), M.amber); st.position.set(PX, PY + PH / 2 - 0.03, pz + 0.002); g.add(st); lamps.push(st);
+    // the company plate on the front panel left of the doorway (drawLogo "plate": replace that one function to change the logo)
+    const lt = canvasTex(512, 256, (c, w, h) => drawLogo(c, w, h, "plate"), true);
+    box(M.steel, 0.74, 0.39, 0.014, -(DW / 2 + 0.5), 1.55, -D / 2 + 0.087);
+    const lp2 = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.35), new THREE.MeshBasicMaterial({ map: lt, color: new THREE.Color(0.92, 0.92, 0.92) })); lp2.position.set(-(DW / 2 + 0.5), 1.55, -D / 2 + 0.0945); g.add(lp2);
+  }
   // two door leaves (glass in a steel frame) that slide sideways behind the front panels
   const leaves = [];
   for (const sx of [-1, 1]) {
@@ -9554,7 +9622,7 @@ function levelItemTest() {
    standing in the same car docked behind the start of the next room (Dock): the doors open and you walk out.
    ===================================================================================== */
 const Lift = (() => {
-  let S = null, t = 0, t0 = 0, on = false, after = null, built = null, skipT = -1, endT = -1, fl0 = 0, padHeld = true, sway = 0, ly = 0, lp = 0, stall = false, stallAt = 0;
+  let S = null, t = 0, t0 = 0, on = false, after = null, built = null, skipT = -1, endT = -1, fl0 = 0, padHeld = true, sway = 0, ly = 0, lp = 0, stall = false, stallAt = 0, strange = 0;
   let px = 0, pz = 0, vx = 0, vz = 0, bob = 0, stepAcc = 0;          // v8.22: where you stand in the car (car floor centre at 0, doors on -z) and how fast you are walking
   const DUR = 4.2, SEG = 24, DROP = 40, HW = 4.4, ST0 = 2.3, ST_END = 8.4;      // v8.16: the ride that stalls (after Gauntlet) stops at ST0 and ends at ST_END
   const ease = x => { x = clamp(x, 0, 1); return x * x * x * (x * (x * 6 - 15) + 10); };
@@ -9641,7 +9709,8 @@ const Lift = (() => {
   }
   function ride(arrive, label, to) {       // arrive() builds the next room (it runs while the car is moving) and is called exactly once; `to` is that room (v8.2: its car sticker)
     try { build(); } catch (e) { arrive(); return; }
-    stall = to === BS_FIRST; stallAt = 0; S.svc.visible = false; S.carLight.intensity = 12; S.carLight.color.setHex(0xfff0dc);      // v8.16: the ride down from Gauntlet never gets there
+    stall = to === BS_FIRST; stallAt = 0; strange = stall ? 0 : clamp(((to == null ? 0 : to) - 20) / 17, 0, 1);      // v8.28: the nearer the end, the stranger the floor display
+ S.svc.visible = false; S.carLight.intensity = 12; S.carLight.color.setHex(0xfff0dc);      // v8.16: the ride down from Gauntlet never gets there
     try { S.car.setSticker(to == null ? null : lintCarSpec(to)); } catch (e) { console.error(e); }
     S.c7.group.visible = to != null && sevenHere === to && !sevenSlotted;
     after = arrive; built = false; on = true; t = 0; t0 = performance.now(); skipT = endT = -1; padHeld = true; sway = Math.random() * 6;
@@ -9685,7 +9754,7 @@ const Lift = (() => {
     }
     if (stall) { const sEnd = DROP * ease(ST0 / DUR) + DROP * (ease((ST0 + 0.02) / DUR) - ease(ST0 / DUR)) / 0.02 * 0.15; S.svc.visible = true; S.svc.position.y = s - sEnd; }      // it comes up the shaft with everything else and stops level
     S.shaft.position.y = ((s % SEG) + SEG) % SEG;
-    liftFloorTxt = stall && stallAt ? "B--" : "B" + String(fl0 + Math.floor(s / 6)).padStart(2, "0"); S.car.setFloor(liftFloorTxt, v > 0.6 ? -1 : 0);
+    liftFloorTxt = stall && stallAt ? "B--" : strangeFloor(fl0 + Math.floor(s / 6), strange, t); S.car.setFloor(liftFloorTxt, v > 0.6 ? -1 : 0);
     const L = takeLook(dt); ly += L.dyaw; lp = clamp(lp + L.dpitch, -1.45, 1.45);          // free look, with every control you look with in a chamber
     const bb = walk(Math.min(dt, 0.05), L.pad);                                             // v8.22: and walk about the car, with every control you walk with
     cam.pos.set(px + Math.sin(time * 1.3 + sway) * 0.0005 * v, bb + Math.sin(time * 9) * 0.0008 * Math.min(1, v / 3) + jolt, pz);     // v7.7: a faint hum of movement, no rocking
@@ -9696,7 +9765,7 @@ const Lift = (() => {
       const gx = CAR.W / 2 - 0.2 - C7H, gz0 = -CAR.D / 2 + 0.2 + C7H, gz1 = CAR.D / 2 - 0.2 - C7H;      // nor the glass, the rails or the doors
       g7.position.x = clamp(g7.position.x, -gx, gx); g7.position.z = clamp(g7.position.z, gz0, gz1);
     }
-    if (!stall && endT < 0 && t > DUR - 0.35) { endT = t; $("fade").classList.add("on"); }
+    if (!stall && endT < 0 && t > DUR) endT = t - 1;      // v8.28: arriving at a new level is a straight cut from the stopped car to the docked one (no fade out and back in); the car you stand in looks the same
     if ((endT >= 0 && t - endT > 0.34) || (skipT >= 0 && t - skipT > 0.34)) { arrived(); return; }
     try { let down = false; for (const pd of navigator.getGamepads ? navigator.getGamepads() : []) if (pd) for (const b of [0, 1, 2, 3, 9]) if (pd.buttons[b] && pd.buttons[b].pressed) down = true; if (!down) padHeld = false; else if (!padHeld) skip(); } catch (e) {}
     gunPass.enabled = false; placeCamera(); composer.render();
@@ -9759,6 +9828,8 @@ function planDock(lv) {
     B.push(dk(box(a0, a1, l0, l0 + LT, y0, y0 + H + 0.25)), dk(box(a0, a1, l1 - LT, l1, y0, y0 + H + 0.25)), dk(box(a1, a1 + sg * LT, l0, l1, y0, y0 + H + 0.25)),
       dk(box(a0, a1, l0, l1, y0 + H + 0.25 - LT, y0 + H + 0.25)), dk(box(a0, a1, l0, l1, y0, y0 + 0.02)));
     for (const b of [box(a0, a0 - sg * LT, l0, c - DW / 2, y0, y0 + H + 0.25), box(a0, a0 - sg * LT, c + DW / 2, l1, y0, y0 + H + 0.25), box(a0, a0 - sg * LT, c - DW / 2, c + DW / 2, y0 + DH, y0 + H + 0.25)]) B.push(dk(b));
+    { const q = 0.02, t0 = wall - sg * (T + 0.05), t1 = wall - sg * 0.02, ln = b => Object.assign(b, { mat: "dark", portal: false, look: "liner" });      // v8.28: plain steel lining on the doorway's two jambs and lintel, 2 cm in
+      B.push(ln(box(t0, t1, c - DW / 2, c - DW / 2 + q, y0, y0 + DH)), ln(box(t0, t1, c + DW / 2 - q, c + DW / 2, y0, y0 + DH)), ln(box(t0, t1, c - DW / 2, c + DW / 2, y0 + DH - q, y0 + DH))); }
     const air = box(a0 - sg * LT, a1 + sg * LT, l0 + LT, l1 - LT, y0 + 0.02, y0 + H + 0.25 - LT), ta = box(wall - sg * (T + 0.1), wall + sg * 0.02, c - DW / 2, c + DW / 2, y0, y0 + DH);
     lv.air.push([...air.min, ...air.max], [...ta.min, ...ta.max]);
     const C = pt(wall - sg * (T + D / 2 + 0.05), c, y0);
@@ -9798,8 +9869,9 @@ const Dock = (() => {
     const piece = (m, a0, a1, l0, l1, y0, y1) => { const mn = [0, y0, 0], mx = [0, y1, 0]; mn[d.ax] = Math.min(a0, a1); mx[d.ax] = Math.max(a0, a1); mn[d.lat] = l0; mx[d.lat] = l1;
       const o = new THREE.Mesh(new THREE.BoxGeometry(mx[0] - mn[0], mx[1] - mn[1], mx[2] - mn[2]), m); o.position.set((mn[0] + mx[0]) / 2, (mn[1] + mx[1]) / 2, (mn[2] + mx[2]) / 2); o.frustumCulled = false; fr.add(o); return o; };
     const w = d.wall, sg = d.sg, c = d.c, y = d.y0;
-    piece(M.brushed, w - sg * 0.02, w + sg * 0.07, c - DW / 2 - 0.16, c - DW / 2, y, y + DH + 0.16); piece(M.brushed, w - sg * 0.02, w + sg * 0.07, c + DW / 2, c + DW / 2 + 0.16, y, y + DH + 0.16);
-    piece(M.brushed, w - sg * 0.02, w + sg * 0.07, c - DW / 2 - 0.16, c + DW / 2 + 0.16, y + DH, y + DH + 0.16);
+    const E = 0.02;      // v8.28: the frame's inner faces and the header's underside line up with the doorway's lining (2 cm in)
+    piece(M.brushed, w - sg * 0.02, w + sg * 0.07, c - DW / 2 - 0.16, c - DW / 2 + E, y, y + DH + 0.16); piece(M.brushed, w - sg * 0.02, w + sg * 0.07, c + DW / 2 - E, c + DW / 2 + 0.16, y, y + DH + 0.16);
+    piece(M.brushed, w - sg * 0.02, w + sg * 0.07, c - DW / 2 - 0.16, c + DW / 2 + 0.16, y + DH - E, y + DH + 0.16);
     piece(M.darkSteel, w - sg * 0.02, w + sg * 0.04, c - DW / 2 - 0.16, c + DW / 2 + 0.16, y + DH + 0.24, y + DH + 0.5);
     strip = piece(M.amber, w + sg * 0.04, w + sg * 0.05, c - DW / 2 + 0.1, c + DW / 2 - 0.1, y + DH + 0.35, y + DH + 0.39);
     if ((W.lv.bs || W.lv.noCar) && !ajar) {              // the hoist's roller shutter, down, with the sticker every hoist has (crooked, never low)
