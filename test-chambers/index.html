@@ -137,7 +137,10 @@ body.mouselook #stage, body.mouselook #gl { cursor: none; }
   text-transform: uppercase; padding: 9px 14px; border-radius: 3px; border: 1px solid rgba(255,255,255,.4); background: rgba(10,14,18,.6); color: var(--ink); cursor: pointer; }
 #cutSkip:hover { background: rgba(255,255,255,.16); }
 body.cutting .games-pill, body.cutting #gpChip { display: none !important; }
-#cut.out .bar, #cut.out #cutSub, #cut.out #cutSkip { display: none; }
+#cut.out .bar, #cut.out #cutSub, #cut.out #cutSkip, #cut.out #cutWalk { display: none; }
+#cutWalk { position: absolute; left: 50%; bottom: calc(8.5% + 100px); transform: translateX(-50%); z-index: 3; font: 600 13px var(--font); letter-spacing: .04em; color: #f4efe6; background: rgba(0,0,0,.45); padding: 7px 14px; border-radius: 999px; opacity: 0; transition: opacity .6s; white-space: nowrap; }
+#cutWalk.on { opacity: 1; }
+body.cutwalk #touch { z-index: 31; }      /* v8.31: the walk stick shows over the film while you walk out */
 #lim { position: absolute; right: calc(env(safe-area-inset-right, 0px) + 14px); top: 74px; font-size: 11px; letter-spacing: .14em; font-weight: 700; color: var(--orange); }
 .medal { margin: 4px 0 0; font-size: 13px; letter-spacing: .1em; font-weight: 700; color: var(--dim); }
 .medal b { letter-spacing: .2em; } .medal .m3 { color: #ffd166; } .medal .m2 { color: #cfd6dc; } .medal .m1 { color: #c98a52; }
@@ -555,6 +558,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
     <div id="cutGrain"></div>
     <div id="cutFade"></div>
     <div id="cutSub"></div>
+    <div id="cutWalk"></div>
     <button id="cutSkip" type="button" aria-label="Skip the opening">Skip &rsaquo;</button>
   </div>
   <div id="tip" role="tooltip"></div>
@@ -576,7 +580,7 @@ import { Furn } from "./furniture.js";
 import { GLYPHS as HAND_GLYPHS, handWrite, handBlock, handWidth } from "./hand.js";      // v8.19: hand-lettering                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.30";
+const VERSION = "v8.31";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const IT_TEST = /[?&]itemtest\b/.test(location.search), SPFX = IT_TEST ? "testchambers.itest." : "testchambers.";
 const $ = id => document.getElementById(id);
@@ -6882,7 +6886,7 @@ function showOv(id) {
 }
 function hideOv() { for (const o of OVS) $(o).hidden = true; syncTouch(); }
 function anyOv() { return OVS.find(o => !$(o).hidden) || null; }
-function syncTouch() { const inLift = typeof Lift !== "undefined" && Lift.on; $("touch").hidden = !(isTouch && !anyOv() && (inLift || state === "play")); $("touch").classList.toggle("lift", inLift); }     // v8.22: in the moving lift the walk stick shows (no portal, jump or grab buttons)
+function syncTouch() { const inLift = (typeof Lift !== "undefined" && Lift.on) || (typeof Cut !== "undefined" && Cut.walking); $("touch").hidden = !(isTouch && !anyOv() && (inLift || state === "play")); $("touch").classList.toggle("lift", inLift); }     // v8.22: in the moving lift the walk stick shows (no portal, jump or grab buttons)
 $("ver").textContent = VERSION; for (const id of ["vTitle", "vOpt", "vPause"]) $(id).textContent = "Test Chambers " + VERSION;
 
 function inFull() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
@@ -7081,7 +7085,7 @@ addEventListener("keydown", e => {
     return;
   }
   if (anyOv()) { if (k === "escape") ovBack(); else if ((k === "h" || k === "?") && anyOv() === "ovHow") showOv(howFrom); else if (k === "b" && !e.repeat && anyOv() === "ovBonus") Bonus.close(); return; }
-  if (Lift.on) { if (["arrowup", "arrowdown", "arrowleft", "arrowright"].includes(k)) e.preventDefault(); setKey(e, true); return; }      // v8.22: in the moving lift you can walk about the car; nothing else (Space, Return and Esc are Skip)
+  if (Lift.on || Cut.walking) { if (["arrowup", "arrowdown", "arrowleft", "arrowright"].includes(k)) e.preventDefault(); setKey(e, true); return; }      // v8.31: and in the opening's corridor      // v8.22: in the moving lift you can walk about the car; nothing else (Space, Return and Esc are Skip)
   if (state !== "play" && state !== "dead") return;
   if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(k)) e.preventDefault();
   setKey(e, true);
@@ -7110,6 +7114,7 @@ document.addEventListener("pointerlockerror", () => { lockFailed = true; });
 function tryLock() { setTimeout(() => { if (!document.pointerLockElement) lockFailed = true; }, 600); tryLock0(); }
 function tryLock0() { if (!canvas.requestPointerLock || document.pointerLockElement) return; try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) {} }
 canvas.addEventListener("mousedown", e => {
+  if (state === "cut" && Cut.walking) { enterMouseMode(); if (!document.pointerLockElement) lockPointer(); return; }      // v8.31: a click in the opening's corridor locks the aim
   if (state !== "play") return;
   enterMouseMode();
   if (!isTouch && !document.pointerLockElement) { lockPointer(); return; }
@@ -7122,7 +7127,7 @@ let lastTouchT = -1e9;
 addEventListener("pointerdown", e => { if (e.pointerType === "touch") { lastTouchT = performance.now(); edgeX = edgeY = 0; } }, true);
 addEventListener("pointermove", e => { if (e.pointerType === "touch") { lastTouchT = performance.now(); edgeX = edgeY = 0; } }, true);
 addEventListener("mousemove", e => {
-  if ((state !== "play" && !Lift.on) || anyOv()) return;
+  if ((state !== "play" && !Lift.on && !Cut.walking) || anyOv()) return;
   if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
   if (performance.now() - lastTouchT < 1500 && !document.pointerLockElement) return;      // v7.7: a mouse event made by a finger (iPadOS sends them) is not a trackpad; it used to leave the view turning at a screen edge
   enterMouseMode();
@@ -7142,7 +7147,7 @@ addEventListener("mouseleave", () => { edgeX = edgeY = 0; lastMX = -1; });
 // two-finger swipe on the trackpad: forward / back (and sideways)
 let wheelS = 0;
 addEventListener("wheel", e => {
-  if ((state !== "play" && !Lift.on) || anyOv()) return; e.preventDefault(); enterMouseMode();      // v8.22: the swipe walks you about the moving lift too
+  if ((state !== "play" && !Lift.on && !Cut.walking) || anyOv()) return; e.preventDefault(); enterMouseMode();      // v8.22: the swipe walks you about the moving lift too
   const k = e.deltaMode === 1 ? 0.04 : 0.0042, dir = opts.scrollInv ? -1 : 1;
   let wy = e.deltaY, wx = e.deltaX;
   if (Math.abs(wy) < 1.2) wy = 0; if (Math.abs(wx) < 1.2) wx = 0;            // dead zone: finger resting on the pad
@@ -7155,7 +7160,7 @@ const stick = { id: null, ox: 0, oy: 0, x: 0, y: 0 }, looks = new Map();
 const base = $("stickBase"), knob = $("stickKnob"), STICK_R = 62;
 function blockedTarget(t) { return !!(t.closest && t.closest(".ov,.ibtn,.tbtn,#gamesPill,[data-pill],#hudBtns,button")); }
 stageEl.addEventListener("pointerdown", e => {
-  if (e.pointerType === "touch" && Lift.on && !anyOv()) { if (!blockedTarget(e.target) && !e.target.closest("#liftSkip")) { if (e.clientX < innerWidth * 0.46) startStick(e); else looks.set(e.pointerId, { x: e.clientX, y: e.clientY }); e.preventDefault(); } return; }   // v8.22: in the lift, the left thumb walks (as in a chamber), any other finger looks around
+  if (e.pointerType === "touch" && (Lift.on || Cut.walking) && !anyOv()) { if (!blockedTarget(e.target) && !e.target.closest("#liftSkip,#cutSkip")) { if (e.clientX < innerWidth * 0.46) startStick(e); else looks.set(e.pointerId, { x: e.clientX, y: e.clientY }); e.preventDefault(); } return; }   // v8.22: in the lift, the left thumb walks (as in a chamber), any other finger looks around
   if (e.pointerType !== "touch" || state !== "play" || anyOv()) return;
   const tb = e.target.closest && e.target.closest(".tbtn");
   if (tb) {
@@ -7684,6 +7689,8 @@ const CUT_END_LINES = [
 const Cut = (() => {
   const el = $("cut"), subEl = $("cutSub"), fadeEl = $("cutFade"), PI = Math.PI;
   let S = null, t = 0, after = null, gen = 0, queue = [], talking = false, said = 0, vsrc = null, vTimer = 0, endT = -1, skipT = -1, padHeld = true;
+  let walking = false, wx = 0, wz = 0, wvx = 0, wvz = 0, wyaw = 0, wpitch = 0, hintOff = 0;      // v8.31: after the lift doors open you walk the corridor yourself
+  const T_WALK = 32.2, walkEl = $("cutWalk");
   let lintOn = false, lintSays = false;           // v8.18: the closing film has Lint in it once he has been found (`lintFound`)
   let mode = "open", lineSet = CUT_LINES, sigLast = -1, sigOn = false, nextChirp = 0, windS = null, cue = 0, stepPh = 0, floorNo = -1, banks = 0, hudWas = true, backState = "title", loops = [], doorSaid = 0, lastStep = 0;
   const lastP = new V3(); let prBefore = 0;
@@ -7825,7 +7832,7 @@ const Cut = (() => {
     /* --- reception --- */
     const lino = canvasTex(256, 256, (g) => { for (let y = 0; y < 2; y++) for (let x = 0; x < 2; x++) { g.fillStyle = (x + y) % 2 ? "#5d6359" : "#666c60"; g.fillRect(x * 128, y * 128, 128, 128); } speckle(g, R, 2500, 256, 256, 40, 150, .16); g.strokeStyle = "rgba(20,22,20,.5)"; g.lineWidth = 2; g.strokeRect(0, 0, 128, 128); g.strokeRect(128, 128, 128, 128); });
     lino.repeat.set(5, 6.25);
-    quad(gTop, std({ map: lino, roughness: 0.5, envMapIntensity: 0.12 }), 10, 12.5, 0, 0.01, -6.15, -PI / 2);
+    quad(gTop, std({ map: lino, roughness: 0.5, envMapIntensity: 0.12 }), 10, 12.1, 0, 0.01, -5.95, -PI / 2);
     const wallM = std({ color: 0x7a8479, roughness: 0.9 }), dado = std({ color: 0x3f4a44, roughness: 0.7 }), ceilM = std({ color: 0x2a2d2f, roughness: 0.95 });
     box(gTop, wallM, 0.2, 3.2, 12, -5.1, 1.6, -6.4); box(gTop, wallM, 0.2, 3.2, 12, 5.1, 1.6, -6.4); box(gTop, dado, 0.22, 1.0, 12, -5.1, 0.5, -6.4); box(gTop, dado, 0.22, 1.0, 12, 5.1, 0.5, -6.4);
     box(gTop, ceilM, 10.4, 0.2, 12.2, 0, 3.3, -6.4);
@@ -7838,8 +7845,10 @@ const Cut = (() => {
     box(gTop, wood, 0.9, 1.0, 3.4, 2.62, 0.5, -5.6); box(gTop, top, 1.0, 0.05, 3.5, 2.62, 1.025, -5.6); box(gTop, wood, 1.9, 1.0, 0.7, 3.9, 0.5, -7.1);
     const sheet = canvasTex(768, 1086, (g) => {
       g.fillStyle = "#efe9da"; g.fillRect(0, 0, 768, 1086); speckle(g, R, 3000, 768, 1086, 130, 200, .1);
-      g.fillStyle = "#1c1e20"; g.textAlign = "center"; g.font = "800 58px Helvetica, Arial, sans-serif"; g.fillText("VISITOR SIGN-IN", 384, 112);
-      g.font = "600 24px Helvetica, Arial, sans-serif"; g.fillText("All visitors must sign OUT when leaving. No exceptions.", 384, 158);
+      { g.font = '700 26px "Helvetica Neue", Helvetica, Arial, sans-serif'; const tw = [...LOGO.name].reduce((a, c) => a + g.measureText(c).width, 0) + 1.5 * (LOGO.name.length - 1), mw = 46, x0 = 384 - (mw + 14 + tw) / 2;      // v8.31: the company logo heads the sheet
+        logoMark(g, x0 + mw / 2, 90, mw / 60); g.fillStyle = LOGO.blade; logoText(g, LOGO.name, x0 + mw + 14, 100, 26, 1.5, "left"); }      // below the clipboard's clip
+      g.fillStyle = "#1c1e20"; g.textAlign = "center"; g.font = "800 46px Helvetica, Arial, sans-serif"; g.fillText("VISITOR SIGN-IN", 384, 153);
+      g.font = "600 19px Helvetica, Arial, sans-serif"; g.fillText("All visitors must sign OUT when leaving. No exceptions.", 384, 183);
       g.strokeStyle = "#1c1e20"; g.lineWidth = 3; g.strokeRect(48, 196, 672, 800); g.beginPath(); g.moveTo(430, 196); g.lineTo(430, 996); g.moveTo(575, 196); g.lineTo(575, 996); g.stroke();
       g.lineWidth = 2; for (let i = 1; i < 11; i++) { g.beginPath(); g.moveTo(48, 196 + i * 72.7); g.lineTo(720, 196 + i * 72.7); g.stroke(); }
       g.font = "800 26px Helvetica, Arial, sans-serif"; g.fillText("NAME", 239, 244); g.fillText("TIME IN", 502, 244); g.fillText("TIME OUT", 647, 244);
@@ -7859,11 +7868,18 @@ const Cut = (() => {
       const sh = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.16, 0.14, 20, 1, false), std({ color: 0x1d5a48, roughness: 0.35, side: THREE.DoubleSide })); sh.position.set(2.78, 1.42, -4.86); sh.rotation.set(0.5, 0, 0.35); gTop.add(sh);
       const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.03, 12, 8), lit(3.4, 2.7, 1.5)); bulb.position.set(2.77, 1.385, -4.885); gTop.add(bulb); }
     const deskL = point(gTop, 0xffc88a, 2.7, 1.42, -5.0, 4.5);
-    box(gTop, std({ color: 0x25282a, roughness: 0.5 }), 0.36, 0.34, 0.42, 2.9, 1.22, -6.5); box(gTop, glass, 0.3, 0.26, 0.02, 2.71, 1.23, -6.5).rotation.y = PI / 2; box(gTop, lit(1.8, .9, .15), 0.012, 0.012, 0.012, 2.715, 1.08, -6.36);
     { const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.15, 0.4, 16), std({ color: 0x6b4a36, roughness: 0.8 })); pot.position.set(-4.3, 0.2, -1.4); gTop.add(pot);
       const dead = std({ color: 0x3d3220, roughness: 0.9 }); for (let i = 0; i < 9; i++) { const s = box(gTop, dead, 0.012, 0.5 + R() * 0.5, 0.012, -4.3 + (R() - .5) * .16, 0.62, -1.4 + (R() - .5) * .16); s.rotation.set((R() - .5) * 0.9, 0, (R() - .5) * 0.9); } }
-    const chairM = std({ color: 0x8c4a1e, roughness: 0.5, envMapIntensity: 0.14 }), legM = std({ color: 0x1b1d1f, roughness: 0.4, metalness: 0.7 });
-    for (let i = 0; i < 5; i++) { const z = -3.6 - i * 0.62; box(gTop, chairM, 0.46, 0.05, 0.5, -4.6, 0.45, z); box(gTop, chairM, 0.05, 0.42, 0.5, -4.86, 0.72, z); box(gTop, legM, 0.03, 0.45, 0.03, -4.42, 0.225, z - 0.2); box(gTop, legM, 0.03, 0.45, 0.03, -4.42, 0.225, z + 0.2); }
+    // v8.31: the lobby is furnished from our own kit (furniture.js). Everything stays off the films' walking lines (x -1.2 to 2.2, and the desk front)
+    { const F = Furn.room([
+        { k: "sofa", at: [-4.55, 0.01, -4.6], turn: 1 }, { k: "stackchair", at: [-4.72, 0.01, -6.15], turn: 1 }, { k: "stackchair", at: [-4.72, 0.01, -6.75], turn: 1, ry: PI / 2 + 0.12 },
+        { k: "noticeboard", at: [-5.0, 1.55, -6.45], turn: 1 }, { k: "bin", at: [-4.75, 0.01, -7.45] }, { k: "cooler", at: [-4.78, 0.01, -8.25], turn: 1 }, { k: "vending", at: [-4.55, 0.01, -9.6], turn: 1 },
+        { k: "plant", at: [-4.55, 0.01, -11.3] }, { k: "coatstand", at: [4.45, 0.01, -1.3], ry: 2.4 },
+        { k: "chair", at: [3.6, 0.01, -5.35], turn: 3, ry: -PI / 2 + 0.35 }, { k: "cabinet", at: [4.66, 0.01, -4.3], turn: 3 }, { k: "cabinet", at: [4.66, 0.01, -3.82], turn: 3 },
+        { k: "computer", at: [3.75, 1.0, -7.15] }, { k: "phone", at: [2.8, 1.05, -6.0], turn: 3 }, { k: "intray", at: [2.8, 1.05, -4.18], turn: 3 },
+        { k: "flipclock", at: [4.45, 1.0, -7.0] }, { k: "mug", at: [3.2, 1.0, -7.15] }, { k: "carton", at: [4.4, 0.01, -8.3], ry: 0.3 }
+      ], { grime: 0.55, shadows: true });
+      gTop.add(F.group); }
     const clock = canvasTex(256, 256, (g) => { g.fillStyle = "#e8e6de"; g.beginPath(); g.arc(128, 128, 118, 0, 7); g.fill(); g.strokeStyle = "#17191b"; g.lineWidth = 9; g.stroke(); g.lineWidth = 5;
       for (let i = 0; i < 12; i++) { const a = i * PI / 6; g.beginPath(); g.moveTo(128 + Math.sin(a) * 96, 128 - Math.cos(a) * 96); g.lineTo(128 + Math.sin(a) * 108, 128 - Math.cos(a) * 108); g.stroke(); }
       const hA = (8 + 38 / 60) / 12 * 2 * PI, mA = 38 / 60 * 2 * PI;           // 8:38, like every clock in the facility
@@ -7871,10 +7887,13 @@ const Cut = (() => {
     { const c = new THREE.Mesh(new THREE.CircleGeometry(0.21, 32), std({ map: clock, roughness: 0.6, transparent: true })); c.position.set(-4.985, 2.35, -4.8); c.rotation.y = PI / 2; gTop.add(c); }
     const notice = canvasTex(512, 256, (g) => { g.fillStyle = "#e7e9e4"; g.fillRect(0, 0, 512, 256); g.fillStyle = "#17191b"; g.textAlign = "center"; g.font = "800 54px Helvetica, Arial, sans-serif"; g.fillText("PLEASE SIGN IN", 256, 104);
       g.font = "600 30px Helvetica, Arial, sans-serif"; g.fillText("A member of staff will be", 256, 164); g.fillText("with you shortly.", 256, 204); }, false);
-    quad(gTop, std({ map: notice, roughness: 0.7 }), 1.3, 0.65, 4.99, 2.1, -5.6, 0, -PI / 2);
+    quad(gTop, std({ map: notice, roughness: 0.7 }), 1.1, 0.55, 4.99, 1.9, -5.6, 0, -PI / 2);
+    { const lt = canvasTex(2048, 364, (g, w, h) => drawLogo(g, w, h, "wall"), false);      // v8.31: the company name over reception (the same panel 1A drawing as the corridor)
+      box(gTop, frame, 0.05, 0.62, 3.1, 4.975, 2.78, -5.6);
+      quad(gTop, std({ map: lt, roughness: 0.5, metalness: 0.4, envMapIntensity: 0.2, emissive: 0xffffff, emissiveMap: lt, emissiveIntensity: 0.06 }), 3.0, 0.533, 4.945, 2.78, -5.6, 0, -PI / 2); }
     // back wall with the lift in it (stays for the whole film: its other side is the lift's front wall)
     box(gLift, wallM, 4.2, 3.2, 0.2, -2.9, 1.6, -12.1); box(gLift, wallM, 4.2, 3.2, 0.2, 2.9, 1.6, -12.1); box(gLift, wallM, 1.6, 1.0, 0.2, 0, 2.7, -12.1);
-    box(gTop, frame, 0.09, 2.25, 0.26, -0.845, 1.125, -12.08); box(gTop, frame, 0.09, 2.25, 0.26, 0.845, 1.125, -12.08); box(gTop, frame, 1.78, 0.09, 0.26, 0, 2.245, -12.08);
+    box(gTop, frame, 0.09, 2.25, 0.26, -0.835, 1.125, -12.08); box(gTop, frame, 0.09, 2.25, 0.26, 0.835, 1.125, -12.08); box(gTop, frame, 1.76, 0.09, 0.26, 0, 2.235, -12.08);      // v8.31: 1 cm proud of the jambs and the lintel (they shared faces and flickered)
     const arrowM = lit(2.6, 1.5, 0.3); { const a = new THREE.Mesh(new THREE.CircleGeometry(0.06, 3), arrowM); a.rotation.z = PI; a.position.set(0, 2.46, -11.995); gTop.add(a); box(gTop, std({ color: 0x15171a }), 0.3, 0.2, 0.02, 0, 2.46, -12.0); }
     const grille = canvasTex(128, 128, (g) => { g.fillStyle = "#23262a"; g.fillRect(0, 0, 128, 128); g.fillStyle = "#07090a"; for (let y = 14; y < 120; y += 12) for (let x = 14; x < 120; x += 12) { g.beginPath(); g.arc(x, y, 3.3, 0, 7); g.fill(); } }, false);
     const spkLed = [];
@@ -7882,16 +7901,16 @@ const Cut = (() => {
     speaker(gTop, 1.6, 2.5, -11.99, 0);
 
     /* --- the lift --- */
-    const brushed = canvasTex(256, 256, (g) => { g.fillStyle = "#8d949b"; g.fillRect(0, 0, 256, 256); for (let i = 0; i < 90; i++) { const v = 105 + R() * 100 | 0; g.fillStyle = `rgba(${v},${v + 4},${v + 8},.07)`; g.fillRect(R() * 256, 0, 6 + R() * 14, 256); } }); brushed.repeat.set(1, 1);      // v8.28: broad soft bands, no 1 px stripes (they shimmered)
-    const cab = std({ map: brushed, roughness: 0.5, metalness: 0.8, envMapIntensity: 0.45 }), cabDark = std({ color: 0x15171a, roughness: 0.6 });
+    const brushed = canvasTex(256, 256, (g) => { g.fillStyle = "#8d949b"; g.fillRect(0, 0, 256, 256); g.filter = "blur(14px)"; for (let i = 0; i < 18; i++) { const v = 115 + R() * 70 | 0; g.fillStyle = `rgba(${v},${v + 4},${v + 8},.16)`; g.fillRect(R() * 256 - 40, -40, 40 + R() * 60, 336); } g.filter = "none"; }); brushed.repeat.set(1, 1);      // v8.31: only wide, blurred light and dark (any edge in the texture crawled as moire when the camera bobbed)
+    const cab = std({ map: brushed, roughness: 0.62, metalness: 0.55, envMapIntensity: 0.3 }), cabDark = std({ color: 0x15171a, roughness: 0.6 });
     box(gLift, cab, 0.06, 2.5, 2.3, -1.13, 1.25, -13.25); box(gLift, cab, 0.06, 2.5, 2.3, 1.13, 1.25, -13.25); box(gLift, cab, 2.3, 2.5, 0.06, 0, 1.25, -14.43);
-    box(gLift, cabDark, 2.3, 0.06, 2.3, 0, -0.02, -13.25); box(gLift, cabDark, 2.3, 0.06, 2.3, 0, 2.5, -13.25);
+    box(gLift, cabDark, 2.3, 0.06, 2.4, 0, -0.02, -13.2); box(gLift, cabDark, 2.3, 0.06, 2.3, 0, 2.5, -13.25);      // v8.31: the floor runs to the wall's front face (z -12.0) and the lobby lino stops there, so the two never overlap
     box(gLift, cab, 0.33, 2.5, 0.04, -0.965, 1.25, -12.22); box(gLift, cab, 0.33, 2.5, 0.04, 0.965, 1.25, -12.22); box(gLift, cab, 1.6, 0.3, 0.04, 0, 2.35, -12.22);
     const liftPanel = lit(1.7, 1.62, 1.45); box(gLift, liftPanel, 1.3, 0.02, 1.3, 0, 2.46, -13.25);
     const liftL = point(gLift, 0xfff0d8, 0, 2.3, -13.5, 9);
     for (const x of [-1.07, 1.07]) { const r = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.9, 10), steel); r.rotation.x = PI / 2; r.position.set(x, 0.95, -13.3); gLift.add(r); }
     box(gLift, cabDark, 0.02, 0.5, 0.2, -1.09, 1.3, -12.6); for (let i = 0; i < 5; i++) box(gLift, lit(i === 4 ? 2.4 : .25, i === 4 ? 1.4 : .25, i === 4 ? .3 : .25), 0.012, 0.035, 0.035, -1.075, 1.48 - i * 0.085, -12.6);
-    const doorM = std({ map: brushed, roughness: 0.62, metalness: 0.55, envMapIntensity: 0.3 });
+    const doorM = std({ map: brushed, roughness: 0.7, metalness: 0.45, envMapIntensity: 0.22 });
     const ldoor = [box(gLift, doorM, 0.8, 2.2, 0.04, -0.4, 1.1, -12.1), box(gLift, doorM, 0.8, 2.2, 0.04, 0.4, 1.1, -12.1)];
     const indC = document.createElement("canvas"); indC.width = 256; indC.height = 80; const indT = new THREE.CanvasTexture(indC); indT.colorSpace = THREE.SRGBColorSpace;
     const indM = lit(1.7, 1.7, 1.7, { map: indT }); box(gLift, cabDark, 0.66, 0.22, 0.02, 0, 2.33, -12.245); quad(gLift, indM, 0.6, 0.1875, 0, 2.33, -12.257, 0, PI);
@@ -7922,6 +7941,12 @@ const Cut = (() => {
     box(gHall, frame, 0.14, 1.9, 9.4, HW / 2 - 0.05, 3.5, 9); box(gHall, std({ color: 0x1b2329, roughness: 0.5, envMapIntensity: 0.14 }), 0.06, 1.6, 9.0, HW / 2 - 0.13, 3.5, 9);       // the observation office: frosted glass, lights off
     { const lt = canvasTex(2048, 364, (g, w, h) => drawLogo(g, w, h, "wall"), false);      // v8.28: the long silver panel on the left wall now carries the company logo (the drawing is `drawLogo`)
       quad(gHall, std({ map: lt, roughness: 0.5, metalness: 0.45, envMapIntensity: 0.25, emissive: 0xffffff, emissiveMap: lt, emissiveIntensity: 0.05 }), 9.0, 1.6, HW / 2 - 0.1635, 3.5, 9, 0, -PI / 2); }
+    // v8.31: the corridor's side of the lift wall: white panels round a steel frame (it was the lobby's plain green wall), now that you can turn round and look
+    { const sh = new THREE.Shape([[-3.5, 0], [-0.79, 0], [-0.79, 2.21], [0.79, 2.21], [0.79, 0], [3.5, 0], [3.5, 3.2], [-3.5, 3.2]].map(([a, b]) => new THREE.Vector2(a, b)));
+      const lw = tiled(TEX.white, 0.25, 0.25), ln = tiled(NRM_WHITE, 0.25, 0.25); lw.offset.set(0.875, 0); ln.offset.set(0.875, 0);
+      const m = new THREE.Mesh(new THREE.ShapeGeometry(sh), std({ map: lw, normalMap: ln, roughness: 0.5, envMapIntensity: 0.1 })); m.position.set(0, 0, HZ0 + 0.012); gHall.add(m);
+      box(gHall, frame, 0.1, 2.3, 0.12, -0.84, 1.15, HZ0 + 0.06); box(gHall, frame, 0.1, 2.3, 0.12, 0.84, 1.15, HZ0 + 0.06); box(gHall, frame, 1.78, 0.1, 0.12, 0, 2.25, HZ0 + 0.06);
+      box(gHall, cabDark, 0.14, 0.24, 0.03, 1.15, 1.2, HZ0 + 0.03); box(gHall, lit(2.6, 1.5, 0.3), 0.045, 0.045, 0.02, 1.15, 1.2, HZ0 + 0.05); }      // the call button, lit
     // the door to chamber 01
     const ez = HZ0 + HL; box(gHall, frame, 2.9, 0.3, 0.3, 0, 3.15, ez - 0.1); box(gHall, frame, 0.22, 3.2, 0.3, -1.41, 1.6, ez - 0.1); box(gHall, frame, 0.22, 3.2, 0.3, 1.41, 1.6, ez - 0.1);
     const dPan = std({ color: 0x2a2f34, roughness: 0.35, metalness: 0.7, envMapIntensity: 0.3 }), edoor = [box(gHall, dPan, 1.3, 3.0, 0.1, -0.65, 1.5, ez + 0.08), box(gHall, dPan, 1.3, 3.0, 0.1, 0.65, 1.5, ez + 0.08)];       // behind the wall panels, so they slide out of sight
@@ -8086,7 +8111,7 @@ const Cut = (() => {
     prep(); ensureAudio(); sadosShutUp(); unlockPointer(); hideTip();
     mode = which === "end" ? "end" : "open"; lineSet = mode === "end" ? CUT_END_LINES : CUT_LINES;
     after = then; backState = state; state = "cut"; sadosShutUp(); hideOv(); hudWas = $("hud").hidden; $("hud").hidden = true; syncTouch();
-    t = 0; endT = skipT = -1; said = 0; cue = 0; doorSaid = 0; floorNo = -1; banks = 0; stepPh = 0; lastStep = 0; padHeld = true; sigLast = -1; nextChirp = 0; hush();
+    stopWalk(); t = 0; endT = skipT = -1; said = 0; cue = 0; doorSaid = 0; floorNo = -1; banks = 0; stepPh = 0; lastStep = 0; padHeld = true; sigLast = -1; nextChirp = 0; hush();
     S.gTop.visible = true; S.gHall.visible = false; S.setFloor(0, false);
     S.edoor[0].position.x = -0.65; S.edoor[1].position.x = 0.65; S.bar.color.setRGB(3.2, .45, .25); for (const m of S.bankM) m.color.setRGB(.05, .055, .06); for (const l of S.bankL) l.intensity = 0;
     if (mode === "end") setDay(); else setNight();
@@ -8102,7 +8127,7 @@ const Cut = (() => {
   }
   function finish() {
     if (state !== "cut") return;
-    hush(); stopLoops(); scenePass.scene = scene; camera.fov = 72; camera.updateProjectionMatrix(); cam.roll = 0; if (prBefore) { QUAL.pr = prBefore; prBefore = 0; resize(); }
+    stopWalk(); unlockPointer(); hush(); stopLoops(); scenePass.scene = scene; camera.fov = 72; camera.updateProjectionMatrix(); cam.roll = 0; if (prBefore) { QUAL.pr = prBefore; prBefore = 0; resize(); }
     if (actx) { applyAudioOpts(); try { setVoiceRoom(roomSize()); } catch (e) {} }
     if (mode !== "end") store.set("seenOpening", 1); $("hud").hidden = hudWas; state = backState;
     document.body.classList.remove("cutting"); el.classList.add("out"); const cb = after; after = null; if (cb) cb();
@@ -8111,6 +8136,32 @@ const Cut = (() => {
   }
   function skip() { if (state !== "cut" || skipT >= 0 || t < 0.6) return; skipT = t; hush(); stopLoops(); }
   const P = [];
+  /* v8.31: the walk out. From the open lift doors to chamber 01's door the corridor is yours: every walk and look control works (keys,
+     trackpad or mouse, controller, the touch stick on the left and a drag on the right). The door opens once SaDos has finished and you
+     are near it; walking through it ends the film. Skip still works throughout. */
+  const walkRects = () => { const r = [[-0.8, 0.8, -14.1, -12.55], [-0.5, 0.5, -12.55, -11.7], [-3.2, 3.2, -11.7, 26.35]]; if (endT >= 0 && t - endT > 1.1) r.push([-1.0, 1.0, 26.35, 28.6]); return r; };   // the car, its doorway, the corridor (and the open door)
+  const inWalk = (x, z) => walkRects().find(r => x >= r[0] && x <= r[1] && z >= r[2] && z <= r[3]);
+  function startWalk() {
+    walking = true; wx = P[0]; wz = P[2]; wyaw = P[3]; wpitch = P[4]; wvx = wvz = 0; hintOff = 0;
+    inp.lookX = inp.lookY = 0; mLookX = mLookY = 0; for (const k in keys) keys[k] = false; resetSticks();
+    document.body.classList.add("cutwalk"); syncTouch();
+    walkEl.textContent = isTouch ? "Left thumb to walk, drag to look around" : "Walk out when you are ready: WASD, arrows or the stick";
+    walkEl.classList.add("on"); setTimeout(() => walkEl.classList.remove("on"), 5500);
+  }
+  function stopWalk() { if (!walking) return; walking = false; for (const k in keys) keys[k] = false; inp.fwd = inp.right = 0; resetSticks(); document.body.classList.remove("cutwalk"); walkEl.classList.remove("on"); syncTouch(); }
+  function walkStep(dt) {
+    const L = takeLook(dt), pad = L.pad; wyaw += L.dyaw; wpitch = clamp(wpitch + L.dpitch, -1.45, 1.45);
+    wheelV *= Math.exp(-dt * 9); wheelS *= Math.exp(-dt * 9); if (Math.abs(wheelV) < 0.04) wheelV = 0; if (Math.abs(wheelS) < 0.04) wheelS = 0;
+    const fwd = clamp((keys.f ? 1 : 0) - (keys.b ? 1 : 0) - stick.y - pad.my + wheelV, -1, 1), rt = clamp((keys.r ? 1 : 0) - (keys.l ? 1 : 0) + stick.x + pad.mx + wheelS, -1, 1);
+    const sy = Math.sin(wyaw), cy = Math.cos(wyaw); let ax = -sy * fwd + cy * rt, az = -cy * fwd - sy * rt;
+    const wl = Math.hypot(ax, az); if (wl > 1) { ax /= wl; az /= wl; } const wish = Math.min(1, Math.hypot(ax, az));
+    const sp = Math.hypot(wvx, wvz);                     // the same ground feel as in a chamber: friction, then accelerate toward the wish
+    if (sp > 0.01) { const ns = Math.max(0, sp - Math.max(sp, 1.5) * 9 * dt) / sp; wvx *= ns; wvz *= ns; }
+    if (wish > 0.01) { const dx = ax / wish, dz = az / wish, add = WALK * wish - (wvx * dx + wvz * dz); if (add > 0) { const a = Math.min(add, 10 * dt * WALK); wvx += dx * a; wvz += dz * a; } }
+    const R0 = inWalk(wx, wz) || walkRects()[0]; let nx = wx + wvx * dt; if (!inWalk(nx, wz)) { nx = clamp(nx, R0[0], R0[1]); wvx = 0; } wx = nx;
+    const R1 = inWalk(wx, wz) || R0; let nz = wz + wvz * dt; if (!inWalk(wx, nz)) { nz = clamp(nz, R1[2], R1[3]); wvz = 0; } wz = nz;
+    if ((hintOff += Math.hypot(wvx, wvz) * dt) > 3) walkEl.classList.remove("on");
+  }
   function tickEnd(dt, time) {
     t += dt; const s = S, D = s.day;
     pathAt(t, P, KEYS_E); const x = P[0], y = P[1], z = P[2];
@@ -8177,12 +8228,15 @@ const Cut = (() => {
     t += dt; const s = S;
     // camera
     pathAt(t, P); let x = P[0], y = P[1], z = P[2];
-    if (endT >= 0) z += Math.pow(Math.max(0, t - endT), 1.6) * 2.2;
+    if (!walking && t >= T_WALK && skipT < 0 && endT < 0) startWalk();
+    if (walking) { walkStep(dt); x = wx; y = 1.62; z = wz; }
+    else if (endT >= 0) z += Math.pow(Math.max(0, t - endT), 1.6) * 2.2;
     const sp = Math.hypot(x - lastP.x, z - lastP.z) / Math.max(dt, 1e-3); lastP.set(x, y, z);
     const walk = clamp(sp / 1.6, 0, 1); stepPh += dt * (1.4 + sp) * 2.2 * (walk > 0.1 ? 1 : 0);
-    const inLift = t > 20.9 && t < 34.6, ride = t > T_SWAP + 0.5 && t < T_DING - 0.4;
+    const inLift = walking ? false : t > 20.9 && t < 34.6, ride = t > T_SWAP + 0.5 && t < T_DING - 0.4;
     cam.pos.set(x + Math.cos(stepPh) * 0.005 * walk, y + Math.sin(stepPh * 2) * 0.008 * walk + (ride ? Math.sin(time * 37) * 0.0018 : 0) + Math.sin(time * 0.9) * 0.003, z);     // a steady, gliding walk: the bob was seasick
     cam.yaw = P[3] + Math.sin(time * 0.53) * 0.004; cam.pitch = P[4] + Math.sin(time * 0.71) * 0.003; cam.roll = Math.cos(stepPh) * 0.0012 * walk;
+    if (walking) { cam.yaw = wyaw; cam.pitch = wpitch; }
     if (walk > 0.35 && !inLift && Math.floor(stepPh / PI) !== lastStep) { lastStep = Math.floor(stepPh / PI); fx.step(z > 0.2); }
     // phase 1: outside and reception
     if (s.gTop.visible) {
@@ -8221,13 +8275,14 @@ const Cut = (() => {
       }
       s.hemi.intensity = 0.03 + 0.2 * ss((t - T_LIGHTS) / 4);
       if (cue < 4 && t >= T_LIGHTS + 0.9) { cue = 4; speak(3); }            // and the invitation as the lights come up
-      if (endT < 0 && t >= T_MIN_END && cue >= 4 && !talking && !queue.length) { endT = t; fx.open(); s.bar.color.setRGB(.5, 3.0, 1.0); }
+      if (endT < 0 && cue >= 4 && !talking && !queue.length && (walking ? wz > 16 : t >= T_MIN_END)) { endT = t; fx.open(); s.bar.color.setRGB(.5, 3.0, 1.0); }      // walking: the door waits for you to come near it
       if (endT >= 0) { const o = ss((t - endT - 0.25) / 1.3); s.edoor[0].position.x = -0.65 - 1.28 * o; s.edoor[1].position.x = 0.65 + 1.28 * o; }
     }
     const led = talking ? 1.6 + Math.sin(time * 31) * 0.8 : 0.12; for (const m of s.spkLed) m.color.setRGB(led, led * 0.5, led * 0.12);
     // fades, and the way out
     let op = 1 - ss(t / 1.5), white = false;
-    if (endT >= 0) { op = ss((t - endT - 0.9) / 1.5); white = true; if (t - endT > 2.5) { finish(); return; } }
+    if (endT >= 0 && walking) { op = ss((wz - 26.6) / 1.4); white = op > 0; if (wz > 27.9) { finish(); return; } }      // into the white of chamber 01
+    else if (endT >= 0) { op = ss((t - endT - 0.9) / 1.5); white = true; if (t - endT > 2.5) { finish(); return; } }
     if (skipT >= 0) { op = Math.max(white ? 0 : op, ss((t - skipT) / 0.35)); white = false; if (t - skipT > 0.4) { finish(); return; } }
     fadeEl.style.background = white ? "#fff" : "#000"; fadeEl.style.opacity = op.toFixed(3);
     // controller: any face button or Start skips, once it has been let go of first
@@ -8236,7 +8291,8 @@ const Cut = (() => {
   }
   $("cutSkip").addEventListener("click", e => { e.stopPropagation(); skip(); });
   addEventListener("keydown", e => { if (state !== "cut" || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return; const k = e.key.toLowerCase(); if (k === "escape" || k === "enter" || k === " ") { e.preventDefault(); skip(); } });
-  return { prep, play, playEnding: then => play(then, "end"), tick, skip, get t() { return t; }, set t(v) { t = v; }, get S() { return S; }, get lint() { return lintOn; }, E };
+  return { prep, play, playEnding: then => play(then, "end"), tick, skip, get t() { return t; }, set t(v) { t = v; }, get S() { return S; }, get lint() { return lintOn; }, E,
+    get walking() { return walking; }, get walk() { return { x: wx, z: wz, yaw: wyaw, pitch: wpitch, door: endT >= 0 }; }, setWalk(x, z, yaw, pitch) { wx = x; wz = z; if (yaw != null) wyaw = yaw; if (pitch != null) wpitch = pitch; wvx = wvz = 0; } };
 })();
 
 /* =====================================================================================
