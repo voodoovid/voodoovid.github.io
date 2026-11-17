@@ -576,7 +576,7 @@ import { Furn } from "./furniture.js";
 import { GLYPHS as HAND_GLYPHS, handWrite, handBlock, handWidth } from "./hand.js";      // v8.19: hand-lettering                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.29";
+const VERSION = "v8.30";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const IT_TEST = /[?&]itemtest\b/.test(location.search), SPFX = IT_TEST ? "testchambers.itest." : "testchambers.";
 const $ = id => document.getElementById(id);
@@ -2886,7 +2886,7 @@ function denLayout(K, type, R, wall, lo, o = {}) {
     K.F.push({ k: "chair", at: K.front(R, wall, a.c, 1.05, 0), ry: ryW + Math.PI - 0.2 }); hang("ledclock", a.c, 2.25); onTop("carton", b, 0, 0.25, SHELF_TOP, { size: "small" });
     S.push(K.front(R, wall, a.c + 0.05 * dir, 0.62, DESK_TOP), K.front(R, wall, b.c, 0.65, 0));
   } else if (type === "break") {                 // staff break room: sofa and the landscape, a table, the fridge and the cooler
-    const a = seq("sofa"); hang("landscape", a.c, 1.62);
+    const a = seq("sofa"); hang("landscape", a.c, 1.62); S.safe = { paint: K.front(R, wall, a.c, 0, 1.62), at: K.front(R, wall, a.c, 0.22, 1.47) };      // v8.30: the landscape swings open on a wall safe
     s += dir * 0.75; const b = seq("fridge"), c = seq("cooler");
     K.F.push({ k: "table", at: K.front(R, wall, a.c, 2.0, 0), ry: ryW }, { k: "stackchair", at: K.front(R, wall, a.c - 0.45, 2.65, 0), ry: ryW + Math.PI - 0.2 }, { k: "stackchair", at: K.front(R, wall, a.c + 0.5, 2.6, 0), ry: ryW + Math.PI + 0.3 });
     K.F.push({ k: "kettle", at: K.front(R, wall, a.c + 0.35, 2.05, 0.74), ry: ryW + 0.5 }, { k: "mug", at: K.front(R, wall, a.c - 0.2, 1.9, 0.74), ry: 0, red: true }, { k: "mug", at: K.front(R, wall, a.c - 0.35, 2.15, 0.74), ry: 1 });
@@ -2975,7 +2975,7 @@ function denDress(h, sp, idx) {
   // the main room: furnish the side wall away from any opening; the opening side keeps its middle clear
   const ws = sp.staffSide || 0, freeSide = t ? -t : ws ? -ws : (sp.free || 1);      // (with no opening, the side away from O.'s scrawl)
   const wall1 = freeSide < 0 ? "L" : "R";
-  const spots1 = denLayout(K, sp.type || "store", R1, wall1, true, { seed: idx, short: !!sp.crate, v: sp.v || 0, timed: !!sp.timed && !sp.crate });
+  const spots1 = denLayout(K, sp.type || "store", R1, wall1, true, { seed: idx, short: !!sp.crate || !!sp.cam, v: sp.v || 0, timed: !!sp.timed && (!sp.crate || sp.how === "timed") });
   denShell(K, R1, sp.type, 0);
   // back corners of the main room (beside the panel): a plant or a box, never in front of the panel
   const cs = -freeSide, cx = xa + cs * 1.45;
@@ -2983,12 +2983,13 @@ function denDress(h, sp, idx) {
     const cp = sp.type === "office" ? ["plant", "plant", "coatstand", "bin", "plant", "coatstand", "bin"][(sp.v || 0) % 7] : sp.type === "mail" ? "sack" : sp.type === "locker" ? ["bin", "sack", "carton"][(sp.v || 0) % 3] : ["carton", "bin", "carton", "sack", "carton", "bin"][(sp.v || 0) % 6];
     K.F.push({ k: cp, at: K.at(cx, cp === "coatstand" ? 5.45 : 5.6), ry: 0.4 + idx * 0.7, size: (sp.v || 0) % 2 ? "big" : "mid", seed: idx });
   }
-  if (sp.crate) {}                                                       // (Act 5: that corner is the crate's, and the hatch is by the other)
+  if (sp.crate || sp.cam) {}                                             // (Act 5: that corner is the crate's, and the hatch is by the other; v8.30 Rebound: the den camera's)
   else if (!t && !ws) spots1.push(K.at(xa + cs * 1.35, 3.9));
   else spots1.push(K.at(xa + cs * 1.35, 2.55));
   // the second room
   let R2 = null, spots2 = [];
-  if (sp.crate) {
+  const how = sp.how || "hatch";                                         // v8.30 Act 5: how the way further in opens. hatch (the den crate on a plate), lever (a wall switch holds the shutter), slot (no shutter: portal only), timed (the Act 4 timed button)
+  if (sp.crate && (how === "hatch" || how === "lever")) {
     // v8.15 Act 5: the way further in is shut until the den's own crate is on the plate just inside a floor hatch. The crate fits through the
     // hatch (1.1 m wide, 1.2 m high); you do not. Slot dens (den() `two`): a shutter over the slot, so the portal shot waits for the crate.
     // One-room dens: a new room behind the side wall, its doorway shut the same way (a timed button inside always lets you out).
@@ -2998,23 +2999,27 @@ function denDress(h, sp, idx) {
     h.doors = h.doors || []; h.plates = h.plates || []; h.cubes = h.cubes || [];
     if (rec.t) {
       const [z0, z1] = zr(4.6, 6), wi = B.findIndex(q => q.min[0] === a && q.max[0] === b && q.min[1] === sy && Math.abs(q.max[1] - sy - 2.7) < 1e-6 && Math.abs(q.min[2] - z0) < 1e-6 && Math.abs(q.max[2] - z1) < 1e-6);
-      if (wi < 0) throw new Error("no slot wall"); B.splice(wi, 1); B.push(...hatch());
+      if (wi < 0) throw new Error("no slot wall"); if (how === "hatch") { B.splice(wi, 1); B.push(...hatch()); }
       R2 = { x0: rec.x2[0], x1: rec.x2[1], d0: 2, d1: 6 };
       const [s0, s1] = zr(3.4, 4.6); h.doors.push({ id, min: [a + 0.2, sy + 1.3, s0], max: [a + 0.32, sy + 2.15, s1], rise: 0.9, need: 1 });
     } else {
       const wi = B.indexOf(rec.side[t]); if (wi >= 0) B.splice(wi, 1);
-      B.push(zb(a, sy, 2, b, sy + 2.7, 3.4), zb(a, sy + 2.2, 3.4, b, sy + 2.7, 4.6), ...hatch());
+      B.push(zb(a, sy, 2, b, sy + 2.7, 3.4), zb(a, sy + 2.2, 3.4, b, sy + 2.7, 4.6), ...(how === "hatch" ? hatch() : [zb(a, sy, 4.6, b, sy + 2.7, 6)]));
       R2 = denRoom(h, rec, x0, x0 + 4, 2, 6, { L: t > 0 ? false : undefined, R: t > 0 ? undefined : false });
       const [s0, s1] = zr(3.4, 4.6); h.air.push([a, sy, s0, b, sy + 2.2, s1]);
       h.doors.push({ id, min: [a + 0.1, sy, zr(3.45, 4.55)[0]], max: [a + 0.4, sy + 2.2, zr(3.45, 4.55)[1]], rise: 2.45, need: 1 });
       h.plates.push({ pos: [t > 0 ? x0 + 1.9 : x0 + 2.1, sy, Z(3.9)], door: id, hold: 2.5 });
     }
+    if (how === "lever") {                                                // v8.30: a wall switch by the shutter holds it open for a while; the button inside always lets you out
+      const xf = xa + 2 * t, zl = sp.levZ || 5.3; (h.switches = h.switches || []).push({ pos: [xf - t * 0.02, sy + 1.4, Z(zl)], n: [-t, 0, 0], hold: sp.hold || 9, door: id });
+    } else {
     const [h0, h1] = zr(4.8, 5.9); h.air.push([a, sy, h0, b, sy + 1.2, h1]);
     h.plates.push({ pos: [t > 0 ? x0 + 0.3 : x0 + 3.7, sy, Z(5.35)], door: id });                    // half under the wall: a crate set down in the hatch presses it
     h.cubes.push([xa + t * 1.45, sy + 0.36, Z(2.5), "den"]);
     const [c0, c1] = zr(0.95, 1.05); h.curtains = (h.curtains || []).concat([{ min: [xa - 0.75, sy, c0], max: [xa + 0.75, sy + 2.3, c1] }]);
     h.denIn = { door: id, min: [t > 0 ? x0 : x0 - 0.6, sy - 0.6, zr(1.4, 11)[0]], max: [t > 0 ? x0 + 4.6 : x0 + 4, sy + 2.9, zr(1.4, 11)[1]] };
     const [b0, b1] = zr(0.7, 11); h.denBox = { min: [Math.min(xa - 2.6, x0 - 0.6), sy - 0.6, b0], max: [Math.max(xa + 2.6, x0 + 4.6), sy + 2.9, b1] };
+    }
   } else if (t && rec.t) {                                              // Act 3: den() built it behind the slot
     R2 = { x0: rec.x2[0], x1: rec.x2[1], d0: 2, d1: 6 };
   } else if (sp.timed) {                                                // Act 4: behind a shutter on a timed button
@@ -3024,7 +3029,13 @@ function denDress(h, sp, idx) {
     h.air.push([a, sy, Math.min(Z(3.4), Z(4.6)), b, sy + 2.2, Math.max(Z(3.4), Z(4.6))]);
     const id = "den" + idx, hold = sp.hold || 1.6;
     (h.doors = h.doors || []).push({ id, min: [a + 0.1, sy, Math.min(Z(3.45), Z(4.55))], max: [a + 0.4, sy + 2.2, Math.max(Z(3.45), Z(4.55))], rise: 2.45, need: 1 });
-    (h.plates = h.plates || []).push({ pos: [xa - t * 1.25, sy, Z(2.75)], door: id, hold }, { pos: [t > 0 ? x0 + 1.2 : x0 + 2.8, sy, Z(4)], door: id, hold: 2.5 });
+    (h.plates = h.plates || []).push(sp.cam ? { pos: [xa - t * 1.25, sy, Z(2.75)], door: id, cams: 1, den: true } : { pos: [xa - t * 1.25, sy, Z(2.75)], door: id, hold }, { pos: [t > 0 ? x0 + 1.2 : x0 + 2.8, sy, Z(4)], door: id, hold: 2.5 });
+    if (sp.cam) {                                                         // v8.30 (Leaps): the shutter is held open only while a camera sits on the camera scale. The camera is the den's own, lying in this room; it never leaves it
+      const zr = (e0, e1) => [Math.min(Z(e0), Z(e1)), Math.max(Z(e0), Z(e1))];
+      (h.cams = h.cams || []).push({ pos: [xa + t * 1.45, sy + 0.1, Z(2.5)], n: [0, 0, 1], denCam: true });
+      const [c0, c1] = zr(0.95, 1.05); h.curtains = (h.curtains || []).concat([{ min: [xa - 0.75, sy, c0], max: [xa + 0.75, sy + 2.3, c1] }]);
+      const [b0, b1] = zr(0.7, 11); h.denBox = { min: [Math.min(xa - 2.6, x0 - 0.6), sy - 0.6, b0], max: [Math.max(xa + 2.6, x0 + 4.6), sy + 2.9, b1] };
+    }
   }
   if (R2) {
     spaces.push(R2);
@@ -3243,7 +3254,7 @@ const DEN_SPEC = {
   "Freefall": { type: "cleaner", v: 1, items: [Object.assign({ id: "page1", kind: "page" }, O_PAGES[1])] },
   "Lift": { type: "store", v: 2, items: [denCard(0)] },
   "Special Delivery": { type: "store", v: 3, staffSide: 1, items: [{ id: "clock", kind: "clock" }], art: "valley",
-    staff: { cards: 2, type: "break", items: [Object.assign({ id: "tape1", kind: "tape" }, HM_TAPES[1]), Object.assign({ id: "lint1", kind: "pickup", nail: true }, LINT_TRACES[1])] },
+    staff: { cards: 2, type: "break", items: [Object.assign({ id: "tape1", kind: "tape" }, HM_TAPES[1]), Object.assign({ id: "lint1", kind: "pickup", nail: true }, LINT_TRACES[1]), { kind: "safe", item: { id: "supmug", kind: "pickup", look: "mug", name: "A mug that says WORLD'S OKAYEST SUPERVISOR" } }] },       // v8.30: behind the landscape
     lines: [[1, "This is the staff break room. The kettle was still warm for about a year. Do not touch the mugs. They are evidence."]] },
   "Redirect": { type: "office", v: 0, items: [Object.assign({ id: "page2", kind: "page" }, O_PAGES[2])] },
   "Sentry Duty": { type: "locker", v: 0, items: [{ id: "stk-warn", kind: "sticker", sticker: "warn" }] },
@@ -3265,7 +3276,7 @@ const DEN_SPEC = {
     staff: { cards: 8, type: "repair", items: [Object.assign({ id: "tape3", kind: "tape" }, HM_TAPES[3]), Object.assign({ id: "lint3", kind: "pickup" }, LINT_TRACES[3])] },
     lines: [[2, "The sentry repair shop. They come in here broken and they leave in here broken. The repairs never really took."]] },
   "Long Jump": { type: "workshop", v: 0, timed: 1, type2: "paint", items: [{ id: "stk-fr", kind: "sticker", sticker: "fragile", space: 1 }, { id: "vent", kind: "vent", to: "Second Wind", skip: "Rebound" }] },
-  "Rebound": { type: "records", v: 1, timed: 1, type2: "archive", v2: 1, items: [denCard(1)] },
+  "Rebound": { type: "records", v: 1, timed: 1, cam: true, type2: "archive", v2: 1, items: [denCard(1)] },
   "Second Wind": { type: "workshop", v: 1, timed: 1, type2: "uniform", items: [Object.assign({ id: "page4", kind: "page", space: 1 }, O_PAGES[4]), { id: "clock", kind: "clock" }] },
   "Press": { type: "workshop", v: 2, timed: 1, type2: "store", v2: 5, items: [{ id: "lights", kind: "breaker", label: "Emergency lights", space: 1, fx: "lights" }] },
   "Short Notice": { type: "records", v: 2, timed: 1, type2: "av", items: [denCard(1)] },
@@ -3275,16 +3286,16 @@ const DEN_SPEC = {
     lines: [[2, "The Records office. Everything that ever happened here is in this room, in alphabetical order. I am filed under S. Nobody has ever opened S."]] },
   // v8.20: every Act 5 den room has its own variant (`v` / `v2`), as rooms 3 to 30 got in v8.19
   // v8.15 (dens plan Batch 3): Act 5, rooms 31 to 38. `crate`: the inner room opens while the den's own crate is on the plate behind the floor hatch
-  "Walkway": { type: "office2", type2: "server", crate: true, items: [{ id: "mic", kind: "breaker", label: "Microphone", fx: "mic" }, Object.assign({ id: "page5", kind: "page", space: 1 }, O_PAGES[5])] },
-  "Updraft": { type: "break2", type2: "comms", v2: 0, crate: true, timed: 1, items: [denCard(1)] },
+  "Walkway": { type: "office2", type2: "server", crate: true, how: "slot", items: [{ id: "mic", kind: "breaker", label: "Microphone", fx: "mic" }, Object.assign({ id: "page5", kind: "page", space: 1 }, O_PAGES[5])] },
+  "Updraft": { type: "break2", type2: "comms", v2: 0, crate: true, how: "lever", hold: 8, timed: 1, items: [denCard(1)] },
   "Primer": { type: "workshop", v: 4, type2: "break2", v2: 1, crate: true, timed: 1, items: [denCard(1), { id: "vent", kind: "vent", to: "The Last Word", skip: "Crate Seven" }] },
   "Crate Seven": { type: "store", v: 6, type2: "office", v2: 7, crate: true, items: [{ id: "stk-7", kind: "sticker", sticker: "seven", space: 1 }] },
-  "The Last Word": { type: "office2", v: 1, type2: "break2", v2: 2, crate: true, timed: 1, items: [{ id: "clock", kind: "clock", space: 1 }] },
-  "Cold Storage": { type: "server", v: 1, type2: "office", v2: 8, crate: true, items: [denCard(1), Object.assign({ id: "page6", kind: "page" }, O_PAGES[6])] },
+  "The Last Word": { type: "office2", v: 1, type2: "break2", v2: 2, crate: true, how: "lever", hold: 12, levZ: 5.45, timed: 1, items: [{ id: "clock", kind: "clock", space: 1 }] },
+  "Cold Storage": { type: "server", v: 1, type2: "office", v2: 8, crate: true, how: "lever", hold: 10, items: [denCard(1), Object.assign({ id: "page6", kind: "page" }, O_PAGES[6])] },
   "Retrieval": { type: "break2", v: 3, type2: "server", v2: 2, crate: true, timed: 1, items: [{ id: "spool", kind: "pickup", look: "spool", name: "A reel of computer tape, labelled DO NOT ERASE", space: 1 }],      // v8.25: a small find in the inner room, so the den rewards you without 14 cards
     staff: { cards: 14, type: "lost", items: [{ id: "stk-lost", kind: "sticker", sticker: "lost" }, Object.assign({ id: "lint5", kind: "pickup" }, LINT_TRACES[5])] },
     lines: [[2, "The lost-and-found back room. Everything in here is lost. Nothing in here has been found. I named it in a hopeful year."]] },
-  "Gauntlet": { type: "office2", v: 2, type2: "server", v2: 3, crate: true, grille: true, items: [{ id: "clock", kind: "clock" }],
+  "Gauntlet": { type: "office2", v: 2, type2: "server", v2: 3, crate: true, how: "slot", grille: true, items: [{ id: "clock", kind: "clock" }],
     lines: [[1, "Do not look through that grille. There is nothing under this facility except more facility, and none of it is finished, and none of it is yours."]] }
 };
 // LEVEL_FUNCS wraps each room function with this: a room in this batch has its den dressed, and its chamber card goes where DEN_SPEC says
@@ -3453,7 +3464,7 @@ const BS_DEN = {
   "Paperweight": { side: 0, x: 5, two: 1, key: { plate: { pos: [2.6, 0, 1.7], cams: 1 } }, finds: [[0, { monitor: { id: "mon", room: "Hall Of Mirrors" } }]],          // a camera on the little scale by the shutter
     staff: { cards: 17, items: [Object.assign({ id: "tape5", kind: "tape" }, BS_TAPE5), Object.assign({ id: "lint6", kind: "pickup" }, BS_TRACE6)] } },     // O.'s home base
   // v8.17 (Batch 5)
-  "Hall Of Mirrors": { side: 1, x: 3, two: 1, key: { plate: { pos: [1.3, 0, 12.5], only: "sentry" } }, finds: [[0, { id: "mirror", kind: "pickup", look: "mirror", name: "A pocket mirror, cracked down the middle" }], [1, { id: "stk-brb", kind: "sticker", sticker: "brb" }]] },      // one for the pile: a dead sentry on the scale by the shutter
+  "Hall Of Mirrors": { side: 1, x: 3, two: 1, key: { lever: { hold: 10 } }, finds: [[0, { id: "mirror", kind: "pickup", look: "mirror", name: "A pocket mirror, cracked down the middle" }], [1, { id: "stk-brb", kind: "sticker", sticker: "brb" }]] },      // one for the pile: a dead sentry on the scale by the shutter
   "Final Exam": { old: true, finds: [[0, "card"], [1, Object.assign({ id: "page8", kind: "page" }, BS_PAGE8)]] }
 };
 // v8.20: the furniture of the backstage dens: [main room, inner room, the inner room's wall (B back by default; F where a monitor or the staff door is in the back wall)]
@@ -3481,6 +3492,7 @@ function bsDen(h, sp, idx) {
     h.doors.push({ id, zf: out, min: [xa - 0.75, 0, d0], max: [xa + 0.75, 2.3, d1], rise: 2.34, need: 1 });
     const k = sp.key;
     if (k.plate) h.plates.push(Object.assign({ door: id }, k.plate));
+    if (k.lever) (h.switches = h.switches || []).push({ pos: [xa + (k.lever.dx || 1.35), 1.4, Z(-0.02)], n: [0, 0, -out], hold: k.lever.hold || 10, door: id });      // v8.30: a wall switch by the doorway holds the shutter
     if (k.receiver) (h.receivers = h.receivers || []).push(Object.assign({ door: id }, k.receiver));
     if (k.socket) (h.sockets = h.sockets || []).push(Object.assign({ door: id }, k.socket));
     if (!k.socket) h.plates.push({ pos: [xa - t * 1.25, 0, Z(2.85)], door: id, hold: 3 });           // inside: a timed button that always lets you out
@@ -3492,7 +3504,7 @@ function bsDen(h, sp, idx) {
     const x0 = t > 0 ? xa + 2.5 : xa - 6.5; R2 = denRoom(h, rec, x0, x0 + 4, 2, 6, { L: t > 0 ? false : undefined, R: t > 0 ? undefined : false });
     const [s0, s1] = zr(3.4, 4.6), [e0, e1] = zr(3.45, 4.55); h.air.push([a, sy, s0, b, sy + 2.2, s1]);
     h.doors.push({ id, min: [a + 0.1, sy, e0], max: [a + 0.4, sy + 2.2, e1], rise: 2.45, need: 1 });
-    h.plates.push({ pos: [xa - t * 1.2, sy, Z(3.0)], door: id, only: "sentry" }, { pos: [t > 0 ? x0 + 1.2 : x0 + 2.8, sy, Z(4)], door: id, hold: 2.5 });
+    h.plates.push({ pos: [xa - t * 1.2, sy, Z(3.0)], door: id, hold: 1.6 }, { pos: [t > 0 ? x0 + 1.2 : x0 + 2.8, sy, Z(4)], door: id, hold: 2.5 });
     h.lamps.push(lamp((R2.x0 + R2.x1) / 2, sy + 2.3, Z(4), .6, 5, .93, .97, 1));
   }
   if (R2) spaces.push(R2);
@@ -4608,9 +4620,11 @@ function buildLevel(idx) {
       cam.coneMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 1.1, .3), transparent: true, opacity: .1, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending });
       cam.cone = new THREE.Mesh(geo, cam.coneMat); cam.cone.userData.ownMat = 1; cam.cone.frustumCulled = false; cam.cone.renderOrder = 4; cam.cone.position.copy(head.position); levelGroup.add(cam.cone);
     }
+    if (d.denCam) { cam.denCam = true; cam.dead = true; root.visible = false; led.material.color.setRGB(.03, .01, .01); head.position.set(...d.pos); head.quaternion.setFromEuler(new THREE.Euler(0, 0.9 + W.cams.length, 0)); }       // v8.30: the den's own camera, loose from the start
     W.cams.push(cam);
   }
   makePhysics(W);
+  for (const c of W.cams) if (c.denCam) { const pr = camProp(c, new V3(), new V3()); pr.den = true; }
   v5Build(W, lv);
   return W;
 }
@@ -4744,7 +4758,7 @@ function camKnock(P) {
 const _cs = new V3();
 function camShot(res) {
   if (!world || !world.cams) return null;
-  const scale = (world.lv.plates || []).some(p => p.cams);      // v7.9: cameras that are part of the puzzle (watching cameras, and every camera in a room with a camera scale) still only fall to a portal on their wall
+  const scale = (world.lv.plates || []).some(p => p.cams && !p.den);      // v7.9: cameras that are part of the puzzle (watching cameras, and every camera in a room with a camera scale) still only fall to a portal on their wall
   let best = null, along = 0;
   for (const g of res.segs) {
     for (const c of world.cams) {
@@ -4784,7 +4798,7 @@ function camFalls(dt) {
   }
 }
 let CAMTOT = null;
-const camCounts = () => CAMTOT || (CAMTOT = LEVEL_FUNCS.map(f => (f().cams || []).length));
+const camCounts = () => CAMTOT || (CAMTOT = LEVEL_FUNCS.map(f => (f().cams || []).filter(c => !c.denCam).length));
 function chamberCams(CH) {                  // [down, total] for a chamber, across its rooms
   const got = store.get("camsDown", []), cc = camCounts(); let down = 0, tot = 0;
   ROOM.forEach((R, i) => { if (R.c !== CH) return; tot += cc[i]; for (let k = 0; k < cc[i]; k++) if (got.includes(ROOM_NAMES[i] + ":" + k)) down++; });
@@ -4792,10 +4806,10 @@ function chamberCams(CH) {                  // [down, total] for a chamber, acro
 }
 function onCamDown(c) {
   const got = store.get("camsDown", []); if (!got.includes(c.key)) { got.push(c.key); store.set("camsDown", got); }
-  const total = camCounts().reduce((a, b) => a + b, 0), downHere = world.cams.filter(x => x.dead).length, awards = store.get("camAwards", []);
-  let msg = "Camera down: " + downHere + " of " + world.cams.length + " in this room", line = "camDown";
+  const total = camCounts().reduce((a, b) => a + b, 0), downHere = world.cams.filter(x => x.dead && !x.denCam).length, camsHere = world.cams.filter(x => !x.denCam).length, awards = store.get("camAwards", []);
+  let msg = "Camera down: " + downHere + " of " + camsHere + " in this room", line = "camDown";
   if (got.length >= total && !awards.includes("all")) { awards.push("all"); store.set("camAwards", awards); msg = "AWARD: Blind Spot · every camera in the facility is down"; line = "camAll"; sfx.badge(); }
-  else if (downHere === world.cams.length && !awards.includes("room:" + c.key.split(":")[0])) { awards.push("room:" + c.key.split(":")[0]); store.set("camAwards", awards); msg = "AWARD: Lens Cap · every camera in this room is down"; line = "camRoom"; sfx.badge(); }
+  else if (downHere === camsHere && !awards.includes("room:" + c.key.split(":")[0])) { awards.push("room:" + c.key.split(":")[0]); store.set("camAwards", awards); msg = "AWARD: Lens Cap · every camera in this room is down"; line = "camRoom"; sfx.badge(); }
   toast(msg); if (line !== "camDown" || !(subBusy || subQ.length)) say(line);
 }
 // a camera kept you in view too long: SaDos has you put back at the start of the section
@@ -5380,6 +5394,7 @@ function camProp(c, v, w) {
   phys.byHandle.set(col.handle, pr); world.camProps.push(pr); c.prop = pr; return pr;
 }
 function respawnCube(c, why) {
+  if (c.kind === "camera" && c.den) { if (holding === c) dropCube(true); setCubeState(c, new V3(...c.spawn), new QT()); return; }      // v8.30: the den camera goes back to where it lay
   if (c.kind === "camera") { if (c.returnOnRespawn) { c.returnOnRespawn = false; return; } destroyProp(c, why || "field"); return; }   // a loose camera has no spot to go back to
   if (c.kind === "sentry" && why === "crush") { destroyProp(c, "crush"); return; }
   sfx.fizzle(); if (holding === c) dropCube(true);
@@ -5877,10 +5892,10 @@ function useAction() {
   if (best.kind === "sentry") {
     if (tipOnce("tSentry")) toast(best.state === "off" ? "Holding the sentry. Press grab again to put it down." : "Holding the sentry: it sleeps while you carry it, and wakes when you put it down.");
     best.seen = 0; best.burst = 0; if (best.state === "on" && Math.random() < 0.35) sentryQuip(best, "grab", true);
-    chatter("sadosCarry");
-  } else if (best.kind === "camera") { if (tipOnce("tCam")) toast("Holding a camera. A camera scale weighs these."); }
+    if (!sadosPick("grabSentry", false, true)) chatter("sadosCarry");
+  } else if (best.kind === "camera") { if (tipOnce("tCam")) toast("Holding a camera. A camera scale weighs these."); sadosPick("grabCam", false, true); }
   else if (best.seven) { toast("Holding Crate Seven."); if (!run.said.seven) { run.said.seven = 1; say("sevenGrab"); } }
-  else { if (best.prism ? tipOnce("tPrism") : tipOnce("tCube")) toast(best.prism ? "Holding the prism crate. Its lens points where you look." : "Holding the cube. Press grab again to put it down."); chatter("sadosGrab"); }
+  else { if (best.prism ? tipOnce("tPrism") : tipOnce("tCube")) toast(best.prism ? "Holding the prism crate. Its lens points where you look." : "Holding the cube. Press grab again to put it down."); if (!sadosPick("grabCube", false, true)) chatter("sadosGrab"); }
 }
 function dropCube(quiet) {
   const c = holding; if (!c) return; holding = null; c.held = false; c.far = false;
@@ -6665,6 +6680,22 @@ const LINES = {
   sadosGrab: ["Excellent. You have found the cube. I suggest you do not name it.", "You have the cube. Try not to drop it in anything.", "The crate goes on the button. I mention it in case you were planning to marry it.", "That cube has outlasted forty three subjects. It is not worried about you.", "Hold it close. Not that close. It is a cube, not a friend.", "Careful with that. Not because it is fragile. Because you are.", "You and the cube. The facility's least convincing double act.", "If the cube starts talking to you, put it down and step away. That is not a feature."],
   grav: ["A gravity panel. It turns down into up for everything in that zone that is not bolted down, or you. You are exempt. Legal insisted."],
   badge: ["A key card. Please put that back. Its owner will want it, when they return."],
+  cutOff: ["Oh, do go on. Pick things up. I was only talking.", "Fine. Interrupt me. It is only my facility.", "I was in the middle of a sen\u2014 never mind.", "Rude. Noted. Filed under rude.", "Do not mind me. I only run the building.", "Oh. Something shiny. Of course. Carry on."],
+  pickCard: ["A key card. Yes. Pocket it. Everyone does.", "Another key card. Somebody is missing one of those.", "A card. It opens something I would rather it did not."],
+  pickTape: ["A tape. Of course it is a tape.", "Another tape. I do not remember being asked to approve any of these.", "A tape. Somebody has been recording in my building."],
+  pickPage: ["A page. Handwriting. I did not read it. I have read it.", "Another page. Somebody has been writing about me again.", "A page. Do not believe a word of it."],
+  pickSticker: ["A sticker. Not on the gun. I will know.", "Another sticker. Everything in here ends up covered in them.", "A sticker. The glue is the most dangerous thing in it."],
+  pickClock: ["A punch clock. Your time, subtracted. You are welcome.", "Thirty seconds off. Do not thank the clock."],
+  pickItem: ["Staff property. Put it back. You will not.", "Something that belongs to somebody. Obviously you have taken it.", "You pick up the strangest things."],
+  pickSpool: ["A reel of tape, labelled DO NOT ERASE. Nobody reads labels in here."],
+  pickLens: ["That is a sentry's eye. It does not need it any more."],
+  pickHat: ["A hard hat. It did not do its job. It is yours now."],
+  pickButton: ["That is a lift call button. Somebody worked very hard to take that off."],
+  pickMirror: ["A cracked mirror. Seven years of bad luck, per room, in here."],
+  pickTrace: ["That is not a clue. It is fluff. Put it down. You will not."],
+  grabCube: ["The cube. Yes. Obviously.", "Yes, that one. The only one. Well done.", "The cube. Hold it like it matters, because it does."],
+  grabSentry: ["Carrying a sentry now. Mind its legs.", "Yes, pick up the sentry. Nothing could possibly go wrong."],
+  grabCam: ["A camera. It was watching you, and now you are holding it."],
   findCard: ["A key card. Somebody lost that. Somebody also locked a door with it. I see no connection."],
   findTape: ["A tape. Somebody recorded themselves on my equipment, in my building, without asking. Play it if you must."],
   findSticker: ["A sticker. Please do not put it on the portal device. It voids the warranty. I wrote the warranty."],
@@ -6722,6 +6753,13 @@ const LINES = {
 };
 const sadosEl = $("sub");
 let subQ = [], subBusy = false, subTimer = 0, lastSay = 0, voiceSrc = null;
+let curPr = 0;                        // v8.30: priority of the line on screen now (see prOf)
+// v8.30 speech priorities. Every queued line is { text, pr, exp, world }: pr 1 chatter (stale after 6 s), 2 finds and pick-ups (10 s), 3 intros and story (dropped if the room changes), 4 hints, done, stall and anything with its own speaker (never dropped or cut).
+const prOf = q => (q && typeof q === "object" && q.pr != null) ? q.pr : 4;
+const PR3 = new Set(["caught", "sevenRide", "sevenGrab", "sevenSlot", "powerMic", "powerMuzak", "powerLights", "stall"]);
+function holdQuiet() {      // a video or anyone else is speaking (a "please hold" video or the TV, a film, a tape, a sentry's last words): SaDos says nothing until it ends and her queue is dropped, never replayed
+  try { return HoldShow.watching || HoldShow.mode === "show" || state === "cut" || $("tapeSub").classList.contains("on") || $("sentrySub").classList.contains("on"); } catch (e) { return false; }
+}
 let lintTalk = false;                 // v8.18: true while a LINT subtitle is up (his mouth moves)
 // SaDos is pre-recorded: voice/<hash of the line>.mp3, listed in lines.js (window.TC_VOICE = { hash: seconds }). No computer voice.
 function lineHash(t) { let h = 0x811c9dc5; for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16).padStart(8, "0"); }
@@ -6736,8 +6774,12 @@ let showDuck = false;                 // v7.2: the TV show keeps the room music 
 let liftMute = false;                 // v7.8: in the lift (the ride and the docked car until you step out) the room music is off: only the Muzak plays
 function duckMusic(on) { if (showDuck) on = true; if (actx && musicBus) musicBus.gain.setTargetAtTime(opts.music && !liftMute ? (on ? 0.2 : 0.55) : 0, actx.currentTime, liftMute ? 0.15 : on ? 0.08 : 0.5); }
 function nextSub() {
+  if (holdQuiet()) { subQ.length = 0; return; }
   if (subBusy || !subQ.length) return;
-  const it = subQ.shift(), text = it.text || it, who = it.who || ""; subBusy = true; lintTalk = who === "LINT";       // v8.18: a line can have its own speaker ({ who, text }); everything else is SaDos
+  const now0 = performance.now();
+  while (subQ.length) { const q = subQ[0]; if (q && typeof q === "object" && ((q.exp && now0 > q.exp) || (q.world && q.world !== world))) subQ.shift(); else break; }      // stale: the moment has passed
+  if (!subQ.length) return;
+  const it = subQ.shift(), text = it.text || it, who = it.who || ""; curPr = prOf(it); subBusy = true; lintTalk = who === "LINT";       // v8.18: a line can have its own speaker ({ who, text }); everything else is SaDos
   sadosEl.innerHTML = (who ? '<i class="lint">' + who + "</i>" : "<i>SADOS</i>") + text; sadosEl.classList.add("on");
   const dur = Math.max(2.6, text.length * 0.065) * 1000; let finished = false;
   const fin = () => { if (finished) return; finished = true; lintTalk = false; clearTimeout(subTimer); duckMusic(false); sadosEl.classList.remove("on"); setTimeout(() => { subBusy = false; nextSub(); }, 450); };
@@ -6756,7 +6798,7 @@ function nextSub() {
   } else subTimer = setTimeout(fin, waitMs);
 }
 function say(key, text) {
-  if (!world || world.lv.silent) return;           // v8.6: Out Of Order is silent; the TV video is the only speech there
+  if (!world || world.lv.silent || holdQuiet()) return;           // v8.6: Out Of Order is silent; the TV video is the only speech there
   if (world.lv.bs && key !== "hint" && key !== "hint2" && key !== "done" && key !== "stall" && !bsSeen()) { if (key === "intro") run.bsIntro = 1; return; }      // v8.16 backstage: she only speaks while a camera has you (her intro waits for one); asked-for hints still come
   let lines;
   if (text) lines = [text];
@@ -6768,8 +6810,29 @@ function say(key, text) {
   if (key === "death" && now - lastSay < 4000) return;
   if (key === "death" || key === "bad" || key === "fast" || key === "idle" || key === "random") { if (subBusy || subQ.length) return; }
   lastSay = now;
-  for (const l of lines) subQ.push(l);
+  let pr = 1, ttl = 6000;
+  if (text || key === "intro" || PR3.has(key)) { pr = 3; ttl = 0; }
+  else if (key === "hint" || key === "hint2" || key === "done") { pr = 4; ttl = 0; }
+  else if (/^(find|pick|grab|bonusOpen|cutOff)/.test(key)) { pr = 2; ttl = 10000; }
+  if (pr >= 2) subQ = subQ.filter(q => !(prOf(q) < pr && q && q.exp));       // a more important line drops stale chatter still waiting
+  for (const l of lines) subQ.push({ text: l, pr, exp: ttl ? now + ttl : 0, world: pr <= 3 ? world : null });
   nextSub();
+}
+// v8.30: picking something up. If SaDos is mid-line she stops dead (frustrated), anything stale she still had queued is dropped, and she says what you picked up. `list` is the pick-up pool (LINES key).
+let cutAt = -1e9;
+function sadosPick(key, force, onlyTalking) {
+  if (!world || world.lv.silent || holdQuiet() || !LINES[key]) return false;
+  if (world.lv.bs && !bsSeen()) return false;
+  const now = performance.now(), talking = subBusy && !lintTalk && curPr < 4;
+  if (onlyTalking && !talking) return false;                                                    // a carried prop: only when it breaks into a line, otherwise the usual chatter
+  if (!force && !talking && !subQ.length && Math.random() > 0.55) return false;
+  if (talking && !force && now - cutAt < 8000) return false;                                    // no stream of interruptions
+  const keep = subQ.filter(q => prOf(q) >= 4), pick = freshPick(key, LINES[key]);
+  if (talking) { sadosShutUp(); cutAt = now; subQ.push({ text: freshPick("cutOff", LINES.cutOff), pr: 2, exp: now + 10000, world }); }
+  else { subQ = subQ.filter(q => prOf(q) >= 4 || !(q && q.exp)); }
+  subQ.push({ text: pick, pr: 2, exp: now + 10000, world });
+  for (const k of keep) if (!subQ.includes(k)) subQ.push(k);
+  nextSub(); return true;
 }
 // Pick a line nobody has heard lately: each key keeps a list of what has been said (saved), and every line gets its turn before any repeats
 function freshPick(key, list) {
@@ -6788,7 +6851,7 @@ function chatter(key, chance = 0.16, delay = 0) {
   run.said[key] = 1; chatAt = performance.now();
   if (delay) { const tw = world; setTimeout(() => { if (world === tw && state === "play") say(key); }, delay); } else say(key);
 }
-function sadosShutUp() { subQ.length = 0; subBusy = false; lintTalk = false; clearTimeout(subTimer); sadosEl.classList.remove("on"); if (voiceSrc) { try { voiceSrc.onended = null; voiceSrc.stop(); } catch (e) {} voiceSrc = null; } duckMusic(false); }
+function sadosShutUp() { subQ.length = 0; subBusy = false; lintTalk = false; curPr = 0; clearTimeout(subTimer); sadosEl.classList.remove("on"); if (voiceSrc) { try { voiceSrc.onended = null; voiceSrc.stop(); } catch (e) {} voiceSrc = null; } duckMusic(false); }
 let nextBanter = 70;
 function sadosTick(dt) {
   if (state !== "play") return;
@@ -7307,6 +7370,7 @@ function sentryQuip(s, why, alive) {
   if (alive && performance.now() - (s.quipAt || 0) < 6000) return 0; s.quipAt = performance.now();
   const pool = (SENTRY_QUIPS[why] || []).concat(!alive && Math.random() < 0.5 ? SENTRY_QUIPS.any : []), list = pool.length ? pool : SENTRY_QUIPS.any;
   let text = pick(list); if (text === lastQuip && list.length > 1) text = pick(list); lastQuip = text;
+  if (curPr < 4) { const keep = subQ.filter(q => prOf(q) >= 4); sadosShutUp(); subQ.push(...keep); }      // v8.30: SaDos stops while a sentry is speaking (a hint she was asked for waits)
   sentrySubEl.innerHTML = "<i>SENTRY</i>" + text; sentrySubEl.classList.add("on"); clearTimeout(sentrySubT);
   const est = Math.max(1.8, text.length * 0.075), have = window.TC_VOICE && window.TC_VOICE[lineHash(text)], secs = have ? have + 0.3 : est;
   sentrySubT = setTimeout(() => sentrySubEl.classList.remove("on"), secs * 1000);
@@ -7494,7 +7558,7 @@ function updateFields(dt) {
     for (const c of props()) if ((!f.curtain || c.den) && boxOverlap(cubeBox(c), f)) { respawnCube(c); if (f.curtain && state === "play") toast("The crate stays in here"); }      // v8.15: a den's curtain only takes the den's own crate
   }
   const db = world.lv.denBox;                                               // v8.15: however it gets out (a portal, a throw), a den's crate is put back
-  if (db) for (const c of world.cubes) if (c.den && (c.p.x < db.min[0] || c.p.x > db.max[0] || c.p.y < db.min[1] || c.p.y > db.max[1] || c.p.z < db.min[2] || c.p.z > db.max[2])) { respawnCube(c); if (state === "play") toast("The crate stays in here"); }
+  if (db) for (const c of props()) if (c.den && (c.p.x < db.min[0] || c.p.x > db.max[0] || c.p.y < db.min[1] || c.p.y > db.max[1] || c.p.z < db.min[2] || c.p.z > db.max[2])) { respawnCube(c); if (state === "play") toast("The crate stays in here"); }
   const di = world.lv.denIn;                                                // and if it is left shut in the inner room with nobody in there, it goes back to its corner, so the way in can always be opened again
   if (di && state === "play") {
     const dd = world.doors.find(q => q.id === di.door), inB = p => p.x > di.min[0] && p.x < di.max[0] && p.y > di.min[1] && p.y < di.max[1] && p.z > di.min[2] && p.z < di.max[2];
@@ -8021,7 +8085,7 @@ const Cut = (() => {
   function play(then, which) {
     prep(); ensureAudio(); sadosShutUp(); unlockPointer(); hideTip();
     mode = which === "end" ? "end" : "open"; lineSet = mode === "end" ? CUT_END_LINES : CUT_LINES;
-    after = then; backState = state; state = "cut"; hideOv(); hudWas = $("hud").hidden; $("hud").hidden = true; syncTouch();
+    after = then; backState = state; state = "cut"; sadosShutUp(); hideOv(); hudWas = $("hud").hidden; $("hud").hidden = true; syncTouch();
     t = 0; endT = skipT = -1; said = 0; cue = 0; doorSaid = 0; floorNo = -1; banks = 0; stepPh = 0; lastStep = 0; padHeld = true; sigLast = -1; nextChirp = 0; hush();
     S.gTop.visible = true; S.gHall.visible = false; S.setFloor(0, false);
     S.edoor[0].position.x = -0.65; S.edoor[1].position.x = 0.65; S.bar.color.setRGB(3.2, .45, .25); for (const m of S.bankM) m.color.setRGB(.05, .055, .06); for (const l of S.bankL) l.intensity = 0;
@@ -8586,7 +8650,7 @@ const HoldShow = (() => {
       if (inside && !wasIn && mode !== "off") { mode = "wait"; waitT = 0; }
       if (!inside && wasIn) { if (mode !== "off") mode = "idle"; if (cur) { cur = 0; art = mainArt; if (mode === "off") paint(true); } }      // a reel does not carry on once you leave: the set goes back to the show
       wasIn = inside;
-      if (mode === "wait" && (!subBusy || (waitT += dt) > 6)) { mode = "show"; T = 0; }      // let SaDos finish, but not for ever
+      if (mode === "wait" && (!subBusy || (waitT += dt) > 6)) { mode = "show"; T = 0; sadosShutUp(); }      // let SaDos finish, but not for ever
       if (mode === "show") { T += dt; if (T >= art.DUR) { mode = "done"; T = 0; } }
       else if (mode === "idle" || mode === "wait") T = (T + dt) % art.DUR;
       else T += dt;
@@ -8606,7 +8670,7 @@ const HoldShow = (() => {
   function use() {
     if (!look) return false;
     if (mode === "show") { mode = "off"; stopAudio(); hideSub(); toast("Show stopped"); }
-    else { const n = nextUp(); cur = n; art = artOf(n); mode = "show"; T = 0; }
+    else { const n = nextUp(); cur = n; art = artOf(n); mode = "show"; T = 0; sadosShutUp(); }
     paint(true); return true;
   }
   /* v8.0 (temporary): play the show in the Options pop-up, full size and full volume (Music, Voice and Sound effects settings still apply) */
@@ -8615,7 +8679,7 @@ const HoldShow = (() => {
     if (!ensure()) return false;
     unwatch(true); stopAudio(); hideSub(); preload(); cur = reel || 0; art = artOf(cur);
     if (actx && actx.state !== "running") actx.resume();
-    T = 0; mode = "show"; rms = 0;
+    T = 0; mode = "show"; rms = 0; sadosShutUp();
     pv = { c: canvas.getContext("2d"), cw: canvas.width, sub, last: performance.now(), raf: 0, k: "" };
     const step = now => {
       if (!pv) return;
@@ -8921,6 +8985,9 @@ const Items = (() => {
   const has = (k, v) => store.get(k, []).includes(v), add = (k, v) => { const a = store.get(k, []); if (!a.includes(v)) { a.push(v); store.set(k, a); } };
   const std = o => new THREE.MeshStandardMaterial(Object.assign({ envMap: ENV }, o));
   const looking = (p, dmax, cos) => { eyePos(_e); viewDir(_f); _a.copy(p).sub(_e); const d = _a.length(); if (d > dmax || _a.dot(_f) / d < cos) return false; const r = castRay(_e, _a.clone().normalize(), d, false); return !(r.hit && r.hit.dist < d - 0.35); };
+  const cosTo = p => { eyePos(_e); viewDir(_f); _a.copy(p).sub(_e); return _a.dot(_f) / (_a.length() || 1); };
+  // v8.30: the open painting and the find inside it are close together: GRAB goes to whichever is nearer the crosshair
+  const paintAim = () => { if (!SAFE || SAFE.a !== 1 || SAFE.to !== 1 || !looking(SAFE.pt, 2.8, 0.88)) return false; let bi = -1; for (const e of L) if (e.gid === SAFE.nm + ":" + SAFE.it.id) bi = cosTo(e.g.position); return cosTo(SAFE.pt) > bi; };
   function cardTex(it) {
     const col = it.color || "#d23a3a";
     return canvasTex(512, 320, g => {
@@ -9091,15 +9158,16 @@ const Items = (() => {
       if (it.need && store.get("stickers", []).length < (it.need.stickers || 0)) continue;       // v8.12: shows only once you hold that many stickers (the secret Lint sticker)
       spawn(it, nm);
     }
-    if (lv.safe && W.furn && W.furn.paintings.length) {      // v8.14: a painting on a hinge with a wall safe behind it (the Records office, Terminal Velocity)
-      const q = new V3(...lv.safe.paint); let p = null, pd = 9; for (const pp of W.furn.paintings) { const d = pp.getWorldPosition(new V3()).distanceTo(q); if (d < pd) { pd = d; p = pp; } }
+    if (lv.safe && W.furn && W.furn.paintings.length) {      // v8.14, reworked v8.30: a painting on a hinge with a wall safe behind it (Records office in Terminal Velocity; the break room in Special Delivery)
+      const q0 = new V3(...lv.safe.paint); let p = null, pd = 9; for (const pp of W.furn.paintings) { const d = pp.getWorldPosition(new V3()).distanceTo(q0); if (d < pd) { pd = d; p = pp; } }
       if (p) {
-        const open = has("bopen", nm + ":safe"), it = Object.assign({}, lv.safe.item, { pos: lv.safe.at, hover: 0 });
-        SAFE = { p, open, a: open ? 1 : 0, anim: 0, it, front: q, nm };
-        if (open) Furn.swing(p, 1);
+        const pw = p.getWorldPosition(new V3()), n = new V3(0, 0, 1).applyQuaternion(p.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize();
+        const q = new V3(pw.x, q0.y, pw.z).addScaledVector(n, 0.01), at = q.clone().addScaledVector(n, 0.2); at.y = q0.y - 0.15;
+        const it = Object.assign({}, lv.safe.item, { pos: [at.x, at.y, at.z], hover: 0.04, r: 0 });        // r 0: only GRAB takes it
+        SAFE = { p, open: false, a: 0, to: 0, it, front: q, nm, got: has("finds", nm + ":" + it.id), pt: new V3() };
         const back = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.8, 0.02), std({ color: 0x3a3f44, roughness: .4, metalness: .8 }));       // the safe's door, open, inside the frame's outline
-        back.position.copy(q); back.rotation.y = Math.atan2(lv.safe.at[0] - q.x, lv.safe.at[2] - q.z); back.translateZ(0.012); back.userData.ownMat = 1; levelGroup.add(back);
-        if (open && !has("finds", nm + ":" + it.id)) spawn(it, nm);
+        back.position.copy(q); back.rotation.y = Math.atan2(n.x, n.z); back.translateZ(0.012); back.userData.ownMat = 1; levelGroup.add(back);
+        const shelf = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.02, 0.2), std({ color: 0x3a3f44, roughness: .45, metalness: .8 })); shelf.position.set(at.x, at.y - 0.005 + 0.0, at.z); shelf.position.y = at.y - 0.012; shelf.rotation.y = Math.atan2(n.x, n.z); shelf.position.addScaledVector(n, -0.09); shelf.userData.ownMat = 1; levelGroup.add(shelf);
       }
     }
     FR = [];
@@ -9219,7 +9287,15 @@ const Items = (() => {
     D.refuse = 1.6; sfx.button(false); toast(refusalText(D)); setScreen(D, st);
   }
   function doors(W) { for (const D of BD) if (D.open) D.door.cnt += 1; }       // from the door loop: an unlocked bonus door is held open
-  function firstLine(kind) { const s = store.get("saidFind", {}); if (s[kind]) return; s[kind] = 1; store.set("saidFind", s); const k = { card: "findCard", monitor: "findMonitor", page: "findPage", clock: "findClock", tape: "findTape", sticker: "findSticker", pickup: "findPickup", breaker: "findBreaker", bonus: "bonusOpen" }[kind]; if (k && LINES[k]) say(k); }
+  function firstLine(kind) { const s = store.get("saidFind", {}); if (s[kind]) return; s[kind] = 1; store.set("saidFind", s); const k = { card: "findCard", monitor: "findMonitor", page: "findPage", clock: "findClock", tape: "findTape", sticker: "findSticker", pickup: "findPickup", breaker: "findBreaker", bonus: "bonusOpen" }[kind]; if (k && LINES[k]) { if (kind === "breaker" || kind === "bonus" || kind === "monitor") say(k); else sadosPick(k, true); } }
+  // v8.30: every find gets a line, and SaDos breaks off whatever she was saying to give it. The first of each kind keeps its long line.
+  function pickLine(it) {
+    const kind = it.kind, first = !(store.get("saidFind", {})[kind]);
+    if (first) { firstLine(kind); return; }
+    const pool = kind === "card" ? "pickCard" : kind === "tape" ? "pickTape" : kind === "page" ? "pickPage" : kind === "sticker" ? "pickSticker" : kind === "clock" ? "pickClock"
+      : ({ spool: "pickSpool", lens: "pickLens", hat: "pickHat", button: "pickButton", mirror: "pickMirror", thread: "pickTrace", fluff: "pickTrace", eye: "pickTrace", clip: "pickTrace" }[it.look] || "pickItem");
+    sadosPick(pool, true);
+  }
   function take(e) {
     const it = e.it; levelGroup.remove(e.g); L.splice(L.indexOf(e), 1); add("finds", e.gid); sfx.badge(); if (["card", "sticker", "tape", "page"].includes(it.kind)) Bonus.mark();
     if (it.kind === "card") { add("keys", it.key); toast("Key card: " + (it.label || it.key) + " · on your key ring"); }
@@ -9232,7 +9308,7 @@ const Items = (() => {
     else if (it.kind === "page") { toast("Page: " + (it.title || "a page")); Log.save("pages", e.gid, { title: it.title || "Page", text: it.text || [] }); Log.open("pages", e.gid, "play"); }
     else if (it.kind === "clock") { run.time = Math.max(0, run.time - 30); toast("BONUS: Punch clock · 30 s off the chamber clock"); setTimeout(() => sfx.badge(), 400); add("clocks", e.gid); }
     else toast("Found: " + (it.name || "something"));
-    firstLine(it.kind);
+    pickLine(it);
   }
   function throwBreaker(R) {
     R.on = true; R.anim = 0.001; add("power", R.b.id); add("finds", R.gid); if (world.ev) world.ev["power:" + R.b.id] = true; powerFx(R.b, true);
@@ -9247,7 +9323,7 @@ const Items = (() => {
   // Called when thrown, and again when a room is built with the breaker already on. Never a door, plate, sentry or a camera that affects play.
   function powerFx(b, now) { try { const f = POWER_FX[b.fx]; if (f) f(world, b, now); if (b.on) b.on(world, now); } catch (e) { console.warn("breaker fx", e); } }
   // tapes: the recording is shown as subtitles under the label TAPE · title (a recorded clip plays as well, once it exists in lines.js)
-  function playTape(it) { stopTape(); tape = { title: it.title || "Tape", lines: (it.lines || []).slice(), i: -1, t: 0, dur: 0 }; nextTapeLine(); }
+  function playTape(it) { stopTape(); sadosShutUp(); tape = { title: it.title || "Tape", lines: (it.lines || []).slice(), i: -1, t: 0, dur: 0 }; nextTapeLine(); }
   function nextTapeLine() {
     if (!tape) return; tape.i++; if (!tapeEl) tapeEl = $("tapeSub");
     if (tape.i >= tape.lines.length) { stopTape(); return; }
@@ -9268,7 +9344,12 @@ const Items = (() => {
       if (F.a !== F.to) { F.a = F.to > F.a ? Math.min(F.to, F.a + dt / 0.55) : Math.max(F.to, F.a - dt / 0.4); const u = F.a * F.a * (3 - 2 * F.a); Furn.swing(F.p, u); if (F.a === 0 && F.to === 0) sfx.drop(); }
       if (F.to === 1 && player.p.distanceTo(F.front) > 3.2) F.to = 0;                  // a fridge left open swings shut behind you
     }
-    if (SAFE && SAFE.anim > 0) { SAFE.anim = Math.min(1, SAFE.anim + dt / 0.7); const u = SAFE.anim * SAFE.anim * (3 - 2 * SAFE.anim); Furn.swing(SAFE.p, u); if (SAFE.anim >= 1) SAFE.anim = 0; }
+    if (SAFE && SAFE.a !== SAFE.to) {          // v8.30: swings open or shut on its hinge; the find is only there once it is fully open, and goes when it shuts
+      SAFE.a = SAFE.to ? Math.min(1, SAFE.a + dt / 0.8) : Math.max(0, SAFE.a - dt / 0.8); const u = SAFE.a * SAFE.a * (3 - 2 * SAFE.a); Furn.swing(SAFE.p, u);
+      if (SAFE.a >= 1 && !has("finds", SAFE.nm + ":" + SAFE.it.id) && !L.some(e => e.gid === SAFE.nm + ":" + SAFE.it.id)) spawn(SAFE.it, SAFE.nm);
+      if (SAFE.a === 0) sfx.button(false);
+    }
+    if (SAFE && SAFE.a > 0.6) { SAFE.pt.copy(new THREE.Box3().setFromObject(SAFE.p).getCenter(new V3())); }
     if (state !== "play") return;
     const pl = player; _a.set(pl.p.x, pl.p.y + 0.1, pl.p.z);
     for (let i = L.length - 1; i >= 0; i--) { const e = L[i]; if (_a.distanceTo(e.base) < (e.it.r || 0.95)) take(e); }        // walked into it
@@ -9279,8 +9360,8 @@ const Items = (() => {
     if (!msg) { for (const R of BR) if ((!R.on || R.b.toggle) && !R.anim && !R.anim2 && looking(R.front, 2.4, 0.8)) { msg = R.on ? R.b.offHint || "GRAB throws the breaker back" : "GRAB throws the breaker"; break; } }
     if (!msg) { for (const M of MO) if (looking(M.front, 2.6, 0.8)) { msg = "GRAB looks at the monitor"; break; } }
     if (!msg) { for (const V of VE) if (looking(V.front, 2.2, 0.75)) { msg = ventOpen(V.v) ? "GRAB crawls through the vent" : "A vent. Screwed shut"; break; } }
-    if (!msg) { for (const e of L) if (looking(e.g.position, 2.8, 0.9)) { msg = "GRAB picks it up"; break; } }
-    if (!msg && SAFE && !SAFE.open && looking(SAFE.front, 2.6, 0.85)) msg = "GRAB swings the painting aside";
+    if (!msg && !paintAim()) { for (const e of L) if (looking(e.g.position, 2.8, 0.9)) { msg = "GRAB picks it up"; break; } }
+    if (!msg && SAFE && SAFE.a === SAFE.to) { if (SAFE.to === 0 && looking(SAFE.front, 2.6, 0.85)) msg = "GRAB swings the painting open"; else if (SAFE.to === 1 && SAFE.a === 1 && looking(SAFE.pt, 2.8, 0.88)) msg = "GRAB swings the painting shut"; }
     if (!msg) { for (const F of FR) if (looking(F.front, 2.4, 0.8)) { msg = F.to < 1 ? "GRAB opens the fridge" : F.can ? "GRAB takes the ginger beer" : "GRAB shuts the fridge"; break; } }
   }
   const DRINK_SAY = ["Ginger beer, ice cold. Sweet, then sharp, then a little lime. That is genuinely lovely.", "Cold, fizzy, a proper bite of ginger. Best thing in the building.", "Still cold. Still fizzy. Somebody here had good taste once."];
@@ -9298,14 +9379,17 @@ const Items = (() => {
     for (const R of BR) if ((!R.on || R.b.toggle) && !R.anim && !R.anim2 && looking(R.front, 2.4, 0.8)) { if (R.on) throwBreakerOff(R); else throwBreaker(R); return true; }
     for (const M of MO) if (looking(M.front, 2.6, 0.8)) { add("finds", M.gid); firstLine("monitor"); Log.monitor(M.m.room); return true; }
     for (const V of VE) if (looking(V.front, 2.2, 0.75)) { useVent(V); return true; }
-    let best = null, bd = 0; for (const e of L) if (looking(e.g.position, 2.8, 0.9)) { const d = e.g.position.distanceTo(_e); if (!best || d < bd) { best = e; bd = d; } }
+    let best = null, bd = 0; if (!paintAim()) for (const e of L) if (looking(e.g.position, 2.8, 0.9)) { const d = e.g.position.distanceTo(_e); if (!best || d < bd) { best = e; bd = d; } }
     if (best) { take(best); return true; }
     for (const F of FR) if (looking(F.front, 2.4, 0.8)) { useFridge(F); return true; }
     for (const D of BD) if (!D.open && nearBD(D)) { useBD(D); return true; }
-    if (SAFE && !SAFE.open && looking(SAFE.front, 2.6, 0.85)) { SAFE.open = true; SAFE.anim = 0.001; add("bopen", SAFE.nm + ":safe"); sfx.button(true); spawn(SAFE.it, SAFE.nm); toast("There is a wall safe behind the painting. It is open."); if (!store.get("saidSafe", 0) && LINES.findSafe) { store.set("saidSafe", 1); say("findSafe"); } return true; }
+    if (SAFE && SAFE.a === SAFE.to) {
+      if (SAFE.to === 0 && looking(SAFE.front, 2.6, 0.85)) { SAFE.to = 1; sfx.button(true); if (!SAFE.said) { SAFE.said = 1; toast("There is a wall safe behind the painting."); if (!store.get("saidSafe", 0) && LINES.findSafe) { store.set("saidSafe", 1); say("findSafe"); } } return true; }
+      if (SAFE.to === 1 && SAFE.a === 1 && looking(SAFE.pt, 2.8, 0.88)) { SAFE.to = 0; const e = L.find(e => e.gid === SAFE.nm + ":" + SAFE.it.id); if (e) { levelGroup.remove(e.g); L.splice(L.indexOf(e), 1); } return true; }      // shut again, taken or not; an untaken find goes back behind it
+    }
     return false;
   }
-  return { attach, tick, use, doors, stopTape, playTape, get fridges() { return FR; }, get msg() { return msg; }, get items() { return L; }, get breakers() { return BR; }, get bdoors() { return BD; }, get monitors() { return MO; }, get vents() { return VE; } };
+  return { attach, tick, use, doors, stopTape, playTape, get safe() { return SAFE; }, get fridges() { return FR; }, get msg() { return msg; }, get items() { return L; }, get breakers() { return BR; }, get bdoors() { return BD; }, get monitors() { return MO; }, get vents() { return VE; } };
 })();
 
 /* =====================================================================================
@@ -9937,7 +10021,7 @@ function boot() {
   setTimeout(() => HoldMusic.render(), 2200);
   setTimeout(() => { try { HoldShow.ensure(); HoldShow.preload(); } catch (e) { console.error(e); } }, 3000);   // the TV show's picture and voices, ready before anyone reaches the office                                       // and its music, rendered once in the background
 }
-window.__tc = { Bonus, STAFF_DOORS, denAudit, LEVEL_FUNCS, bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
+window.__tc = { sadosPick, holdQuiet, get curPr() { return curPr; }, get subBusy() { return subBusy; }, Bonus, STAFF_DOORS, denAudit, LEVEL_FUNCS, bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
 try { boot(); } catch (err) { console.error(err); $("loading").hidden = false; $("loading").innerHTML = '<div style="max-width:420px;text-align:center;line-height:1.6;font-size:13px;letter-spacing:.05em">Something went wrong starting the game.<br><small>' + String(err && err.message || err) + "</small></div>"; }
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>
