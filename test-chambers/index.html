@@ -91,10 +91,11 @@ body.emerg #vig { background: radial-gradient(ellipse 75% 70% at 50% 50%, rgba(1
 .stkGrid .chbtn span { margin-top: 8px; }
 .stkGrid .chbtn.cur { border-color: var(--orange); box-shadow: 0 0 0 1px var(--orange) inset; }
 .stkGrid .chbtn.cur span { color: var(--ink); }
-.finds { margin: 2px 0 10px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.finds { margin: 4px auto 12px; max-width: 460px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; align-items: stretch; }
+.finds span { text-align: center; }
 .finds span { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; font-weight: 700; padding: 4px 8px; border-radius: 3px; border: 1px solid rgba(255,255,255,.25); color: var(--dim); }
 .finds span.got { color: #0b0f13; background: #f4b942; border-color: #f4b942; }
-.finds .fl { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); align-self: center; margin-right: 2px; font-weight: 600; }
+.finds .fl { display: none; }
 #showSub { position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 150px); transform: translateX(-50%); max-width: min(560px, 74%); text-align: center; color: #fff; font-size: 14px; line-height: 1.35; background: rgba(0,0,0,.62); padding: 6px 12px; border-radius: 6px; opacity: 0; transition: opacity .25s; pointer-events: none; }
 #showSub.on { opacity: 1; }
 #showCv { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #000; border-radius: 4px; margin-top: 10px; }
@@ -143,6 +144,7 @@ body.cutting .games-pill, body.cutting #gpChip { display: none !important; }
 body.cutwalk #touch { z-index: 31; }      /* v8.31: the walk stick shows over the film while you walk out */
 #lim { position: absolute; right: calc(env(safe-area-inset-right, 0px) + 14px); top: 74px; font-size: 11px; letter-spacing: .14em; font-weight: 700; color: var(--orange); }
 .medal { margin: 4px 0 0; font-size: 13px; letter-spacing: .1em; font-weight: 700; color: var(--dim); }
+.medal { display: flex; flex-direction: column; align-items: center; gap: 5px; margin: 8px 0 6px; } .medal .ar { display: block; line-height: 1.35; } .medal .ar:first-child { font-size: 15px; margin-bottom: 2px; }
 .medal b { letter-spacing: .2em; } .medal .m3 { color: #ffd166; } .medal .m2 { color: #cfd6dc; } .medal .m1 { color: #c98a52; }
 .chbtn em { float: right; font-style: normal; font-size: 13px; letter-spacing: .04em; } .chbtn em.m3 { color: #ffd166; } .chbtn em.m2 { color: #cfd6dc; } .chbtn em.m1 { color: #c98a52; }
 .credits p { margin: 0 0 10px; font-size: 14px; line-height: 1.5; color: rgba(238,242,245,.9); } .credits b { color: #fff; }
@@ -519,7 +521,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
       <p class="eyebrow" id="dNum">CHAMBER 01</p>
       <h2 class="ttl" id="dTitle">Chamber complete</h2>
       <div class="stats"><div><b id="dTime">0:00</b><span>TIME</span></div><div><b id="dPortals">0</b><span>PORTALS</span></div><div><b id="dSpeed">0</b><span>TOP SPEED M/S</span></div></div>
-      <p class="medal" id="dMedal"></p>
+      <div class="medal" id="dMedal"></div>
       <div class="finds" id="dFinds" hidden></div>
       <p class="quote" id="dQuote"></p>
       <button class="btn primary" id="bNext" type="button">Next chamber</button>
@@ -580,7 +582,7 @@ import { Furn } from "./furniture.js";
 import { GLYPHS as HAND_GLYPHS, handWrite, handBlock, handWidth } from "./hand.js";      // v8.19: hand-lettering                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.31";
+const VERSION = "v8.32";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const IT_TEST = /[?&]itemtest\b/.test(location.search), SPFX = IT_TEST ? "testchambers.itest." : "testchambers.";
 const $ = id => document.getElementById(id);
@@ -654,16 +656,21 @@ function logoText(g, txt, x, y, px, spacing, align) {      // bold capitals or w
   let cx = align === "center" ? x - tot / 2 : x; [...txt].forEach((c, i) => { g.fillText(c, cx, y); cx += ws[i] + spacing; }); return tot;
 }
 function logoRR(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
-function drawLogo(g, w, h, mode) {
+function drawLogo(g, w, h, mode, hi) {
+  if (mode === "mark") {      // v8.32: the mark only (no name): the SVG's silver tile (140,20) 100 x 100 with the pinwheel, filling the canvas
+    const sc = w / 100; g.fillStyle = LOGO.silver; g.fillRect(0, 0, w, h);
+    g.save(); g.scale(sc, sc); g.translate(-140, -20); logoMark(g, 190, 70, 1.2); g.restore();
+    g.strokeStyle = LOGO.edge; g.lineWidth = 2; g.strokeRect(1, 1, w - 2, h - 2); return;
+  }
   if (mode === "wall") {      // panel 1A: the SVG's rect (20,170) 340 x 76, its content shifted to (0,0) and scaled to the canvas height; the silver and the stripes run the full width
     const sc = h / 76, ox = (w - 340 * sc) / 2;
-    g.fillStyle = LOGO.silver; g.fillRect(0, 0, w, h);
-    g.strokeStyle = LOGO.edge; g.lineWidth = Math.max(2, 0.5 * sc); g.strokeRect(g.lineWidth / 2, g.lineWidth / 2, w - g.lineWidth, h - g.lineWidth);
+    g.fillStyle = hi ? "#c3c9d0" : LOGO.silver; g.fillRect(0, 0, w, h);      // `hi` (v8.32, the corridor's panel only): a darker silver and a heavy dark frame so it stands off the white wall
+    g.strokeStyle = hi ? "#2a2f36" : LOGO.edge; g.lineWidth = hi ? Math.max(6, 2.2 * sc) : Math.max(2, 0.5 * sc); g.strokeRect(g.lineWidth / 2, g.lineWidth / 2, w - g.lineWidth, h - g.lineWidth);
     g.save(); g.translate(ox, 0); g.scale(sc, sc); g.translate(-20, -170);
     g.fillStyle = LOGO.rivet; for (const x of [28, 352]) { g.beginPath(); g.arc(x, 178, 2, 0, 6.2832); g.fill(); }
     logoMark(g, 67, 201, 0.85);
-    g.fillStyle = LOGO.blade; logoText(g, LOGO.name, 114, 200, 22, 1, "left");
-    g.fillStyle = LOGO.sub; logoText(g, LOGO.slogan, 114, 219, 14, 0, "left");
+    g.fillStyle = hi ? "#0c1015" : LOGO.blade; logoText(g, LOGO.name, 114, 200, 22, 1, "left");
+    g.fillStyle = hi ? "#161b21" : LOGO.sub; logoText(g, LOGO.slogan, 114, 219, 14, 0, "left");
     g.restore();
     g.fillStyle = LOGO.orange; g.fillRect(0, 64 * sc, w, 6 * sc); g.fillStyle = LOGO.blue; g.fillRect(0, 70 * sc, w, h - 70 * sc);
   } else {      // stacked: the SVG's tile (140,20) 100 x 100 and the name at (190,143); the plate's own background is pale so the dark lettering reads
@@ -2439,8 +2446,8 @@ function level41() {
   h.receivers = [{ pos: [0, 0.75, 9], n: [1, 0, 0], w: 1.5, h: 1.5, door: "d0" }, { pos: [0, 0.75, 4.6], n: [1, 0, 0], w: 1.5, h: 1.5, door: "d0" },
     { pos: [27, 0.75, W], n: [0, 0, -1], w: 1.5, h: 1.5, door: "d1" }];
   h.cubes = [[1.5, 0.35, 10.7, "prism", Math.PI / 2]];
-  h.plates = [{ pos: [22, 0, 8.7], door: "d0", hold: 2.5 }];                                         // the way back out, for anyone who shuts themselves in
-  h.doors = [{ id: "d0", min: [20, 0, 4.2], max: [20.6, 3.2, 7.4], rise: 3.5, need: 1 }, exitDoor(L, 9)];
+  h.plates = [{ pos: [22, 0, 8.7], door: "d0", hold: 2.5 }, { pos: [18.2, 0, 5.8], door: "d0", hold: 3 }];                                         // the way back out, for anyone who shuts themselves in
+  h.doors = [{ id: "d0", min: [20, 0, 4.2], max: [20.6, 3.2, 7.4], rise: 3.5, need: 1, safe: true }, exitDoor(L, 9)];
   h.start = { pos: [4.5, 0, 7], yaw: -Math.PI / 2, pitch: -0.05 }; h.par = [150, 3];
   h.lamps.push(lamp(27, H - .3, 9, .5, 9));
   h.signs.push(chSign(40, "PRISM", 8, 3.6));
@@ -3099,6 +3106,9 @@ function denDress(h, sp, idx) {
     else if (R) { const fx = t > 0 ? R.x1 : R.x0; sg.pos = [fx - Math.sign(fx - (R.x0 + R.x1) / 2) * 0.001, sy + 1.6, Z((R.d0 + R.d1) / 2)]; sg.n = [-Math.sign(fx - (R.x0 + R.x1) / 2), 0, 0]; }
   }
   denSettle(h, K.F, spaces, rec);
+  { const CK = ["clock", "flipclock", "ledclock"], cl = K.F.filter(e => CK.includes(e.k)), rnd = (idx * 37 + 11) % 10, keep = rnd < 5 ? 0 : rnd < 8 ? 1 : 2, kept = [];      // v8.32: clocks vary: half the dens have none, some one, a few two of different kinds
+    for (const e of cl) if (kept.length < keep && !kept.some(x => x.k === e.k)) kept.push(e);
+    for (const e of cl) if (!kept.includes(e)) K.F.splice(K.F.indexOf(e), 1); }
   h.furn = (h.furn || []).concat(K.F);
   if (sp.art) h.art = sp.art;
   h.denSpaces = spaces;
@@ -4457,7 +4467,7 @@ function buildLevel(idx) {
     const strip = (ww, hh, y, z) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(ww, hh), MAT.doorRed); m.rotation.y = -Math.PI / 2; m.position.set(fx0 - 0.006, y, z); m.frustumCulled = false; fr.add(m); lights.push(m); };
     strip(w - 0.5, 0.09, d.max[1] + 0.16, zc);                                  // a status bar across the header
     strip(0.05, hgt * 0.55, d.min[1] + hgt * 0.45, d.min[2] - 0.085); strip(0.05, hgt * 0.55, d.min[1] + hgt * 0.45, d.max[2] + 0.085);   // and down each jamb
-    W.doors.push({ need: d.need || 1, id: d.id, auto: !!d.auto, box, min0: d.min.slice(), max0: d.max.slice(), rise: d.rise, t: 0, group: g, lights, light: lights[0], open: false });
+    W.doors.push({ need: d.need || 1, id: d.id, auto: !!d.auto, safe: !!d.safe, box, min0: d.min.slice(), max0: d.max.slice(), rise: d.rise, t: 0, group: g, lights, light: lights[0], open: false });
   }
   Dock.attach(W);           // v7.1: the docked car and its doors
   HoldShow.attach(W);       // v7.2: the office TV, where a level has one
@@ -4547,8 +4557,8 @@ function buildLevel(idx) {
   }
   for (const f of (lv.fields || []).concat((lv.curtains || []).map(c => Object.assign({}, c, { curtain: true })))) {      // v8.12: lv.curtains = a den doorway's reset curtain: recycles the den's own crate, leaves your portals alone
     const ext = [f.max[0] - f.min[0], f.max[1] - f.min[1], f.max[2] - f.min[2]]; const ax = ext.indexOf(Math.min(...ext)), t = AX[ax];
-    const tex = fieldTex(); tex.repeat.set(Math.max(1, Math.round(ext[t[0]] / 2.5)), Math.max(1, Math.round(ext[t[1]] / 2.5)));
-    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, color: new THREE.Color(.9, 1.1, 1.3) }); mat.userData = { tex }; if (f.curtain) mat.color.setRGB(1.25, .95, .45);
+    const tex = fieldTex(!!f.curtain); tex.repeat.set(Math.max(1, Math.round(ext[t[0]] / 2.5)), Math.max(1, Math.round(ext[t[1]] / 2.5)));
+    const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, side: THREE.DoubleSide, blending: THREE.AdditiveBlending, color: new THREE.Color(.9, 1.1, 1.3) }); mat.userData = { tex }; if (f.curtain) mat.color.setRGB(.8, .8, .8);
     const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat); m.userData.ownMat = 1; m.renderOrder = 4; m.frustumCulled = false;
     const c = [(f.min[0] + f.max[0]) / 2, (f.min[1] + f.max[1]) / 2, (f.min[2] + f.max[2]) / 2]; m.position.set(...c);
     if (ax === 0) { m.rotation.y = Math.PI / 2; m.scale.set(ext[2], ext[1], 1); } else if (ax === 2) m.scale.set(ext[0], ext[1], 1);
@@ -6309,6 +6319,10 @@ function physicsStep(dt) {
   v5Doors(W); Items.doors(W);
   for (const d of W.doors) d.want = d.auto ? (alive && Math.abs(pl.p.x - d.box.min[0]) < 5 && Math.abs(pl.p.z - (d.min0[2] + d.max0[2]) / 2) < 4 && Math.abs(pl.p.y - HY - d.min0[1]) < 2.5 ? 1 : d.want0 || 0) : d.cnt >= (d.need || 1) ? 1 : 0;
   for (const d of W.doors) if (d.auto && d.want) d.want0 = 1;     // once an open-plan exit has opened for you it stays open
+  for (const d of W.doors) if (d.safe && !d.want && d.t > 0.02) {       // v8.32: a safe door never shuts on the player or a crate in or near its doorway
+    const lo = d.min0, hi = d.max0, m = 0.7, inz = (p, y) => p.x > lo[0] - m && p.x < hi[0] + m && p.z > lo[2] && p.z < hi[2] && y > lo[1] - 0.3 && y < hi[1];
+    if ((alive && inz(pl.p, pl.p.y)) || props().some(c => inz(c.p, c.p.y))) d.want = 1;
+  }
   for (const d of W.doors) {
     if (d.dock) { Dock.step(dt); continue; }          // v7.1: the lift doors run themselves
     const was = d.open;
@@ -6415,10 +6429,16 @@ function completeLevel() {
   $("dTime").textContent = m + ":" + String(s).padStart(2, "0"); $("dPortals").textContent = run.portals; $("dSpeed").textContent = run.top.toFixed(1);
   const [parT, parP] = chamberPar(CH), medal = (run.time <= parT ? 1 : 0) + (run.portals <= parP ? 1 : 0) + 1, best = store.get("best", {});
   if (!run.ventSkip && !(best[CH] >= medal)) { best[CH] = medal; store.set("best", best); }       // v8.14: a run that skipped a room through a vent gets no medal
-  $("dMedal").innerHTML = (run.ventSkip ? "<b>No medal</b> &middot; " + run.ventSkip + " skipped through a vent" : '<b class="m' + medal + '">' + MEDAL[medal] + "</b>") + " &middot; par " + fmtT(parT) + ", " + parP + " portals" + (store.get("badges", []).includes(CH) ? " &middot; key card found" : " &middot; key card not found") + (() => { const [cd, ct] = chamberCams(CH); return ct ? " &middot; cameras down " + cd + " of " + ct + (cd === ct ? " &middot; <b class=\"m3\">Lens Cap award</b>" : "") : ""; })() + (world.lv.hatch ? (Parcel.done ? " &middot; parcel delivered and signed for" : " &middot; parcel not delivered") : "") + (world.lv.lint && LintRoom.taken ? " &middot; <b class=\"m3\">Lint found</b>" : "") + (sevenBonusCh === CH ? " &middot; <b class=\"m3\">crate seven returned, 0:30 off</b>" : "");
+  { const R = []; R.push(run.ventSkip ? "<b>No medal</b> &middot; " + run.ventSkip + " skipped through a vent" : '<b class="m' + medal + '">' + MEDAL[medal] + "</b> &middot; par " + fmtT(parT) + ", " + parP + " portals");      // v8.32: one clean row per award
+    R.push(store.get("badges", []).includes(CH) ? "Key card found" : "Key card not found");
+    { const [cd, ct] = chamberCams(CH); if (ct) R.push("Cameras down " + cd + " of " + ct + (cd === ct ? ' &middot; <b class="m3">Lens Cap award</b>' : "")); }
+    if (world.lv.hatch) R.push(Parcel.done ? "Parcel delivered and signed for" : "Parcel not delivered");
+    if (world.lv.lint && LintRoom.taken) R.push('<b class="m3">Lint found</b>');
+    if (sevenBonusCh === CH) R.push('<b class="m3">Crate Seven returned, 0:30 off</b>');
+    $("dMedal").innerHTML = R.map(r => '<span class="ar">' + r + "</span>").join(""); }
   sevenBonusCh = -1;
   { const F = findsOf(CH), el = $("dFinds"); el.hidden = !F.all.length;          // v8.5: the chamber's finds, found ones named, the rest "?"
-    if (F.all.length) { $("dMedal").innerHTML += " &middot; finds " + F.got.length + " of " + F.all.length; el.innerHTML = '<b class="fl">Hidden finds</b>' + F.all.map(f => F.got.includes(f) ? '<span class="got" data-tip="Found: ' + f.name.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;") + '">' + f.name.replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</span>" : '<span data-tip="A hidden find in this chamber that you have not found yet">Not found yet</span>').join(""); } }      // v8.21: a lone "?" was unexplained: now labelled, with a hover hint
+    if (F.all.length) { $("dMedal").insertAdjacentHTML("beforeend", '<span class="ar">Hidden finds ' + F.got.length + " of " + F.all.length + "</span>"); el.innerHTML = '<b class="fl">Hidden finds</b>' + F.all.map(f => F.got.includes(f) ? '<span class="got" data-tip="Found: ' + f.name.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;") + '">' + f.name.replace(/&/g, "&amp;").replace(/</g, "&lt;") + "</span>" : '<span data-tip="A hidden find in this chamber that you have not found yet">Not found yet</span>').join(""); } }      // v8.21: a lone "?" was unexplained: now labelled, with a hover hint
   Items.stopTape();
   $("bCredits").hidden = !lastCh;
   const lines = lastCh && allBadges() ? [LINES.allBadges[0]] : (took7 && world.lv.say.done7) || (away7 && world.lv.say.doneAway) || world.lv.say.done; const q = pick(lines);
@@ -6615,6 +6635,7 @@ const sfx = {
   step: SFX(t => { noise(t, 0.07, 0.07, 900 + Math.random() * 300, 300, 1.5, "lowpass"); }),
   jump: SFX(t => { noise(t, 0.12, 0.08, 500, 1500, 1); }),
   fridge: SFX(t => { noise(t, 0.09, 0.16, 1800, 400, 1.4); osc("sine", 62, 60, t + 0.05, 0.9, 0.05); }),           // v8.19: the seal lets go, then the hum
+  gulp: SFX(t => { noise(t, 0.1, 0.12, 5000, 2500, 2); for (let i = 0; i < 4; i++) { const u = t + 0.3 + i * 0.34; osc("sine", 330 - i * 20, 110, u, 0.2, 0.2); osc("triangle", 170, 70, u + 0.03, 0.14, 0.12); noise(u, 0.05, 0.07, 1100, 300, 3); } noise(t + 1.8, 0.5, 0.05, 3200, 1500, 1); }),      // v8.32: a can opened, then four proper glugs and an "ahh"
   sip: SFX(t => { noise(t, 0.16, 0.14, 7000, 3500, 2.5); for (let i = 0; i < 3; i++) osc("sine", 190, 120, t + 0.25 + i * 0.32, 0.12, 0.12); noise(t + 1.2, 0.6, 0.05, 6000, 4000, 3); }),     // the ring pull, three swallows, the fizz
   grab: SFX(t => { osc("triangle", 300, 500, t, 0.14, 0.14); osc("triangle", 500, 760, t + 0.07, 0.14, 0.1); }),
   drop: SFX(t => { osc("triangle", 500, 260, t, 0.16, 0.14); noise(t, 0.1, 0.1, 700, 200, 1, "lowpass"); }),
@@ -7579,12 +7600,12 @@ function receiverTex() {
     g.fillStyle = "#fff4e0"; g.beginPath(); g.arc(w / 2, h / 2, 14, 0, 6.3); g.fill();
   }, false); return t;
 }
-function fieldTex() {
+function fieldTex(warm) {      // v8.32: a den's curtain has its own amber drawing (the blue one tinted through amber light read green from the room)
   const t = canvasTex(128, 128, (g, w, h) => {
     g.clearRect(0, 0, w, h);
-    const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, "rgba(40,140,255,.10)"); gr.addColorStop(.5, "rgba(120,210,255,.30)"); gr.addColorStop(1, "rgba(40,140,255,.10)"); g.fillStyle = gr; g.fillRect(0, 0, w, h);
-    g.strokeStyle = "rgba(170,230,255,.85)"; g.lineWidth = 2; g.strokeRect(1, 1, w - 2, h - 2);
-    g.strokeStyle = "rgba(150,220,255,.5)"; g.lineWidth = 1.5; for (let i = 1; i < 4; i++) { g.beginPath(); g.moveTo(0, i * h / 4); g.lineTo(w, i * h / 4); g.stroke(); g.beginPath(); g.moveTo(i * w / 4, 0); g.lineTo(i * w / 4, h); g.stroke(); }
+    const gr = g.createLinearGradient(0, 0, 0, h); if (warm) { gr.addColorStop(0, "rgba(255,150,30,.10)"); gr.addColorStop(.5, "rgba(255,190,70,.26)"); gr.addColorStop(1, "rgba(255,150,30,.10)"); } else { gr.addColorStop(0, "rgba(40,140,255,.10)"); gr.addColorStop(.5, "rgba(120,210,255,.30)"); gr.addColorStop(1, "rgba(40,140,255,.10)"); } g.fillStyle = gr; g.fillRect(0, 0, w, h);
+    g.strokeStyle = warm ? "rgba(255,205,110,.85)" : "rgba(170,230,255,.85)"; g.lineWidth = 2; g.strokeRect(1, 1, w - 2, h - 2);
+    g.strokeStyle = warm ? "rgba(255,190,90,.5)" : "rgba(150,220,255,.5)"; g.lineWidth = 1.5; for (let i = 1; i < 4; i++) { g.beginPath(); g.moveTo(0, i * h / 4); g.lineTo(w, i * h / 4); g.stroke(); g.beginPath(); g.moveTo(i * w / 4, 0); g.lineTo(i * w / 4, h); g.stroke(); }
   }, false); return t;
 }
 
@@ -7939,8 +7960,8 @@ const Cut = (() => {
     const arrowMat = std({ map: arrow, transparent: true, roughness: 0.6, depthWrite: false });
     for (const z of [-5.5, 6.5, 18.5]) quad(gHall, arrowMat, 1.1, 2.2, 0, 0.006, z, -PI / 2, PI);
     box(gHall, frame, 0.14, 1.9, 9.4, HW / 2 - 0.05, 3.5, 9); box(gHall, std({ color: 0x1b2329, roughness: 0.5, envMapIntensity: 0.14 }), 0.06, 1.6, 9.0, HW / 2 - 0.13, 3.5, 9);       // the observation office: frosted glass, lights off
-    { const lt = canvasTex(2048, 364, (g, w, h) => drawLogo(g, w, h, "wall"), false);      // v8.28: the long silver panel on the left wall now carries the company logo (the drawing is `drawLogo`)
-      quad(gHall, std({ map: lt, roughness: 0.5, metalness: 0.45, envMapIntensity: 0.25, emissive: 0xffffff, emissiveMap: lt, emissiveIntensity: 0.05 }), 9.0, 1.6, HW / 2 - 0.1635, 3.5, 9, 0, -PI / 2); }
+    { const lt = canvasTex(2048, 364, (g, w, h) => drawLogo(g, w, h, "wall", true), false);      // v8.28: the long silver panel on the left wall now carries the company logo (the drawing is `drawLogo`); v8.32: more contrast (dark frame, name and slogan, less shine)
+      quad(gHall, std({ map: lt, roughness: 0.6, metalness: 0.1, envMapIntensity: 0.1, emissive: 0xffffff, emissiveMap: lt, emissiveIntensity: 0.0 }), 9.0, 1.6, HW / 2 - 0.1635, 3.5, 9, 0, -PI / 2); }
     // v8.31: the corridor's side of the lift wall: white panels round a steel frame (it was the lobby's plain green wall), now that you can turn round and look
     { const sh = new THREE.Shape([[-3.5, 0], [-0.79, 0], [-0.79, 2.21], [0.79, 2.21], [0.79, 0], [3.5, 0], [3.5, 3.2], [-3.5, 3.2]].map(([a, b]) => new THREE.Vector2(a, b)));
       const lw = tiled(TEX.white, 0.25, 0.25), ln = tiled(NRM_WHITE, 0.25, 0.25); lw.offset.set(0.875, 0); ln.offset.set(0.875, 0);
@@ -8390,10 +8411,15 @@ function buildCar() {
     btn(84, 514, 0.017, false); const cl = btn(172, 514, 0.017, true); lamps.push(cl);
     btn(84, 598, 0.017, false); btn(172, 598, 0.017, false);
     const st = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.03), M.amber); st.position.set(PX, PY + PH / 2 - 0.03, pz + 0.002); g.add(st); lamps.push(st);
-    // the company plate on the front panel left of the doorway (drawLogo "plate": replace that one function to change the logo)
-    const lt = canvasTex(512, 256, (c, w, h) => drawLogo(c, w, h, "plate"), true);
-    box(M.steel, 0.74, 0.39, 0.014, -(DW / 2 + 0.5), 1.55, -D / 2 + 0.087);
-    const lp2 = new THREE.Mesh(new THREE.PlaneGeometry(0.7, 0.35), new THREE.MeshBasicMaterial({ map: lt, color: new THREE.Color(0.92, 0.92, 0.92) })); lp2.position.set(-(DW / 2 + 0.5), 1.55, -D / 2 + 0.0945); g.add(lp2);
+    // v8.32: the left-hand name plate is gone. Over the button panel, centred, sits the logo mark only (drawLogo "mark"), fitted like hardware:
+    // a brushed-steel bezel with four screws round a dark shadow gap, the silver tile set back inside it
+    { const LY = PY + PH / 2 + 0.3, S0 = 0.3, wz = -D / 2 + 0.085, lt = canvasTex(256, 256, (c, w, h) => drawLogo(c, w, h, "mark"), true);
+      box(M.darkSteel, S0 + 0.1, S0 + 0.1, 0.004, PX, LY, wz + 0.002);                                       // a thin dark backing: the shadow round the bezel
+      for (const [bw, bh, bx2, by2] of [[S0 + 0.08, 0.026, 0, (S0 + 0.054) / 2], [S0 + 0.08, 0.026, 0, -(S0 + 0.054) / 2], [0.026, S0 + 0.028, (S0 + 0.054) / 2, 0], [0.026, S0 + 0.028, -(S0 + 0.054) / 2, 0]]) box(M.brushed, bw, bh, 0.016, PX + bx2, LY + by2, wz + 0.008);
+      box(M.darkSteel, S0 + 0.012, S0 + 0.012, 0.004, PX, LY, wz + 0.004);                                           // the shadow gap: a dark ring round the tile
+      const tile = new THREE.Mesh(new THREE.PlaneGeometry(S0 - 0.006, S0 - 0.006), new THREE.MeshBasicMaterial({ map: lt, color: new THREE.Color(0.9, 0.9, 0.9) })); tile.position.set(PX, LY, wz + 0.0065); g.add(tile);
+      for (const sx2 of [-1, 1]) for (const sy2 of [-1, 1]) { const sc2 = new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.006, 14), M.steel); sc2.rotation.x = Math.PI / 2; sc2.position.set(PX + sx2 * (S0 + 0.054) / 2, LY + sy2 * (S0 + 0.054) / 2, wz + 0.018); g.add(sc2); }
+    }
   }
   // two door leaves (glass in a steel frame) that slide sideways behind the front panels
   const leaves = [];
@@ -8958,7 +8984,7 @@ const POWER_FX = {
   lights: (W, b, now) => { if (W) W.emerg = true; renderer.toneMappingExposure = 0.66; document.body.classList.add("emerg"); if (now) { toast("Emergency lighting on"); if (LINES.powerLights) { sadosShutUp(); say("powerLights"); } } },     // v8.14 (Press): the room goes dim and red; nothing in the puzzle changes                       // the lift Muzak (Upside): a flag for the ride to read
 };
 // v8.21: a breaker with `toggle: true` (Hot Seat's Work lights) can be thrown back; this undoes its `fx`
-const POWER_FX_OFF = { dark: W => { if (W) W.dark = false; renderer.toneMappingExposure = 0.92; MAT.lamp.color.setRGB(4.2, 4.2, 4.0); } };
+const POWER_FX_OFF = { mic: W => { if (W) W.micOn = false; }, muzak: W => { if (W) W.muzakAlt = false; }, lights: W => { if (W) W.emerg = false; renderer.toneMappingExposure = 0.92; document.body.classList.remove("emerg"); }, dark: W => { if (W) W.dark = false; renderer.toneMappingExposure = 0.92; MAT.lamp.color.setRGB(4.2, 4.2, 4.0); } };
 const STICKERS = [
   { id: "tl", name: "Ted & Lint", tip: "The two socks off the Hold Music show", paint: (g, w, h) => { const sw = h * 0.3 / 0.257; g.save(); g.translate((w - sw) / 2, 0); paintSticker(g, sw, h, { t: "tl", seed: 7, stage: 0, grime: 0 }); g.restore(); } },
   { id: "seven", name: "Seven", tip: "Masking tape, in O.'s hand", paint: (g, w, h) => {
@@ -9182,7 +9208,7 @@ const Items = (() => {
   }
   function spawn(it, nm) { const gid = nm + ":" + it.id, g = makeModel(it), base = new V3(it.pos[0], it.pos[1] + (it.hover != null ? it.hover : 0.34), it.pos[2]); g.position.copy(base); levelGroup.add(g);
     if (it.still) { g.scale.setScalar(1); if (it.n) g.rotation.y = Math.atan2(it.n[0], it.n[2]); g.userData.glint.scale.setScalar(0.55); } L.push({ it, gid, g, base, ph: (gid.length * 1.7) % 6.28 }); }
-  let SAFE = null, FR = [];
+  let SAFE = null, FR = [], VD = [];
   // v8.19: the fridge's drink can (a ginger beer, our own label) and the stickers slapped on its doors
   let CAN_T = null;
   function canTex() {
@@ -9205,7 +9231,7 @@ const Items = (() => {
     put(F.p, "dot", 0.7, 0.17, 1.32, 0.327, -0.22, "b");                                 // on the freezer door
   }
   function attach(W) {
-    L = []; BR = []; BD = []; msg = ""; T = 0; stopTape(); SAFE = null; FR = [];
+    L = []; BR = []; BD = []; msg = ""; T = 0; stopTape(); SAFE = null; FR = []; VD = [];
     renderer.toneMappingExposure = 0.92; document.body.classList.remove("emerg"); MAT.lamp.color.setRGB(4.2, 4.2, 4.0);     // v8.14: the Press emergency lights belong to that room only
     if (!W) return;
     const lv = W.lv, nm = lv.name;
@@ -9224,7 +9250,12 @@ const Items = (() => {
         const back = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.8, 0.02), std({ color: 0x3a3f44, roughness: .4, metalness: .8 }));       // the safe's door, open, inside the frame's outline
         back.position.copy(q); back.rotation.y = Math.atan2(n.x, n.z); back.translateZ(0.012); back.userData.ownMat = 1; levelGroup.add(back);
         const shelf = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.02, 0.2), std({ color: 0x3a3f44, roughness: .45, metalness: .8 })); shelf.position.set(at.x, at.y - 0.005 + 0.0, at.z); shelf.position.y = at.y - 0.012; shelf.rotation.y = Math.atan2(n.x, n.z); shelf.position.addScaledVector(n, -0.09); shelf.userData.ownMat = 1; levelGroup.add(shelf);
+        SAFE.parts = [back, shelf]; for (const m of SAFE.parts) m.visible = false;      // v8.32: the safe's door and shelf only exist once the painting has swung clear (the shelf poked out through the closed frame)
       }
+    }
+    VD = [];
+    for (const [i, m] of ((W.furn && W.furn.vends) || []).entries()) {      // v8.32: a vending machine gives one cold drink per machine, saved like the fridge's
+      const front = new V3(0, 1.0, 1.0).applyMatrix4(m); VD.push({ gid: nm + ":vend" + i, front });
     }
     FR = [];
     for (const [i, p] of ((W.furn && W.furn.opens) || []).entries()) {      // v8.19: every fridge's lower door opens; inside, one cold drink per fridge
@@ -9404,6 +9435,7 @@ const Items = (() => {
       SAFE.a = SAFE.to ? Math.min(1, SAFE.a + dt / 0.8) : Math.max(0, SAFE.a - dt / 0.8); const u = SAFE.a * SAFE.a * (3 - 2 * SAFE.a); Furn.swing(SAFE.p, u);
       if (SAFE.a >= 1 && !has("finds", SAFE.nm + ":" + SAFE.it.id) && !L.some(e => e.gid === SAFE.nm + ":" + SAFE.it.id)) spawn(SAFE.it, SAFE.nm);
       if (SAFE.a === 0) sfx.button(false);
+      for (const m of SAFE.parts || []) m.visible = SAFE.a > 0.75;
     }
     if (SAFE && SAFE.a > 0.6) { SAFE.pt.copy(new THREE.Box3().setFromObject(SAFE.p).getCenter(new V3())); }
     if (state !== "play") return;
@@ -9413,11 +9445,12 @@ const Items = (() => {
       if (D.open || !nearBD(D)) continue;
       msg = D.refuse > 0 ? refusalText(D) : "GRAB checks the key card reader";
     }
-    if (!msg) { for (const R of BR) if ((!R.on || R.b.toggle) && !R.anim && !R.anim2 && looking(R.front, 2.4, 0.8)) { msg = R.on ? R.b.offHint || "GRAB throws the breaker back" : "GRAB throws the breaker"; break; } }
+    if (!msg) { for (const R of BR) if ((!R.on || R.b.toggle || POWER_FX_OFF[R.b.fx]) && !R.anim && !R.anim2 && looking(R.front, 2.4, 0.8)) { msg = R.on ? R.b.offHint || "GRAB throws the breaker back" : "GRAB throws the breaker"; break; } }
     if (!msg) { for (const M of MO) if (looking(M.front, 2.6, 0.8)) { msg = "GRAB looks at the monitor"; break; } }
     if (!msg) { for (const V of VE) if (looking(V.front, 2.2, 0.75)) { msg = ventOpen(V.v) ? "GRAB crawls through the vent" : "A vent. Screwed shut"; break; } }
     if (!msg && !paintAim()) { for (const e of L) if (looking(e.g.position, 2.8, 0.9)) { msg = "GRAB picks it up"; break; } }
     if (!msg && SAFE && SAFE.a === SAFE.to) { if (SAFE.to === 0 && looking(SAFE.front, 2.6, 0.85)) msg = "GRAB swings the painting open"; else if (SAFE.to === 1 && SAFE.a === 1 && looking(SAFE.pt, 2.8, 0.88)) msg = "GRAB swings the painting shut"; }
+    if (!msg) { for (const V of VD) if (looking(V.front, 2.4, 0.8)) { msg = has("drinks", V.gid) ? "The machine is sold out" : "GRAB takes a drink from the machine"; break; } }
     if (!msg) { for (const F of FR) if (looking(F.front, 2.4, 0.8)) { msg = F.to < 1 ? "GRAB opens the fridge" : F.can ? "GRAB takes the ginger beer" : "GRAB shuts the fridge"; break; } }
   }
   const DRINK_SAY = ["Ginger beer, ice cold. Sweet, then sharp, then a little lime. That is genuinely lovely.", "Cold, fizzy, a proper bite of ginger. Best thing in the building.", "Still cold. Still fizzy. Somebody here had good taste once."];
@@ -9425,14 +9458,19 @@ const Items = (() => {
     if (F.to < 1) { F.to = 1; sfx.fridge(); if (!store.get("saidFridge", 0)) { store.set("saidFridge", 1); toast("The light comes on. It still works."); } return; }
     if (F.can) {
       F.can.parent.remove(F.can); F.can.traverse(o => { if (o.geometry) o.geometry.dispose(); }); F.can = null; add("drinks", F.gid);
-      sfx.sip(); player.hp = 100; const k = store.get("drinks", []).length;
+      sfx.gulp(); player.hp = 100; const k = store.get("drinks", []).length;
       toast(DRINK_SAY[(k - 1) % DRINK_SAY.length]); return;
     }
     F.to = 0;
   }
+  function useVend(V) {
+    if (has("drinks", V.gid)) { toast("SOLD OUT. The machine rattles and gives nothing else."); sfx.button(false); return; }
+    add("drinks", V.gid); sfx.gulp(); player.hp = 100; toast("The machine drops a can of ginger beer. It is free. Nobody has charged for anything here in years.");
+  }
   function use() {
     if (state !== "play" || !world || holding) return false;
-    for (const R of BR) if ((!R.on || R.b.toggle) && !R.anim && !R.anim2 && looking(R.front, 2.4, 0.8)) { if (R.on) throwBreakerOff(R); else throwBreaker(R); return true; }
+    for (const V of VD) if (looking(V.front, 2.4, 0.8)) { useVend(V); return true; }
+    for (const R of BR) if ((!R.on || R.b.toggle || POWER_FX_OFF[R.b.fx]) && !R.anim && !R.anim2 && looking(R.front, 2.4, 0.8)) { if (R.on) throwBreakerOff(R); else throwBreaker(R); return true; }
     for (const M of MO) if (looking(M.front, 2.6, 0.8)) { add("finds", M.gid); firstLine("monitor"); Log.monitor(M.m.room); return true; }
     for (const V of VE) if (looking(V.front, 2.2, 0.75)) { useVent(V); return true; }
     let best = null, bd = 0; if (!paintAim()) for (const e of L) if (looking(e.g.position, 2.8, 0.9)) { const d = e.g.position.distanceTo(_e); if (!best || d < bd) { best = e; bd = d; } }
@@ -9769,7 +9807,7 @@ function levelItemTest() {
    standing in the same car docked behind the start of the next room (Dock): the doors open and you walk out.
    ===================================================================================== */
 const Lift = (() => {
-  let S = null, t = 0, t0 = 0, on = false, after = null, built = null, skipT = -1, endT = -1, fl0 = 0, padHeld = true, sway = 0, ly = 0, lp = 0, stall = false, stallAt = 0, strange = 0;
+  let S = null, t = 0, t0 = 0, on = false, after = null, built = null, skipT = -1, endT = -1, fl0 = 0, padHeld = true, sway = 0, ly = 0, lp = 0, stall = false, stallAt = 0, strange = 0, climbT = -1, climbY = 0;
   let px = 0, pz = 0, vx = 0, vz = 0, bob = 0, stepAcc = 0;          // v8.22: where you stand in the car (car floor centre at 0, doors on -z) and how fast you are walking
   const DUR = 4.2, SEG = 24, DROP = 40, HW = 4.4, ST0 = 2.3, ST_END = 8.4;      // v8.16: the ride that stalls (after Gauntlet) stops at ST0 and ends at ST_END
   const ease = x => { x = clamp(x, 0, 1); return x * x * x * (x * (x * 6 - 15) + 10); };
@@ -9860,7 +9898,7 @@ const Lift = (() => {
  S.svc.visible = false; S.carLight.intensity = 12; S.carLight.color.setHex(0xfff0dc);      // v8.16: the ride down from Gauntlet never gets there
     try { S.car.setSticker(to == null ? null : lintCarSpec(to)); } catch (e) { console.error(e); }
     S.c7.group.visible = to != null && sevenHere === to && !sevenSlotted;
-    after = arrive; built = false; on = true; t = 0; t0 = performance.now(); skipT = endT = -1; padHeld = true; sway = Math.random() * 6;
+    after = arrive; built = false; on = true; t = 0; t0 = performance.now(); skipT = endT = -1; climbT = -1; climbY = 0; padHeld = true; sway = Math.random() * 6;
     ly = 0; lp = -0.08; inp.lookX = inp.lookY = 0; mLookX = mLookY = 0; px = 0; pz = CAR.EYE_Z; vx = vz = 0; stepAcc = 0;
     fl0 = 3 + Math.floor(Math.random() * 30); hideTip(); S.car.setDoor(0); S.car.setFloor("B" + String(fl0).padStart(2, "0"), -1);
     scenePass.scene = S.sc; camera.fov = 72; camera.updateProjectionMatrix();
@@ -9895,8 +9933,10 @@ const Lift = (() => {
         S.svc.userData.wl.intensity = 5 + Math.sin(time * 23) * 0.6;
       } else S.svc.userData.wl.intensity = 5;
       {
-        if (stallAt === 2 && ts > 4.3) { stallAt = 3; toast("The doors have jammed half open. Climb out."); }
-        if (endT < 0 && t > ST_END - 0.35) { endT = t; $("fade").classList.add("on"); }
+        if (stallAt === 2 && ts > 4.3) { stallAt = 3; toast("The doors have jammed half open. Walk to the gap and climb out."); }
+        // v8.32: no automatic fade: you walk to the gap yourself and climb up onto the slab (Skip still works)
+        if (stallAt === 3 && climbT < 0 && endT < 0 && pz <= ZF + (S.c7.group.visible ? HOLD_M : 0) + 0.12 && Math.abs(px) < 0.95) climbT = t;
+        if (climbT >= 0 && endT < 0) { const k = clamp((t - climbT) / 1.1, 0, 1), e = k * k * (3 - 2 * k); pz = ZF + (S.c7.group.visible ? HOLD_M : 0) + 0.12 - 1.1 * e; climbY = 1.0 * Math.min(1, e * 1.25); vx = vz = 0; if (k >= 0.85) { endT = t; $("fade").classList.add("on"); } }
       }
     }
     if (stall) { const sEnd = DROP * ease(ST0 / DUR) + DROP * (ease((ST0 + 0.02) / DUR) - ease(ST0 / DUR)) / 0.02 * 0.15; S.svc.visible = true; S.svc.position.y = s - sEnd; }      // it comes up the shaft with everything else and stops level
@@ -9904,7 +9944,7 @@ const Lift = (() => {
     liftFloorTxt = stall && stallAt ? "B--" : strangeFloor(fl0 + Math.floor(s / 6), strange, t); S.car.setFloor(liftFloorTxt, v > 0.6 ? -1 : 0);
     const L = takeLook(dt); ly += L.dyaw; lp = clamp(lp + L.dpitch, -1.45, 1.45);          // free look, with every control you look with in a chamber
     const bb = walk(Math.min(dt, 0.05), L.pad);                                             // v8.22: and walk about the car, with every control you walk with
-    cam.pos.set(px + Math.sin(time * 1.3 + sway) * 0.0005 * v, bb + Math.sin(time * 9) * 0.0008 * Math.min(1, v / 3) + jolt, pz);     // v7.7: a faint hum of movement, no rocking
+    cam.pos.set(px + Math.sin(time * 1.3 + sway) * 0.0005 * v, bb + climbY + Math.sin(time * 9) * 0.0008 * Math.min(1, v / 3) + jolt, pz);     // v7.7: a faint hum of movement, no rocking
     cam.yaw = ly; cam.pitch = lp; cam.roll = Math.sin(time * 1.6 + sway) * 0.00025 * v;
     if (S.c7.group.visible) {               // held in front of you, as it is in a chamber
       const cp = Math.cos(lp), g7 = S.c7.group; g7.position.set(cam.pos.x - Math.sin(ly) * cp * 1.7, cam.pos.y + Math.sin(lp) * 1.7 - 0.3, cam.pos.z - Math.cos(ly) * cp * 1.7);

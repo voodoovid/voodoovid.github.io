@@ -850,11 +850,12 @@ function setArt(p, canvas) { const t = new THREE.CanvasTexture(canvas); t.colorS
 // Returns { group, solids, lamps, paintings, calls, tris, warnings }.
 // `solids` are dark level boxes (never drawn: the meshes are the look). `lamps` are [x, y, z, ...] lamp args for the level's bake.
 function room(list, opts = {}) {
-  const step = grimeStep(opts.grime), byMat = {}, group = new THREE.Group(), solids = [], lamps = [], paintings = [], opens = [], warnings = [];
+  const step = grimeStep(opts.grime), byMat = {}, group = new THREE.Group(), solids = [], lamps = [], paintings = [], opens = [], vends = [], warnings = [];
   let tris = 0;
   const blobGeos = [];
   for (const it of list) {
     const t = template(it.k, it), pm = placeMatrix(it);
+    if (it.k === "vending") vends.push(pm.m.clone());      // v8.32: GRAB at a vending machine gives a drink
     if (t.solid.length && it.ry !== undefined && Math.abs(Math.round(it.ry / (Math.PI / 2)) * Math.PI / 2 - it.ry) > 1e-3) warnings.push(`${it.k} at ${it.at}: a solid piece turned off the quarter; its box is the box round it`);
     if (t.P.door) { const p = makePiece(it.k, it, it.grime !== undefined ? it.grime : opts.grime, true); p.applyMatrix4(pm.m); group.add(p); opens.push(p); for (const b of t.solid) solids.push(solidWorld(b, pm)); tris += t.tris; continue; }      // v8.19: its own group, so its door can swing
     if (t.P.hinge || it.own) { const p = makePiece(it.k, it, it.grime !== undefined ? it.grime : opts.grime, true); p.applyMatrix4(pm.m); group.add(p); paintings.push(p); tris += t.tris; continue; }
@@ -881,7 +882,7 @@ function room(list, opts = {}) {
   for (const key in byMat) { const [mk, st] = key.split("#"); const m = new THREE.Mesh(mergeGeometries(byMat[key], false), mat(mk, +st, !!opts.shade)); m.userData.furn = 1; group.add(m); }
   if (blobGeos.length) group.add(new THREE.Mesh(mergeGeometries(blobGeos, false), mat("blob", step)));
   group.traverse(o => { o.userData.ownMat = o.userData.ownMat || 0; });
-  return { group, solids, lamps, paintings, opens, calls: group.children.length, tris, warnings: warnings.concat(gapCheck(solids, opts.walls || [])) };
+  return { group, solids, lamps, paintings, opens, vends, calls: group.children.length, tris, warnings: warnings.concat(gapCheck(solids, opts.walls || [])) };
 }
 
 // shade(x, y, z) -> [r, g, b] is the level's bake at a point (about 0.42 in the dark, 1 or more by a lamp); the scene's own lights
@@ -917,7 +918,7 @@ const list = () => Object.entries(PIECES).map(([k, P]) => ({ k, name: P.name, gr
 function preload(grimes = [0]) { for (const k in PIECES) template(k, {}); for (const g of grimes) for (const k in MDEF) mat(k, grimeStep(g)); }      // build up front, so nothing waits later
 
 // v8.21: LED clock flicker: now and then one failing dot lights for a moment, partly, then drops out again (call every frame with time in seconds)
-function flick(t, a, b, c) { const v = Math.sin(t * a) * Math.sin(t * b + c) * Math.sin(t * 1.7 + c * 2); return v > 0.62 ? Math.min(1, (v - 0.62) * 4) * 0.8 : 0; }
+function flick(t, a, b, c) { const v = Math.sin(t * a) * Math.sin(t * b + c) * Math.sin(t * 1.7 + c * 2); return v > 0.12 ? Math.min(1, (v - 0.12) * 3) : 0; }      // v8.32: flickers often now (it was lit about 7% of the time and never seen)
 function tick(time) {
   for (const m of matCache.values()) if (m.userData.flick) {
     const v = m.userData.flick === "ledflickA" ? flick(time, 9.1, 2.3, 0.4) : flick(time, 7.3, 3.1, 2.1);
