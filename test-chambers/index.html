@@ -576,7 +576,7 @@ import { Furn } from "./furniture.js";
 import { GLYPHS as HAND_GLYPHS, handWrite, handBlock, handWidth } from "./hand.js";      // v8.19: hand-lettering                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.28";
+const VERSION = "v8.29";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const IT_TEST = /[?&]itemtest\b/.test(location.search), SPFX = IT_TEST ? "testchambers.itest." : "testchambers.";
 const $ = id => document.getElementById(id);
@@ -630,39 +630,46 @@ function canvasTex(w, h, paint, repeat = true) {
   return t;
 }
 /* =====================================================================================
-   v8.28 THE COMPANY LOGO: "Shutter Science" (mark A, picked by the user Nov 16, 2026): four shutter blades turning round an
-   orange centre, drawn here and nowhere else. One drawing serves the long panel on the corridor wall in the opening film and the
-   plate in every lift car, so to change the logo (the user plans to), change drawLogo() and nothing more.
-   mode "wall": mark and name side by side on a long silver panel with an orange stripe along the foot (layout 1).
-   mode "plate": mark above the name, for the small plate in a lift car.
+   THE COMPANY LOGO: the "Working logo" (v8.29, the user's definition of Nov 16, 2026; the exact drawing is the Project doc
+   `working-logo.md`, an SVG on a 380 x 290 grid; the numbers below are that SVG's, unchanged). The placeholder pinwheel mark (dark
+   blades, orange centre square, no black tile) with the SHUTTER SCIENCE lettering. It is one drawing, drawLogo(), and nothing else
+   draws it, so to change the logo again change drawLogo() and nothing more.
+   mode "wall": panel 1A (mark left, bold name and slogan left-aligned, orange and blue double stripe along the foot), on the long
+                silver panel of the opening film's corridor.
+   mode "plate": stacked (mark on a silver tile, the name below it), on the small plate in every lift car.
    ===================================================================================== */
-const LOGO = { name: "SHUTTER SCIENCE", sub: "TEST LABORATORIES", dark: "#2a2f36", orange: "#f08a24", grey: "#5a616b" };
-function logoMark(g, x, y, s) {            // the four blades and the centre, s = the mark's height and width
-  const u = s / 60; g.save(); g.translate(x, y); g.scale(u, u);
-  g.fillStyle = LOGO.dark; g.fillRect(0, 0, 40, 18); g.fillRect(42, 0, 18, 40); g.fillRect(20, 42, 40, 18); g.fillRect(0, 20, 18, 40);
-  g.fillStyle = LOGO.orange; g.fillRect(23, 23, 14, 14); g.restore();
+const LOGO = { name: "SHUTTER SCIENCE", slogan: "Results may develop.", blade: "#2a2f36", orange: "#f08a24", blue: "#2f7fd8", silver: "#d9dde2", edge: "#b4bac2", rivet: "#a3a9b1", sub: "#3d434b" };
+function logoMark(g, cx, cy, sc) {            // the pinwheel in a 60 x 60 box centred on (100,70), moved to (cx,cy) and scaled by sc
+  g.save(); g.translate(cx, cy); g.scale(sc, sc); g.translate(-100, -70);
+  g.fillStyle = LOGO.blade; g.fillRect(70, 40, 40, 18); g.fillRect(112, 40, 18, 40); g.fillRect(90, 82, 40, 18); g.fillRect(70, 60, 18, 40);
+  g.fillStyle = LOGO.orange; g.fillRect(93, 63, 14, 14); g.restore();
 }
-function logoText(g, txt, x, y, px, spacing, align, weight) {      // spaced capitals, drawn letter by letter (letterSpacing is not everywhere)
-  g.font = `${weight || 800} ${px}px "Helvetica Neue", Helvetica, Arial, sans-serif`; g.textBaseline = "alphabetic"; g.textAlign = "left";
+function logoText(g, txt, x, y, px, spacing, align) {      // bold capitals or words, drawn letter by letter (letterSpacing is not everywhere)
+  g.font = `700 ${px}px "Helvetica Neue", Helvetica, Arial, sans-serif`; g.textBaseline = "alphabetic"; g.textAlign = "left";
   const ws = [...txt].map(c => g.measureText(c).width), tot = ws.reduce((a, b) => a + b, 0) + spacing * (txt.length - 1);
   let cx = align === "center" ? x - tot / 2 : x; [...txt].forEach((c, i) => { g.fillText(c, cx, y); cx += ws[i] + spacing; }); return tot;
 }
+function logoRR(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
 function drawLogo(g, w, h, mode) {
-  const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, "#dfe3e8"); gr.addColorStop(1, "#c3c9d0"); g.fillStyle = gr; g.fillRect(0, 0, w, h);      // a silver plate: smooth, no fine stripes (they shimmer)
-  g.strokeStyle = "#a9b0b8"; g.lineWidth = Math.max(3, h * 0.014); g.strokeRect(g.lineWidth / 2, g.lineWidth / 2, w - g.lineWidth, h - g.lineWidth);
-  g.fillStyle = "#9aa2ab"; for (const [x, y] of [[0.03, 0.12], [0.97, 0.12], [0.03, 0.78], [0.97, 0.78]]) { g.beginPath(); g.arc(x * w, y * h, Math.max(3, h * 0.022), 0, 6.3); g.fill(); }
-  const st = h * (mode === "wall" ? 0.075 : 0.06); g.fillStyle = LOGO.orange; g.fillRect(0, h - st, w, st);
-  const top = 0, bot = h - st;
-  if (mode === "wall") {
-    const ms = h * 0.58, gap = h * 0.2, np = h * 0.33, sp = np * 0.07, sb = h * 0.125;
-    g.font = `800 ${np}px "Helvetica Neue", Helvetica, Arial, sans-serif`; const probe = [...LOGO.name].reduce((a, c) => a + g.measureText(c).width + sp, -sp);
-    const x0 = (w - (ms + gap + probe)) / 2, cy = (top + bot) / 2, my = cy - ms / 2;
-    logoMark(g, x0, my, ms); g.fillStyle = LOGO.dark; logoText(g, LOGO.name, x0 + ms + gap, my + ms * 0.62, np, sp, "left", 800);
-    g.fillStyle = LOGO.grey; logoText(g, LOGO.sub, x0 + ms + gap, my + ms * 0.62 + sb * 1.55, sb, sb * 0.22, "left", 700);
-  } else {
-    const ms = h * 0.42, cx = w / 2; logoMark(g, cx - ms / 2, h * 0.09, ms);
-    g.fillStyle = LOGO.dark; logoText(g, LOGO.name, cx, h * 0.73, h * 0.115, h * 0.012, "center", 800);
-    g.fillStyle = LOGO.grey; logoText(g, LOGO.sub, cx, h * 0.865, h * 0.058, h * 0.012, "center", 700);
+  if (mode === "wall") {      // panel 1A: the SVG's rect (20,170) 340 x 76, its content shifted to (0,0) and scaled to the canvas height; the silver and the stripes run the full width
+    const sc = h / 76, ox = (w - 340 * sc) / 2;
+    g.fillStyle = LOGO.silver; g.fillRect(0, 0, w, h);
+    g.strokeStyle = LOGO.edge; g.lineWidth = Math.max(2, 0.5 * sc); g.strokeRect(g.lineWidth / 2, g.lineWidth / 2, w - g.lineWidth, h - g.lineWidth);
+    g.save(); g.translate(ox, 0); g.scale(sc, sc); g.translate(-20, -170);
+    g.fillStyle = LOGO.rivet; for (const x of [28, 352]) { g.beginPath(); g.arc(x, 178, 2, 0, 6.2832); g.fill(); }
+    logoMark(g, 67, 201, 0.85);
+    g.fillStyle = LOGO.blade; logoText(g, LOGO.name, 114, 200, 22, 1, "left");
+    g.fillStyle = LOGO.sub; logoText(g, LOGO.slogan, 114, 219, 14, 0, "left");
+    g.restore();
+    g.fillStyle = LOGO.orange; g.fillRect(0, 64 * sc, w, 6 * sc); g.fillStyle = LOGO.blue; g.fillRect(0, 70 * sc, w, h - 70 * sc);
+  } else {      // stacked: the SVG's tile (140,20) 100 x 100 and the name at (190,143); the plate's own background is pale so the dark lettering reads
+    const sc = Math.min(w / 170, h * 0.92 / 130);
+    g.fillStyle = "#eceff2"; g.fillRect(0, 0, w, h);
+    g.save(); g.translate(w / 2, h / 2); g.scale(sc, sc); g.translate(-190, -84);
+    g.fillStyle = LOGO.silver; logoRR(g, 140, 20, 100, 100, 12); g.fill(); g.strokeStyle = LOGO.edge; g.lineWidth = 0.5; g.stroke();
+    logoMark(g, 190, 70, 1.2);
+    g.fillStyle = LOGO.blade; logoText(g, LOGO.name, 190, 143, 16, 1, "center");
+    g.restore();
   }
 }
 function whiteTex() {
