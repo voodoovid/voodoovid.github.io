@@ -582,7 +582,7 @@ import { Furn } from "./furniture.js";
 import { GLYPHS as HAND_GLYPHS, handWrite, handBlock, handWidth } from "./hand.js";      // v8.19: hand-lettering                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.37";
+const VERSION = "v8.38";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const SC_TEST = /[?&]secretstest\b/.test(location.search), IT_TEST = SC_TEST || /[?&]itemtest\b/.test(location.search), SPFX = SC_TEST ? "testchambers.stest." : IT_TEST ? "testchambers.itest." : "testchambers.";      // v8.35: ?secretstest plays only the Secrets Test room
 const $ = id => document.getElementById(id);
@@ -1592,8 +1592,7 @@ function level6() {
   h.sentries = [{ pos: [14, 0, 3], yaw: Math.PI / 2, range: 7 }, { pos: [27.5, 0, 10.5], yaw: Math.PI / 2, range: 8 }];      // short-sighted, but they see wide: keep your distance or stay behind them
   h.cubes = [[3, 0.35, 9.5]]; h.plates = [{ pos: [27, 0, 2.5], door: "d1" }]; h.doors = [exitDoor(30, 6)]; h.par = [100, 2];
   h.signs.push(chSign(10, "SENTRY DUTY", 4.6));
-  den(h, { W: 12, side: 1, x: 5, scr: ["THEY CANNOT SEE UP HERE.", "NEITHER CAN SHE, MOST DAYS.  - O."],      // v7.6: the far wall by the start, out of both sentries' range
-    line: "The sentries cannot see into the walls. I can. Please remember that." });
+  // v8.38 (Batch I-3b): the den that was here is cut; what it held is in a hidden corner, a kept den or another room (I3, above CHAMBERS)
   return Object.assign(h, {
     badge: [28.9, 1, 11.2], num: 6, name: "Sentry Duty", track: 0,
     say: {
@@ -1616,8 +1615,7 @@ function level7() {
   h.doors = [exitDoor(15, 6, "d0"), exitDoor(L, 6)];
   h.lamps.push(lamp(22, H - .3, 6, .5, 10)); h.par = [70, 3];
   h.signs.push(chSign(9, "REDIRECT", 4.6));
-  den(h, { W: 12, side: 0, x: 13.5, scr: ["I BENT THE LIGHT ROUND CORNERS.", "IT NEVER BENT FOR ME.  - O."],      // v7.6: the near wall past the white panels, on this side of the first door; the beam leaves it straight across, over both receivers
-    line: "That is a maintenance void. The light goes round the room. You, apparently, go into the walls." });
+  // v8.38 (Batch I-3b): the den that was here is cut; what it held is in a hidden corner, a kept den or another room (I3, above CHAMBERS)
   return Object.assign(h, {
     num: 9, name: "Redirect", track: 1,
     say: {
@@ -1637,8 +1635,7 @@ function level8() {
   h.fields = [{ min: [14.35, 0, 5], max: [14.65, 3.2, 9] }];
   h.cubes = [[4, 0.35, 3]]; h.plates = [{ pos: [22, 0, 6], door: "d1" }]; h.doors = [exitDoor(L, 6)]; h.par = [80, 2];
   h.signs.push(chSign(13, "RESET", 4.6));
-  den(h, { W: 12, side: 0, x: 18.5, scr: ["THE FIELD TAKES YOUR PORTALS.", "IT LEFT MY HANDWRITING.  - O."],      // v7.6: the far side of the partition; its panel shows only from there, and walking back through the field closes the portal
-    line: "The field resets portals. It does not, it turns out, reset curiosity." });
+  // v8.38 (Batch I-3b): the den that was here is cut; what it held is in a hidden corner, a kept den or another room (I3, above CHAMBERS)
   return Object.assign(h, {
     num: 13, name: "Reset", track: 2,
     say: {
@@ -1666,8 +1663,7 @@ function level9() {
   h.lamps.push(lamp(28, H - .3, 8, .5, 8)); h.fixtures.push([28, H, 8]);
   h.cams = [{ pos: [0, H - 0.9, 1.4], n: [1, 0, 0] }];
   h.signs.push(chSign(20, "TWO KEYS", 4, 4.6));
-  den(h, { W: 10, side: 1, x: 2.5, two: 1, scr: ["TWO KEYS, ONE DOOR.", "ONE WALL WITH NO LOCK.  - O."],      // v7.6: the far wall by the start (the only place its panel can be seen from)
-    line: "This is the cupboard where I keep the third key. There is no third key. Out." });
+  // v8.38 (Batch I-3b): the den that was here is cut; what it held is in a hidden corner, a kept den or another room (I3, above CHAMBERS)
   return Object.assign(h, { num: 20, name: "Two Keys", track: 0, say: {
     intro: ["Two plates. Two crates. One sentry, in a booth, with a very good view of the lane. I paid extra for the view.", "The door will open only when both plates are pressed. I did not invent this rule. I merely enforce it."],
     hint: ["That sentry sees the whole lane through one small window. It cannot see through crates. I mention these two facts for no reason at all."], hint2: ["A crate on the plate in the niche is a crate in the sentry's window."],
@@ -1847,8 +1843,7 @@ function level18() {
   h.cubes = [[26.5, 0.35, 9]]; h.plates = [{ pos: [5, 0, 3], door: "d1" }]; h.doors = [exitDoor(L, 6, "d1", 1, 2.6)]; h.par = [100, 4];
   h.signs.push(chSign(19, "FIELD TRIP", 4.6));
   for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.02, sg.pos[1], sg.pos[2]];
-  den(h, { W: 12, side: 1, x: 8, two: 1, scr: ["THE FIELD TRIP NEVER CAME BACK.", "I STAYED IN HERE TO COUNT.  - O."],      // v7.6: the far wall on this side of the field
-    line: "This is not part of the field trip. Nothing in here is educational. Please do not read the walls." });
+  // v8.38 (Batch I-3b): the den that was here is cut; what it held is in a hidden corner, a kept den or another room (I3, above CHAMBERS)
   return Object.assign(h, { badge: [31.3, 5.5, 11.3], num: 19, name: "Field Trip", track: 2, say: {
     intro: ["The field runs wall to wall. You can walk through it. The crate cannot. Your portals will not survive it either.", "The crate is on the far side. The plate is on this side. The door is on a ledge. You see the difficulty. You see most of it."],
     hint: ["You have been staring at this side of the room for some time. The other side has walls too. Some of them face the other way."], hint2: ["The crate's panel faces away from you. That portal can only be set from the other side of the field."],
@@ -2032,8 +2027,7 @@ function level25() {
   h.start = { pos: [2, 0, 9.3], yaw: -Math.PI / 2, pitch: -0.05 }; h.par = [90, 1];
   for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.02, sg.pos[1], sg.pos[2]];
   h.signs.push({ kind: "chamber", a: "TEST CHAMBER 11", b: "HEAVY LIFTING", pos: [5, 4.3, 6.6 + 0.001], n: [0, 0, 1], w: 4.6, h: 1.15 });
-  den(h, { W: 12, side: 0, x: 24, y: 2.6, scr: ["IT NEVER TURNS ROUND.", "I SLEPT BEHIND IT FOR A MONTH.  - O."],      // v7.6: the guarded lane, behind the sentry; the free portal goes on its panel and the held doorway takes you in. Low, because the lane is narrow
-    line: "I held that door open for the test, not for sightseeing. Out you come." });
+  // v8.38 (Batch I-3b): the den that was here is cut; what it held is in a hidden corner, a kept den or another room (I3, above CHAMBERS)
   return Object.assign(h, { num: 11, name: "Heavy Lifting", track: 0, say: {
     intro: ["Now that you have met the sentries, I would like you to pick one up. Do not worry. It will do enough worrying for both of you.", "This door wants two weights. I have provided one crate. Arithmetic is not my department.", "The door is on the other side of that wall. So is the sentry."],
     hint: ["A sentry sleeps while you carry it, and wakes a moment after you put it down. Think about which way it will be facing when it does. It certainly will."], hint2: ["It wakes facing the way you faced when you put it down. A wall is very poor company. That is the point."],
@@ -2055,8 +2049,7 @@ function level26() {
   office(h, 2, 8, 4.3, 6.2, 0); h.par = [90, 2];
   h.signs.push(chSign(16, "BORROWED COVER", 9.8, 4.4),
     scrawl("SHE COUNTS THE CORRIDOR.", "SHE NEVER COUNTS THE CHAMBERS.  - O.", [10.2, 1.3, 12], [0, 0, -1], 3.4, 1));
-  den(h, { W: 12, side: 1, x: 10.5, two: 1, scr: ["I BORROWED A SENTRY ONCE.", "IT HAS NOT FORGIVEN ME.  - O."],      // v7.6: the far wall of the start room, just past its white panel
-    line: "You are in the wall again. The sentries have noticed. They are too polite to say." });
+  // v8.38 (Batch I-3b): the den that was here is cut; what it held is in a hidden corner, a kept den or another room (I3, above CHAMBERS)
   return Object.assign(h, { badge: [16.4, 3.4, 9.5], num: 16, name: "Borrowed Cover", track: 1, say: {
     intro: ["The corridor ahead is watched. Twenty metres of it. I counted, and so will the sentry at the far end.", "There is a second sentry in a cell over there, facing the wall. It is in disgrace."],
     hint: ["You keep walking down that corridor as if the sentry might change its mind. It will not. It has no mind. It has a colleague, though, and you know where that one is."], hint2: ["A sleeping sentry blocks the view of a waking one. The cell has a window, and a white panel behind it."],
@@ -2074,8 +2067,7 @@ function level27() {
   office(h, 4, 10, 4.3, 6.2, 14);
   h.signs.push(chSign(17, "FRIENDLY FIRE", 4.6, 5));
   for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.02, sg.pos[1], sg.pos[2]];
-  den(h, { W: 14, side: 0, x: 9.5, two: 1, scr: ["THEY SHOOT EACH OTHER", "IF YOU ASK NICELY.  - O."],      // v7.6: the near wall past the chamber sign, well away from both sentries' lines
-    line: "Those two are out there arguing, and you are in here hiding. I know which of you I respect." });
+  // v8.38 (Batch I-3b): the den that was here is cut; what it held is in a hidden corner, a kept den or another room (I3, above CHAMBERS)
   return Object.assign(h, { num: 17, name: "Friendly Fire", track: 2, say: {
     intro: ["Two sentries, one lane each, and a wall in the middle for you to cower behind. I had the wall put in specially.", "They are bolted to the floor, so do not get ideas. The button is up on the ledge with the door. It wants something heavy."],
     hint: ["Those two have stared at those pillars every day for years. They have never once wondered what is on the other side. Neither, it seems, have you."], hint2: ["Each of them would shoot the other on sight. All they lack is a view. You have the portals."],
@@ -2111,8 +2103,7 @@ function level29() {
   h.par = [90, 4];
   h.signs.push(chSign(28, "SHORT NOTICE", 4.6, 5), scrawl("DAY 412. STILL", "'ONE MORE TEST'.  - O.", [24, 1.2, 12 - 0.02], [0, 0, -1], 2.8, 0.95));
   for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.02, sg.pos[1], sg.pos[2]];
-  den(h, { W: 12, side: 1, x: 7, scr: ["SHE GIVES YOU THREE SECONDS.", "I TOOK THREE MONTHS.  - O."],      // v7.6: the far wall before the acid
-    line: "The plate gives you three seconds. You have chosen to spend them in a wall. Very well." });
+  // v8.38 (Batch I-3b): the den that was here is cut; what it held is in a hidden corner, a kept den or another room (I3, above CHAMBERS)
   return Object.assign(h, { badge: [20.5, 5.6, 11.2], num: 28, name: "Short Notice", track: 1, say: {
     intro: ["The plate with the amber ring is on a relay. When the weight comes off it, the door stays open for three more seconds. Three. I was feeling generous.", "The door wants both plates. The plain one across the acid does not wait for anybody. Neither do I, as a rule."],
     hint: ["Three seconds is not long enough to do anything you should have done before. It is just long enough to regret it."], hint2: ["Set every portal you need before you step off the amber plate. The three seconds are for walking, not shooting."],
@@ -2172,8 +2163,7 @@ function level31() {
   h.lamps.push(lamp(25, H - .4, 17, .5, 9)); h.fixtures.push([25, H, 17]); h.par = [90, 3];
   h.signs.push({ kind: "chamber", a: "TEST CHAMBER 29", b: "MOVING TARGET", pos: [10, 4.3, 0.001], n: [0, 0, 1], w: 4.4, h: 1.0 });
   for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.02, sg.pos[1], sg.pos[2]];
-  den(h, { W: 20, side: 0, x: 4, y: 2.6, scr: ["THE PANEL OUT THERE MOVES.", "THIS ONE STAYS PUT. I CHECKED.  - O."],      // v7.6: the near wall over the start strip, clear of the chamber sign; low, because the strip is narrow. NOT the far wall: a den there drops you by the plate
-    line: "The test is on the moving panel. This one does not move, and it does not count." });
+  // v8.38 (Batch I-3b): the den that was here is cut; what it held is in a hidden corner, a kept den or another room (I3, above CHAMBERS)
   return Object.assign(h, { num: 29, name: "Moving Target", track: 0, say: {
     intro: ["About leaving. The way out is being serviced. It has been being serviced for some time.", "While we wait, here is a chamber I had been saving. The white panel moves. A portal on it moves too. Do try to keep up."],
     hint: ["The panel spends three seconds in each place. You spend a little under one second falling. I will let you do the arithmetic. You have nothing else on."], hint2: ["The panel's portal is only useful while it is over the gantry. Time your step for that, both ways."],
@@ -2394,8 +2384,7 @@ function level39() {
   h.sprayers = [{ pos: [5, H - 0.12, 9.5], dir: [0, -1, 0], kind: "glide" }, { pos: [8, 1.4, W - 0.4], dir: [0, 0, -1], kind: "bounce" }];
   h.par = [100, 3];
   h.signs.push(chSign(25, "REBOUND", 4.6, 3.6));
-  den(h, { W: 12, side: 1, x: 5, y: 3.3, scr: ["I BOUNCED FOR A WHILE.", "THEN I FOUND SOMEWHERE TO LAND.  - O."],      // v7.6: the far wall over the white floor, before the acid and clear of the chamber sign; the floor by the near wall gets gel on it
-    line: "You have rebounded into a wall. That is not a technique I teach." });
+  // v8.38 (Batch I-3b): the den that was here is cut; what it held is in a hidden corner, a kept den or another room (I3, above CHAMBERS)
   return Object.assign(h, { num: 25, name: "Rebound", track: 2, say: {
     intro: ["Two pastes. The green one throws back whatever lands on it. The pink one removes friction, which is the only thing that has ever held you back.", "Both nozzles drip on the floor by the door, where they can do no harm. Try them."],
     hint: ["Paste is not clever. It goes where it is sent, as fast as it was falling. You could learn a lot from paste."], hint2: ["Paste goes through portals at the speed it fell. Send the pink across. Put the green where you will need a way up."],
@@ -2488,8 +2477,7 @@ function level43() {
   whiteOn(h, bx(22.5, 0.1, 0, 24.5, 2.6, 0.1));                                                           // by the door
   h.switches = [{ pos: [0.02, 1.4, 2], n: [1, 0, 0], hold: 3, door: "d1" }]; h.doors = [exitDoor(L, 5)]; h.par = [45, 2];
   h.signs.push(chSign(27, "PRESS", 4.6, 3.6));
-  den(h, { W: 10, side: 1, x: 6.5, scr: ["THE PRESS NEVER MISSES.", "IT NEVER LOOKS IN HERE.  - O."],      // v7.6: the far wall past its white panel, before the first press (the near wall has the chamber sign)
-    line: "Nothing in this wall moves, crushes or falls. It is the only safe place in the room, which is why it is not in the test." });
+  // v8.38 (Batch I-3b): the den that was here is cut; what it held is in a hidden corner, a kept den or another room (I3, above CHAMBERS)
   return Object.assign(h, { num: 27, name: "Press", track: 0, say: {
     intro: ["The switch on the wall opens the door for three seconds. The door is at the far end. Between you and it are three presses that used to flatten sheet steel.", "They still flatten things. They are not particular about what. They are also not in time with each other. Nobody here has been able to fix that, because of the flattening."],
     hint: ["The presses are almost never all up at the same time. Almost."], hint2: ["The panel by the door can only be seen when all three presses are up. Wait for that before you touch the switch."],
@@ -3260,31 +3248,16 @@ const DEN_SPEC = {
   "Special Delivery": { type: "store", v: 3, staffSide: 1, items: [{ id: "clock", kind: "clock" }, Object.assign({ id: "page1", kind: "page", gid: "Freefall:page1" }, O_PAGES[1])], art: "valley",
     staff: { cards: 2, type: "break", items: [Object.assign({ id: "tape1", kind: "tape" }, HM_TAPES[1]), Object.assign({ id: "lint1", kind: "pickup", nail: true }, LINT_TRACES[1]), { kind: "safe", item: { id: "supmug", kind: "pickup", look: "mug", name: "A mug that says WORLD'S OKAYEST SUPERVISOR" } }] },       // v8.30: behind the landscape
     lines: [[1, "This is the staff break room. The kettle was still warm for about a year. Do not touch the mugs. They are evidence."]] },
-  "Redirect": { type: "office", v: 0, items: [Object.assign({ id: "page2", kind: "page" }, O_PAGES[2])] },
-  "Sentry Duty": { type: "locker", v: 0, items: [{ id: "stk-warn", kind: "sticker", sticker: "warn" }] },
-  "Heavy Lifting": { type: "office", v: 1, items: [denCard(0)] },
-  "Air Mail": { type: "locker", v: 1, items: [{ id: "stk-dot", kind: "sticker", sticker: "dot" }] },
-  "Reset": { type: "office", v: 2, items: [denCard(0)] },
-  "Scales": { type: "locker", v: 2, items: [denCard(0)] },
-  "Upside": { type: "office", v: 3, staffSide: 1, items: [{ id: "muzak", kind: "breaker", label: "Lift music", fx: "muzak" }],
+  "Air Mail": { type: "locker", v: 1, items: [{ id: "stk-dot", kind: "sticker", sticker: "dot" }, Object.assign({ id: "page2", kind: "page", gid: "Redirect:page2" }, O_PAGES[2])] },      // v8.38: page 2 was in Redirect's den
+  "Upside": { type: "office", v: 3, staffSide: 1, items: [{ id: "muzak", kind: "breaker", label: "Lift music", fx: "muzak" }, { id: "stk-warn", kind: "sticker", sticker: "warn", gid: "Sentry Duty:stk-warn" }],      // v8.38: the sentry-warning sticker was in Sentry Duty's den
     staff: { cards: 5, type: "camera", items: [Object.assign({ id: "tape2", kind: "tape" }, HM_TAPES[2]), Object.assign({ id: "lint2", kind: "pickup" }, LINT_TRACES[2])] },
     lines: [[1, "The camera room. Every screen in here shows me something I already know. I had them installed anyway. It is nice to have the company."]] },
-  "Borrowed Cover": { type: "office", v: 4, type2: "supply", v2: 0, items: [denCard(1), { id: "clock", kind: "clock" }] },
-  "Friendly Fire": { type: "bare", type2: "bare", bare: true, chair: true, lines: [[0, "There is nothing in here. There is a chair. It is facing the wall. I did not ask why. I did not want to know."]] },
-  "Skylight": { type: "mail", v: 0, type2: "archive", v2: 0, items: [denCard(1)] },
-  "Field Trip": { type: "office", v: 5, type2: "mail", v2: 1, patch: true, items: [{ id: "stk-lint", kind: "sticker", sticker: "lint", need: { stickers: 8 }, space: 0 }],
-    lines: [[0, "Somebody had a sticker on that wall for a long time. Long enough to leave a clean patch. Whoever it was took it with them."]] },
-  "Two Keys": { type: "mail", v: 2, type2: "parts", items: [{ id: "stk-bump", kind: "sticker", sticker: "bumper", space: 1 }] },
-  "Mirror Test": { type: "office", v: 6, type2: "records", v2: 0, items: [denCard(1), Object.assign({ id: "page3", kind: "page" }, O_PAGES[3])] },
-  "Gantry": { type: "mail", v: 3, type2: "store", v2: 4, items: [denCard(1)],
+  "Skylight": { type: "mail", v: 0, type2: "archive", v2: 0, items: [denCard(1), { id: "clock", kind: "clock", gid: "Borrowed Cover:clock" }] },      // v8.38: the punch clock was in Borrowed Cover's den
+  "Gantry": { type: "mail", v: 3, type2: "store", v2: 4, items: [denCard(1), { id: "stk-bump", kind: "sticker", sticker: "bumper", gid: "Two Keys:stk-bump" }],      // v8.38: the bumper sticker was in Two Keys' den
     staff: { cards: 8, type: "repair", items: [Object.assign({ id: "tape3", kind: "tape" }, HM_TAPES[3]), Object.assign({ id: "lint3", kind: "pickup" }, LINT_TRACES[3])] },
     lines: [[2, "The sentry repair shop. They come in here broken and they leave in here broken. The repairs never really took."]] },
   "Long Jump": { type: "workshop", v: 0, timed: 1, type2: "paint", items: [{ id: "stk-fr", kind: "sticker", sticker: "fragile", space: 1 }, { id: "vent", kind: "vent", to: "Second Wind", skip: "Rebound" }] },
-  "Rebound": { type: "records", v: 1, timed: 1, cam: true, type2: "archive", v2: 1, items: [denCard(1)] },
   "Second Wind": { type: "workshop", v: 1, timed: 1, type2: "uniform", items: [Object.assign({ id: "page4", kind: "page", space: 1 }, O_PAGES[4]), { id: "clock", kind: "clock" }] },
-  "Press": { type: "workshop", v: 2, timed: 1, type2: "store", v2: 5, items: [{ id: "lights", kind: "breaker", label: "Emergency lights", space: 1, fx: "lights" }] },
-  "Short Notice": { type: "records", v: 2, timed: 1, type2: "av", items: [denCard(1)] },
-  "Moving Target": { type: "records", v: 3, timed: 1, nocorner: true, type2: "supply", v2: 1, items: [denCard(1)] },
   "Terminal Velocity": { type: "workshop", v: 3, timed: 1, type2: "records", v2: 4, items: [{ id: "clock", kind: "clock" }], art: "scream",
     staff: { cards: 11, type: "recoff", items: [Object.assign({ id: "lint4", kind: "pickup" }, LINT_TRACES[4]), { kind: "safe", art: "scream", item: Object.assign({ id: "tape4", kind: "tape" }, HM_TAPES[4]) }] },
     lines: [[2, "The Records office. Everything that ever happened here is in this room, in alphabetical order. I am filed under S. Nobody has ever opened S."]] },
@@ -3817,8 +3790,7 @@ function level46() {                       // Mirror Test: show the bolted sentr
   h.par = [70, 2];
   h.signs.push(chSign(46, "MIRROR TEST", 4.6, 4.4),
     scrawl("SHE NEVER BUILT A MIRROR.", "WONDER WHY.  - O.", [8, 1.3, 0.001], [0, 0, 1], 3.2, 0.95));
-  den(h, { W: 12, side: 0, x: 26.5, two: -1, scr: ["IT NEVER LOOKS BEHIND ITSELF.", "THAT IS WHERE I LIVED.  - O."],      // v7.6: the near wall behind the bolted sentry; it cannot be used to show the sentry itself
-    line: "You are behind the sentry and inside the wall. Two places I specifically did not put a test." });
+  // v8.38 (Batch I-3b): the den that was here is cut; what it held is in a hidden corner, a kept den or another room (I3, above CHAMBERS)
   return Object.assign(h, { badge: [29.5, 1, 11.4], num: 46, name: "Mirror Test", track: 0, say: {
     intro: ["This sentry is bolted down. I had to. The last subject kept carrying them off to quiet corners. It was undignified for everyone.", "It shoots anything it can see. I have never been able to get it to make an exception."],
     hint: ["It has spent its whole life looking at everything except itself. Some of my best people were like that. Show it the view."], hint2: ["Give it a portal to look into, and put the other one behind it."],
@@ -3858,8 +3830,7 @@ function level48() {                       // v6.1 Scales: one camera, and it is
   h.badge = [L - 0.7, 4.9, 13.3]; h.par = [100, 3];
   h.signs.push(chSign(14, "SCALES", 4.6, 3.6));
   for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.02, sg.pos[1], sg.pos[2]];
-  den(h, { W: 14, side: 1, x: 6.5, scr: ["EVERYTHING HERE GETS WEIGHED.", "I WEIGHED MY OPTIONS AND HID.  - O."],      // v7.6: the far wall by the start, away from the ledge
-    line: "Nothing in this wall is being weighed. Except, from now on, you." });
+  // v8.38 (Batch I-3b): the den that was here is cut; what it held is in a hidden corner, a kept den or another room (I3, above CHAMBERS)
   return Object.assign(h, { num: 14, name: "Scales", track: 2, say: {
     intro: ["The door up there is on a scale. It is fussy about what it weighs.", "There is exactly one camera in this room, and it is watching the floor. If it watches you for long enough, I start you again."],
     hint: ["You are the wrong weight. So is a crate. The scale wants something else that has been hanging about in here."], hint2: ["The only other thing in this room is on a wall. Walls, in here, can be made to stop holding things."],
@@ -4268,7 +4239,7 @@ function secretAudit(only) {
     const route = (lv.route || []).map(p => [p[0], p[1] + 1.6, p[2]]), st = lv.start.pos, exC = camTarget(lv, "exit");
     route.push([st[0], st[1] + 1.6, st[2]]);
     for (let t = 0; t <= 1.0001; t += 1 / 24) { const q = [st[0] + (exC[0] - st[0]) * t, st[1] + 1.6 + (exC[1] - 1 - st[1]) * t, st[2] + (exC[2] - st[2]) * t]; if (!inAir(q) || inSolid(q)) continue; const fy = floorUnder(q); route.push([q[0], fy + 1.6, q[2]]); }
-    for (const p of lv.plates || []) { if (p.off || (lv.denAir || []).some(a => p.pos[0] > a[0] && p.pos[0] < a[3] && p.pos[2] > a[2] && p.pos[2] < a[5])) continue; route.push([p.pos[0], p.pos[1] + 1.6, p.pos[2]]); }      // (a button inside a den is not on the route)
+    for (const p of lv.plates || []) { if (p.off || /^den/.test([].concat(p.door)[0] || "") || (lv.denAir || []).some(a => p.pos[0] > a[0] && p.pos[0] < a[3] && p.pos[2] > a[2] && p.pos[2] < a[5])) continue; route.push([p.pos[0], p.pos[1] + 1.6, p.pos[2]]); }      // (a button inside a den is not on the route)
     for (const c of lv.cubes || []) route.push([c[0], c[1] + 1.3, c[2]]);
     for (const q of route.slice()) route.push([q[0], q[1] + 0.5, q[2]]);              // and at the top of a jump
     R.routeN = route.length;
@@ -4287,6 +4258,7 @@ function secretAudit(only) {
         for (const id of S.finds || []) { const it = (lv.items || []).find(t => t.id === id); if (it && it.pos) pts.push([it.pos[0], it.pos[1] + 0.34, it.pos[2]]); }
         if (S.badge && lv.badge) pts.push(lv.badge.slice(0, 3));
         let seenAt = null; for (const e of route) { for (const p of pts) if (clear(e, p, 0.12)) { seenAt = e; break; } if (seenAt) break; }
+        if (S.cam != null) { seenAt = null; X.note = "taped behind camera " + (S.cam + 1) + ": it comes down with the camera"; R.notes.push(X.what + " " + X.id + ": " + X.note); if (!(lv.cams || [])[S.cam]) X.probs.push("no camera " + (S.cam + 1)); }
         if (seenAt && S.asBuilt) { X.note = "kept as built (v8.17): its slot shows from the route"; R.notes.push(X.what + " " + X.id + ": " + X.note); }
         else if (seenAt) X.probs.push("seen from the route at " + seenAt.map(v => v.toFixed(1)).join(", "));
         const cov0 = !S.cover ? null : S.cover.min ? S.cover : (lv.loosen || []).find(l => l.id === S.cover) || (lv.doors || []).find(d => d.id === S.cover) || null;      // v8.36: the cover can be a loose piece, a door (locker, cupboard, shutter) or a box (a sentry standing in front)
@@ -4344,6 +4316,18 @@ function leafNook(h, o) {
   loosePiece(h, { id: o.id + "-leaf", kind: "flap", min: mn, max: mx, fall: n.slice(), open: 0.13, look: "conc" });
   return S;
 }
+// v8.38: a kept den's doorway gets a plain panel over it (the same as the wall round it), which the room's own device opens for good:
+// o.ev = a zone that, once you pass through it, opens it; o.grav / o.sentry / a receiver with door o.id. Its record goes in lv.secrets
+function denCover(h, o) {
+  const r = (h.dens || [])[0]; if (!r) throw new Error("denCover: no den");
+  const { xa, sy, zs, out } = r, z0 = zs + out * 0.02, z1 = zs + out * 0.16;
+  const d = { id: o.id, zf: out, hide: true, latch: true, keep: true, min: [xa - 0.75, sy, Math.min(z0, z1)], max: [xa + 0.75, sy + 2.3, Math.max(z0, z1)], rise: 2.4, need: 1 };
+  if (o.ev) { const ev = o.id + "-open"; d.ev = ev; (h.evs = h.evs || []).push(Object.assign({ ev }, o.ev)); }
+  if (o.grav != null) d.grav = o.grav; if (o.sentry != null) d.sentry = o.sentry;
+  h.doors.push(d);
+  const sp = DEN_SPEC[h.name] || {}, finds = (sp.items || []).filter(t => t.id).map(t => t.id);
+  (h.secrets = h.secrets || []).push({ kind: "den", what: "den", id: o.id, open: { c: [xa, sy + 1.15, zs], n: [0, 0, -out], w: 1.5, h: 2.3 }, finds, badge: (sp.items || []).some(t => t.badge), way: o.way, cover: o.id, seen: o.seen, more: [] });
+}
 const I3 = {
   // 2. The Ted & Lint gun sticker (it was in Delivery's den): a nook in the far wall past the pit, behind a panel that hangs a hand's width open. No portal needed
   "One Way": h => {
@@ -4373,7 +4357,87 @@ const I3 = {
     loosePiece(h, { id: "den8-panel", kind: "panel", min: [3.25, 3.2, 12.02], max: [4.75, 5.5, 12.15], fall: [0, 0, 1], speed: 6, tilt: 0.04 });
     (h.secrets = h.secrets || []).push({ kind: "den", what: "den", id: "den8", open: { c: [4, 4.35, 12], n: [0, 0, -1], w: 1.5, h: 2.3 }, finds: ["page1", "clock"], badge: false, way: "fling", cover: "den8-panel", seen: [[4, 0, 8]] });
   }
+  ,
+  // ---- v8.38 Batch I-3b: rooms 9 to 30. Redirect [9], Heavy Lifting [11], Friendly Fire [17] and Dead Drop [22] have nothing at all
+  // 10. Key card 4: in the back of a waist-high block of cover standing off the far wall between the second and third pillars. Nothing on the way sees behind it
+  "Sentry Duty": h => {
+    h.boxes.push(bx(19.6, 0, 10.3, 21.4, 1.4, 11.0, "dark"));
+    corner(h, { id: "card4", o: [20.5, 0.6, 11.5], dir: [0, 0, -1], a: 20.5, y: 0.15, w: 1.0, hh: 0.9, d: 0.5, lit: true, badge: true, by: 0.45, br: 1.0, way: "walk", seen: [[20.5, 0, 11.5]] });
+  },
+  // 13. Key card 5: on a shelf high on the far side of the partition, behind a lip. A panel over it takes a portal; the far floor takes the other
+  "Reset": h => {
+    h.boxes.push(bx(15, 3.2, 0.9, 17, 3.6, 3.1, "dark"), bx(16.85, 3.6, 0.9, 17, 4.5, 3.1, "dark"), bx(15, 3.6, 0.9, 16.85, 4.5, 1.0, "dark"), bx(15, 3.6, 3.0, 16.85, 4.5, 3.1, "dark"));      // deep, with a tall lip: you come out of the panel at a run
+    whiteOn(h, bx(15, 3.7, 1.25, 15.1, 6.2, 2.75));
+    corner(h, { id: "card5", perch: [16.2, 3.6, 2.0], badge: true, by: 0.3, br: 1.1, way: "climb", seen: [[21, 0, 2]], tell: { min: [15, 3.2, 0.9], max: [17, 4.5, 3.1] } });
+  },
+  // 14. Key card 6: taped behind the watching camera. It falls when the camera does
+  "Scales": h => {
+    h.badge = [12, 5.6, 13.72, 1.0]; h.badgeCam = 0;
+    (h.secrets = h.secrets || []).push({ kind: "corner", what: "corner", id: "card6", cam: 0, finds: [], badge: true, way: "camera", seen: [[12, 0, 9]], open: { c: [12, 5.6, 13.8], n: [0, 0, -1], w: 0.3, h: 0.3 }, cover: null, more: [] });
+  },
+  // 16. Key card 7: on a shelf over the window, inside the cell. From the floor in there you only see the lip; jump
+  "Borrowed Cover": h => {
+    h.boxes.push(bx(12.6, 2.3, 8.8, 13.1, 2.45, 10.2, "dark"), bx(12.95, 2.45, 8.8, 13.1, 2.95, 10.2, "dark"), bx(12.6, 2.45, 8.8, 12.95, 2.95, 8.95, "dark"), bx(12.6, 2.45, 10.05, 12.95, 2.95, 10.2, "dark"));
+    corner(h, { id: "card7", perch: [12.8, 2.45, 9.5], badge: true, by: 0.25, br: 1.25, way: "jump", seen: [[15.5, 0, 9.5]], tell: { min: [12.6, 2.3, 8.8], max: [13.1, 2.95, 10.2] } });
+  },
+  // 19. The clean sticker patch (the secret Lint sticker, once you hold all eight): in the back of the far pillar, facing the wall. Past the field
+  "Field Trip": h => {
+    ajar(h, "z0", 27);
+    corner(h, { id: "stk-lint", o: [22.6, 0.6, 11.3], dir: [0, 0, -1], a: 22.6, y: 0.1, w: 0.8, hh: 0.9, d: 0.6, lit: true, more: ["patch"], way: "field", seen: [[22.6, 0, 11.3]],
+      find: { kind: "sticker", sticker: "lint", need: { stickers: 8 }, r: 1.2 } });
+  },
+  // 20. O.'s page 3: in a cupboard in the back of the booth. It opens once something is sitting in the sentry's window (and stays open)
+  "Two Keys": h => {
+    obsWindow(h, { w: "z0", a: 4, y: 5.2, props: ["monitor"] });
+    corner(h, { id: "page3", o: [27.6, 0.6, 7.5], dir: [0, 0, -1], a: 27.6, y: 0.3, w: 0.8, hh: 0.7, d: 0.33, lit: true, cover: "lock20", way: "plate", seen: [[27.6, 0, 8.5]],
+      find: Object.assign({ gid: "Mirror Test:page3", kind: "page", r: 1.1 }, O_PAGES[3]) });
+    h.doors.push({ id: "lock20", zf: -1, hide: true, latch: true, min: [27.2, 0.3, 6.25], max: [28.0, 1.0, 6.38], rise: 0.75, need: 1 });
+    h.plates[0].door = ["d1", "lock20"];
+  },
+  // 21. Key card 9: in a cupboard low in the wall behind the bolted sentry. It opens when the sentry is done for
+  "Mirror Test": h => {
+    corner(h, { id: "card9", wall: "z1", a: 23.8, y: 0.2, w: 1.0, hh: 0.9, d: 0.6, lit: true, badge: true, by: 0.4, br: 1.0, door: "lock21", way: "sentry", seen: [[23.8, 0, 9]] });
+    h.doors.push({ id: "lock21", zf: 1, hide: true, latch: true, sentry: 0, min: [23.3, 0.2, 12.02], max: [24.3, 1.1, 12.15], rise: 1.0, need: 1 });
+  },
+  // 25. Key card 11: in a hollow under the platform, at the far end of the gap the green paste drops into, behind a fin
+  "Rebound": h => {
+    obsWindow(h, { w: "z0", a: 29, y: 6.8, props: ["chair"] });
+    h.boxes.push(bx(20.2, 0, 7, 20.4, 1.2, 8.3, "dark"));
+    corner(h, { id: "card11", o: [21.2, 0.5, 8], dir: [0, 0, -1], a: 21.2, y: 0.05, w: 0.9, hh: 0.85, d: 0.8, lit: true, badge: true, by: 0.3, br: 1.15, way: "look", seen: [[21.2, 0, 8.5]] });
+  },
+  // 27. The emergency-lights breaker: in a recess in the wall between the second and third presses. Its cover only slides open while all three presses
+  // are up at once and you are standing between them
+  "Press": h => {
+    ajar(h, "z0", 20);
+    corner(h, { id: "lights-c", wall: "z1", a: 16, y: 0.2, w: 1.0, hh: 1.0, d: 0.6, lit: true, cover: "lock27", more: ["lights"], way: "presses", seen: [[16, 0, 8]] });
+    h.doors.push({ id: "lock27", zf: 1, hide: true, latch: true, presses: true, near: [16, 8.6, 2.2], min: [15.5, 0.2, 10.02], max: [16.5, 1.2, 10.15], rise: 1.1, need: 1 });
+    (h.breakers = h.breakers || []).push({ id: "lights", pos: [16, 0.75, 10.57], n: [0, 0, -1], label: "Emergency lights", fx: "lights" });
+  },
+  // 28. Key card 12: in a cupboard under the exit ledge, by the corner. It only opens while the amber plate is counting down and you are already over there
+  "Short Notice": h => {
+    ajar(h, "z1", 23.5);
+    corner(h, { id: "card12", o: [24, 0.6, 11.2], dir: [1, 0, 0], a: 11.2, y: 0.2, w: 0.9, hh: 0.9, d: 0.6, lit: true, badge: true, by: 0.4, br: 1.0, door: "lock28", way: "relay", seen: [[23, 0, 10.5]] });
+    h.doors.push({ id: "lock28", min: [25.02, 0.2, 10.75], max: [25.15, 1.1, 11.65], rise: 1.0, need: 1, hide: true, latch: true, relay: 0, near: [24, 11, 3, 1.2] });
+  },
+  // 29. Key card 13: on a shelf under the sliding panel's other stop, over the start. Go through it when it is over there and you land on the shelf, not the floor
+  "Moving Target": h => {
+    h.boxes.push(bx(3.9, 7.6, 0.38, 6.3, 8.0, 4.8, "dark"), bx(3.9, 8.0, 4.7, 6.3, 8.6, 4.8, "dark"), bx(3.9, 8.0, 0.38, 4.0, 8.6, 4.7, "dark"), bx(6.2, 8.0, 0.38, 6.3, 8.6, 4.7, "dark"));      // a balcony as deep as the gantry top: you come out of the panel moving
+    corner(h, { id: "card13", perch: [5.1, 8.0, 3.4], badge: true, by: 0.3, br: 1.3, way: "ride", seen: [[8, 0, 6]], tell: { min: [3.9, 7.6, 0.38], max: [6.3, 8.6, 4.8] } });
+  },
+  // ---- the seven dens that stay. Each doorway now has a plain panel over it, the same as the wall round it, that the room's own device opens for good
+  "Air Mail": h => denCover(h, { id: "cover12", way: "pad", seen: [[3, 0, 6]], ev: { min: [23.1, 3.2, 8.7], max: [24.6, 5.5, 10.2] } }),      // stand at the back of the ledge: only the crate's pad gets you up there
+  "Upside": h => denCover(h, { id: "cover15", way: "gravity", seen: [[13, 0, 8]], grav: 0 }),                                                    // a loose panel high on the wall: it falls in the first time gravity flips
+  "Skylight": h => {
+    obsWindow(h, { w: "z0", a: 24, y: 6.6, props: ["chair", "mug"] });                                                                                                                    // a receiver nobody lights: on the end of the plate's pocket, square to the shelf panel
+    denCover(h, { id: "cover18", way: "beam", seen: [[9.5, 0, 9]] });
+    h.receivers.push({ pos: [12, 4.4, 10.5], n: [-1, 0, 0], w: 1.6, h: 1.6, door: "cover18" });
+  },
+  "Gantry": h => { denCover(h, { id: "cover23", way: "sentry", seen: [[5.5, 0, 8]], sentry: 0 }); obsWindow(h, { w: "z0", a: 26, y: 10, lit: true, props: ["chair"] }); }, // the panel drops in when the guard does
+  "Long Jump": h => denCover(h, { id: "cover24", way: "fling", seen: [[5, 0, 8]], ev: { min: [0.1, 16.2, 4.4], max: [3, 21.8, 7.6] } }),         // only a strip portal higher than the gantry throws you past it
+  "Second Wind": h => { denCover(h, { id: "cover26", way: "pad", seen: [[5, 0, 8]], ev: { min: [24, 14.5, 0.3], max: [29, 18, 3.8] } }); obsWindow(h, { w: "z1", a: 40, y: 12, props: ["monitor", "mug"] }); }, // at the top of the pad's lob
+  "Terminal Velocity": h => { denCover(h, { id: "cover30", way: "loop", seen: [[5, 0, 9]], ev: { min: [2.9, 8, 3.9], max: [7.1, 15, 8.1], empty: true } }); obsWindow(h, { w: "z0", a: 30, y: 11, lit: true, props: ["chair", "monitor"] }); }, // round the loop with nothing in your hands
 };
+
 const CHAMBERS = [
   // v6.0 (Batch 1): the Act 1 order from the room map. Rooms past 23 keep their v5.3 form at their new number until their own batch arrives. Room 22 (Dead Drop) came in Batch 3 (v6.2).
   ["Orientation", level1, level54, level55], ["Deliveries", level2, level56], ["Up And Over", level3, level4, level5],
@@ -5032,18 +5096,20 @@ function buildLevel(idx) {
     const DOOR = lv.bs ? DOOR_BS : DOOR_STD;
     if (d.zf) {                 // v8.16: a shutter set in a side wall (it faces along z; `zf` is the way into the wall: +1 or -1). Its frame and lights are on the room side
       const xc = (d.min[0] + d.max[0]) / 2, wx = d.max[0] - d.min[0], zr = d.zf > 0 ? d.min[2] : d.max[2], n = -d.zf;
-      const slab = new THREE.Mesh(new THREE.BoxGeometry(wx - 0.02, hgt - 0.02, w - 0.04), [DOOR.side, DOOR.side, DOOR.side, DOOR.side, DOOR.face, DOOR.face]);
+      const slab = new THREE.Mesh(new THREE.BoxGeometry(wx - 0.02, hgt - 0.02, w - 0.04), d.hide ? DOOR.side : [DOOR.side, DOOR.side, DOOR.side, DOOR.side, DOOR.face, DOOR.face]);
       slab.position.set(xc, d.min[1] + hgt / 2, zc); slab.frustumCulled = false; g.add(slab);
+      if (d.hide) { W.doors.push({ need: d.need || 1, id: d.id, auto: false, box, min0: d.min.slice(), max0: d.max.slice(), rise: d.rise, t: 0, group: g, lights: [], light: null, open: false, ev: d.ev, grav: d.grav, latch: !!d.latch, sentry: d.sentry, presses: d.presses, near: d.near, relay: d.relay, keep: d.keep ? lv.name + ":" + d.id : null, lat: d.keep && store.get("bopen", []).includes(lv.name + ":" + d.id) ? 1 : 0 }); continue; }      // v8.38: a plain panel in the wall (a den's cover): no frame, no lights
       const fr = new THREE.Group(); levelGroup.add(fr); const zf0 = zr - d.zf * 0.08, zf1 = zf0 + n * 0.1;
       const piece = (x0, y0, x1, y1) => { const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, 0.1), DOOR.frame); m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (zf0 + zf1) / 2); m.frustumCulled = false; fr.add(m); };
       piece(d.min[0] - 0.2, d.min[1], d.min[0] + 0.02, d.max[1] + 0.3); piece(d.max[0] - 0.02, d.min[1], d.max[0] + 0.2, d.max[1] + 0.3); piece(d.min[0] - 0.2, d.max[1] - 0.02, d.max[0] + 0.2, d.max[1] + 0.3);
       const lights = [], strip = (ww, hh, x, y) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(ww, hh), MAT.doorRed); if (n < 0) m.rotation.y = Math.PI; m.position.set(x, y, zf1 + n * 0.006); m.frustumCulled = false; fr.add(m); lights.push(m); };
       strip(wx - 0.4, 0.08, xc, d.max[1] + 0.15); strip(0.05, hgt * 0.5, d.min[0] - 0.09, d.min[1] + hgt * 0.45); strip(0.05, hgt * 0.5, d.max[0] + 0.09, d.min[1] + hgt * 0.45);
-      W.doors.push({ need: d.need || 1, id: d.id, auto: false, box, min0: d.min.slice(), max0: d.max.slice(), rise: d.rise, t: 0, group: g, lights, light: lights[0], open: false });
+      W.doors.push({ need: d.need || 1, id: d.id, auto: false, box, min0: d.min.slice(), max0: d.max.slice(), rise: d.rise, t: 0, group: g, lights, light: lights[0], open: false, ev: d.ev, grav: d.grav, latch: !!d.latch, sentry: d.sentry, presses: d.presses, near: d.near, relay: d.relay });
       continue;
     }
-    const slab = new THREE.Mesh(new THREE.BoxGeometry(th - 0.06, hgt - 0.02, w - 0.06), [DOOR.side, DOOR.face, DOOR.side, DOOR.side, DOOR.side, DOOR.side]);
+    const slab = new THREE.Mesh(new THREE.BoxGeometry(th - 0.06, hgt - 0.02, w - 0.06), d.hide ? DOOR.side : [DOOR.side, DOOR.face, DOOR.side, DOOR.side, DOOR.side, DOOR.side]);
     slab.position.set(d.min[0] + 0.04 + (th - 0.06) / 2, d.min[1] + hgt / 2, zc); slab.frustumCulled = false; g.add(slab);
+    if (d.hide) { W.doors.push({ need: d.need || 1, id: d.id, auto: false, box, min0: d.min.slice(), max0: d.max.slice(), rise: d.rise, t: 0, group: g, lights: [], light: null, open: false, ev: d.ev, grav: d.grav, latch: !!d.latch, sentry: d.sentry, presses: d.presses, near: d.near, relay: d.relay, keep: d.keep ? lv.name + ":" + d.id : null, lat: d.keep && store.get("bopen", []).includes(lv.name + ":" + d.id) ? 1 : 0 }); continue; }      // v8.38: a plain cover
     const fr = new THREE.Group(); levelGroup.add(fr);           // the frame: two jambs and a header, standing proud of the wall
     const piece = (x0, y0, z0, x1, y1, z1) => { const m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), DOOR.frame); m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); m.frustumCulled = false; fr.add(m); };
     let face = d.min[0];          // the wall face beside the opening (a thin dark skin may stand in front of the wall)
@@ -5100,6 +5166,7 @@ function buildLevel(idx) {
     strip.position.y = 0.06; const ring = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.012, 8, 40), new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 1.2, .3), transparent: true, opacity: .7 }));
     g.add(card, strip, ring); g.traverse(o => { o.frustumCulled = false; o.userData.ownMat = 1; }); levelGroup.add(g);
     W.badge = { g, ring, pos: new V3(lv.badge[0], lv.badge[1], lv.badge[2]), r: lv.badge[3] || 1.1, door: lv.badgeDoor || null };      // v8.36: door = the locker or cupboard it is shut in
+    if (lv.badgeCam != null) { const lh = lvRay(lv, lv.badge.slice(0, 3), [0, -1, 0]); Object.assign(W.badge, { cam: lv.badgeCam, onCam: true, land: lh ? lh.p[1] + 0.45 : lv.badge[1] - 4, vy: 0 }); }      // v8.38: taped behind a camera: it falls when the camera does
   }
   // plates (floor buttons)
   for (const p of lv.plates) {
@@ -6713,10 +6780,19 @@ function v5Doors(W) {
   const inc = id => { for (const d of W.doors) if (d.id === id) d.cnt++; };
   for (const s of W.sockets) if (s.lit && s.door) inc(s.door);
   for (const s of W.switches) if ((s.left > 0 || s.on) && s.door) inc(s.door);
+  for (const d of W.doors) {                // v8.38: a door held by an event (a zone you passed through) or a gravity flip; `latch`: once open it stays open
+    if (d.ev && W.ev[d.ev]) d.cnt++;
+    if (d.grav != null && W.gravs[d.grav] && W.gravs[d.grav].flip) d.cnt++;
+    if (d.sentry != null && W.sentries[d.sentry] && W.sentries[d.sentry].state !== "on") d.cnt++;
+    const nearOk = !d.near || (Math.hypot(player.p.x - d.near[0], player.p.z - d.near[1]) < d.near[2] && (d.near[3] == null || player.p.y - HY < d.near[3]));
+    if (d.presses && W.crushers.every(c => c.s < 0.35) && nearOk) d.cnt++;      // (the three are never all the way up at once: this is the moment they are all clear of head height)
+    if (d.relay != null && W.plates[d.relay] && W.plates[d.relay].left > 0 && !W.plates[d.relay].pressed && nearOk) d.cnt++;      // a timed plate counting down, and you already over here
+    if (d.latch) { if (d.cnt >= (d.need || 1)) { if (!d.lat && d.keep) { const bo = store.get("bopen", []); if (!bo.includes(d.keep)) { bo.push(d.keep); store.set("bopen", bo); } } d.lat = 1; } else if (d.lat) d.cnt = d.need || 1; }      // keep: a den's cover, once open, stays open on every later visit
+  }
 }
 function v5Step(dt) {
   const W = world, pl = player, alive = state === "play";
-  if (W.zones5) for (const z of W.zones5) if (!W.ev[z.ev] && alive && inBox(z, pl.p.x, pl.p.y, pl.p.z)) { W.ev[z.ev] = true; if (z.line) say(null, z.line); }
+  if (W.zones5) for (const z of W.zones5) if (!W.ev[z.ev] && alive && (!z.empty || !holding) && inBox(z, pl.p.x, pl.p.y, pl.p.z)) { W.ev[z.ev] = true; if (z.line) say(null, z.line); }
   if (W.walks.length || W.streams.length) { if (W.t - W.pathT > 1 / 40 || W.pathT > W.t) { W.pathT = W.t; v5Paths(); } }
   // carrier streams: no gravity inside, everything drifts along the axis
   pl.inStream = false;
@@ -6944,7 +7020,11 @@ function physicsStep(dt) {
     d.box.min[1] = d.min0[1] + y; d.box.max[1] = d.max0[1] + y; d.group.position.y = y;
     const lm = d.t > 0.9 ? MAT.doorGreen : MAT.doorRed; for (const m of d.lights) m.material = lm;
   }
-  if (alive && W.badge && tmpA.set(pl.p.x, pl.p.y + 0.3, pl.p.z).distanceTo(W.badge.pos) < W.badge.r && (!W.badge.door || W.doors.some(d => d.id === W.badge.door && d.t > 0.8))) {       // picked up the staff badge
+  if (W.badge && W.badge.cam != null) { const B = W.badge, c = W.cams[B.cam];      // v8.38: the card taped behind a camera
+    if (B.onCam && (!c || c.dead)) { B.onCam = false; B.fall = true; }
+    if (B.fall) { B.vy -= 9.8 * dt; B.pos.y = Math.max(B.land, B.pos.y + B.vy * dt); if (B.pos.y <= B.land) B.fall = false; B.g.position.copy(B.pos); }
+  }
+  if (alive && W.badge && !W.badge.onCam && tmpA.set(pl.p.x, pl.p.y + 0.3, pl.p.z).distanceTo(W.badge.pos) < W.badge.r && (!W.badge.door || W.doors.some(d => d.id === W.badge.door && d.t > 0.8))) {       // picked up the staff badge
     levelGroup.remove(W.badge.g); W.badge = null; const got = store.get("badges", []); if (!got.includes(ROOM[levelIdx].c)) { got.push(ROOM[levelIdx].c); store.set("badges", got); }
     { const ks = store.get("keys", []); if (!ks.includes("ch" + ROOM[levelIdx].c)) { ks.push("ch" + ROOM[levelIdx].c); store.set("keys", ks); } }       // v8.12: a chamber card also goes on the key ring, so the staff doors count it
     sfx.badge(); Bonus.mark(); toast("Key card found: " + got.filter(c => BADGE_CH.has(c)).length + " of " + BADGE_CH.size); if (!store.get("saidBadge", 0)) { store.set("saidBadge", 1); say("badge"); }
@@ -10806,7 +10886,7 @@ function boot() {
   setTimeout(() => HoldMusic.render(), 2200);
   setTimeout(() => { try { HoldShow.ensure(); HoldShow.preload(); } catch (e) { console.error(e); } }, 3000);   // the TV show's picture and voices, ready before anyone reaches the office                                       // and its music, rendered once in the background
 }
-window.__tc = { secretAudit, CAM_PLAN, Loose, camResolve, sadosPick, holdQuiet, get curPr() { return curPr; }, get subBusy() { return subBusy; }, Bonus, STAFF_DOORS, denAudit, LEVEL_FUNCS, bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get liftFloor() { return liftFloorTxt; }, liftSeq, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
+window.__tc = { dbg: { wallHit, lvRay, rayBox, hallOf, camTarget, corner, I3 }, secretAudit, CAM_PLAN, Loose, camResolve, sadosPick, holdQuiet, get curPr() { return curPr; }, get subBusy() { return subBusy; }, Bonus, STAFF_DOORS, denAudit, LEVEL_FUNCS, bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get liftFloor() { return liftFloorTxt; }, liftSeq, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
 try { boot(); } catch (err) { console.error(err); $("loading").hidden = false; $("loading").innerHTML = '<div style="max-width:420px;text-align:center;line-height:1.6;font-size:13px;letter-spacing:.05em">Something went wrong starting the game.<br><small>' + String(err && err.message || err) + "</small></div>"; }
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>
