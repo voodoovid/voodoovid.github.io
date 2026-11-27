@@ -4796,15 +4796,24 @@ function panelNormal(dark) {
   g.putImageData(img, 0, 0);
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = MAXANISO; return t;
 }
+// v8.41: three moving glows (the two portals, and the nearest place a laser lands) light the baked walls round them. They are plain shader
+// uniforms shared by every baked material, not scene lights, so they cost a few lines of arithmetic per pixel. xyz = colour, w = reach in metres.
+const GLOW = { uGP: { value: [new V3(), new V3(), new V3()] }, uGC: { value: [new THREE.Vector4(0, 0, 0, 1), new THREE.Vector4(0, 0, 0, 1), new THREE.Vector4(0, 0, 0, 1)] } };
 function bakedMat(map, normalMap, rough, metal, envI, color = 0xffffff) {
   const m = new THREE.MeshStandardMaterial({ color, map, normalMap, normalScale: new THREE.Vector2(1, 1), roughness: rough, metalness: metal, vertexColors: true, envMap: ENV, envMapIntensity: envI });
   m.onBeforeCompile = sh => {
-    sh.fragmentShader = sh.fragmentShader.replace("#include <lights_fragment_end>", `#include <lights_fragment_end>
+    sh.uniforms.uGP = GLOW.uGP; sh.uniforms.uGC = GLOW.uGC;
+    sh.vertexShader = sh.vertexShader.replace("#include <common>", "#include <common>\nvarying vec3 vWPos;").replace("#include <begin_vertex>", "#include <begin_vertex>\n  vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;");
+    sh.fragmentShader = sh.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec3 vWPos; uniform vec3 uGP[3]; uniform vec4 uGC[3];").replace("#include <lights_fragment_end>", `#include <lights_fragment_end>
       reflectedLight.directDiffuse = vec3(0.0); reflectedLight.directSpecular = vec3(0.0);
       reflectedLight.indirectDiffuse = diffuseColor.rgb;
-      reflectedLight.indirectSpecular *= clamp(dot(vColor, vec3(0.3333)) * 1.15, 0.0, 1.0);`);
+      reflectedLight.indirectSpecular *= clamp(dot(vColor, vec3(0.3333)) * 1.15, 0.0, 1.0);
+      { vec3 wn = inverseTransformDirection(normal, viewMatrix);
+        for (int i = 0; i < 3; i++) { vec3 gl = uGP[i] - vWPos; float d2 = dot(gl, gl), rr = uGC[i].w * uGC[i].w, a = 1.0 / (1.0 + d2 / rr); a *= a;
+          float w = clamp(dot(gl * inversesqrt(d2 + 0.0001), wn) * 0.6 + 0.45, 0.0, 1.0);
+          reflectedLight.indirectDiffuse += (diffuseColor.rgb * 0.75 + 0.03) * uGC[i].rgb * (a * w); } }`);
   };
-  m.customProgramCacheKey = () => "baked";
+  m.customProgramCacheKey = () => "baked2";
   return m;
 }
 const NRM_WHITE = panelNormal(false);
@@ -7342,7 +7351,7 @@ function startLevel(idx, quiet) {
   levelIdx = idx; buildLevel(idx); resetLevelState(); respawn(); placeHeld();
   if (carry) { run.time = carry.time; run.portals = carry.portals; run.top = carry.top; run.ventSkip = carry.ventSkip || null; carry = null; }      // a later room of the same chamber: the clock runs on
   { const R = ROOM[idx]; $("chNum").textContent = (world.lv.back ? "OFF THE TEST TRACK" : "CHAMBER " + String(R.c + 1).padStart(2, "0")) + (R.parts > 1 ? " · PART " + (R.part + 1) + " OF " + R.parts : ""); $("chTitle").textContent = world.lv.name; }
-  Music.room(idx, actOf(idx)); Music.kick(); setVoiceRoom(roomSize());
+  Music.room(idx, actOf(idx)); Music.kick(); Lit.room(); setVoiceRoom(roomSize());
   if (!world.lv.silent) preloadVoice([...(world.lv.say.intro || []), ...(world.lv.say.hint || []), ...(world.lv.say.hint2 || []), ...(world.lv.say.done || []), ...(storyLine(world.lv.name) ? [STORY[world.lv.name]] : []), ...(lintLine(world.lv.name) ? [LINT_ASIDE[world.lv.name]] : []), ...(world.lv.hatch ? PARCEL_LINES : [])]);
   state = "play";
   if (!quiet) introWhenOut(idx, 1400);
@@ -7506,6 +7515,47 @@ setInterval(syncVisibility, 500);     // safety net: some iPad window changes ne
 for (const ev of ["pointerdown", "keydown", "touchend", "click"]) addEventListener(ev, () => { if (actx && !bg && actx.state !== "running") { actx.resume().catch(() => {}); Music.kick(); } }, { passive: true, capture: true });
 function applyAudioOpts() { if (!actx) return; musicBus.gain.setTargetAtTime(opts.music && !liftMute ? 0.55 : 0, actx.currentTime, 0.1); sfxBus.gain.setTargetAtTime(opts.sfx ? 0.8 : 0, actx.currentTime, 0.1); }
 
+/* ---------- v8.41: moving light ----------
+   Lit.tick: (1) the three glows above follow the portals and the nearest laser strike; (2) crates, sentries and the portal gun take the light of
+   where they are (probeAt: the room's own lamps with their shadows, plus the glows), so a crate in a dark corner is dark, one by the acid is
+   green and the gun picks up the colour of the portal beside you; (3) a thin haze gives long rooms some depth (Lit.room, at the start of a room). */
+function probeAt(x, y, z, out) {
+  let r = AMB, g = AMB, b = AMB * 1.02; const sp = [x, y, z];
+  for (const L of world.lv.lamps) { const dx = L.x - x, dy = L.y - y, dz = L.z - z, att = L.i * 0.75 / (1 + (dx * dx + dy * dy + dz * dz) / (L.rad * L.rad)); if (att < 0.02) continue;
+    if (segBlocked(sp, [L.x, L.y, L.z], world.solids)) continue; r += L.r * att; g += L.g * att; b += L.b * att; }
+  for (let i = 0; i < 3; i++) { const c = GLOW.uGC.value[i]; if (c.x + c.y + c.z < 0.01) continue; const P = GLOW.uGP.value[i], d2 = (P.x - x) ** 2 + (P.y - y) ** 2 + (P.z - z) ** 2; let a = 1 / (1 + d2 / (c.w * c.w)); a *= a * 0.7; r += c.x * a; g += c.y * a; b += c.z * a; }
+  out[0] = r; out[1] = g; out[2] = b; return out;
+}
+const Lit = (() => {
+  const PC = [[0.22, 0.55, 1.0], [1.0, 0.5, 0.13]], _p = [0, 0, 0], _e = new V3(); let acc = 0, turn = 0, gunHemi = null, gun0 = 0, hemi0 = 0; const gunT = [1, 1, 1];
+  function tintMats(o, mats, k) { if (!mats) return; for (const m of mats) { if (!m.color) continue; const u = m.userData; if (!u.c0) { u.c0 = m.color.clone(); u.e0 = m.envMapIntensity === undefined ? 1 : m.envMapIntensity; }
+    m.color.setRGB(u.c0.r * o.tint[0], u.c0.g * o.tint[1], u.c0.b * o.tint[2]); m.envMapIntensity = u.e0 * Math.min(1.15, (o.tint[0] + o.tint[1] + o.tint[2]) / 3); } }
+  function probeObj(o, x, y, z, mats, mats2, snap) {
+    probeAt(x, y, z, _p); const k = snap || !o.tint ? 1 : 0.35; o.tint = o.tint || [1, 1, 1];
+    for (let i = 0; i < 3; i++) o.tint[i] += (clamp(_p[i] / 0.88, 0.22, 1.3) - o.tint[i]) * k;
+    tintMats(o, mats); tintMats(o, mats2);
+  }
+  function tick(dt) {
+    if (!world) return; const U = GLOW.uGP.value, C = GLOW.uGC.value, play = state === "play" || state === "dead";
+    for (let i = 0; i < 2; i++) { const P = portals[i]; if (P.on && play) { U[i].copy(P.o).addScaledVector(P.n, 0.35); const k = 1.9 * (P.open === undefined ? 1 : P.open); C[i].set(PC[i][0] * k, PC[i][1] * k, PC[i][2] * k, 2.6); } else C[i].set(0, 0, 0, 1); }
+    let best = 1e9; C[2].set(0, 0, 0, 1);
+    if (play) for (const b of world.beams) { const g = b.path && b.path[b.path.length - 1]; if (!g) continue; _e.copy(g.o).addScaledVector(g.d, Math.max(0, g.len - 0.12)); const d = _e.distanceToSquared(cam.pos); if (d < best) { best = d; U[2].copy(_e); C[2].set(1.7, 0.2, 0.12, 1.5); } }
+    acc += dt; if (acc < 0.05 || !play) return; acc = 0;
+    const L = [...world.cubes, ...world.sentries]; if (L.length) { const o = L[turn++ % L.length]; probeObj(o, o.p.x, o.p.y + 0.15, o.p.z, o.mats, o.gmats); }
+    // the gun in your hands
+    if (!gunHemi) { gunHemi = gunScene.children.find(c => c.isHemisphereLight); gun0 = gunLight.intensity; hemi0 = gunHemi ? gunHemi.intensity : 1; }
+    probeAt(cam.pos.x, cam.pos.y - 0.25, cam.pos.z, _p); for (let i = 0; i < 3; i++) gunT[i] += (clamp(_p[i] / 0.88, 0.3, 1.25) - gunT[i]) * 0.3;
+    const lum = (gunT[0] + gunT[1] + gunT[2]) / 3; gunLight.intensity = gun0 * lum; gunLight.color.setRGB(gunT[0] / lum, gunT[1] / lum, gunT[2] / lum); if (gunHemi) { gunHemi.intensity = hemi0 * lum; gunHemi.color.setRGB(0.95 * gunT[0] / lum, 0.965 * gunT[1] / lum, 0.98 * gunT[2] / lum); }
+  }
+  // at the start of a room: the haze, and every crate and sentry lit for where it stands
+  function room() {
+    if (!world) return; const lv = world.lv, bs = !!lv.bs, big = roomSize();
+    if (!scene.fog) scene.fog = new THREE.FogExp2(0x8fa0b0, 0.006);
+    if (lv.haze === 0) scene.fog.density = 0; else { scene.fog.color.setHex(lv.hazeCol || (bs ? 0x6e6a62 : 0x90a2b3)); scene.fog.density = lv.haze || (bs ? 0.013 : clamp(0.004 + big / 9000, 0.005, 0.0085)); }
+    for (const o of [...world.cubes, ...world.sentries]) probeObj(o, o.p.x, o.p.y + 0.15, o.p.z, o.mats, o.gmats, true);
+  }
+  return { tick, room, probeObj };
+})();
 /* ---------- music (v8.41: rewritten) ----------
    Seven moods, one per act (rooms 1-8, 9-15, 16-23, 24-30, 31-38, backstage 39-45, the end 46-53), and every room gets its own
    key, bass line, arpeggio figures and tune from a seed, so no two rooms play the same thing.
@@ -8835,7 +8885,7 @@ function frame(ts) {
   requestAnimationFrame(frame);
   if (!world) return;
   const dt = Math.min(0.05, (ts - lastT) / 1000 || 0.016); lastT = ts;
-  Furn.tick(performance.now() / 1000); HoldShow.tick(dt); Parcel.tick(dt); Slot7.tick(dt); Items.tick(dt); LintRoom.tick(dt); Snd.tick(dt);
+  Furn.tick(performance.now() / 1000); HoldShow.tick(dt); Parcel.tick(dt); Slot7.tick(dt); Items.tick(dt); LintRoom.tick(dt); Snd.tick(dt); Lit.tick(dt);
   if (state === "cut") { Cut.tick(dt, ts / 1000); return; }
   if (Lift.on) { Lift.tick(dt, ts / 1000); return; }
   fpsAcc += dt * 1000; if (++fpsN >= 10) { adaptQuality(fpsAcc / fpsN); fpsAcc = fpsN = 0; }
@@ -11401,7 +11451,7 @@ function boot() {
   setTimeout(() => HoldMusic.render(), 2200);
   setTimeout(() => { try { HoldShow.ensure(); HoldShow.preload(); } catch (e) { console.error(e); } }, 3000);   // the TV show's picture and voices, ready before anyone reaches the office                                       // and its music, rendered once in the background
 }
-window.__tc = { version: VERSION, Music, roomProgress, actOf, Snd, sfx, sndAt, floorKind, setSfxRoom, get actx() { return actx; }, get audioBus() { return { master, sfxBus, sfxIn, sfxWet, musicBus }; }, ensureAudio, kit: { shell, exitPort, refinish, stairs, pane, opening, mergeBoxes }, kitAudit: lv => kitAudit(lv || world.lv), dbg: { wallHit, lvRay, rayBox, hallOf, camTarget, corner, I3 }, secretAudit, CAM_PLAN, Loose, camResolve, sadosPick, holdQuiet, get curPr() { return curPr; }, get subBusy() { return subBusy; }, Bonus, STAFF_DOORS, denAudit, LEVEL_FUNCS, bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, set sevenAt(i) { sevenHere = i; sevenSlotted = false; sevenSaid = false; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get liftFloor() { return liftFloorTxt; }, liftSeq, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
+window.__tc = { version: VERSION, Lit, GLOW, probeAt, scene, Music, roomProgress, actOf, Snd, sfx, sndAt, floorKind, setSfxRoom, get actx() { return actx; }, get audioBus() { return { master, sfxBus, sfxIn, sfxWet, musicBus }; }, ensureAudio, kit: { shell, exitPort, refinish, stairs, pane, opening, mergeBoxes }, kitAudit: lv => kitAudit(lv || world.lv), dbg: { wallHit, lvRay, rayBox, hallOf, camTarget, corner, I3 }, secretAudit, CAM_PLAN, Loose, camResolve, sadosPick, holdQuiet, get curPr() { return curPr; }, get subBusy() { return subBusy; }, Bonus, STAFF_DOORS, denAudit, LEVEL_FUNCS, bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, set sevenAt(i) { sevenHere = i; sevenSlotted = false; sevenSaid = false; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get liftFloor() { return liftFloorTxt; }, liftSeq, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
 try { boot(); } catch (err) { console.error(err); $("loading").hidden = false; $("loading").innerHTML = '<div style="max-width:420px;text-align:center;line-height:1.6;font-size:13px;letter-spacing:.05em">Something went wrong starting the game.<br><small>' + String(err && err.message || err) + "</small></div>"; }
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>
