@@ -1,4 +1,4 @@
-/* Test Chambers: the Difficulty Check robots (v8.40, Batch J step 1, Nov 25, 2026).
+/* Test Chambers: the Difficulty Check robots (v8.40, Batch J step 1, Nov 25, 2026; v8.46 adds Water Feature's three robots, which the page does not show: it stops at room 38).
    Used by difficulty.html, which loads the game in a hidden frame with ?diffcheck (no frame loop, no lift rides, its own saves) and
    drives it one physics step at a time. One file for the page and for the headless runs, so both run the same robots.
    - DIFF_BOTS.install(win): puts the robot's hands, B, into the game's window (walk, aim, fire, use, step...).
@@ -311,9 +311,33 @@
       B.walk(21, 9); r.s3 = B.fire(0, 14, 1.2, 11.95); B.step(1); r.lit = !!w.receivers[0].lit;
       B.walk(23, 5.3); B.walk(26, 5.3, { time: 4 }); B.step(0.5); B.walk(34, 4.6);
       B.walk(37.5, 3); B.walk(44, 3, { time: 5 }); return B.res(r);
+    },
+    // v8.46: Water Feature [50]. Blue in the basin under the long fall, orange on the high panel, wait for the pond and the crate, then take the same fall
+    "Water Feature": function (B, tc) {
+  const r = {}; B.load('Water Feature'); B.step(0.5); const pl = B.pl(), W = B.world(), pond = W.pools[0], crate = W.cubes[0];
+  B.walk(4.5, 6); r.blue = B.fire(0, 6.35, 0, 2.5);
+  B.walk(12, 8); B.walk(22.3, 6.2); r.orange = B.fire(1, 20.5, 4.8, 2.5);
+  let t = 0; while (t < 40 && !(pond.full && crate.p.x < 23.5 && crate.p.y < -0.2 && Math.hypot(crate.v.x, crate.v.z) < 0.3)) { B.step(0.25); t += 0.25; } r.fillWait = t; r.crate = B.P(crate); r.level = +pond.y.toFixed(2);
+  B.walk(21.3, 12.4); B.aim(crate.p.x, crate.p.y, crate.p.z); B.use('take the crate'); r.held = !!B.held();
+  B.walk(6.2, 8.5); B.walk(6.4, 5.8); B.walk(19.6, 5.8, { time: 14 }); r.top = B.at();
+  B.walk(19.6, 4.4); B.walk(11.8, 4.4); B.walk(10.2, 2.5); r.bowl = B.at();
+  B.face(0, 2.5); tc.inp.fwd = 0.7; B.step(6, () => pl.p.x > 21); tc.inp.fwd = 0; B.count('the fall through both portals');
+  B.step(2.5); r.landed = B.at(); r.held2 = !!B.held();
+  B.walk(29.6, 9.6); B.aim(29.6, 0.7, 11.6); B.step(0.3); B.use('crate on the button'); B.step(1); r.door = B.door('d1'); r.cr2 = B.P(crate);
+  B.walk(32.5, 12.5); B.walk(32.5, 17.5, { time: 6 }); return B.res(r);
     }
   };
   const shortcut = {
+    // v8.46: Water Feature. A running jump from the bank, and one from the top pond step, toward the deck. `skipped` if either gets there
+    "Water Feature": { what: "running jumps across the pond, from the gap in the balustrade and from the top step", run: function (B, tc) {
+      const pl = B.pl(), r = { tries: [] }, tp = (x, y, z) => { pl.p.set(x, y + 0.92, z); pl.v.set(0, 0, 0); B.step(1 / 120); pl.p.set(x, y + 0.92, z); pl.v.set(0, 0, 0); B.step(0.3); };
+      B.load('Water Feature'); B.step(0.5);
+      for (const [sx, sz, jx] of [[20.5, 11.4, 23.4], [20.5, 11.4, 23.75], [20.5, 11.4, 23.9], [20.5, 11.4, 24.0], [24.3, 11.85, 24.6], [24.3, 11.85, 24.88]]) {
+        tp(sx, 0, sz); B.face(40, sz); tc.inp.fwd = 1; let jumped = false;
+        for (let k = 0; k < 360; k++) { if (!jumped && pl.p.x > jx) { tc.inp.jumpQ = true; jumped = true; } B.step(1 / 120); if (jumped && pl.ground && k > 60) break; }
+        tc.inp.fwd = 0; B.step(1.5); r.tries.push(B.at()); if (pl.p.x > 27.9 && pl.p.y > 1.4) r.skipped = true;
+      }
+      r.steps = r.tries.length; return r; } },
     "Delivery": { what: "Grab the crate through the cube room\u2019s window and back away: it comes out through the window, and the room is done without ever going in.", run: function (B, tc) {
       const r = {}; B.load('Delivery'); B.step(0.5); const c = B.world().cubes[0], pl = B.pl();
       B.walk(4.6, 8.4, { r: 0.05 }); r.at = B.at(); B.aim(c.p.x, c.p.y, c.p.z); B.use('grab the crate through the window'); r.held = !!B.held();
@@ -342,6 +366,14 @@
      `failed`: the plan did not finish the room. `recovered`: you can still carry on without restarting (after a death, the room is as it was).
      `died`: the plan got you killed. The plan only allows that where a sentry does it. ---------- */
   const first = {
+    // v8.46: Water Feature. The obvious plan: a portal in the top bowl, at your feet on the roof, under the spout
+    "Water Feature": { what: "a portal in the top bowl: the water dribbles out of the panel onto the paving, and the long fall stops", run: function (B, tc) {
+      const r = {}; B.load('Water Feature'); B.step(0.5); const W = B.world(), pond = W.pools[0], sp = id => W.sprayers.find(s => s.id === id);
+      B.walk(12, 8); B.walk(22.3, 6.2); r.o = B.fire(1, 20.5, 4.8, 2.5);
+      B.walk(6.2, 8.5); B.walk(6.4, 5.8); B.walk(19.6, 5.8, { time: 14 }); B.walk(19.6, 4.4); B.walk(12.5, 4.4); r.b = B.fire(0, 9.8, 6, 2.5);
+      B.step(30); const e = sp('spout').end; r.lands = e && +(e.x - 20.5).toFixed(2); r.where = sp('spout').endKind; r.longFall = sp('fall').on; r.failed = pond.got === 0 && r.where === 'drain';
+      B.walk(19.6, 4.4); B.walk(19.6, 5.8); B.walk(6.4, 5.8, { time: 14 }); B.walk(4.5, 6.5); B.fire(0, 6.35, 0, 2.5); let t = 0; while (t < 40 && !pond.full) { B.step(0.5); t += 0.5; }
+      r.recovered = pond.full; r.died = B.deaths() > 0; return r; } },
     "Walkway": { what: "Set the walkway to the pier and pick up the crate to take it across. The crate is the light’s meter: the walkway goes out under your nose. Put it back and the light returns.", run: function (B, tc) {
       const r = {}; B.load('Walkway'); B.step(0.5); const w = B.world(), c = w.cubes[0], lit = () => w.walks[0].segs.length > 1;
       B.walk(5, 6); B.fire(0, 6, 1.2, 11.95); B.fire(1, 0.05, 1.2, 3); B.step(0.5); r.bridge0 = lit();

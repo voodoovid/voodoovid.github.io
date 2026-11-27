@@ -487,6 +487,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
             <li><b>Looking round is free.</b> The first time you find anything hidden, you get 15 seconds and 2 portals back, and the clock stops while you are inside a hidden room. Exploring never costs you a medal.</li>
             <li><b>Light walkways</b> are solid: walk on them. <b>Carrier streams</b> lift whatever steps in and carry it along; walk sideways to step out. Both go through portals.</li>
             <li><b>Pastes</b> drip from nozzles and fall through portals. <b>Green</b> bounces you, <b>pink</b> makes you fast, and white <b>primer</b> makes a dark panel take portals.</li>
+            <li><b>Water</b> goes through portals too, and leaves as fast as it arrived: the further it fell, the further it flies. It fills a pool, and crates float. Pond water is safe: fall in and you are put back on the bank.</li>
             <li>A <b>prism crate</b> sends a light beam out of its lens, which points where you were looking when you put it down.</li>
             <li><b>Sparks</b> fly straight and bounce. Send one into a <b>socket</b> to open its door. They sting.</li>
             <li><b>Presses</b> flatten anything under them as they fall. <b>Wall switches</b> are pressed with GRAB and run on a timer. <b>Slow buttons</b> need weight for a few seconds before they count.</li>
@@ -589,10 +590,11 @@ import { Furn } from "./furniture.js";
 import { GLYPHS as HAND_GLYPHS, handWrite, handBlock, handWidth } from "./hand.js";      // v8.19: hand-lettering                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.45";
+const VERSION = "v8.46";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const KT_TEST = /[?&]kittest\b/.test(location.search);      // v8.41: the room kit's test rooms
-const SC_TEST = /[?&]secretstest\b/.test(location.search), IT_TEST = SC_TEST || /[?&]itemtest\b/.test(location.search), EX_TEST = /[?&]exittest\b/.test(location.search), DF_TEST = /[?&]diffcheck\b/.test(location.search), SPFX = SC_TEST ? "testchambers.stest." : IT_TEST ? "testchambers.itest." : EX_TEST ? "testchambers.xtest." : DF_TEST ? "testchambers.dtest." : "testchambers.";      // v8.40: ?exittest (the side-exit test rooms) and ?diffcheck (the Difficulty Check page's robots) keep their own saves      // v8.35: ?secretstest plays only the Secrets Test room
+const WT_TEST = /[?&]watertest\b/.test(location.search);    // v8.46: the water engine's test room (its own saves)
+const SC_TEST = /[?&]secretstest\b/.test(location.search), IT_TEST = SC_TEST || /[?&]itemtest\b/.test(location.search), EX_TEST = /[?&]exittest\b/.test(location.search), DF_TEST = /[?&]diffcheck\b/.test(location.search), SPFX = SC_TEST ? "testchambers.stest." : IT_TEST ? "testchambers.itest." : EX_TEST ? "testchambers.xtest." : WT_TEST ? "testchambers.wtest." : DF_TEST ? "testchambers.dtest." : "testchambers.";      // v8.40: ?exittest (the side-exit test rooms) and ?diffcheck (the Difficulty Check page's robots) keep their own saves      // v8.35: ?secretstest plays only the Secrets Test room
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -2405,6 +2407,67 @@ function level33() {
     hint: ["One of my cameras sweeps. The other has not blinked since it was installed. Neither of them can see through a pot plant."], hint2: ["There are three clean panels down here, and the third cannot be seen until you have used the second. I would rather you had not noticed any of them."],
     done: ["I have lost you again. Please stop doing that. It is a very long time since I lost anybody."] } });
 }
+// v8.46 Water Feature (plan: the Project doc water-plan.md; a new room, between Corridor Nine and Sorting Hall).
+// A staff atrium nobody has used in years. The fountain still runs: a spout pours half a metre into a tiled bowl up on the roof of the office block,
+// the bowl runs over through a hole in the overhang, and that falls six metres into a tiled basin by the way in. Across the room is an ornamental
+// pond, drained and three metres deep, with the door on a deck beyond it and the door's crate at the bottom of a glass skimmer column in the corner.
+// One white panel, high on the end of the office block, faces the pond.
+//   The obvious plan: a portal in the top bowl (it is at your feet on the roof, under the spout). Water that has fallen half a metre dribbles out of
+//   the panel and lands on the paving, 2 m out, in a drain. And while the bowl is not being filled, the long fall stops.
+//   The answer: a portal in the basin. Water that has fallen six metres leaves the panel fast enough to clear the low wall and lands in the middle of
+//   the pond. The pond fills (13 s), the crate floats up the column and rides out through the notch into the overflow trough in the paving. Then you take the same fall:
+//   up the stairs, through the hole the water goes through, into the same portal. You are heavier than spray, so you carry on over the pond to the deck.
+// Measured by robot in ?watertest (same panel height, distances and falls) and here: see the Project doc water-v8.46-notes.md. The pond is 3.5 to 7.0 m out from the panel; the deck starts at 7.0 m.
+// No trap: the dry pond has steps out; the full pond puts you back on the bank; the hole and the roof only drop you on the floor; you can jump out of the trough.
+// No way across but the fall: the bank has a glass balustrade, the deck has a kerb, and the pond is wall to wall (robots: running jumps from the bank and from the top step all end in the pond).
+function level58() {
+  const L = 36, W = 14, H = 11, h = shell({ cells: [[0, 0, 0, L, H, W]], start: { pos: [2, 0, 9], yaw: -Math.PI / 2 } });
+  const B = h.boxes;
+  opening(h, [24, -3, 0, 27.5, 0, W]);                                                                   // the pond: 3.5 m across, wall to wall, 3 m deep
+  B.push(bx(27.5, 0, 0, L, 0.6, W, "dark"), bx(27.5, 0.6, 0, 27.9, 1.4, W, "dark"));                     // the deck beyond it, and the kerb along its edge (0.8 m: a running jump from the bank hits it; the fall clears it)
+  opening(h, [21.8, -0.7, 13.1, 23.6, 0, W]); opening(h, [23.6, -0.6, 13.1, 24, 0, W]);                   // the overflow trough in the paving, and the notch from the skimmer into it
+  exitPort(h, "zW", 32.5, 0.6, W);
+  B.push(bx(8, 0, 0, 20.5, 6, 5, "dark"));                                                               // the office block: its roof is the mezzanine
+  B.push(bx(5, 4.8, 0, 8, 6, 1.95, "dark"), bx(5, 4.8, 3.05, 8, 6, 5, "dark"), bx(5, 4.8, 1.95, 5.9, 6, 3.05, "dark"), bx(6.8, 4.8, 1.95, 8, 6, 3.05, "dark"));      // the overhang, with the hole the bowl runs out through (0.9 by 1.1 m, 1.2 m deep: you fall where the water falls)
+  stairs(h, { x0: 7, x1: 19, z0: 5, z1: 6.6, y0: 0, y1: 6, up: "x+" }); B.push(bx(19, 0, 5, 20.5, 6, 6.6, "dark"));      // the stairs up the side of the block, and their landing
+  B.push(bx(6.8, 6, 1.0, 11.2, 6.15, 1.2, "dark"), bx(6.8, 6, 3.8, 11.2, 6.15, 4.0, "dark"), bx(11, 6, 1.2, 11.2, 6.15, 3.8, "dark"), bx(6.8, 6, 1.2, 7.0, 6.15, 1.95, "dark"), bx(6.8, 6, 3.05, 7.0, 6.15, 3.8, "dark"),      // the top bowl's kerb (low enough to walk over), narrowing to the hole,
+    bx(5.7, 6, 1.75, 5.9, 7.2, 3.25, "dark"), bx(5.9, 6, 1.75, 6.8, 7.2, 1.95, "dark"), bx(5.9, 6, 3.05, 6.8, 7.2, 3.25, "dark"));      // and the weir box round the hole: walled on three sides, so the only way in is the way the water goes
+  B.push(bx(5.0, 0, 1.15, 5.2, 0.15, 3.85, "dark"), bx(5.2, 0, 1.15, 8, 0.15, 1.35, "dark"), bx(5.2, 0, 3.65, 8, 0.15, 3.85, "dark"), bx(7.5, 0, 1.35, 8, 0.15, 3.65, "dark"));      // the basin's kerb
+  refinish(h, [8.6, 5.9, 1.25, 11, 6, 3.75], "white");                                                   // the top bowl's tile, under the spout
+  refinish(h, [5.2, -0.1, 1.35, 7.5, 0, 3.65], "white");                                                   // the basin's tile, under the long fall
+  refinish(h, [20.4, 3.6, 1.7, 20.5, 6.0, 3.3], "white");                                                // the panel: high on the end of the block, its middle 4.8 m up, facing the pond
+  B.push(bx(23.6, 0, 13.0, 24, 3.3, 13.1, "dark"), bx(23.6, 0.35, 13.1, 24, 3.3, W, "dark"), bx(24, 3.2, 13.0, 25, 3.3, W, "dark"));      // the notch's jamb, the pier over it (the notch is 0.95 m high: a crate goes through, you do not), and the skimmer's lid
+  h.panes.push({ min: [24, -3, 13.0], max: [24.9, 3.2, 13.1] }, { min: [24.9, -3, 13.0], max: [25, 3.2, W] });      // the skimmer: a glass column in the pond's corner. You can see the crate; nothing reaches it but water
+  for (const [z0, z1] of [[0, 3.6], [3.6, 7.2], [7.2, 10.8], [12, 13.0]]) h.panes.push({ min: [23.8, 0, z0], max: [24, 1.6, z1] });      // the glass balustrade along the bank (too high to jump onto), with a gap at the steps
+  for (let i = 0; i < 20; i++) {                                                                         // the steps out of the dry pond, along its near wall, up to the gap in the balustrade. Open underneath at the top end: the cupboard under the stairs
+    const z0 = 6 + i * 0.3, top = -3 + (i + 1) * 0.15, open = top - 0.25 >= -1.15;
+    B.push(bx(24, open ? top - 0.25 : -3, z0, 25.2, top, z0 + 0.3, "dark")); if (open && i < 16) B.push(bx(25.08, -3, z0, 25.2, top - 0.25, z0 + 0.3, "dark"));      // its side is walled, but for the last four steps: that is the way in
+  }
+  B.push(bx(24, -3, 12, 25.2, 0, 12.12, "dark"));                                                        // and its end is walled, so it cannot be seen from the bank, the deck or the roof
+  B.push(bx(12, 0, 9.2, 14.4, 0.45, 9.8, "dark"), bx(16.4, 0, 11.2, 17.6, 0.7, 12.4, "dark"), bx(12.2, 0, 11.6, 13.4, 0.7, 12.8, "dark"));      // a bench and two planters
+  h.sprayers = [{ pos: [9.8, 6.52, 2.5], dir: [0, -1, 0], kind: "water", id: "spout" }, { pos: [6.35, 5.98, 2.5], dir: [0, -1, 0], kind: "water", id: "fall", feed: "bowl", pipe: false }];
+  h.drains = [{ id: "bowl", min: [6.8, 5.8, 1.2], max: [11, 6.05, 3.8] }, { id: "basin", min: [5.2, -0.2, 1.35], max: [7.5, 0.05, 3.65], grate: [7.1, 0, 3.25, 0.5, 0.5] },
+    { id: "pave", min: [22, -0.2, 1.4], max: [23.6, 0.05, 3.6], grate: [22.8, 0, 2.5, 1.4, 2.0] }];
+  h.sheets = [{ x0: 6.8, x1: 11, z0: 1.2, z1: 3.8, y: 6.025, flow: [-1, 0], feed: "bowl" }, { x0: 5.2, x1: 7.5, z0: 1.35, z1: 3.65, y: 0.022, feed: "basin" }, { x0: 21.8, x1: 23.6, z0: 13.1, z1: W, y: -0.67, flow: [-1, 0], full: "pond" }];
+  h.pools = [{ id: "pond", x0: 24, x1: 27.5, z0: 0, z1: W, y: -3, fill: { from: -2.98, to: -0.1, drops: 150 }, safe: true, bank: [22, 0, 8, -Math.PI / 2], gather: [24.7, 11.2, 1.2],      // a crate thrown into the full pond drifts to the top of the steps, by the gap in the balustrade
+    line: "The pond is full. It has not been full since the staff picnic. There was only the one picnic.", dunk: "Staff are reminded that the pond is ornamental.",
+    parts: [{ x0: 24, x1: 24.9, z0: 13.1, z1: W, cur: [-1.6, 0], vol: -3 }], spill: { min: [21.9, -0.75, 13.1], max: [24.92, 0.6, W], push: [-2.2, 0] } }];
+  h.cubes = [[24.45, -2.64, 13.55]]; h.plates = [{ pos: [29.6, 0.6, 11.6], door: "d1" }]; h.doors = [sideDoor(h)]; h.par = [240, 2];
+  h.chutes = [{ min: [5.9, 0, 1.95], max: [6.8, 6.3, 3.05] }];                                           // the fall under the hole: no steering on the way down
+  h.lamps.push(lamp(25.8, -0.7, 7, .45, 7, .7, .9, 1), Object.assign(lamp(7.5, 4.5, 4.2, .4, 6, ...WARM), { bare: true }), Object.assign(lamp(24.6, -1.5, 11, .25, 2.4, ...WARM), { bare: true }));
+  B.push(bx(9.73, 7.0, 2.43, 9.87, H, 2.57, "dark"), bx(16.95, 0.7, 11.75, 17.05, 2.5, 11.85, "dark"), bx(12.75, 0.7, 12.15, 12.85, 2.1, 12.25, "dark"));      // the spout's riser, down from the ceiling, and a dead tree in each planter (all solid: nothing within reach is a ghost)
+  h.items = [{ id: "coins", kind: "pickup", look: "mug", name: "A mug of coins from the fountain. Every one of them was a wish", pos: [24.55, -3, 10.4] }];
+  (h.secrets = h.secrets || []).push({ kind: "corner", what: "under the pond steps", id: "under50", finds: ["coins"], way: "dry", how: "Go down into the pond while it is dry. The steps are open underneath at their top end, on the side away from the bank.", lit: true, cover: null, badge: false, more: [],
+    seen: [[26.6, -3, 11.4]], open: { c: [25.14, -1.9, 11.4], n: [1, 0, 0], w: 1.2, h: 2.2 }, at: [24.55, -3, 10.4], air: { min: [24, -3, 9.9], max: [25.08, -0.25, 12] }, wall: "face" });
+  h.route = [[2, 0, 9], [4.5, 0, 6], [22.3, 0, 6], [21.2, 0, 12.4], [20, 6, 5.8], [8.5, 6, 2.5], [30, 0.6, 2.5], [29.6, 0.6, 10.4]];
+  h.signs.push(chSign(50, "WATER FEATURE", 2.6, 4.4), hint("POND DRAINED FOR CLEANING", [21.6, 2.3, W - 0.001], [0, 0, -1], 3.4, 0.7),
+    scrawl("THEY THREW COINS IN.", "NOBODY ASKED WHAT FOR.  - O.", [7.999, 2.3, 2.5], [-1, 0, 0], 2.5, 0.8));      // behind the long fall. Not a hint to the room: a nudge toward the mug under the pond steps
+  return Object.assign(h, { num: 58, name: "Water Feature", track: 0, say: {
+    intro: ["This is the staff atrium. The fountain was put in for morale. The morale left. I kept the fountain.", "The pond was drained for cleaning, and nobody came back to fill it. The way on is across it. The door wants a weight, and the weight is in the pond."],
+    hint: ["Water is like paste. It is not clever. It leaves a portal exactly as fast as it arrived, and in this room it has two places to arrive."],
+    hint2: ["The top bowl gives you a dribble. The long fall gives you a river. Send the long fall into the pond and wait for what floats. Then take the same fall yourself."],
+    done: ["You filled the pond. Forty-one years of maintenance requests, and it took a courier. I have closed the ticket."] } });
+}
 function level34() {
   // v7.0 Sorting Hall (Batch 7 rework): the turning panel has a vane through its middle, so a portal sits on one half or the other, and the half turn
   // swaps them: what you put on the right half comes round on the left. Behind the left half is the ledge with the door; behind the right half there
@@ -3592,12 +3655,12 @@ function denAudit(only) {
    in is a small puzzle with that room's own device; the inner room is reached by portal through a slot (or, in Second
    Opinion, by weighing a plate down with a dead sentry). Nothing in a den is ever needed to finish.
    ===================================================================================== */
-const BS_FIRST = 38, BS_LAST = 49;                    // room indexes (0-based) of rooms 39 to 50 (v8.17; 44 in v8.16). Rooms 51 to 53 keep their look
+const BS_FIRST = 38, BS_LAST = 50;                    // room indexes (0-based) of rooms 39 to 51 (v8.46: Water Feature went in as room 50, so 51 here; 50 in v8.17; 44 in v8.16). Rooms 52 to 54 keep their look
 const isBS = i => !IT_TEST && i >= BS_FIRST && i <= BS_LAST;
 const isOff = i => !IT_TEST && i >= BS_FIRST;         // v8.17: from room 39 to the end nobody rides a lift (rooms 51 to 53 are not re-dressed, but you still arrive on foot)
-const BS_PLAIN = { "Corridor Nine": 1, "Sorting Hall": 1 };      // service corridors already: bare concrete throughout (their walls with hatches in are not pallets or girders)
+const BS_PLAIN = { "Corridor Nine": 1, "Water Feature": 1, "Sorting Hall": 1 };      // service corridors already: bare concrete throughout (their walls with hatches in are not pallets or girders)
 const BS_LIGHT = { "Out Of Order": 1 };               // a light touch: the staff office keeps its own look (shutters and O.'s sign only)
-const BS_NAME = { "Second Opinion": "SENTRY CHARGING BAY", "Prism": "OPTICS STORE", "Hot Seat": "BURN-IN BENCH", "Heavy Hat": "OVERHEAD STORES", "Lift Off": "GRAVITY RIG", "Live Wire": "SWITCH ROOM", "Paperweight": "CAMERA STORES",
+const BS_NAME = { "Water Feature": "STAFF ATRIUM", "Second Opinion": "SENTRY CHARGING BAY", "Prism": "OPTICS STORE", "Hot Seat": "BURN-IN BENCH", "Heavy Hat": "OVERHEAD STORES", "Lift Off": "GRAVITY RIG", "Live Wire": "SWITCH ROOM", "Paperweight": "CAMERA STORES",
   "Hall Of Mirrors": "SENTRY GRAVEYARD", "Final Exam": "PANEL ASSEMBLY", "Out Of Order": "OUT OF ORDER" };
 // what SaDos says when a camera first finds you in each room: she wants you back on the track (the device is still named, the route never is)
 const BS_SAY = {
@@ -4307,7 +4370,7 @@ const CAM_PLAN = {
   "Hall Of Mirrors": [{ keep: "plain", m: "corner" }, { m: "pole", at: [20, 9.5], drop: 2.2, watch: { aim: [20, 0, 6], sweep: 0.8, period: 6, range: 12, cone: 18 } }],     // the sweeping one now hangs from the ceiling (a white patch round its pole), no longer Paperweight's pair
   "Final Exam": [{ m: "corner", w: "x0", end: 1, look: "start" }, { keep: "watch" }],
   "Out Of Order": [{ m: "pole", at: [12, 6], drop: 1.2, look: "start" }],
-  "Corridor Nine": [{ keep: "watch" }, { keep: "watch" }], "Sorting Hall": [{ keep: "watch" }],
+  "Corridor Nine": [{ keep: "watch" }, { keep: "watch" }], "Water Feature": [{ m: "corner", w: "x0", end: 1, look: "start" }], "Sorting Hall": [{ keep: "watch" }],
   "The Argument": [{ m: "corner", w: "x0", end: 1, look: "start" }],
   "The Last Order": [{ keep: "watch" }, { keep: "watch" }],
   "The Way Out": "none"
@@ -4375,7 +4438,7 @@ function camWrap(f, i) {
    route, seen from at least one spot off it, at least one find that needs no key card, no way in used more than three times, plate dens
    two at most; seams add no white and nothing in reach; the rooms that have nothing have nothing. Dens from before Batch I are listed
    as "rebuilt later" (they go in steps I-2 to I-4), not as failures. */
-const NOTHING_ROOMS = [1, 5, 6, 9, 11, 17, 22, 32, 52];
+const NOTHING_ROOMS = [1, 5, 6, 9, 11, 17, 22, 32, 53];      // v8.46: the last one was 52 until Water Feature went in as room 50
 const sentryBox = s => ({ min: [s.pos[0] - 0.26, s.pos[1], s.pos[2] - 0.26], max: [s.pos[0] + 0.26, s.pos[1] + 1.28, s.pos[2] + 0.26] });
 const WATCH_FIXED = { "Scales": [[12, 5.6, 13.9]], "Paperweight": [[23.5, 5.6, 11.9]], "Final Exam": [[31.7, 7.9, 13.9]], "Corridor Nine": [[12.5, 3.8, 0.02], [28.98, 3.9, 5]], "Sorting Hall": [[14, 6.5, 0.02]], "The Last Order": [[33.98, 4.2, 3], [26.1, 8.2, 0.02]], "Hall Of Mirrors": [[20, 8.9, 9.5]] };
 function secretAudit(only) {
@@ -4727,6 +4790,29 @@ function levelKitD() {                         // a U-turn with a pit: two legs 
   h.signs.push(chSign(96, "KIT TEST D: U-TURN", 4.6, 4.4));
   return Object.assign(h, { num: 96, name: "Kit Test D", track: 0, par: [50, 2], say: kitSay("Kit test. The room doubles back, and there is a pit in the way.", "A portal on the wall behind you, and one on the wall across the pit.") });
 }
+// v8.46: the water engine's test room (?watertest only). Not a puzzle. Two spouts that never stop: a short fall (0.5 m, tile A) and a long one
+// (6 m, tile B). One wall panel, its middle 4.8 m up. Paving with a drain, then a dry pool 3.5 m long and 3 m deep with a crate in a glass column
+// in its corner, then a deck. The robots put a portal under each fall in turn and measure where the water lands, how long the pool takes,
+// whether the crate comes out through the notch, and where a player who takes the long fall comes down.
+function levelWaterTest() {
+  const h = shell({ cells: [[0, 0, 0, 21, 11, 10], [21, 0.6, 0, 34, 11, 10]], start: { pos: [2, 0, 7], yaw: -Math.PI / 2 }, exit: { wall: "x1", at: [34, 0.6, 5] } });
+  const B = h.boxes;
+  opening(h, [17.5, -3, 0, 21, 0, 10]);                                                                  // the pool
+  B.push(bx(12, 0, 0, 14, 7, 5, "dark"), bx(4.8, 0, 4.2, 5.2, 0.8, 4.6, "dark"), bx(4.92, 0.56, 2.4, 5.08, 0.7, 4.2, "dark"));      // the panel's block, the short spout's post and arm (the long spout hangs in the air, so a robot can take its fall)
+  B.push(bx(17.1, 0, 0, 17.5, 0.6, 9.0, "dark"), bx(17.1, 0, 9.0, 17.5, 1.1, 9.1, "dark"), bx(17.1, 0.95, 9.1, 17.5, 1.1, 10, "dark"), bx(17.5, 1.0, 9.0, 18.5, 1.1, 10, "dark"));      // the low wall, the notch's jamb and lintel, the column's lid
+  refinish(h, [13.9, 3.6, 1.7, 14, 6.0, 3.3], "white"); refinish(h, [4, -0.1, 1.2, 6, 0, 3.8], "white"); refinish(h, [8, -0.1, 1.2, 10, 0, 3.8], "white");
+  h.panes.push({ min: [17.5, -3, 9.0], max: [18.4, 1.0, 9.1] }, { min: [18.4, -3, 9.0], max: [18.5, 1.0, 10] });
+  h.sprayers = [{ pos: [5, 0.52, 2.5], dir: [0, -1, 0], kind: "water", id: "short" }, { pos: [9, 6.0, 2.5], dir: [0, -1, 0], kind: "water", id: "long" }];
+  h.drains = [{ id: "a", min: [4, -0.2, 1.2], max: [6, 0.05, 3.8], grate: [4.4, 0, 3.3, 0.5, 0.5] }, { id: "b", min: [8, -0.2, 1.2], max: [10, 0.05, 3.8], grate: [8.4, 0, 3.3, 0.5, 0.5] },
+    { id: "pave", min: [15.4, -0.2, 1.4], max: [17.1, 0.05, 3.6], grate: [16.25, 0, 2.5, 1.6, 2.1] }];
+  h.pools = [{ id: "pond", x0: 17.5, x1: 21, z0: 0, z1: 10, y: -3, fill: { from: -2.98, to: 0.5, drops: 150 }, safe: true, bank: [15.5, 0, 6, -Math.PI / 2],
+    parts: [{ x0: 17.5, x1: 18.4, z0: 9.1, z1: 10, cur: [-1.6, 0], vol: -3 }], spill: { min: [16.1, -0.25, 9.1], max: [18.42, 1.2, 10], push: [-2.2, 0] } }];
+  h.sheets = [{ x0: 16.1, x1: 17.5, z0: 9.1, z1: 10, y: 0.02, flow: [-1, 0], full: "pond" }];
+  h.cubes = [[17.95, -2.64, 9.55]];
+  h.lamps.push(lamp(19.2, -0.6, 5, .5, 7, .7, .9, 1));
+  h.signs.push(chSign(97, "WATER TEST", 4.6, 4.4));
+  return Object.assign(h, { num: 97, name: "Water Test", track: 0, par: [90, 2], say: kitSay("Water test. Two spouts, one panel, one pool. Water goes through portals at the speed it fell.", "A portal under the long fall, and one on the high panel.") });
+}
 const CHAMBERS = [
   // v6.0 (Batch 1): the Act 1 order from the room map. Rooms past 23 keep their v5.3 form at their new number until their own batch arrives. Room 22 (Dead Drop) came in Batch 3 (v6.2).
   ["Orientation", level1, level54, level55], ["Deliveries", level2, level56], ["Up And Over", level3, level4, level5],
@@ -4735,10 +4821,11 @@ const CHAMBERS = [
   ["Leaps", level15, level39, level20], ["Timing", level43, level29], ["Moving Parts", level31, level23],
   ["Bright Ideas", level37, level38], ["Handle With Care", level40, level44, level12], ["Cold Storage", level30, level21, level19],
   ["Second Opinion", level47, level41], ["Burnout", level50, level51], ["Loose Ends", level52, level42, level49],
-  ["Final Exam", level53, level24], ["Out Of Order", level32], ["Behind The Walls", level33, level34], ["The Last Order", level45, level35, level36]
+  ["Final Exam", level53, level24], ["Out Of Order", level32], ["Behind The Walls", level33, level58, level34], ["The Last Order", level45, level35, level36]
 ];
 if (IT_TEST) CHAMBERS.splice(0, CHAMBERS.length, SC_TEST ? ["Secrets Test", levelSecretsTest] : ["Item Test", levelItemTest]);
 if (KT_TEST) CHAMBERS.splice(0, CHAMBERS.length, ["Kit Test", levelKitA, levelKitB, levelKitC, levelKitD]);      // v8.41: ?kittest plays the room kit's test rooms
+if (WT_TEST) CHAMBERS.splice(0, CHAMBERS.length, ["Water Test", levelWaterTest]);      // v8.46: ?watertest plays the water engine's test room
 if (EX_TEST) CHAMBERS.splice(0, CHAMBERS.length, ["Exit Test", levelExitA, levelExitB, levelExitC]);      // v8.40 (Batch J step 1): ?exittest plays the three side-exit test rooms      // v8.5: ?itemtest plays only the Item Test room
 const LEVEL_FUNCS = [], ROOM = [], FIRST = [];
 CHAMBERS.forEach(([name, ...fns], c) => { FIRST.push(LEVEL_FUNCS.length); fns.forEach((f, k) => { ROOM.push({ c, part: k, parts: fns.length }); LEVEL_FUNCS.push(camWrap(denWrap(f, LEVEL_FUNCS.length), LEVEL_FUNCS.length)); }); });      // v8.14: denWrap dresses the dens of rooms 1 to 30; v8.35: camWrap puts in CAM_PLAN
@@ -4754,8 +4841,11 @@ if (!store.get("mig53", 0)) {   // v5.3 put four chambers in after Handle With C
   if (p5 !== null) { store.set("progress5", sh(p5)); const b = store.get("best", {}), nb = {}; for (const k in b) nb[sh(+k)] = b[k]; store.set("best", nb); store.set("badges", store.get("badges", []).map(sh)); const r = store.get("room", 0); store.set("room", r >= 36 ? r + 8 : r); }
 }
 
+if (!store.get("mig846", 0)) {  // v8.46 put a room (Water Feature) in as room 50: anyone saved in a later room moves along one. Medals and key cards are kept by chamber, finds by room name: nothing else moves
+  store.set("mig846", 1); const r = store.get("room", -1); if (r >= 49) store.set("room", r + 1);
+}
 if (!store.get("mig60", 0)) {   // v6.0 (the rewrite, Batch 1) reorders every chamber: saved progress, medals and badges start again, as agreed
-  store.set("mig60", 1); store.set("mig50", 1); store.set("mig53", 1);
+  store.set("mig60", 1); store.set("mig50", 1); store.set("mig53", 1); store.set("mig846", 1);
   store.set("progress5", 0); for (const k of ["finished5", "room", "best", "badges"]) { try { localStorage.removeItem(SPFX + k); } catch (e) {} }
 }
 { const bs = store.get("badges", []), ks = store.get("keys", []); let ch = false; for (const c of bs) if (!ks.includes("ch" + c)) { ks.push("ch" + c); ch = true; } if (ch) store.set("keys", ks); }      // v8.12: a badge found before the rename counts as a key card
@@ -5561,9 +5651,15 @@ function buildLevel(idx) {
   // coolant pools: cold enough to stop you, but loose things float; a pump (worked by a plate) sets up a current
   for (const a of (lv.pools || [])) {
     const t = coolTex(); t.repeat.set((a.x1 - a.x0) / 3, (a.z1 - a.z0) / 3);
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(a.x1 - a.x0, a.z1 - a.z0), new THREE.MeshBasicMaterial({ map: t, color: new THREE.Color(.75, 1.05, 1.35), transparent: true, opacity: .86 }));
-    m.userData.ownMat = 1; m.userData.ownMap = 1; m.rotation.x = -Math.PI / 2; m.position.set((a.x0 + a.x1) / 2, a.y, (a.z0 + a.z1) / 2); levelGroup.add(m);
-    W.pools.push({ ...a, tex: t, on: false, was: false, dir: -1 });
+    const wat = !!(a.fill || a.water), y0 = a.fill ? a.fill.from : a.y, meshes = [], vols = [];      // v8.46: water (clearer than coolant), a level that can rise, extra rectangles
+    const pm = new THREE.MeshBasicMaterial({ map: t, color: wat ? new THREE.Color(.62, 1.0, 1.08) : new THREE.Color(.75, 1.05, 1.35), transparent: true, opacity: wat ? .8 : .86 });
+    [a, ...(a.parts || [])].forEach((r, k) => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(r.x1 - r.x0, r.z1 - r.z0), pm);
+      if (k === 0) { m.userData.ownMat = 1; m.userData.ownMap = 1; } m.rotation.x = -Math.PI / 2; m.position.set((r.x0 + r.x1) / 2, y0, (r.z0 + r.z1) / 2); m.visible = !a.fill; levelGroup.add(m); meshes.push(m);
+      if (r.vol != null) { const vm = new THREE.Mesh(new THREE.BoxGeometry(r.x1 - r.x0 - 0.02, 1, r.z1 - r.z0 - 0.02).translate(0, 0.5, 0), new THREE.MeshBasicMaterial({ color: new THREE.Color(.3, .62, .72), transparent: true, opacity: .3, depthWrite: false }));
+        vm.userData.ownMat = 1; vm.position.set((r.x0 + r.x1) / 2, r.vol, (r.z0 + r.z1) / 2); vm.visible = false; vm.renderOrder = 3; levelGroup.add(vm); vols.push({ m: vm, bed: r.vol }); }
+    });
+    W.pools.push({ ...a, y: y0, tex: t, on: false, was: false, dir: -1, meshes, vols, got: 0, full: false, rim: a.rim != null ? a.rim : a.fill ? a.fill.to + 0.3 : a.y, said: false });
   }
   for (const d of (lv.glass || [])) W.glass.push({ box: { min: d.min.slice(), max: d.max.slice(), mat: "glass", portal: false }, hp: d.hp || 6, broken: false });
   for (const d of (lv.panes || [])) {            // v8.41 (room kit): a clear window. Nothing passes it and it never breaks; the sheet you see stands in the middle of the wall's thickness, in a steel frame
@@ -5702,18 +5798,30 @@ function zonesStep(dt) {
   for (const a of W.pools) { a.was = a.on; a.on = false; }
   for (const p of W.plates) if (p.active && p.pump) for (const a of W.pools) if (a.pump === p.pump) a.on = true;
   for (const p of W.plates) { if (p.pump && p.pressed && !p.wasP) for (const a of W.pools) if (a.pump === p.pump) { a.dir = a.dir === 1 ? -1 : 1; sfx.pump(); } p.wasP = p.pressed; }   // each press runs the pump the other way: there, then back
+  for (const a of W.pools) {                    // v8.46: a pool that fills. Each drop that lands in it lifts the level; full, it spills
+    if (!a.fill) continue;
+    const f = Math.min(1, a.got / a.fill.drops), tgt = a.fill.from + (a.fill.to - a.fill.from) * f; a.y += (tgt - a.y) * Math.min(1, 3 * dt);
+    const show = a.y > a.fill.from + 0.03; for (const m of a.meshes) { m.visible = show; m.position.y = a.y; } for (const v of a.vols) { v.m.visible = a.y > v.bed + 0.03; v.m.scale.y = Math.max(0.001, a.y - v.bed); }
+    if (!a.full && f >= 1 && a.y > a.fill.to - 0.02) { a.full = true; W.ev["full:" + (a.id || "pool")] = true; sndAt((a.x0 + a.x1) / 2, a.y, (a.z0 + a.z1) / 2); sfx.splash(); if (a.line && !a.said) { a.said = true; say(null, a.line); } }
+    if (a.full) { a.on = true; a.dir = 1; }
+  }
   if (!W.gravs.length && !W.pools.length) return;
   for (const c of props()) {
     if (c.held) continue;
     let gs = 1; if (!(c.bolt && c.state === "on")) for (const g of W.gravs) if (g.flip && c.p.x > g.min[0] && c.p.x < g.max[0] && c.p.y > g.min[1] && c.p.y < g.max[1] && c.p.z > g.min[2] && c.p.z < g.max[2]) gs = -1;
     if (gs !== c.gs) { c.body.setGravityScale(gs, true); c.body.wakeUp(); c.gs = gs; }
     for (const a of W.pools) {
-      const bot = c.p.y - c.h[1]; if (bot >= a.y || c.p.x < a.x0 || c.p.x > a.x1 || c.p.z < a.z0 || c.p.z > a.z1) continue;
+      const bot = c.p.y - c.h[1]; if (bot >= a.y) continue; const part = poolPart(a, c.p.x, c.p.z); if (!part) continue; const cur = part.cur || a.cur;
       const sub = clamp((a.y - bot) / (2 * c.h[1]), 0, 1), lift = c.kind === "sentry" ? 0.45 : c.raft ? 3.2 : 2, v = c.body.linvel(), w = c.body.angvel();
       let vx = v.x, vy = v.y + GRAV * lift * sub * dt, vz = v.z; vy -= vy * Math.min(1, 4 * sub * dt);
-      const k = Math.min(1, 1.4 * sub * dt), cx = a.on && a.cur ? a.cur[0] * a.dir : 0, cz = a.on && a.cur ? a.cur[1] * a.dir : 0; vx += (cx - vx) * k; vz += (cz - vz) * k;
+      let cx = a.on && cur ? cur[0] * a.dir : 0, cz = a.on && cur ? cur[1] * a.dir : 0;
+      if (a.full && a.gather && part === a) { const gx = a.gather[0] - c.p.x, gz = a.gather[1] - c.p.z, gl = Math.hypot(gx, gz), gs = a.gather[2] * Math.min(1, gl) / Math.max(gl, 1e-3); cx = gx * gs; cz = gz * gs; }      // v8.46: a full pond brings whatever floats to one place, where you can reach it
+      const k = Math.min(1, 1.4 * sub * dt); vx += (cx - vx) * k; vz += (cz - vz) * k;
       c.body.setLinvel({ x: vx, y: vy, z: vz }, true); const ak = 1 - Math.min(1, 3 * sub * dt); c.body.setAngvel({ x: w.x * ak, y: w.y * ak, z: w.z * ak }, true);
       if (!c.wet && Math.abs(v.y) > 1.5) { sndAt(c.p); sfx.splash(); } c.wet = 0.3;
+    }
+    for (const a of W.pools) if (a.full && a.spill && inBox(a.spill, c.p.x, c.p.y, c.p.z)) {      // v8.46: over the notch and out, on the water that is spilling
+      const v = c.body.linvel(), k = Math.min(1, 6 * dt), p = a.spill.push; c.body.setLinvel({ x: v.x + (p[0] - v.x) * k, y: v.y, z: v.z + (p[1] - v.z) * k }, true); c.body.wakeUp();
     }
     if (c.wet > 0) c.wet -= dt;
   }
@@ -6171,7 +6279,7 @@ function teleportPlayer(P) {
   }
   const eyeNew = eyePos(prevEye);
   sfx.enter(P.idx);
-  run.ports = (run.ports || 0) + 1; pl.flyT = 0;
+  run.ports = (run.ports || 0) + 1; pl.flyT = pl.chute > 0 ? 3 : 0;      // v8.46: out of a chute's fall you fly as the water does, with no steering (and so no braking by a held key), until you land
 }
 // the body can end up partly inside the floor: an eye near the bottom of a wall portal (you fell into a floor portal by its edge), or
 // a floor portal closing while you are in the slab. Lift it onto the surface so you never end up under the floor with it invisible.
@@ -6985,6 +7093,132 @@ const V5 = {
   name: { bounce: "Rebound paste", glide: "Glide paste", primer: "Primer" }
 };
 const PASTE_G = 6;                   // paste is light: it falls slowly, so you can see where it is going
+/* =====================================================================================
+   v8.46 WATER (plan: the Project doc water-plan.md).
+   A nozzle of kind "water" pours a stream: many light drops, one every 0.08 s, drawn as a ribbon through them. A drop falls, is slowed by the
+   air (WATER.drag: it is spray), goes through portals at the speed it arrives (the paste rule) and paints nothing. Where it lands:
+     - in a pool that has `fill: { from, to, drops }`: the pool's level goes up (zonesStep moves the surface; crates float on it as in any pool);
+     - in a drain (`lv.drains`: { id, min, max, grate: [x, y, z, w, d] }): it is gone. A nozzle with `feed: id` runs only while that drain is being fed
+       (the fountain's top bowl feeds the long fall: catch the spout in a portal and the long fall dries up);
+     - anywhere else: a splash and a wet patch.
+   Pools: `safe: true` and `bank: [x, y, z, yaw]` (fall in and you are put back on the bank; never die("cold")), `parts` (more rectangles at the same
+   level, each with its own `cur`), `spill: { min, max, push: [vx, vz] }` (once full, the current runs and anything in this box is carried out
+   through the notch), `gather: [x, z, speed]` (once full, anything floating in the main rectangle drifts to this spot), `line` (SaDos, once, when it is full). world.ev["full:" + id] is set when a pool is full. `lv.sheets`: a film of running
+   water on a surface ({ x0, x1, z0, z1, y, flow, feed | full }), shown while its drain is fed or its pool is full.
+   Test room: ?watertest. __tc.water has the numbers and the measuring helpers.
+   ===================================================================================== */
+const WATER = { g: 12, drag: 0.9, cap: 300, life: 9, r: 0.065, rate: 0.08 };
+function poolPart(a, x, z, m = 0) {                    // which rectangle of pool `a` the point is over (the pool itself, or one of its parts)
+  if (a.parts) for (const p of a.parts) if (x > p.x0 - m && x < p.x1 + m && z > p.z0 - m && z < p.z1 + m) return p;      // a part may lie inside the main rectangle (a glass column): it wins
+  if (x > a.x0 - m && x < a.x1 + m && z > a.z0 - m && z < a.z1 + m) return a;
+  return null;
+}
+function grateTex() {
+  return canvasTex(128, 128, (g, w, h) => { g.fillStyle = "#23272b"; g.fillRect(0, 0, w, h); g.fillStyle = "#050607"; for (let i = 0; i < 6; i++) g.fillRect(12, 12 + i * 18.5, w - 24, 9); g.strokeStyle = "#565d63"; g.lineWidth = 5; g.strokeRect(2.5, 2.5, w - 5, h - 5); }, false);
+}
+function waterBuild(W, lv) {
+  W.drains = (lv.drains || []).map(d => ({ id: d.id, min: d.min.slice(), max: d.max.slice() }));
+  W.sheets = [];
+  const wet = W.sprayers.some(sp => sp.water); if (!wet && !(lv.sheets || []).length && !(lv.drains || []).length) { W.water = null; return; }
+  for (const d of (lv.drains || [])) if (d.grate) {
+    const [x, y, z, w, dd] = d.grate, m = new THREE.Mesh(new THREE.PlaneGeometry(w, dd), new THREE.MeshBasicMaterial({ map: grateTex(), color: new THREE.Color(.5, .5, .5) }));
+    m.userData.ownMat = 1; m.userData.ownMap = 1; m.rotation.x = -Math.PI / 2; m.position.set(x, y + 0.012, z); levelGroup.add(m);
+  }
+  for (const d of (lv.sheets || [])) {
+    const t = coolTex(); t.repeat.set(Math.max(1, (d.x1 - d.x0) / 2), Math.max(1, (d.z1 - d.z0) / 2));
+    const mat = new THREE.MeshBasicMaterial({ map: t, color: new THREE.Color(.95, 1.15, 1.22), transparent: true, opacity: 0, depthWrite: false });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(d.x1 - d.x0, d.z1 - d.z0), mat); m.userData.ownMat = 1; m.userData.ownMap = 1; m.rotation.x = -Math.PI / 2; m.position.set((d.x0 + d.x1) / 2, d.y, (d.z0 + d.z1) / 2); m.renderOrder = 3; m.visible = false; levelGroup.add(m);
+    W.sheets.push({ d, m, mat, tex: t, a: 0 });
+  }
+  const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(.92, 1.08, 1.2), transparent: true, opacity: .62, depthWrite: false });
+  const seg = new THREE.InstancedMesh(new THREE.CylinderGeometry(1, 1, 1, 8, 1, true).rotateX(Math.PI / 2), mat, WATER.cap * 2 + 16);
+  seg.userData.ownMat = 1; seg.frustumCulled = false; seg.count = 0; seg.renderOrder = 4; levelGroup.add(seg);
+  const seg2 = new THREE.InstancedMesh(new THREE.CylinderGeometry(2.1, 2.1, 1, 8, 1, true).rotateX(Math.PI / 2), new THREE.MeshBasicMaterial({ color: new THREE.Color(.55, .85, 1.05), transparent: true, opacity: .2, depthWrite: false }), WATER.cap * 2 + 16);
+  seg2.instanceMatrix = seg.instanceMatrix; seg2.userData.ownMat = 1; seg2.frustumCulled = false; seg2.count = 0; seg2.renderOrder = 4; levelGroup.add(seg2);      // the soft sleeve round the bright core: one set of instances, drawn twice
+  const sm = new THREE.MeshBasicMaterial({ color: new THREE.Color(.95, 1.1, 1.2), transparent: true, opacity: .75, depthWrite: false });
+  const spl = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 6, 5), sm, 64); spl.userData.ownMat = 1; spl.frustumCulled = false; spl.count = 0; spl.renderOrder = 4; levelGroup.add(spl);
+  const fed = {}; for (const sp of W.sprayers) if (sp.feed) fed[sp.feed] = 0;
+  W.water = { seg, seg2, spl, drops: [], bits: [], fed, acc: 0, now: 0, primed: false, seq: 0, near: null, dummy: new THREE.Object3D() };
+  for (const sp of W.sprayers) if (sp.water) {                 // the wet patch where this stream lands on a plain floor
+    const pm = new THREE.Mesh(V5.disc, new THREE.MeshBasicMaterial({ color: new THREE.Color(.03, .06, .08), transparent: true, opacity: 0, depthWrite: false }));
+    pm.userData.ownMat = 1; pm.rotation.x = -Math.PI / 2; pm.visible = false; pm.renderOrder = 2; levelGroup.add(pm); sp.pud = { m: pm, a: 0, t: -9, p: new V3() };
+  }
+}
+function waterCatch(pt, isHit) {                       // what a drop has met: a filling pool, a drain, or nothing
+  const W = world, Q = W.water;
+  for (const a of W.pools) {
+    if (!a.fill || pt.y > (isHit ? a.rim : a.y) || !poolPart(a, pt.x, pt.z, 0.06)) continue;
+    if (a.got < a.fill.drops) a.got++; a.rain = Q.now; return a;
+  }
+  if (isHit) for (const d of W.drains) if (pt.x > d.min[0] - 0.05 && pt.x < d.max[0] + 0.05 && pt.y > d.min[1] - 0.05 && pt.y < d.max[1] + 0.05 && pt.z > d.min[2] - 0.05 && pt.z < d.max[2] + 0.05) { Q.fed[d.id] = Q.now; return d; }
+  return null;
+}
+function waterSub(h, quiet) {
+  const W = world, Q = W.water; Q.now += h;
+  for (const sp of W.sprayers) {
+    if (!sp.water) continue;
+    sp.on = (!sp.when || sp.when(W)) && (!sp.feed || Q.now - (Q.fed[sp.feed] != null ? Q.fed[sp.feed] : -9) < 0.6);
+    if (!sp.on) { sp.t = 0; continue; }
+    sp.t -= h;
+    while (sp.t <= 0) { sp.t += sp.rate; if (Q.drops.length >= WATER.cap) continue;
+      Q.drops.push({ p: sp.o.clone(), v: sp.dir.clone().multiplyScalar(sp.speed * (1 + (Math.random() - 0.5) * sp.spread)), sp, life: WATER.life, hops: 0, xin: null, xout: null }); }
+  }
+  const kd = Math.exp(-WATER.drag * h);
+  for (let i = Q.drops.length - 1; i >= 0; i--) {
+    const b = Q.drops[i]; b.v.y -= WATER.g * h; b.v.multiplyScalar(kd);
+    const s = Math.max(0.05, b.v.length()), res = castRay(b.p, b.v, s * h, false, true); let end = null, got = null;
+    if (res.segs.length > 1) { const g0 = res.segs[0]; b.xin = g0.o.clone().addScaledVector(g0.d, g0.len); b.xout = res.segs[res.segs.length - 1].o.clone(); b.hops += res.segs.length - 1; }
+    if (res.hit) { end = res.hit.point; got = waterCatch(end, true); }
+    else { const g = res.segs[res.segs.length - 1]; b.p.copy(g.o).addScaledVector(g.d, g.len); b.v.copy(res.dir).multiplyScalar(s); b.life -= h;
+      got = waterCatch(b.p, false); if (got) end = b.p; else if (b.life <= 0 || b.p.y < -40) { Q.drops.splice(i, 1); continue; } }
+    if (!end) continue;
+    const sp = b.sp; sp.end = sp.end || new V3(); sp.end.copy(end); sp.endT = Q.now; sp.endHops = b.hops; sp.endKind = got ? (got.fill ? "pool" : "drain") : "floor";
+    if (!got && res.hit && res.hit.axis === 1 && res.hit.sign > 0) { sp.pud.p.copy(end); sp.pud.t = Q.now; }
+    if (!quiet && Q.bits.length < 60 && Math.random() < 0.5) Q.bits.push({ p: end.clone().setY(got && got.fill ? Math.max(end.y, got.y) : end.y), v: new V3(rand(-1.1, 1.1), rand(1.2, 2.6), rand(-1.1, 1.1)), life: rand(0.25, 0.45) });
+    Q.drops.splice(i, 1);
+  }
+  for (let i = Q.bits.length - 1; i >= 0; i--) { const b = Q.bits[i]; b.v.y -= 9 * h; b.p.addScaledVector(b.v, h); b.life -= h; if (b.life <= 0) Q.bits.splice(i, 1); }
+}
+function waterDraw(dt) {
+  const W = world, Q = W.water, seg = Q.seg, D = Q.dummy, max = WATER.cap * 2 + 16; let n = 0;
+  const put = (A, B, r) => { const len = A.distanceTo(B); if (len < 0.015 || len > 3 || n >= max) return; D.position.copy(A).add(B).multiplyScalar(0.5); D.lookAt(B); D.scale.set(r, r, len); D.updateMatrix(); seg.setMatrixAt(n++, D.matrix); };
+  for (const sp of W.sprayers) if (sp.water) sp.last = null;
+  for (const b of Q.drops) {                               // oldest first: `a` is the drop ahead of this one in the same stream
+    const sp = b.sp, a = sp.last, r = sp.r * clamp(1.3 - b.v.length() / 16, 0.6, 1.25); sp.last = b;      // fast water is drawn thinner
+    if (!a) { if (sp.end && Q.now - sp.endT < 0.15 && sp.endHops === b.hops) put(b.p, sp.end, r); continue; }
+    if (a.hops === b.hops) put(b.p, a.p, r);
+    else if (a.hops === b.hops + 1 && a.xin) { put(b.p, a.xin, r); put(a.xout, a.p, r); }
+  }
+  for (const sp of W.sprayers) if (sp.water && sp.on && sp.last && sp.last.hops === 0) put(sp.o, sp.last.p, sp.r);
+  seg.count = n; Q.seg2.count = n; seg.instanceMatrix.needsUpdate = true;
+  const spl = Q.spl; let k = 0; for (const b of Q.bits) { if (k >= 64) break; D.position.copy(b.p); D.rotation.set(0, 0, 0); const sc = 0.02 + b.life * 0.07; D.scale.set(sc, sc, sc); D.updateMatrix(); spl.setMatrixAt(k++, D.matrix); }
+  spl.count = k; spl.instanceMatrix.needsUpdate = true;
+  let near = null, nd = 1e9; const L = cam.pos;
+  for (const sp of W.sprayers) {
+    if (!sp.water) continue;
+    const pd = sp.pud, wetNow = Q.now - pd.t < 0.4; pd.a = clamp(pd.a + (wetNow ? dt * 0.8 : -dt * 0.25), 0, 1); pd.m.visible = pd.a > 0.01;
+    if (pd.m.visible) { if (wetNow) pd.m.position.set(pd.p.x, pd.p.y + 0.011, pd.p.z); pd.m.material.opacity = 0.42 * pd.a; const sc = 0.35 + 0.75 * pd.a; pd.m.scale.set(sc, sc, sc); }
+    if (sp.end && Q.now - sp.endT < 0.3) { const d = sp.end.distanceTo(L); if (d < nd) { nd = d; near = sp.end; } }
+    if (sp.on) { const d = sp.o.distanceTo(L); if (d < nd) { nd = d; near = sp.o; } }
+  }
+  for (let i = 0; i < Q.drops.length; i += 6) { const d = Q.drops[i].p.distanceTo(L); if (d < nd) { nd = d; near = Q.drops[i].p; } }
+  Q.near = near;                                            // the pouring sound sits at the nearest piece of any stream (Hum, voice "water")
+  for (const s of W.sheets) { const d = s.d, on = d.feed ? Q.now - (Q.fed[d.feed] != null ? Q.fed[d.feed] : -9) < 0.6 : d.full ? !!W.ev["full:" + d.full] : true;
+    s.a = clamp(s.a + (on ? dt * 1.5 : -dt * 0.7), 0, 1); s.m.visible = s.a > 0.01; s.mat.opacity = 0.42 * s.a; if (d.flow) { s.tex.offset.x -= dt * d.flow[0] * 0.3; s.tex.offset.y += dt * d.flow[1] * 0.3; } }
+}
+function waterStep(dt) {
+  const W = world, Q = W.water; if (!Q) return;
+  if (!Q.primed) { Q.primed = true; for (let k = 0; k < 160; k++) waterSub(1 / 50, true); }      // the fountain is already running when you walk in
+  Q.acc += dt; let n = 0; while (Q.acc >= 1 / 60 && n < 4) { Q.acc -= 1 / 60; n++; waterSub(1 / 60, false); } if (Q.acc > 0.1) Q.acc = 0;
+  waterDraw(dt);
+}
+function poolOut(a) {                                  // a safe pool: you are put back on the bank (the no-trap rule), with whatever you were carrying
+  const pl = player, b = a.bank; sndAt(pl.p); sfx.splash(); flash("g");
+  pl.p.set(b[0], b[1] + HY + 0.03, b[2]); pl.v.set(0, 0, 0); pl.flyT = 0; pl.ground = false; if (b[3] != null) { pl.yaw = b[3]; pl.pitch = -0.05; }
+  if (holding) { const t = holdTarget().target; setCubeState(holding, t, holding.q); holding.pv.copy(t); holding.snag = 0; }
+  run.dunked = (run.dunked || 0) + 1; toast("Out of the water, back on the bank");
+  if (a.dunk && !a.dunkSaid) { a.dunkSaid = true; say(null, a.dunk); }
+}
 function v5Housing(o, dir, mat, size = 0.34) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(size, size, 0.3), SENT.dark); m.position.copy(o).addScaledVector(dir, -0.1); m.lookAt(m.position.clone().add(dir)); levelGroup.add(m);
   const l = new THREE.Mesh(new THREE.CircleGeometry(size * 0.32, 20), mat); l.position.copy(o).addScaledVector(dir, 0.06); l.lookAt(o.clone().addScaledVector(dir, 1)); levelGroup.add(l);
@@ -7011,9 +7245,15 @@ function v5Build(W, lv) {
     W.streams.push({ o, dir, speed: d.speed || 3, rev: !!d.rev, when: d.when, parts, segs: [], mat, tex });
   }
   for (const d of (lv.sprayers || [])) {
-    const o = new V3(...d.pos), dir = new V3(...d.dir).normalize(); v5Housing(o, dir, new THREE.MeshBasicMaterial({ color: V5.col[d.kind] }), 0.4);
+    const o = new V3(...d.pos), dir = new V3(...d.dir).normalize();
+    if (d.kind === "water") {                              // v8.46: a spout (a short steel pipe; `pipe: false` for water that comes over a lip)
+      if (d.pipe !== false) { const pm = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.5, 14).rotateX(Math.PI / 2), SENT.steel); pm.position.copy(o).addScaledVector(dir, -0.22); pm.lookAt(pm.position.clone().add(dir)); levelGroup.add(pm); }
+      W.sprayers.push({ o, dir, kind: "water", water: true, id: d.id, feed: d.feed, rate: d.rate || WATER.rate, speed: d.speed || 0.6, spread: d.spread == null ? 0.04 : d.spread, r: d.r || WATER.r, t: 0, when: d.when, on: false }); continue;
+    }
+    v5Housing(o, dir, new THREE.MeshBasicMaterial({ color: V5.col[d.kind] }), 0.4);
     W.sprayers.push({ o, dir, kind: d.kind, rate: d.rate || 0.55, speed: d.speed || 0.6, spread: d.spread || 0, t: 0.5, when: d.when });
   }
+  waterBuild(W, lv);
   for (const d of (lv.sparkers || [])) {
     const o = new V3(...d.pos), dir = new V3(...d.dir).normalize(); v5Housing(o, dir, V5.hazard, 0.44);
     const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.6, 2.3, .7) }), mesh = new THREE.Mesh(V5.spark, mat); mesh.userData.ownMat = 1;
@@ -7160,6 +7400,7 @@ function v5Step(dt) {
   pl.glide = Math.max(0, (pl.glide || 0) - dt);
   if (W.patches.length && pl.ground && v5Under("glide")) { pl.glide = 0.35; if (!run.said.glide) { run.said.glide = 1; say("glide"); } }
   for (const sp of W.sprayers) {
+    if (sp.water) continue;
     sp.t -= dt; if (sp.t > 0 || W.blobs.length >= 36 || (sp.when && !sp.when(W))) continue; sp.t = sp.rate;
     const mesh = new THREE.Mesh(V5.blob, new THREE.MeshBasicMaterial({ color: V5.col[sp.kind] })); mesh.userData.ownMat = 1; mesh.position.copy(sp.o); mesh.frustumCulled = false; levelGroup.add(mesh);
     W.blobs.push({ p: sp.o.clone(), v: sp.dir.clone().multiplyScalar(sp.speed * (1 + Math.random() * sp.spread)), kind: sp.kind, life: 9, mesh });
@@ -7174,6 +7415,7 @@ function v5Step(dt) {
       if (gone) { levelGroup.remove(b.mesh); b.mesh.material.dispose(); W.blobs.splice(i, 1); }
     }
   } else if (!W.blobs.length) W.bAcc = 0;
+  waterStep(dt);
   // sparks: they bounce off everything except a socket (which keeps them) and you (which hurts)
   for (const sk of W.sparkers) {
     if (!sk.live) {
@@ -7276,6 +7518,13 @@ function physicsStep(dt) {
   const W = world, pl = player;
   const sy = Math.sin(pl.yaw), cy = Math.cos(pl.yaw), alive = state === "play";
   if (alive) liftOutOfFloor();
+  if (pl.chute > 0) pl.chute -= dt;
+  if (W.lv.chutes && !pl.ground) for (const c of W.lv.chutes) if (inBox(c, pl.p.x, pl.p.y, pl.p.z)) {      // v8.46: a chute (`lv.chutes`: boxes). Falling in one you cannot steer, so you come down where the water does;
+    pl.flyT = Math.max(pl.flyT || 0, 0.1); pl.chute = 0.3;                                                  // if a floor portal is open under it you are eased over the opening (as the loop hold does); and you do not steer again until you land (teleportPlayer)
+    if (bothPortals()) for (const P of portals) { if (P.n.y < 0.9 || P.o.y > pl.p.y) continue; tmpA.copy(pl.p).sub(P.o); const a = tmpA.dot(P.r), b = tmpA.dot(P.u);
+      if (Math.abs(a) < PW + 0.6 && Math.abs(b) < PH + 0.6) { const ca = clamp(a, -(PW - 0.25), PW - 0.25) - a, cb = clamp(b, -(PH - 0.25), PH - 0.25) - b; pl.v.x = (P.r.x * ca + P.u.x * cb) * 6; pl.v.z = (P.r.z * ca + P.u.z * cb) * 6; } }
+    break;
+  }
   if (pl.flyT > 0) pl.flyT = pl.ground ? 0 : pl.flyT - dt;
   let wx = alive ? -sy * inp.fwd + cy * inp.right : 0, wz = alive ? -cy * inp.fwd - sy * inp.right : 0;
   const wl = Math.hypot(wx, wz); if (wl > 1) { wx /= wl; wz /= wl; }
@@ -7320,7 +7569,10 @@ function physicsStep(dt) {
   // hazards
   if (alive) {
     for (const a of W.acid) if (pl.p.x > a.x0 && pl.p.x < a.x1 && pl.p.z > a.z0 && pl.p.z < a.z1 && pl.p.y - HY < a.y + 0.12) { die("acid"); break; }
-    for (const a of W.pools) if (pl.p.x > a.x0 && pl.p.x < a.x1 && pl.p.z > a.z0 && pl.p.z < a.z1 && pl.p.y - HY < a.y + 0.12) { die("cold"); break; }
+    for (const a of W.pools) {
+      if (a.safe) { if ((!a.fill || a.y > a.fill.from + 0.3) && pl.p.y - HY < a.y - 0.3 && poolPart(a, pl.p.x, pl.p.z)) { poolOut(a); break; } continue; }      // v8.46: water you can fall into
+      if (pl.p.x > a.x0 && pl.p.x < a.x1 && pl.p.z > a.z0 && pl.p.z < a.z1 && pl.p.y - HY < a.y + 0.12) { die("cold"); break; }
+    }
     if (pl.p.y < -30) die("void");
     // out of the chamber altogether (inside a wall, or the void behind one) and not in front of a portal: put back where it was last safe
     const inAir = W.air.some(a => pl.p.x > a.min[0] - 0.5 && pl.p.x < a.max[0] + 0.5 && pl.p.y > a.min[1] - 1.2 && pl.p.y < a.max[1] + 0.5 && pl.p.z > a.min[2] - 0.5 && pl.p.z < a.max[2] + 0.5);
@@ -7880,8 +8132,8 @@ const sfx = {
 };
 // ---- things that hum from where they are. One voice per kind; it follows the nearest one of its kind (level and side), so the cost never grows with the room.
 const Hum = (() => {
-  const V = {}, R = { laser: 4.5, field: 5, portal0: 2.6, portal1: 2.6, acid: 6, pad: 4, sentry: 3, bridge: 4.5, stream: 6, fridge: 2.6 };
-  const BASE = { laser: 0.05, field: 0.045, portal0: 0.03, portal1: 0.03, acid: 0.06, pad: 0.045, sentry: 0.011, bridge: 0.028, stream: 0.06, fridge: 0.03 };
+  const V = {}, R = { laser: 4.5, field: 5, portal0: 2.6, portal1: 2.6, acid: 6, pad: 4, sentry: 3, bridge: 4.5, stream: 6, fridge: 2.6, water: 5 };
+  const BASE = { laser: 0.05, field: 0.045, portal0: 0.03, portal1: 0.03, acid: 0.06, pad: 0.045, sentry: 0.011, bridge: 0.028, stream: 0.06, fridge: 0.03, water: 0.085 };
   let acc = 0, quiet = true;
   const O = (type, f, dest, vol = 1) => { const o = actx.createOscillator(), g = actx.createGain(); o.type = type; o.frequency.value = f; g.gain.value = vol; o.connect(g); g.connect(dest); o.start(); return o; };
   const N = (dest, type, f, q, vol = 1) => { const s = noiseSrc(), fl = actx.createBiquadFilter(), g = actx.createGain(); fl.type = type; fl.frequency.value = f; fl.Q.value = q; g.gain.value = vol; s.connect(fl); fl.connect(g); g.connect(dest); s.start(0, Math.random()); return { s, fl, g }; };
@@ -7896,7 +8148,8 @@ const Hum = (() => {
     sentry: d => { O("sine", 1210, d, 0.5); const bp = actx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 820; bp.Q.value = 3; bp.connect(d); O("square", 11, bp, 0.9); },
     bridge: d => { O("sine", 660, d, 0.4); O("sine", 991, d, 0.25); O("sine", 1323, d, 0.15); N(d, "highpass", 5200, 0.5, 0.12); },
     stream: d => { const n = N(d, "bandpass", 520, 0.5, 1); lfo(0.5, 180, n.fl.frequency); N(d, "highpass", 3000, 0.5, 0.08); },
-    fridge: d => { const lp = actx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 170; lp.connect(d); O("sawtooth", 50, lp, 0.9); O("sine", 100, d, 0.3); }
+    fridge: d => { const lp = actx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 170; lp.connect(d); O("sawtooth", 50, lp, 0.9); O("sine", 100, d, 0.3); },
+    water: d => { const a = N(d, "bandpass", 1700, 0.45, 0.9); lfo(0.83, 500, a.fl.frequency); lfo(6.1, 0.18, a.g.gain); const b = N(d, "lowpass", 380, 0.7, 0.55); lfo(3.7, 0.2, b.g.gain); N(d, "highpass", 5200, 0.5, 0.1); }      // v8.46: pouring water
   };
   function voice(k) { if (V[k]) return V[k]; const g = actx.createGain(), f = actx.createBiquadFilter(), p = actx.createStereoPanner(); g.gain.value = 0; f.type = "lowpass"; f.frequency.value = 12000; g.connect(f); f.connect(p); p.connect(sfxIn || sfxBus); MAKE[k](g); return (V[k] = { g, f, p, lev: 0 }); }
   const _b = [0, 0, 0];
@@ -7915,6 +8168,7 @@ const Hum = (() => {
     for (const s of W.sentries) if (s.state === "on" && !s.held) near(B.sentry, s.p.x, s.p.y, s.p.z);
     for (const w of (W.walks || [])) for (const g of (w.segs || [])) nearSeg(B.bridge, g);
     for (const w of (W.streams || [])) for (const g of (w.segs || [])) nearSeg(B.stream, g);
+    if (W.water && W.water.near) near(B.water, W.water.near.x, W.water.near.y, W.water.near.z);
     for (const f of (W.lv.furn || [])) if ((f.k === "fridge" || f.k === "vending" || f.k === "cooler") && f.at) near(B.fridge, f.at[0], f.at[1] + 1, f.at[2]);
     const now = actx.currentTime, cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
     for (const k in B) { const b = B[k]; let lev = b.d < R[k] * 5 ? 1 / (1 + Math.pow(b.d / R[k], 2)) : 0, cut = 12000;
@@ -11573,7 +11827,7 @@ function boot() {
   setTimeout(() => HoldMusic.render(), 2200);
   setTimeout(() => { try { HoldShow.ensure(); HoldShow.preload(); } catch (e) { console.error(e); } }, 3000);   // the TV show's picture and voices, ready before anyone reaches the office                                       // and its music, rendered once in the background
 }
-window.__tc = { version: VERSION, Lit, GLOW, probeAt, scene, Music, roomProgress, actOf, Snd, sfx, sndAt, floorKind, setSfxRoom, get actx() { return actx; }, get audioBus() { return { master, sfxBus, sfxIn, sfxWet, musicBus }; }, ensureAudio, kit: { shell, exitPort, refinish, stairs, pane, opening, nook, mergeBoxes }, findRefund, offTrack, kitAudit: lv => kitAudit(lv || world.lv), dbg: { wallHit, lvRay, rayBox, hallOf, camTarget, corner, I3 }, secretAudit, CAM_PLAN, Loose, camResolve, sadosPick, holdQuiet, get curPr() { return curPr; }, get subBusy() { return subBusy; }, Bonus, STAFF_DOORS, denAudit, LEVEL_FUNCS, bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, set sevenAt(i) { sevenHere = i; sevenSlotted = false; sevenSaid = false; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get liftFloor() { return liftFloorTxt; }, liftSeq, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
+window.__tc = { version: VERSION, water: { WATER, poolPart, get state() { return world && world.water; } }, Lit, GLOW, probeAt, scene, Music, roomProgress, actOf, Snd, sfx, sndAt, floorKind, setSfxRoom, get actx() { return actx; }, get audioBus() { return { master, sfxBus, sfxIn, sfxWet, musicBus }; }, ensureAudio, kit: { shell, exitPort, refinish, stairs, pane, opening, nook, mergeBoxes }, findRefund, offTrack, kitAudit: lv => kitAudit(lv || world.lv), dbg: { wallHit, lvRay, rayBox, hallOf, camTarget, corner, I3 }, secretAudit, CAM_PLAN, Loose, camResolve, sadosPick, holdQuiet, get curPr() { return curPr; }, get subBusy() { return subBusy; }, Bonus, STAFF_DOORS, denAudit, LEVEL_FUNCS, bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, set sevenAt(i) { sevenHere = i; sevenSlotted = false; sevenSaid = false; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || []), ...(l.pools || []).flatMap(p => [{ line: p.line }, { line: p.dunk }])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get liftFloor() { return liftFloorTxt; }, liftSeq, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
 try { boot(); } catch (err) { console.error(err); $("loading").hidden = false; $("loading").innerHTML = '<div style="max-width:420px;text-align:center;line-height:1.6;font-size:13px;letter-spacing:.05em">Something went wrong starting the game.<br><small>' + String(err && err.message || err) + "</small></div>"; }
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>
