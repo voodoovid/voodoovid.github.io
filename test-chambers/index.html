@@ -268,7 +268,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
   safeTop(); addEventListener("resize", safeTop); addEventListener("orientationchange", () => setTimeout(safeTop, 250));
   // Only on the games site, not when a page is opened on its own
   if (!/\/(hangman|scareisdale|ponchos-adventure|ponchos-adventure-3d|flip-five|flip-five-3d|follow-chestnut|fathom|ponchos-pills|ant-jam|mind-the-gap|test-chambers)\//.test(location.pathname)) return;
-  pill.hidden = false;
+  pill.hidden = !!(navigator.standalone || matchMedia("(display-mode: standalone)").matches);      // v8.44: not in the home-screen app (it has no games menu to go back to); still there in Safari
   // Lock the screen: no rubber-band bounce or drag when swiping, except inside something that really scrolls
   document.documentElement.style.overscrollBehavior = "none"; document.body.style.overscrollBehavior = "none";
   const canScroll = el => {
@@ -589,7 +589,7 @@ import { Furn } from "./furniture.js";
 import { GLYPHS as HAND_GLYPHS, handWrite, handBlock, handWidth } from "./hand.js";      // v8.19: hand-lettering                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.43";
+const VERSION = "v8.44";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const KT_TEST = /[?&]kittest\b/.test(location.search);      // v8.41: the room kit's test rooms
 const SC_TEST = /[?&]secretstest\b/.test(location.search), IT_TEST = SC_TEST || /[?&]itemtest\b/.test(location.search), EX_TEST = /[?&]exittest\b/.test(location.search), DF_TEST = /[?&]diffcheck\b/.test(location.search), SPFX = SC_TEST ? "testchambers.stest." : IT_TEST ? "testchambers.itest." : EX_TEST ? "testchambers.xtest." : DF_TEST ? "testchambers.dtest." : "testchambers.";      // v8.40: ?exittest (the side-exit test rooms) and ?diffcheck (the Difficulty Check page's robots) keep their own saves      // v8.35: ?secretstest plays only the Secrets Test room
@@ -6141,6 +6141,17 @@ function teleportPlayer(P) {
   _qb.copy(_qu).invert().multiply(_qa);
   let roll = 2 * Math.atan2(_qb.z, _qb.w); if (roll > Math.PI) roll -= Math.PI * 2; if (roll < -Math.PI) roll += Math.PI * 2;
   cam.roll = roll;
+  { const O = portals[1 - P.idx];      // v8.44: out of a floor portal going up but too slowly to climb out (a jump into a ceiling portal, Drop Box's cell): you sank back in. Now you always rise clear of the floor and step off the portal
+    if (O.n.y > 0.9 && pl.v.y > 0) {
+      const need = O.o.y + HY + 0.35 - pl.p.y;
+      const vmin = need > 0 ? Math.sqrt(2 * GRAV * need) : 0;
+      if (pl.v.y < vmin) {                // only a slow exit: a real fling up out of a floor portal is left exactly as it was
+        pl.v.y = vmin;
+        if (Math.hypot(pl.v.x, pl.v.z) < 1.5) { const s = Math.sin(pl.yaw), c = Math.cos(pl.yaw); pl.v.x = -s * 2.6; pl.v.z = -c * 2.6; }
+        pl.popT = 1.2;      // the hands-off loop hold (below, in the movement code) leaves you alone while you step clear
+      }
+    }
+  }
   camOffset.copy(eyeCam).sub(eyePos(tmpA));
   if (holding) {                 // the cube you're holding comes out with you, in front of you, keeping your speed
     const t = holdTarget().target; _rq.setFromRotationMatrix(_rm.extractRotation(P.T));
@@ -6190,6 +6201,16 @@ function tryPortalPlayer2() {
         const bodyIn = Math.abs(tmpC.dot(P.r)) < PW - 0.04 && Math.abs(tmpC.dot(P.u)) < PH - 0.04;
         tmpA.copy(eye).sub(P.o); const eyeIn = Math.abs(tmpA.dot(P.r)) < PW - 0.04 && Math.abs(tmpA.dot(P.u)) < PH - 0.04;
         if (bodyIn && !eyeIn) { teleportPlayer(P); liftOutOfFloor(true); if (phys) phys.pc.setTranslation(player.p); eyePos(prevEye); return true; }
+      }
+    }
+    // v8.44: a jump into a ceiling portal from a little off its centre: the head met the ceiling round the opening and you never went in
+    // (Drop Box's cell). If your head reaches the portal while you are under its edge, you are eased into the opening and go through
+    if (near && P.n.y < -0.9 && player.v.y > -0.5 && player.p.y >= _pPrev.y - 1e-3 && player.p.y + HY >= P.o.y - 0.1 && player.p.y + HY < P.o.y + 0.3) {
+      tmpA.copy(player.p).sub(P.o); const a = tmpA.dot(P.r), b = tmpA.dot(P.u);
+      if (Math.abs(a) < PW + 0.45 && Math.abs(b) < PH + 0.45) {
+        const ca = clamp(a, -(PW - 0.15), PW - 0.15) - a, cb = clamp(b, -(PH - 0.15), PH - 0.15) - b;
+        player.p.addScaledVector(P.r, ca).addScaledVector(P.u, cb); player.v.y = Math.max(player.v.y, 1);
+        teleportPlayer(P); liftOutOfFloor(true); if (phys) phys.pc.setTranslation(player.p); eyePos(prevEye); return true;
       }
     }
     const d0 = P.n.dot(tmpA.copy(prevEye).sub(P.o)), d1 = P.n.dot(tmpC.copy(eye).sub(P.o));
@@ -7260,7 +7281,8 @@ function physicsStep(dt) {
   }
   inp.jumpQ = false;
   // falling in a floor-to-ceiling portal loop with hands off the controls: the sideways drift dies away, so the loop holds
-  if (!pl.ground && wish < 0.01 && bothPortals()) {
+  if (pl.popT > 0) pl.popT = pl.ground ? 0 : pl.popT - dt;
+  if (!pl.ground && wish < 0.01 && bothPortals() && !(pl.popT > 0)) {
     const F = portals[0].n.y > 0.9 ? portals[0] : portals[1].n.y > 0.9 ? portals[1] : null, C = F && portals[1 - F.idx];
     if (F && C.n.y < -0.9 && Math.hypot(pl.p.x - F.o.x, pl.p.z - F.o.z) < 1.8) { const k = Math.exp(-6 * dt); pl.v.x = pl.v.x * k + (F.o.x - pl.p.x) * 3 * dt; pl.v.z = pl.v.z * k + (F.o.z - pl.p.z) * 3 * dt; }
   }
@@ -8183,6 +8205,7 @@ const isTouch = ("ontouchstart" in window) || navigator.maxTouchPoints > 0;
 const OVS = ["ovTitle", "ovChambers", "ovOptions", "ovHow", "ovPause", "ovDone", "ovReset", "ovCredits", "ovShow", "ovStickers", "ovLog", "ovMonitor", "ovBonus"];
 let lastOv = "ovTitle", optsFrom = "ovTitle", chFrom = "ovTitle";
 function showOv(id) {
+  if (id && window.__clearKeys) __clearKeys();      // v8.44: a window opening lets go of any held walk key
   for (const o of OVS) $(o).hidden = o !== id;
   if (id) lastOv = id;
   syncTouch();
@@ -8248,11 +8271,11 @@ function beginLevel(i, quiet) {
 }
 function pause() {
   if (state !== "play" && state !== "dead") return;
-  state = "paused"; unlockPointer(); inp.fwd = inp.right = 0; resetSticks(); showOv("ovPause");
+  state = "paused"; unlockPointer(); inp.fwd = inp.right = 0; clearKeys(); resetSticks(); showOv("ovPause");
 }
 function resume() { if (state !== "paused") return; hideOv(); state = "play"; syncTouch(); lockPointer(); }
 // v8.23: Settings and Bonuses open straight from play. The game holds (no pause card) and their Back / Done goes straight back to play
-function holdPlay() { if (state !== "play" && state !== "dead") return false; state = "paused"; unlockPointer(); inp.fwd = inp.right = 0; resetSticks(); return true; }
+function holdPlay() { if (state !== "play" && state !== "dead") return false; state = "paused"; unlockPointer(); inp.fwd = inp.right = 0; clearKeys(); resetSticks(); return true; }
 function openSettings() { if (Lift.on || state === "cut") return; if (holdPlay()) optsFrom = "play"; else if (state === "paused") optsFrom = anyOv() === "ovPause" ? "ovPause" : optsFrom; else if (anyOv() !== "ovOptions") optsFrom = anyOv() || "ovTitle"; syncOpts(); showOv("ovOptions"); }
 function optsBack() { if (optsFrom === "play") { optsFrom = "ovTitle"; resume(); } else showOv(optsFrom); }
 // one Back for every floating window: Esc, the controller's B and a tap outside the card all come here
@@ -8375,13 +8398,23 @@ function adaptQuality(ms) {
 
 /* ---------- keyboard + mouse ---------- */
 const keys = {};
+// v8.44: on the iPad a held key could stick (you kept walking with nothing pressed). The key-up was missed: iPadOS can name an arrow key
+// differently on the way up ("UIKeyInputUpArrow"), and Safari drops key-ups while Cmd is held or the app loses focus.
+// So keys are read by their physical place (e.code) first, every key is let go on Cmd, Ctrl or Alt, on leaving the app and when a
+// window opens, and pressing the opposite way lets go of a stuck one.
+const KEY_DIR = { keyw: "f", arrowup: "f", uikeyinputuparrow: "f", w: "f", keys: "b", arrowdown: "b", uikeyinputdownarrow: "b", s: "b",
+  keya: "l", arrowleft: "l", uikeyinputleftarrow: "l", a: "l", keyd: "r", arrowright: "r", uikeyinputrightarrow: "r", d: "r" };
+const KEY_OPP = { f: "b", b: "f", l: "r", r: "l" };
+function keyDir(e) { return KEY_DIR[(e.code || "").toLowerCase()] || KEY_DIR[(e.key || "").toLowerCase()] || null; }
+function clearKeys() { for (const k in keys) keys[k] = false; }
+window.__clearKeys = clearKeys;
 function setKey(e, down) {
-  const k = e.key.toLowerCase();
-  if (k === "w" || k === "arrowup") keys.f = down; else if (k === "s" || k === "arrowdown") keys.b = down;
-  else if (k === "a" || k === "arrowleft") keys.l = down; else if (k === "d" || k === "arrowright") keys.r = down;
+  const d = keyDir(e); if (!d) return;
+  if (down && !e.repeat) keys[KEY_OPP[d]] = false;
+  keys[d] = down;
 }
 addEventListener("keydown", e => {
-  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.metaKey || e.ctrlKey || e.altKey) { clearKeys(); return; }
   if (GamePad.helpOpen && GamePad.helpOpen()) return;
   const k = e.key.toLowerCase();
   if (anyOv() && k === "enter" && !e.repeat) {       // Return presses the card's main button (Next chamber, Play, Resume), unless a button already has focus
@@ -8405,8 +8438,8 @@ addEventListener("keydown", e => {
   else if (k === "f" && !e.repeat) toggleFull();
   else if (k === "escape") pause();
 });
-addEventListener("keyup", e => setKey(e, false));
-addEventListener("blur", () => { for (const k in keys) keys[k] = false; });
+addEventListener("keyup", e => { if (e.key === "Meta" || e.key === "Control" || e.key === "Alt") clearKeys(); else setKey(e, false); });
+addEventListener("blur", clearKeys); addEventListener("pagehide", clearKeys); document.addEventListener("visibilitychange", () => { if (document.hidden) clearKeys(); });
 let lockFailed = false, lockAsked = false, mouseMode = false, locked = false, lastMX = -1, lastMY = -1, edgeX = 0, edgeY = 0, wheelV = 0, mLookX = 0, mLookY = 0, edgeHold = 0;
 function enterMouseMode() { if (mouseMode) return; mouseMode = true; document.body.classList.add("mouselook"); }
 document.addEventListener("pointerlockchange", () => {
