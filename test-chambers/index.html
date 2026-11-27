@@ -436,6 +436,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
       <div class="opt">Picture <button id="oQuality" type="button">Auto</button></div>
       <div class="opt">Full screen <button id="oFull" type="button">Enter</button></div>
       <div class="opt">Challenge: portal limit <button id="oChal" type="button">Off</button></div>
+      <div class="opt">Unlock all levels (beta) <button id="oUnlock" type="button" data-tip="Beta testing only: every chamber can be picked from Chambers, whatever you have reached. This switch will be removed before release.">Off</button></div>
       <div class="opt">Saved progress <button id="oReset" type="button">Reset</button></div>
       <button class="btn" id="bOptBack" type="button" style="margin-top:16px">&lsaquo; Back</button>
       <p class="vtag" id="vOpt"></p>
@@ -585,7 +586,7 @@ import { Furn } from "./furniture.js";
 import { GLYPHS as HAND_GLYPHS, handWrite, handBlock, handWidth } from "./hand.js";      // v8.19: hand-lettering                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.41";
+const VERSION = "v8.42";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const KT_TEST = /[?&]kittest\b/.test(location.search);      // v8.41: the room kit's test rooms
 const SC_TEST = /[?&]secretstest\b/.test(location.search), IT_TEST = SC_TEST || /[?&]itemtest\b/.test(location.search), EX_TEST = /[?&]exittest\b/.test(location.search), DF_TEST = /[?&]diffcheck\b/.test(location.search), SPFX = SC_TEST ? "testchambers.stest." : IT_TEST ? "testchambers.itest." : EX_TEST ? "testchambers.xtest." : DF_TEST ? "testchambers.dtest." : "testchambers.";      // v8.40: ?exittest (the side-exit test rooms) and ?diffcheck (the Difficulty Check page's robots) keep their own saves      // v8.35: ?secretstest plays only the Secrets Test room
@@ -5915,7 +5916,7 @@ const H_PL = [HX, HY, HX], H_CUBE = [0.35, 0.35, 0.35];
 const AXN = ["x", "y", "z"];
 const player = { p: new V3(), v: new V3(), ground: false, yaw: 0, pitch: 0, hp: 100 };
 const inp = { fwd: 0, right: 0, jumpQ: false, lookX: 0, lookY: 0 };
-const opts = Object.assign({ music: true, sfx: true, voice: true, sens: 1, invert: false, scrollInv: false, quality: "auto", challenge: false, hand: "left", amb: true }, store.get("opts", {}));
+const opts = Object.assign({ music: true, sfx: true, voice: true, sens: 1, invert: false, scrollInv: false, quality: "auto", challenge: false, hand: "left", amb: true, unlockAll: false }, store.get("opts", {}));
 let state = "title";            // title | play | paused | dead | done
 let levelIdx = 0;
 const run = { time: 0, portals: 0, top: 0, deadT: 0, idle: 0, hinted: 0, fell: false, said: {} };
@@ -7389,7 +7390,7 @@ function introWhenOut(idx, ms) {
   };
   setTimeout(go, ms);
 }
-const resumeRoom = () => { const pr = Math.min(store.get("progress5", 0), CHAMBERS.length - 1), r = store.get("room", -1); return r >= 0 && r < LEVEL_FUNCS.length && ROOM[r].c <= pr ? r : FIRST[pr]; };
+const resumeRoom = () => { const pr = Math.min(store.get("progress5", 0), CHAMBERS.length - 1), lim = opts.unlockAll ? CHAMBERS.length - 1 : pr, r = store.get("room", -1); return r >= 0 && r < LEVEL_FUNCS.length && ROOM[r].c <= lim ? r : FIRST[pr]; };
 // through the door into the next room of the same chamber: a checkpoint, no results card
 function nextPart(S7) {
   const R = ROOM[levelIdx], i = levelIdx + 1; S7 = S7 || sevenStatus();
@@ -8262,7 +8263,7 @@ function ovBack() {
 for (const id of OVS) if (id !== "ovTitle" && id !== "ovDone") $(id).addEventListener("click", e => { if (e.target === e.currentTarget) { ensureAudio(); ovBack(); } });     // a tap outside the card (not the title or results card, which have nowhere to go back to)
 
 function buildChambers() {
-  const g = $("chGrid"), pr = store.get("progress5", 0); g.innerHTML = "";
+  const g = $("chGrid"), pr = opts.unlockAll ? CHAMBERS.length - 1 : store.get("progress5", 0); g.innerHTML = "";     // v8.42 (beta): the Unlock all levels switch treats every chamber as reached
   CHAMBERS.forEach((ch, c) => {
     const b = document.createElement("button"); b.type = "button"; b.className = "chbtn" + (c === ROOM[levelIdx].c && state !== "title" ? " cur" : "");
     const md = store.get("best", {})[c] || 0, bd = store.get("badges", []).includes(c);
@@ -8335,7 +8336,7 @@ click("bResetYes", () => { for (const k of ["progress5", "finished5", "room", "b
 if (store.get("progress5", null) === null) store.set("progress5", Math.min(Math.floor(store.get("progress4", 0) / 2), CHAMBERS.length - 1));     // v4.3 groups rooms into chambers: keep roughly how far you had got
 function syncOpts() {
   const on = (id, v) => { const b = $(id); b.textContent = v ? "On" : "Off"; b.classList.toggle("on", !!v); };
-  on("oChal", opts.challenge); on("oMusic", opts.music); on("oSfx", opts.sfx); on("oAmb", opts.amb !== false); on("oVoice", opts.voice); on("oInvert", opts.invert); { const b = $("oScroll"); b.textContent = opts.scrollInv ? "Back" : "Forward"; b.classList.toggle("on", !!opts.scrollInv); }
+  on("oChal", opts.challenge); on("oUnlock", opts.unlockAll); on("oMusic", opts.music); on("oSfx", opts.sfx); on("oAmb", opts.amb !== false); on("oVoice", opts.voice); on("oInvert", opts.invert); { const b = $("oScroll"); b.textContent = opts.scrollInv ? "Back" : "Forward"; b.classList.toggle("on", !!opts.scrollInv); }
   $("oSens").value = opts.sens; $("oQuality").textContent = { auto: "Auto", high: "High", low: "Low" }[opts.quality];
   $("oFull").textContent = inFull() ? "Exit" : "Enter";
   $("oHand").textContent = opts.hand === "right" ? "Right" : "Left";
@@ -8350,6 +8351,7 @@ click("oInvert", () => { opts.invert = !opts.invert; saveOpts(); syncOpts(); });
 click("oHand", () => { opts.hand = opts.hand === "right" ? "left" : "right"; applyHand(); saveOpts(); syncOpts(); });
 click("oScroll", () => { opts.scrollInv = !opts.scrollInv; saveOpts(); syncOpts(); });
 click("oChal", () => { if (!opts.challenge && !store.get("finished5", 0)) { toast("Finish the game once to unlock challenge mode"); return; } opts.challenge = !opts.challenge; saveOpts(); syncOpts(); });
+click("oUnlock", () => { opts.unlockAll = !opts.unlockAll; saveOpts(); syncOpts(); toast(opts.unlockAll ? "All levels unlocked (beta)" : "Levels locked by your progress again"); });      // v8.42, temporary, beta testing only
 click("oQuality", () => { opts.quality = { auto: "high", high: "low", low: "auto" }[opts.quality]; applyQuality(); saveOpts(); syncOpts(); });
 $("oSens").addEventListener("input", e => { opts.sens = parseFloat(e.target.value); saveOpts(); });
 
