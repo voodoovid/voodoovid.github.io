@@ -7294,7 +7294,7 @@ function physicsStep(dt) {
     if (d.dock) { Dock.step(dt); continue; }          // v7.1: the lift doors run themselves
     const was = d.open;
     d.t = clamp(d.t + (d.want ? 1 : -1) * dt * 1.15, 0, 1);
-    d.open = d.t > 0.05; if (d.open !== was) { if (d.min0) sndAt((d.min0[0] + d.max0[0]) / 2, d.min0[1] + 1.5, (d.min0[2] + d.max0[2]) / 2); sfx.door(d.open); }
+    d.open = d.t > 0.05; if (d.open !== was) { if (d.min0) sndAt((d.min0[0] + d.max0[0]) / 2, d.min0[1] + 1.5, (d.min0[2] + d.max0[2]) / 2); sfx.door(d.open); if (d.open && !d.sung && state === "play") { d.sung = 1; const E = world.lv.exit; Music.sting(E && d.min0 && Math.hypot((d.min0[0] + d.max0[0]) / 2 - (E.min[0] + E.max[0]) / 2, (d.min0[2] + d.max0[2]) / 2 - (E.min[2] + E.max[2]) / 2) < 7 ? "exit" : "door"); } }
     const e = d.t * d.t * (3 - 2 * d.t), y = d.rise * e;
     d.box.min[1] = d.min0[1] + y; d.box.max[1] = d.max0[1] + y; d.group.position.y = y;
     const lm = d.t > 0.9 ? MAT.doorGreen : MAT.doorRed; for (const m of d.lights) m.material = lm;
@@ -7342,7 +7342,7 @@ function startLevel(idx, quiet) {
   levelIdx = idx; buildLevel(idx); resetLevelState(); respawn(); placeHeld();
   if (carry) { run.time = carry.time; run.portals = carry.portals; run.top = carry.top; run.ventSkip = carry.ventSkip || null; carry = null; }      // a later room of the same chamber: the clock runs on
   { const R = ROOM[idx]; $("chNum").textContent = (world.lv.back ? "OFF THE TEST TRACK" : "CHAMBER " + String(R.c + 1).padStart(2, "0")) + (R.parts > 1 ? " · PART " + (R.part + 1) + " OF " + R.parts : ""); $("chTitle").textContent = world.lv.name; }
-  Music.set(world.lv.track); Music.kick(); setVoiceRoom(roomSize());
+  Music.room(idx, actOf(idx)); Music.kick(); setVoiceRoom(roomSize());
   if (!world.lv.silent) preloadVoice([...(world.lv.say.intro || []), ...(world.lv.say.hint || []), ...(world.lv.say.hint2 || []), ...(world.lv.say.done || []), ...(storyLine(world.lv.name) ? [STORY[world.lv.name]] : []), ...(lintLine(world.lv.name) ? [LINT_ASIDE[world.lv.name]] : []), ...(world.lv.hatch ? PARCEL_LINES : [])]);
   state = "play";
   if (!quiet) introWhenOut(idx, 1400);
@@ -7506,67 +7506,128 @@ setInterval(syncVisibility, 500);     // safety net: some iPad window changes ne
 for (const ev of ["pointerdown", "keydown", "touchend", "click"]) addEventListener(ev, () => { if (actx && !bg && actx.state !== "running") { actx.resume().catch(() => {}); Music.kick(); } }, { passive: true, capture: true });
 function applyAudioOpts() { if (!actx) return; musicBus.gain.setTargetAtTime(opts.music && !liftMute ? 0.55 : 0, actx.currentTime, 0.1); sfxBus.gain.setTargetAtTime(opts.sfx ? 0.8 : 0, actx.currentTime, 0.1); }
 
-/* ---------- music: a steady, never-silent bed (drone, bass, pulse, arpeggio) with a short motif every bar ---------- */
+/* ---------- music (v8.41: rewritten) ----------
+   Seven moods, one per act (rooms 1-8, 9-15, 16-23, 24-30, 31-38, backstage 39-45, the end 46-53), and every room gets its own
+   key, bass line, arpeggio figures and tune from a seed, so no two rooms play the same thing.
+   The music is in layers that follow how far you have got in the room (Music.intensity, fed by roomProgress()):
+     always: a drone and slow chords; from 0.25: a bass pulse; from 0.5: an arpeggio; from 0.7: a tune, two bars on, two bars off.
+   A door opening is answered in the room's key (Music.sting("door") / ("exit")), and so is the end of the room (sting("done")).
+   Nothing is recorded: it is all generated. Checked by measurement only; it has not been listened to. */
 const Music = (() => {
   const N = (m) => 440 * Math.pow(2, (m - 69) / 12);
-  const TRACKS = [
-    { root: 50, scale: [0, 2, 3, 7, 9, 10], bpm: 70, prog: [0, 5, 3, 7], pulse: 0, motif: [[0, 2], [3, 4], [5, 2], [6, 3]] },
-    { root: 45, scale: [0, 3, 5, 7, 10], bpm: 78, prog: [0, 3, 5, 3], pulse: 1, motif: [[0, 3], [2, 1], [4, 3], [6, 2]] },
-    { root: 47, scale: [0, 2, 4, 7, 9, 11], bpm: 88, prog: [0, 4, 5, 2], pulse: 2, motif: [[0, 4], [1, 2], [3, 5], [5, 3], [7, 4]] }
+  const ACTS = [
+    { name: "Opening", root: 50, scale: [0, 2, 3, 5, 7, 9, 10], bpm: 66, progs: [[0, -2, 3, 5], [0, 5, 3, -2]], lead: "bell", arp: 0.8, pulse: 0, cut: 560 },
+    { name: "Mechanics", root: 45, scale: [0, 3, 5, 7, 10], bpm: 72, progs: [[0, 3, 5, 3], [0, -2, 3, -5]], lead: "pluck", arp: 1, pulse: 1, cut: 520 },
+    { name: "Combinations", root: 52, scale: [0, 2, 3, 5, 7, 8, 10], bpm: 76, progs: [[0, -4, -2, 3], [0, 3, -4, -2]], lead: "bell", arp: 1.1, pulse: 1, cut: 600 },
+    { name: "Momentum", root: 54, scale: [0, 2, 3, 5, 7, 8, 10], bpm: 92, progs: [[0, 5, 3, -2], [0, -4, 3, -2]], lead: "pluck", arp: 1.3, pulse: 2, cut: 700 },
+    { name: "Multi-step", root: 48, scale: [0, 2, 3, 5, 7, 9, 10], bpm: 80, progs: [[0, 3, -2, 5], [0, -2, -4, 3]], lead: "both", arp: 1, pulse: 1, cut: 560 },
+    { name: "Backstage", root: 49, scale: [0, 1, 3, 5, 7, 8, 10], bpm: 58, progs: [[0, 1, 0, -2], [0, -2, 1, 0]], lead: "metal", arp: 0, pulse: 0, cut: 380, wobble: 9 },
+    { name: "The end", root: 43, scale: [0, 2, 3, 5, 7, 8, 11], bpm: 96, progs: [[0, -4, -5, 1], [0, 1, -4, -5]], lead: "bell", arp: 1.2, pulse: 3, cut: 640 }
   ];
-  let tr = 0, running = false, nextT = 0, step = 0, timer = 0, drone = null;
-  function note(f, t, dur, vol, type, bus, cut) {
+  const ARPS = [[0, -1, 1, -1, 2, -1, 1, -1], [0, 1, 2, 1, 0, 1, 2, 3], [0, -1, -1, 2, -1, 1, -1, -1], [2, -1, 1, 0, -1, 1, 2, -1], [0, 2, 1, 3, 0, 2, 1, -1], [-1, 0, -1, 2, -1, 3, -1, 2]];
+  let A = ACTS[0], seed = 1, key = 50, prog = ACTS[0].progs[0], tuneA = [], tuneB = [], arps = [0, 2], running = false, nextT = 0, step = 0, timer = 0, drone = null, I = 0, want = 0, lastSet = 0, wob = null;
+  function out(g, wet = 1) { g.connect(musicBus); if (wet) { if (wet === 1) g.connect(revSend); else { const w = actx.createGain(); w.gain.value = wet; g.connect(w); w.connect(revSend); } } }
+  function note(f, t, dur, vol, type, cut, att) {
     const o = actx.createOscillator(), g = actx.createGain(), fl = actx.createBiquadFilter();
-    o.type = type || "triangle"; o.frequency.value = f; fl.type = "lowpass"; fl.frequency.value = cut || Math.min(6000, f * 5);
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(fl); fl.connect(g); g.connect(bus || musicBus); g.connect(revSend); o.start(t); o.stop(t + dur + 0.05);
+    o.type = type || "triangle"; o.frequency.value = f; if (wob) wob.connect(o.detune); fl.type = "lowpass"; fl.frequency.value = cut || Math.min(6000, f * 5);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), t + (att || 0.012)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(fl); fl.connect(g); out(g); o.start(t); o.stop(t + dur + 0.05);
   }
-  function padChord(t, dur, root, ch) {
-    for (const semi of ch) for (const det of [-6, 6]) {
+  // a struck bell: the note, and a quieter, shorter partial above it that is not an octave
+  function bell(f, t, vol, dur = 1.6, ratio = 3.01) { note(f, t, dur, vol, "sine", 8000, 0.004); note(f * ratio, t, dur * 0.35, vol * 0.28, "sine", 9000, 0.003); note(f * 2, t, dur * 0.6, vol * 0.2, "triangle", 3000, 0.006); }
+  function pluck(f, t, vol, dur = 0.5) {
+    const o = actx.createOscillator(), g = actx.createGain(), fl = actx.createBiquadFilter(); o.type = "sawtooth"; o.frequency.value = f; if (wob) wob.connect(o.detune);
+    fl.type = "lowpass"; fl.Q.value = 3; fl.frequency.setValueAtTime(Math.min(7000, f * 7), t); fl.frequency.exponentialRampToValueAtTime(Math.max(200, f * 1.2), t + dur * 0.6);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(fl); fl.connect(g); out(g); o.start(t); o.stop(t + dur + 0.05);
+  }
+  function lead(kind, f, t, vol, dur) { if (kind === "pluck") pluck(f, t, vol * 0.8, dur * 0.7); else if (kind === "metal") bell(f, t, vol * 0.9, dur * 1.8, 2.76); else bell(f, t, vol, dur); }
+  function hat(t, vol) { const s = noiseSrc(), fl = actx.createBiquadFilter(), g = actx.createGain(); fl.type = "highpass"; fl.frequency.value = 7000; g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.04); s.connect(fl); fl.connect(g); out(g, 0.3); s.start(t); s.stop(t + 0.06); }
+  function padChord(t, dur, ch, vol) {
+    for (const m of ch) for (const det of [-7, 7]) {
       const o = actx.createOscillator(), g = actx.createGain(), fl = actx.createBiquadFilter();
-      o.type = "sawtooth"; o.frequency.value = N(root + semi); o.detune.value = det; fl.type = "lowpass"; fl.frequency.value = 520;
-      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(0.02, t + dur * 0.3); g.gain.linearRampToValueAtTime(0.0001, t + dur * 1.25);
-      o.connect(fl); fl.connect(g); g.connect(musicBus); g.connect(revSend); o.start(t); o.stop(t + dur * 1.3 + 0.05);
+      o.type = "sawtooth"; o.frequency.value = N(m); o.detune.value = det; if (wob) wob.connect(o.detune); fl.type = "lowpass"; fl.frequency.setValueAtTime(A.cut * 0.7, t); fl.frequency.linearRampToValueAtTime(A.cut * (1 + 0.6 * I), t + dur * 0.5); fl.frequency.linearRampToValueAtTime(A.cut * 0.7, t + dur * 1.2);
+      g.gain.setValueAtTime(0.0001, t); g.gain.linearRampToValueAtTime(vol, t + dur * 0.35); g.gain.linearRampToValueAtTime(0.0001, t + dur * 1.25);
+      o.connect(fl); fl.connect(g); out(g); o.start(t); o.stop(t + dur * 1.3 + 0.05);
     }
   }
   function startDrone() {                                    // two long-lived oscillators that never stop: the music cannot fall silent
     if (drone || !actx) return;
     const g = actx.createGain(); g.gain.value = 0.05; g.connect(musicBus);
     const fl = actx.createBiquadFilter(); fl.type = "lowpass"; fl.frequency.value = 240; fl.connect(g);
-    const os = [0, 7].map((s, k) => { const o = actx.createOscillator(); o.type = k ? "triangle" : "sine"; o.frequency.value = N(TRACKS[tr].root - 24 + s); o.connect(fl); o.start(); return o; });
+    const os = [0, 7].map((s, k) => { const o = actx.createOscillator(); o.type = k ? "triangle" : "sine"; o.frequency.value = N(key - 24 + s); o.connect(fl); o.start(); return o; });
     const lfo = actx.createOscillator(), lg = actx.createGain(); lfo.frequency.value = 0.11; lg.gain.value = 70; lfo.connect(lg); lg.connect(fl.frequency); lfo.start();
-    drone = { os };
+    const wo = actx.createOscillator(); wob = actx.createGain(); wo.frequency.value = 0.23; wob.gain.value = A.wobble || 0; wo.connect(wob); wo.start();      // backstage: everything drifts a little out of tune, like a tape running slow
+    drone = { os, g };
+  }
+  const inScale = s => A.scale.includes(((s % 12) + 12) % 12);
+  const triad = deg => [0, inScale(deg + 3) ? 3 : 4, inScale(deg + 7) ? 7 : 6];                 // the chord the scale gives on that step
+  const degNote = (i) => { const n = A.scale.length, o = Math.floor(i / n); return A.scale[((i % n) + n) % n] + 12 * o; };      // scale step i (may be negative or past the octave) in semitones
+  function makeTune(R) {                                     // 3 to 5 notes on a random walk through the scale, on chosen eighths of two bars
+    const n = 3 + Math.floor(R() * 3), slots = []; while (slots.length < n) { const s = Math.floor(R() * 14); if (!slots.includes(s) && !slots.includes(s - 1) && !slots.includes(s + 1)) slots.push(s); } slots.sort((a, b) => a - b);
+    let d = Math.floor(R() * 5); return slots.map(s => { d += [-2, -1, -1, 1, 1, 2, 3][Math.floor(R() * 7)]; d = clamp(d, -2, 8); return [s, d, R() < 0.3 ? 2.4 : 1.5]; });
   }
   function tick() {
     if (!running || !actx) return;
     if (bg || document.hidden) return;
     if (actx.state !== "running") { actx.resume().catch(() => {}); nextT = Math.max(nextT, actx.currentTime + 0.1); return; }
     if (nextT < actx.currentTime - 0.3) nextT = actx.currentTime + 0.05;       // after a stall, restart cleanly instead of bursting
-    const T = TRACKS[tr], beat = 60 / T.bpm, eighth = beat / 2;
+    I += (want - I) * (want > I ? 0.05 : 0.02);                                // layers come in over a few seconds and leave more slowly
+    const beat = 60 / A.bpm, eighth = beat / 2;
     while (nextT < actx.currentTime + 1.6) {
-      const bar = Math.floor(step / 8), pos = step % 8, deg = T.prog[bar % T.prog.length], chordRoot = T.root - 12 + deg;
-      if (pos === 0) { padChord(nextT, beat * 8, chordRoot + 12, [0, 7, T.scale[2]]); note(N(chordRoot), nextT, beat * 3.6, 0.17, "sine"); }
-      if (pos === 4) note(N(chordRoot), nextT, beat * 1.8, 0.12, "sine");
-      if (pos % 2 === 0) note(N(chordRoot + 24 + [0, 7, 12, 7][(pos / 2) | 0]), nextT, beat * 0.9, 0.018 + 0.004 * T.pulse, "triangle", null, 1800);   // arpeggio
-      if (T.pulse >= 1 && pos % 2 === 1) note(N(chordRoot + 36), nextT, 0.08, 0.01, "square", null, 2400);
-      if (T.pulse === 2 && pos % 4 === 2) note(N(chordRoot - 12), nextT, 0.18, 0.1, "sine");
-      for (const [mp, md] of T.motif) if (mp === pos) {                                 // the same short tune every bar, shifted with the chord
-        const idx = (md + bar * 2) % T.scale.length;
-        note(N(T.root + 12 + T.scale[idx] + deg), nextT, beat * 1.6, 0.1, "triangle");
+      const bar = Math.floor(step / 8), pos = step % 8, two = Math.floor(bar / 2), deg = prog[two % prog.length], cr = key - 12 + deg, tri = triad(deg), t = nextT;
+      if (pos === 0 && bar % 2 === 0) padChord(t, beat * 8, [cr + 12, cr + 12 + tri[2], cr + 24 + tri[1]], 0.017 + 0.007 * I);                    // a chord every two bars, opened out
+      if (pos === 0) note(N(cr), t, beat * 3.6, bar % 2 ? 0.1 : 0.16, "sine");
+      if (I > 0.25) {                                                          // the bass pulse
+        const v = Math.min(1, (I - 0.25) * 4);
+        if (pos === 4) note(N(cr), t, beat * 1.6, 0.11 * v, "sine");
+        if (A.pulse >= 1 && (pos === 3 || pos === 6)) note(N(cr + (pos === 6 ? tri[2] : 0)), t, 0.2, 0.07 * v, "sine");
+        if (A.pulse >= 2 && pos % 2 === 1) hat(t, 0.012 * v);
+        if (A.pulse >= 3) { note(N(cr + 12), t, 0.11, 0.035 * v, "square", 900); if (pos % 2 === 0) hat(t, 0.014 * v); }
+      }
+      if (A.arp && I > 0.5) {                                                  // the arpeggio: a different figure on alternate bars
+        const v = Math.min(1, (I - 0.5) * 4), pat = ARPS[arps[bar % 2]], k = pat[pos];
+        if (k >= 0) { const tones = [0, tri[1], tri[2], 12, 12 + tri[1]]; note(N(cr + 24 + tones[k]), t, beat * 0.8, 0.02 * A.arp * v, "triangle", 2000); }
+      }
+      if (I > 0.7 || (A.lead === "metal" && I > 0.15)) {                       // the tune: A for two bars, rest two, B for two, rest two. Backstage keeps a few stray bell notes at any level
+        const v = A.lead === "metal" ? 0.6 + 0.4 * I : Math.min(1, (I - 0.7) * 5), ph = Math.floor(bar / 2) % 4, tune = ph === 0 ? tuneA : ph === 2 ? tuneB : null, s2 = (bar % 2) * 8 + pos;
+        if (tune) for (const [s, d, len] of tune) if (s === s2) lead(A.lead === "both" ? (ph === 0 ? "bell" : "pluck") : A.lead, N(key + 12 + degNote(d)), t, 0.085 * v, beat * len);
       }
       nextT += eighth; step++;
     }
   }
+  function sting(kind) {
+    if (!actx || !running || actx.state !== "running" || !opts.music) return; const t = actx.currentTime + 0.03, two = Math.floor(Math.floor(step / 8) / 2), deg = prog[two % prog.length], tri = triad(deg), b = key + deg;
+    if (kind === "door") { bell(N(b + 12), t, 0.07, 1.2); bell(N(b + 12 + tri[2]), t + 0.12, 0.07, 1.4); }
+    else if (kind === "exit") { [0, tri[1], tri[2], 12].forEach((s, k) => bell(N(b + 12 + s), t + k * 0.11, 0.085, 1.8)); padChord(t, 2.2, [b, b + tri[2], b + 12 + tri[1]], 0.03); }
+    else if (kind === "done") { const k3 = triad(0); [0, k3[1], k3[2], 12, 12 + k3[1]].forEach((s, k) => { bell(N(key + 12 + s), t + k * 0.1, 0.1, 2.2); }); padChord(t, 2.6, [key, key + k3[2], key + 12 + k3[1], key + 24], 0.035); note(N(key - 12), t, 2.4, 0.16, "sine"); }
+  }
   return {
     start() { if (running || !actx) return; running = true; nextT = actx.currentTime + 0.15; step = 0; startDrone(); clearInterval(timer); timer = setInterval(tick, 100); tick(); },
     kick() { if (!running || !actx) return; if (actx.state !== "running") actx.resume().catch(() => {}); tick(); },
-    set(i) {
-      const n = Math.max(0, Math.min(TRACKS.length - 1, i | 0));
-      if (n !== tr) { tr = n; step = 0; if (actx) nextT = Math.max(nextT, actx.currentTime + 0.2); if (drone) drone.os.forEach((o, k) => o.frequency.setTargetAtTime(N(TRACKS[tr].root - 24 + (k ? 7 : 0)), actx.currentTime, 1.5)); }
+    // the room's own music: `idx` is the room's index (0-based), `act` 0 to 6
+    room(idx, act) {
+      const a = ACTS[clamp(act | 0, 0, ACTS.length - 1)], sd = (idx + 1) * 7919 + 13; if (sd === seed && a === A) return; seed = sd; A = a;
+      const R = rng(sd); key = A.root + [0, 0, 2, -2, 3, -3, 5][Math.floor(R() * 7)]; prog = A.progs[Math.floor(R() * A.progs.length)].slice(); if (R() < 0.5) prog.push(prog.shift());
+      tuneA = makeTune(R); tuneB = R() < 0.5 ? tuneA.map(([s, d, l]) => [s, d + 2, l]) : makeTune(R); arps = [Math.floor(R() * ARPS.length), Math.floor(R() * ARPS.length)];
+      step = 0; I = Math.min(I, 0.2); want = 0; if (actx) nextT = Math.max(nextT, actx.currentTime + 0.2);
+      if (drone) { drone.os.forEach((o, k) => o.frequency.setTargetAtTime(N(key - 24 + (k ? 7 : 0)), actx.currentTime, 1.5)); wob.gain.setTargetAtTime(A.wobble || 0, actx.currentTime, 1); }
     },
+    set(i) { this.room(i | 0, i | 0); },                     // (kept for old callers)
+    set intensity(v) { want = clamp(v, 0, 1); }, get intensity() { return I; }, get info() { return { act: A.name, key, prog, tuneA, tuneB, arps, I: +I.toFixed(2), want, step }; },
+    sting,
     stop() { running = false; clearInterval(timer); }
   };
 })();
+// how far through the room you are, 0 to 1: portals out, buttons down and receivers lit, doors open. The music's layers follow it.
+function roomProgress() {
+  const W = world; if (!W || state !== "play") return 0; let got = 0, tot = 0, dOpen = 0, dTot = 0;
+  for (const p of W.plates) { tot++; if (p.pressed) got++; } for (const r of W.receivers) { tot++; if (r.lit) got++; } for (const s of (W.sockets || [])) if (!s.spare) { tot++; if (s.lit) got++; } for (const s of (W.switches || [])) { tot++; if (s.on) got++; }
+  for (const d of W.doors) if (!d.auto && !d.dock) { dTot++; if (d.open) dOpen++; }
+  const port = (portals[0].on ? 0.5 : 0) + (portals[1].on ? 0.5 : 0);
+  return clamp(0.2 * port + (tot ? 0.42 * got / tot : 0.25 * Math.min(1, (run.portals || 0) / 4)) + (dTot ? 0.4 * dOpen / dTot : 0.15 * port), 0, 1);
+}
+const actOf = idx => idx < 8 ? 0 : idx < 15 ? 1 : idx < 23 ? 2 : idx < 30 ? 3 : idx < 38 ? 4 : idx < 45 ? 5 : 6;
 
 /* ---------- sound effects ----------
    v8.41, the sound overhaul. Everything is still made in code (no sound files), but:
@@ -7705,7 +7766,7 @@ const sfx = {
   hurt: SFX(t => { osc("sine", 170, 70, t, 0.16, 0.2); noise(t, 0.1, 0.12, 900, 200, 1, "lowpass"); noise(t, 0.05, 0.05, 2600, 900, 1.5); }),
   lit: SFX(t => { [520, 780, 1040].forEach((f, k) => { osc("triangle", f, f, t + k * 0.09, k === 2 ? 0.45 : 0.16, 0.11); osc("sine", f * 2, f * 2, t + k * 0.09, 0.12, 0.025); }); thump(t, 130, 0.08, 0.1); }),
   field: SFX(t => { noise(t, 0.5, 0.18, 5200, 400, 1.2); osc("sawtooth", 1200, 200, t, 0.4, 0.06); osc("sine", 2400, 300, t, 0.3, 0.04); for (let k = 0; k < 3; k++) tick(t + 0.05 + k * 0.06, 0.06, 5000); }),
-  complete: SFX(t => { [0, 4, 7, 12].forEach((s, k) => osc("triangle", 330 * Math.pow(2, s / 12), 330 * Math.pow(2, s / 12), t + k * 0.11, 0.9, 0.15, musicBus)); })
+  complete: SFX(t => { if (opts.music) Music.sting("done"); else [0, 4, 7, 12].forEach((s, k) => osc("triangle", 330 * Math.pow(2, s / 12), 330 * Math.pow(2, s / 12), t + k * 0.11, 0.9, 0.15)); })
 };
 // ---- things that hum from where they are. One voice per kind; it follows the nearest one of its kind (level and side), so the cost never grows with the room.
 const Hum = (() => {
@@ -7795,7 +7856,8 @@ const Amb = (() => {
   }
   return { tick, get next() { return next; }, set next(v) { next = v; }, get level() { return lev; }, FAR };
 })();
-const Snd = { tick(dt) { if (!actx) return; try { Hum.tick(dt); Amb.tick(dt); } catch (e) {} }, Hum, Amb };
+let sndAcc = 0;
+const Snd = { tick(dt) { if (!actx) return; try { Hum.tick(dt); Amb.tick(dt); if ((sndAcc += dt) > 0.25) { sndAcc = 0; Music.intensity = roomProgress(); } } catch (e) {} }, Hum, Amb };
 
 /* ---------- SaDos ---------- */
 /* ---------- the courier's story (v7.4) ----------
@@ -11339,7 +11401,7 @@ function boot() {
   setTimeout(() => HoldMusic.render(), 2200);
   setTimeout(() => { try { HoldShow.ensure(); HoldShow.preload(); } catch (e) { console.error(e); } }, 3000);   // the TV show's picture and voices, ready before anyone reaches the office                                       // and its music, rendered once in the background
 }
-window.__tc = { version: VERSION, Snd, sfx, sndAt, floorKind, setSfxRoom, get actx() { return actx; }, get audioBus() { return { master, sfxBus, sfxIn, sfxWet, musicBus }; }, ensureAudio, kit: { shell, exitPort, refinish, stairs, pane, opening, mergeBoxes }, kitAudit: lv => kitAudit(lv || world.lv), dbg: { wallHit, lvRay, rayBox, hallOf, camTarget, corner, I3 }, secretAudit, CAM_PLAN, Loose, camResolve, sadosPick, holdQuiet, get curPr() { return curPr; }, get subBusy() { return subBusy; }, Bonus, STAFF_DOORS, denAudit, LEVEL_FUNCS, bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, set sevenAt(i) { sevenHere = i; sevenSlotted = false; sevenSaid = false; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get liftFloor() { return liftFloorTxt; }, liftSeq, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
+window.__tc = { version: VERSION, Music, roomProgress, actOf, Snd, sfx, sndAt, floorKind, setSfxRoom, get actx() { return actx; }, get audioBus() { return { master, sfxBus, sfxIn, sfxWet, musicBus }; }, ensureAudio, kit: { shell, exitPort, refinish, stairs, pane, opening, mergeBoxes }, kitAudit: lv => kitAudit(lv || world.lv), dbg: { wallHit, lvRay, rayBox, hallOf, camTarget, corner, I3 }, secretAudit, CAM_PLAN, Loose, camResolve, sadosPick, holdQuiet, get curPr() { return curPr; }, get subBusy() { return subBusy; }, Bonus, STAFF_DOORS, denAudit, LEVEL_FUNCS, bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, set sevenAt(i) { sevenHere = i; sevenSlotted = false; sevenSaid = false; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get liftFloor() { return liftFloorTxt; }, liftSeq, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
 try { boot(); } catch (err) { console.error(err); $("loading").hidden = false; $("loading").innerHTML = '<div style="max-width:420px;text-align:center;line-height:1.6;font-size:13px;letter-spacing:.05em">Something went wrong starting the game.<br><small>' + String(err && err.message || err) + "</small></div>"; }
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>
