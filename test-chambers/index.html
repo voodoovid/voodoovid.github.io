@@ -426,6 +426,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
       <h2 class="ttl">Settings</h2>
       <div class="opt">Music <button id="oMusic" type="button">On</button></div>
       <div class="opt">Sound effects <button id="oSfx" type="button">On</button></div>
+      <div class="opt">Ambient sound <button id="oAmb" type="button" data-tip="The quiet room tone and the far-off noises of the building. Needs Sound effects on.">On</button></div>
       <div class="opt">SaDos voice <button id="oVoice" type="button">On</button></div>
       <div class="opt">Look speed <input id="oSens" type="range" min="0.4" max="2.2" step="0.05" value="1"></div>
       <div class="opt">Invert look (up/down) <button id="oInvert" type="button">Off</button></div>
@@ -5626,7 +5627,7 @@ function officeHit(pt) {
     tmpA.copy(pt).sub(o.pos); if (Math.abs(tmpA.dot(o.n)) > 0.35) continue;
     const up = Math.abs(o.n.y) > 0.9 ? _zAxis : tmpB.set(0, 1, 0), rt = tmpC.crossVectors(up, o.n), u = tmpA.dot(rt), v = tmpA.dot(up);
     if (Math.abs(u) > o.w / 2 || Math.abs(v) > o.h / 2 || (o.pane ? o.pane.broken : o.cracks.length >= 14)) continue;
-    o.cracks.push({ x: (0.5 + u / o.w) * o.cv.width, y: (0.5 - v / o.h) * o.cv.height, s: o.cracks.length * 17 + 5 }); paintOffice(o); o.tex.needsUpdate = true; sfx.glass();
+    o.cracks.push({ x: (0.5 + u / o.w) * o.cv.width, y: (0.5 - v / o.h) * o.cv.height, s: o.cracks.length * 17 + 5 }); paintOffice(o); o.tex.needsUpdate = true; sndAt(pt); sfx.glass();
     if (o.pane && o.cracks.length >= o.pane.hp) { shatter(o, pt); return true; }
     if (!run.said.glass) { run.said.glass = 1; const tw = world; setTimeout(() => { if (world === tw && state === "play") say("glass"); }, 2600); }
     return true;
@@ -5637,7 +5638,7 @@ function officeHit(pt) {
 function shatter(o, pt) {
   const g = o.pane; g.broken = true; o.mesh.visible = false;
   try { phys.byHandle.delete(g.box.col.handle); phys.world.removeCollider(g.box.col, true); } catch (e) {}
-  sfx.glassBreak();
+  sndAt(o.pos); sfx.glassBreak();
   const up = tmpB.set(0, 1, 0), rt = new V3().crossVectors(up, o.n);
   for (let i = 0; i < 46; i++) {
     const m = new THREE.Mesh(SHARD_GEO, new THREE.MeshBasicMaterial({ color: new THREE.Color(1.5, 1.7, 1.9), transparent: true, side: THREE.DoubleSide }));
@@ -5671,7 +5672,7 @@ function zonesStep(dt) {
       let vx = v.x, vy = v.y + GRAV * lift * sub * dt, vz = v.z; vy -= vy * Math.min(1, 4 * sub * dt);
       const k = Math.min(1, 1.4 * sub * dt), cx = a.on && a.cur ? a.cur[0] * a.dir : 0, cz = a.on && a.cur ? a.cur[1] * a.dir : 0; vx += (cx - vx) * k; vz += (cz - vz) * k;
       c.body.setLinvel({ x: vx, y: vy, z: vz }, true); const ak = 1 - Math.min(1, 3 * sub * dt); c.body.setAngvel({ x: w.x * ak, y: w.y * ak, z: w.z * ak }, true);
-      if (!c.wet && Math.abs(v.y) > 1.5) sfx.splash(); c.wet = 0.3;
+      if (!c.wet && Math.abs(v.y) > 1.5) { sndAt(c.p); sfx.splash(); } c.wet = 0.3;
     }
     if (c.wet > 0) c.wet -= dt;
   }
@@ -5747,7 +5748,7 @@ const _down = new V3(0, -1, 0);
 function camFalls(dt) {
   for (const pr of world.camProps) {                  // knocked-down cameras are physical now: the head follows its body
     const h = pr.cam.head; h.position.copy(pr.p); h.quaternion.copy(pr.q);
-    if (Math.abs(pr.v.y) > 2.5 && !pr.wasFast) pr.wasFast = true; else if (pr.wasFast && Math.abs(pr.v.y) < 0.4) { pr.wasFast = false; sfx.camCrash(); }
+    if (Math.abs(pr.v.y) > 2.5 && !pr.wasFast) pr.wasFast = true; else if (pr.wasFast && Math.abs(pr.v.y) < 0.4) { pr.wasFast = false; sndAt(pr.p); sfx.camCrash(); }
   }
   for (const c of world.cams) {
     const f = c.fall; if (!f) continue;
@@ -5794,9 +5795,9 @@ function padsStep(dt) {
     if (pd.cool > 0) continue;
     const throwFrom = p => new V3(...launchTo([p.x, p.y, p.z], [pd.to[0], pd.to[1] - pd.from[1] + p.y, pd.to[2]], pd.T));   // same landing spot from anywhere on the pad
     if (state === "play" && on(pl.p, HY) && pl.v.y <= 0.5) { pl.v.copy(throwFrom(pl.p)); pl.ground = false; pl.air = 1; pl.flyT = pd.T;   // a fixed arc: no steering until you land or pass a portal
-      pd.cool = 0.5; pd.flash = 1; sfx.launch(); }
+      pd.cool = 0.5; pd.flash = 1; sndAt(pd.pos); sfx.launch(); }
     for (const c of props()) if (!c.held && !(c.bolt && c.state === "on") && on(c.p, c.h[1]) && c.v.y <= 0.5) {
-      setCubeState(c, c.p, c.q, throwFrom(c.p), { x: 2, y: 0.5, z: -1.5 }); pd.cool = 0.5; pd.flash = 1; sfx.launch();
+      setCubeState(c, c.p, c.q, throwFrom(c.p), { x: 2, y: 0.5, z: -1.5 }); pd.cool = 0.5; pd.flash = 1; sndAt(pd.pos); sfx.launch();
     }
   }
 }
@@ -5889,7 +5890,7 @@ const H_PL = [HX, HY, HX], H_CUBE = [0.35, 0.35, 0.35];
 const AXN = ["x", "y", "z"];
 const player = { p: new V3(), v: new V3(), ground: false, yaw: 0, pitch: 0, hp: 100 };
 const inp = { fwd: 0, right: 0, jumpQ: false, lookX: 0, lookY: 0 };
-const opts = Object.assign({ music: true, sfx: true, voice: true, sens: 1, invert: false, scrollInv: false, quality: "auto", challenge: false, hand: "left" }, store.get("opts", {}));
+const opts = Object.assign({ music: true, sfx: true, voice: true, sens: 1, invert: false, scrollInv: false, quality: "auto", challenge: false, hand: "left", amb: true }, store.get("opts", {}));
 let state = "title";            // title | play | paused | dead | done
 let levelIdx = 0;
 const run = { time: 0, portals: 0, top: 0, deadT: 0, idle: 0, hinted: 0, fell: false, said: {} };
@@ -6296,6 +6297,8 @@ function cubesAfterStep() {
     const t = c.body.translation(), r = c.body.rotation(), v = c.body.linvel();
     const sp0 = c.v.length(), vx0 = c.v.x, vz0 = c.v.z, vy0 = c.v.y;
     c.p.set(t.x, t.y, t.z); c.q.set(r.x, r.y, r.z, r.w); c.v.set(v.x, v.y, v.z);
+    if (!c.held && (c.kind === "cube" || c.kind === "sentry")) { const dv = Math.hypot(v.x - vx0, v.y - vy0, v.z - vz0);      // v8.41: it hit something (not a portal: that turns it without stopping it)
+      if (dv > 2.4 && world.t - (c.clankT || -9) > 0.14 && c.pv && c.p.distanceToSquared(c.pv) < 0.3) { c.clankT = world.t; sndAt(c.p); sfx.clank(dv, c.kind); } }
     Loose.crate(c, sp0, vx0, vy0, vz0);              // v8.35: a fast crate knocks a loose panel in
     if (c.kind === "cube" && !c.raft && !c.held && sp0 > 4.5) for (const sn of world.sentries) {      // a crate arriving at speed knocks a sentry over
       if (sn.state === "off" || sn.held) continue; const sb = cubeBox(sn), m = 0.47 + sp0 / 120;      // reach one step further at speed: a fast crate has bounced off by the time it is looked at
@@ -6318,7 +6321,7 @@ function cubesAfterStep() {
           _rq.setFromRotationMatrix(_rm.extractRotation(P.T));
           const a = c.body.angvel(); _av.set(a.x, a.y, a.z).applyMatrix3(P.R);
           setCubeState(c, c.p.clone().applyMatrix4(P.T), c.q.clone().premultiply(_rq), c.v.clone().applyMatrix3(P.R), { x: _av.x, y: _av.y, z: _av.z });
-          sfx.enter(P.idx, 0.5); if (c.kind === "sentry" && c.state === "on") sentryQuip(c, "portal", true); if (c.kind === "cube" && state === "play") chatter("cubePortal", 0.18, 400); break;
+          sndAt(c.p); sfx.enter(P.idx, 0.5); if (c.kind === "sentry" && c.state === "on") sentryQuip(c, "portal", true); if (c.kind === "cube" && state === "play") chatter("cubePortal", 0.18, 400); break;
         }
       }
     }
@@ -7239,7 +7242,7 @@ function physicsStep(dt) {
   if (contact < 0 && -vyBefore > 2.5 && W.patches.length && v5Under("bounce")) { pl.v.y = Math.max(-vyBefore * 0.97, 10.5); contact = 0; sfx.launch(); if (!run.said.bounce) { run.said.bounce = 1; say("bounce"); } }   // rebound paste throws you back up
   pl.ground = contact < 0;
   if (pl.ground) pl.air = 0; else pl.air = (pl.air || 0) + dt;
-  if (contact < 0 && !wasGround && -vyBefore > 5) { sfx.land(-vyBefore); onLanded(-vyBefore); }
+  if (contact < 0 && !wasGround && -vyBefore > 5) { sfx.land(-vyBefore, floorKind()); onLanded(-vyBefore); }
   tryPortalPlayer();
   padsStep(dt); zonesStep(dt); v5Step(dt); Loose.step(dt); Items.step(dt);
   // the rest of the world: doors and sentries carry their colliders, the held cube is pulled along, then the engine steps
@@ -7250,7 +7253,7 @@ function physicsStep(dt) {
   phys.world.timestep = dt; phys.world.step(phys.events, PHYS_HOOKS);
   cubesAfterStep();
   const speed = pl.v.length(); if (speed > run.top) run.top = speed;
-  if (pl.ground) { stepAcc += Math.hypot(pl.v.x, pl.v.z) * dt; if (stepAcc > 2.3) { stepAcc = 0; sfx.step(); } }
+  if (pl.ground) { stepAcc += Math.hypot(pl.v.x, pl.v.z) * dt; if (stepAcc > 2.3) { stepAcc = 0; sfx.step(floorKind(), 0.45 + Math.hypot(pl.v.x, pl.v.z) / 9); } }
   // hazards
   if (alive) {
     for (const a of W.acid) if (pl.p.x > a.x0 && pl.p.x < a.x1 && pl.p.z > a.z0 && pl.p.z < a.z1 && pl.p.y - HY < a.y + 0.12) { die("acid"); break; }
@@ -7274,7 +7277,7 @@ function physicsStep(dt) {
       let n = 0; for (const c of W.camProps) if (!c.held && Math.abs(c.p.x - p.pos[0]) < 0.95 && Math.abs(c.p.z - p.pos[2]) < 0.95 && c.p.y - c.h[1] < p.pos[1] + 0.45 && c.p.y > p.pos[1]) n++;
       if (n !== p.camN) { if (n > p.camN) sfx.tick(1); p.camN = n; } on = n >= p.cams;
     } else if (!on) for (const c of props()) if (!c.held && c.kind !== "camera" && (!p.only || c.kind === p.only) && Math.abs(c.p.x - p.pos[0]) < 0.8 && Math.abs(c.p.z - p.pos[2]) < 0.8 && c.p.y - c.h[1] < p.pos[1] + 0.3 && c.p.y > p.pos[1]) { on = true; if (!p.pressed && c.kind === "cube" && alive) chatter("plateCube", 0.2, 600); break; }
-    if (on !== p.pressed) { p.pressed = on; sfx.button(on); }
+    if (on !== p.pressed) { p.pressed = on; sndAt(p.pos); sfx.button(on); }
     const full = !p.charge || (p.chg = on ? Math.min(p.charge, (p.chg || 0) + dt) : 0) >= p.charge;      // a slow button needs weight on it for a while before it counts
     if (p.hold) { if (on && full) p.left = p.hold; else if (p.left > 0) { const b = Math.ceil(p.left * 2); p.left -= dt; if (Math.ceil(p.left * 2) !== b) sfx.tick(p.left); } }   // a relay holds it for a few seconds after you step off
     p.active = (on && full) || p.left > 0;
@@ -7291,7 +7294,7 @@ function physicsStep(dt) {
     if (d.dock) { Dock.step(dt); continue; }          // v7.1: the lift doors run themselves
     const was = d.open;
     d.t = clamp(d.t + (d.want ? 1 : -1) * dt * 1.15, 0, 1);
-    d.open = d.t > 0.05; if (d.open !== was) sfx.door(d.open);
+    d.open = d.t > 0.05; if (d.open !== was) { if (d.min0) sndAt((d.min0[0] + d.max0[0]) / 2, d.min0[1] + 1.5, (d.min0[2] + d.max0[2]) / 2); sfx.door(d.open); }
     const e = d.t * d.t * (3 - 2 * d.t), y = d.rise * e;
     d.box.min[1] = d.min0[1] + y; d.box.max[1] = d.max0[1] + y; d.group.position.y = y;
     const lm = d.t > 0.9 ? MAT.doorGreen : MAT.doorRed; for (const m of d.lights) m.material = lm;
@@ -7465,6 +7468,7 @@ function ensureAudio() {
     master.connect(comp); comp.connect(actx.destination);
     musicBus = actx.createGain(); sfxBus = actx.createGain(); musicBus.gain.value = opts.music ? 0.55 : 0; sfxBus.gain.value = opts.sfx ? 0.8 : 0;
     musicBus.connect(master); sfxBus.connect(master);
+    sfxSetup();                                    // v8.41: the room echo for effects
     // simple generated reverb
     const len = actx.sampleRate * 2.6, ir = actx.createBuffer(2, len, actx.sampleRate);
     for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.6); }
@@ -7564,62 +7568,234 @@ const Music = (() => {
   };
 })();
 
-/* ---------- sound effects ---------- */
-function osc(type, f0, f1, t, dur, vol, dest) {
+/* ---------- sound effects ----------
+   v8.41, the sound overhaul. Everything is still made in code (no sound files), but:
+   - every effect is built from layers (a body, a strike, a ring, some air) instead of one tone and one hiss;
+   - effects go through a room echo sized to the room you are in (setSfxRoom; a den or the lift car is small and dead, a big chamber rings);
+   - an effect can come from a place: sndAt(x, y, z) (or a V3, or [x, y, z]) before sfx.name() pans it, makes it quieter and duller with
+     distance, and muffles it when a wall is in the way (spot());
+   - footsteps depend on what you walk on (floorKind(): tile, metal, concrete, carpet, lino, grate);
+   - Hum: lasers, reset fields, portals, acid, launch pads, live sentries, light bridges, air streams and fridges hum from where they are;
+   - Amb: a quiet room tone, with something far off in the building now and then (Settings > Ambient sound).
+   Checked by measurement only (levels, no clipping, no errors): it has not been listened to. */
+let sfxIn = null, sfxRev = null, sfxWet = null, sfxDest = null, sndPos = null, sfxRoomKey = "";
+function sndAt(x, y, z) { sndPos = x && x.x !== undefined ? [x.x, x.y, x.z] : Array.isArray(x) ? x : [x, y, z]; return true; }
+function sfxSetup() {
+  sfxIn = actx.createGain(); sfxIn.connect(sfxBus);
+  sfxRev = actx.createConvolver(); sfxWet = actx.createGain(); sfxWet.gain.value = 0.22; sfxIn.connect(sfxRev); sfxRev.connect(sfxWet); sfxWet.connect(sfxBus);
+  sfxRoomKey = ""; setSfxRoom(world ? roomSize() : 20, 1);
+}
+// the echo of the room: `size` is its longest side in metres, `live` 1 for bare panels down to about 0.35 for a furnished room
+function setSfxRoom(size, live = 1) {
+  if (!actx || !sfxRev) return; const key = Math.round(size / 3) + "|" + Math.round(live * 5); if (key === sfxRoomKey) return; sfxRoomKey = key;
+  const secs = clamp((0.22 + size / 17) * (0.45 + 0.55 * live), 0.25, 2.6), sr = actx.sampleRate, len = Math.floor(sr * secs), ir = actx.createBuffer(2, len, sr), damp = 0.25 + 0.3 * live;
+  for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); let lp = 0;
+    for (let i = Math.floor(sr * 0.006); i < len; i++) { const n = Math.random() * 2 - 1, u = i / len; lp += (n - lp) * (damp * (1 - 0.7 * u) + 0.06); d[i] = lp * Math.pow(1 - u, 3.0) * 0.6; }
+    for (let k = 0; k < 6; k++) { const at = Math.floor(sr * (0.008 + (k + 0.6 + Math.random() * 0.5) * size / 343 * 0.9)); if (at < len) d[at] += (k % 2 === c ? 1 : -1) * (0.7 - k * 0.09); } }      // first bounces off the walls
+  sfxRev.buffer = ir; sfxWet.gain.setTargetAtTime(clamp(0.1 + size / 85, 0.12, 0.4) * (0.3 + 0.7 * live), actx.currentTime, 0.2);
+}
+// a place in the room for one effect: quieter and duller with distance, panned, muffled behind a wall. Returns the node to play into (or null: too far to hear)
+function spot(pos, far) {
+  const L = cam.pos, dx = pos[0] - L.x, dy = pos[1] - L.y, dz = pos[2] - L.z, d = Math.hypot(dx, dy, dz);
+  let g = 1 / (1 + Math.pow(d / 7, 1.6)), cut = 17000 / (1 + d / 14); if (g < 0.012) return null;
+  if (!far && world && d > 1.5) { const k = Math.min(0.5, 0.6 / d); if (segBlocked([L.x, L.y, L.z], [pos[0] - dx * k, pos[1] - dy * k, pos[2] - dz * k], world.solids)) { g *= 0.42; cut *= 0.2; } }
+  const G = actx.createGain(), F = actx.createBiquadFilter(), P = actx.createStereoPanner(); G.gain.value = g; F.type = "lowpass"; F.frequency.value = Math.max(300, cut); F.Q.value = 0.3;
+  P.pan.value = clamp((dx * Math.cos(cam.yaw) - dz * Math.sin(cam.yaw)) / Math.max(d, 1.2), -1, 1) * 0.85;
+  G.connect(F); F.connect(P); P.connect(sfxIn || sfxBus); return G;
+}
+const sfxOut = () => sfxDest || (state === "cut" || !sfxIn ? sfxBus : sfxIn);      // the films keep their own dry mix
+function osc(type, f0, f1, t, dur, vol, dest, att) {
   const o = actx.createOscillator(), g = actx.createGain();
   o.type = type; o.frequency.setValueAtTime(f0, t); if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
-  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(g); g.connect(dest || sfxBus); o.start(t); o.stop(t + dur + 0.05);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), t + (att || 0.01)); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(dest || sfxOut()); o.start(t); o.stop(t + dur + 0.05);
 }
 let noiseBuf = null;
-function noise(t, dur, vol, f0, f1, q, type) {
+function noiseSrc() {
   if (!noiseBuf) { noiseBuf = actx.createBuffer(1, actx.sampleRate, actx.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
-  const s = actx.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
-  const fl = actx.createBiquadFilter(); fl.type = type || "bandpass"; fl.Q.value = q || 1; fl.frequency.setValueAtTime(f0, t); fl.frequency.exponentialRampToValueAtTime(Math.max(40, f1), t + dur);
-  const g = actx.createGain(); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  s.connect(fl); fl.connect(g); g.connect(sfxBus); s.start(t); s.stop(t + dur + 0.05);
+  const s = actx.createBufferSource(); s.buffer = noiseBuf; s.loop = true; s.loopStart = Math.random() * 0.5; return s;
 }
-const SFX = fn => (...a) => { if (!actx || !opts.sfx || actx.state !== "running") return; try { fn(actx.currentTime + 0.005, ...a); } catch (e) {} };
+function noise(t, dur, vol, f0, f1, q, type, att) {
+  const s = noiseSrc(), fl = actx.createBiquadFilter(); fl.type = type || "bandpass"; fl.Q.value = q || 1; fl.frequency.setValueAtTime(f0, t); fl.frequency.exponentialRampToValueAtTime(Math.max(40, f1), t + dur);
+  const g = actx.createGain();
+  if (att) { g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), t + att); } else g.gain.setValueAtTime(Math.max(0.0002, vol), t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  s.connect(fl); fl.connect(g); g.connect(sfxOut()); s.start(t, Math.random() * 0.4); s.stop(t + dur + 0.05);
+}
+const rp = (a = 0.06) => 1 + (Math.random() * 2 - 1) * a;
+// struck metal: a few partials that are not a neat chord, the high ones dying first
+function ring(t, f, vol, dur, bright = 1, ratios = [1, 2.32, 3.86, 5.93]) { ratios.forEach((r, k) => { if (f * r < 9000) osc("sine", f * r, f * r * 0.995, t, dur / (1 + k * 0.9), vol * bright / (1 + k * 1.3) + (k ? 0 : vol * (1 - bright) * 0.5)); }); }
+const thump = (t, f, vol, dur = 0.12) => osc("sine", f, f * 0.42, t, dur, vol, null, 0.004);
+const tick = (t, vol, f = 3500) => noise(t, 0.014, vol, f, f * 0.55, 0.9, "highpass");
+// a motor: a buzzy tone through a low-pass that follows its pitch
+function whirr(t, f0, f1, dur, vol) {
+  const o = actx.createOscillator(), o2 = actx.createOscillator(), fl = actx.createBiquadFilter(), g = actx.createGain(); o.type = "sawtooth"; o2.type = "square";
+  for (const [x, m] of [[o, 1], [o2, 2.01]]) { x.frequency.setValueAtTime(f0 * m, t); x.frequency.linearRampToValueAtTime(f1 * m, t + dur * 0.35); x.frequency.setValueAtTime(f1 * m, t + dur * 0.7); x.frequency.linearRampToValueAtTime(f0 * m * 0.8, t + dur); }
+  fl.type = "lowpass"; fl.Q.value = 2.5; fl.frequency.setValueAtTime(f0 * 5, t); fl.frequency.linearRampToValueAtTime(f1 * 7, t + dur * 0.4); fl.frequency.linearRampToValueAtTime(f0 * 4, t + dur);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.05); g.gain.setValueAtTime(vol, t + dur * 0.8); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(fl); o2.connect(fl); fl.connect(g); g.connect(sfxOut()); o.start(t); o2.start(t); o.stop(t + dur + 0.05); o2.stop(t + dur + 0.05);
+}
+const SFX = fn => (...a) => { const pos = sndPos; sndPos = null; if (!actx || !opts.sfx || actx.state !== "running") return;
+  try { sfxDest = pos && state !== "cut" ? spot(pos) : null; if (!pos || sfxDest) fn(actx.currentTime + 0.005, ...a); } catch (e) {} sfxDest = null; };
+// what is under your feet
+function floorKind() {
+  if (!world) return "metal"; const p = player.p, fy = p.y - 0.9, lv = world.lv;
+  for (const f of (lv.furn || [])) if (f.k === "floor" && f.at && Math.abs(f.at[1] - fy) < 0.3) { const sw = Math.abs(Math.sin(f.ry || 0)) > 0.7, w = (sw ? f.d : f.w) / 2, d = (sw ? f.w : f.d) / 2;
+    if (Math.abs(p.x - f.at[0]) < w && Math.abs(p.z - f.at[2]) < d) return f.type === "carpet" ? "carpet" : "lino"; }
+  let best = null; for (const b of world.solids) if (p.x > b.min[0] && p.x < b.max[0] && p.z > b.min[2] && p.z < b.max[2] && b.max[1] < fy + 0.2 && b.max[1] > fy - 0.45 && (!best || b.max[1] > best.max[1])) best = b;
+  if (!best) return "metal";
+  if (best.look === "conc" || best.look === "wwash") return "conc";
+  if (best.portal) return "tile";
+  if (lv.bs) return "conc";
+  return Math.min(best.max[0] - best.min[0], best.max[2] - best.min[2]) < 0.9 || best.max[1] - best.min[1] < 0.3 ? "grate" : "metal";      // a stair tread, a catwalk or a thin deck rings more than a floor
+}
+let stepFoot = 0;
+const STEPS = {       // (t, v): v 0.5 (a slow walk) to 1.3 (a run, or the weight of a landing)
+  tile: (t, v) => { tick(t, 0.05 * v, 2600 * rp(0.12)); noise(t, 0.05, 0.05 * v, 1500 * rp(), 600, 1.6); thump(t, 105 * rp(), 0.07 * v, 0.07); },
+  metal: (t, v) => { thump(t, 88 * rp(), 0.11 * v, 0.09); noise(t, 0.06, 0.05 * v, 620 * rp(), 240, 1.3); ring(t, 290 * rp(0.1), 0.014 * v, 0.16, 0.7); tick(t, 0.018 * v, 1900); },
+  grate: (t, v) => { thump(t, 120 * rp(), 0.07 * v, 0.07); ring(t, 430 * rp(0.12), 0.03 * v, 0.3, 0.9, [1, 1.51, 2.76, 4.1]); noise(t, 0.05, 0.035 * v, 2400, 900, 1.2); },
+  conc: (t, v) => { noise(t, 0.085, 0.085 * v, 760 * rp(0.15), 300, 0.8); noise(t + 0.018, 0.045, 0.03 * v, 3200 * rp(0.2), 1800, 1.2); thump(t, 78 * rp(), 0.06 * v, 0.07); },
+  carpet: (t, v) => { noise(t, 0.09, 0.075 * v, 300 * rp(0.15), 110, 0.7, "lowpass"); thump(t, 66 * rp(), 0.07 * v, 0.08); },
+  lino: (t, v) => { noise(t, 0.05, 0.06 * v, 1150 * rp(0.12), 420, 1.3); thump(t, 92 * rp(), 0.06 * v, 0.07); if (Math.random() < 0.13) osc("sine", 1700 * rp(0.1), 2300, t + 0.02, 0.05, 0.007 * v); }
+};
 const sfx = {
-  grav: SFX((t, up) => { osc("sine", up ? 110 : 520, up ? 620 : 90, t, 0.6, 0.2); osc("triangle", up ? 220 : 780, up ? 930 : 160, t, 0.5, 0.08); noise(t, 0.5, 0.1, up ? 400 : 3000, up ? 3000 : 400, 2); }),
-  pump: SFX(t => { osc("sawtooth", 55, 82, t, 1.2, 0.09); noise(t, 1.4, 0.12, 300, 900, 0.8, "lowpass"); }),
-  splat: SFX(t => { noise(t, 0.12, 0.1, 900, 200, 1.2); osc("sine", 240, 90, t, 0.1, 0.06); }),
-  slam: SFX(t => { noise(t, 0.4, 0.3, 700, 60, 1.1); osc("sine", 70, 30, t, 0.35, 0.3); osc("square", 120, 40, t, 0.12, 0.08); }),
-  sparkOut: SFX(t => { osc("sawtooth", 900, 1800, t, 0.12, 0.05); noise(t, 0.15, 0.08, 5000, 2000, 2); }),
-  camSnap: SFX(t => { noise(t, 0.18, 0.2, 3200, 500, 2); osc("square", 320, 80, t, 0.22, 0.07); }),
-  camCrash: SFX(t => { noise(t, 0.3, 0.22, 1900, 180, 1.4); osc("triangle", 150, 45, t, 0.28, 0.12); }),
-  tick: SFX((t, left) => { osc("square", left < 1.5 ? 1500 : 1100, left < 1.5 ? 1500 : 1100, t, 0.04, 0.06); }),
-  glassBreak: SFX(t => { noise(t, 0.5, 0.4, 6000, 1500, 1.5); noise(t + 0.08, 0.9, 0.22, 4200, 700, 2.5); for (let i = 0; i < 7; i++) osc("triangle", 2200 + Math.random() * 2600, 1500 + Math.random() * 900, t + 0.05 + i * 0.07, 0.12, 0.05); }),
-  glass: SFX(t => { noise(t, 0.12, 0.22, 5200, 2600, 3); osc("triangle", 2400, 1800, t, 0.1, 0.07); osc("triangle", 3300, 2900, t + 0.03, 0.12, 0.05); }),
-  splash: SFX(t => { noise(t, 0.45, 0.22, 900, 250, 0.9, "lowpass"); noise(t + 0.05, 0.3, 0.1, 2600, 900, 1.5); }),
-  lift: SFX(t => { osc("sine", 70, 110, t, 0.9, 0.16); noise(t, 0.9, 0.08, 220, 500, 0.8, "lowpass"); osc("triangle", 880, 880, t + 0.72, 0.12, 0.06); }),
-  badge: SFX(t => { [0, 7, 12, 19].forEach((n, k) => osc("triangle", 660 * Math.pow(2, n / 12), 660 * Math.pow(2, n / 12), t + k * 0.07, 0.3, 0.1)); }),
-  launch: SFX(t => { osc("sine", 90, 420, t, 0.35, 0.3); osc("triangle", 180, 900, t, 0.3, 0.12); noise(t, 0.4, 0.16, 300, 3000, 1.5); }),
-  shoot: SFX((t, i) => { osc("sawtooth", i ? 520 : 760, i ? 220 : 340, t, 0.22, 0.12); osc("sine", i ? 180 : 260, 70, t, 0.25, 0.2); noise(t, 0.18, 0.12, 3200, 600, 1.2); }),
-  open: SFX((t, i) => { osc("sine", i ? 300 : 420, i ? 700 : 900, t, 0.4, 0.16); osc("triangle", i ? 150 : 210, i ? 350 : 450, t, 0.45, 0.12); noise(t, 0.35, 0.1, 500, 4000, 2); }),
-  fizzle: SFX(t => { noise(t, 0.3, 0.2, 2400, 300, 3); osc("square", 180, 60, t, 0.25, 0.08); }),
-  enter: SFX((t, i, v) => { const k = v || 1; osc("sine", i ? 900 : 600, i ? 300 : 200, t, 0.3, 0.2 * k); noise(t, 0.28, 0.14 * k, 1800, 300, 2); }),
-  land: SFX((t, v) => { const k = Math.min(1, v / 30); osc("sine", 120, 40, t, 0.28, 0.5 * k + 0.1); noise(t, 0.2, 0.3 * k, 600, 80, 1, "lowpass"); }),
-  step: SFX(t => { noise(t, 0.07, 0.07, 900 + Math.random() * 300, 300, 1.5, "lowpass"); }),
-  jump: SFX(t => { noise(t, 0.12, 0.08, 500, 1500, 1); }),
-  fridge: SFX(t => { noise(t, 0.09, 0.16, 1800, 400, 1.4); osc("sine", 62, 60, t + 0.05, 0.9, 0.05); }),           // v8.19: the seal lets go, then the hum
+  step: SFX((t, kind, v) => { stepFoot ^= 1; (STEPS[kind] || STEPS.metal)(t, clamp(v === undefined ? 0.85 : v, 0.4, 1.3) * (stepFoot ? 1 : 0.9)); }),
+  land: SFX((t, v, kind) => { const k = Math.min(1, v / 28); thump(t, 96, 0.38 * k + 0.1, 0.24); noise(t, 0.2, 0.26 * k + 0.03, 520, 80, 1, "lowpass"); (STEPS[kind] || STEPS.metal)(t, 1.3); (STEPS[kind] || STEPS.metal)(t + 0.045, 0.9);
+    noise(t + 0.02, 0.22, 0.03 + 0.05 * k, 2400, 900, 0.7); }),                                                    // both feet, the knees taking it, the bag
+  jump: SFX(t => { noise(t, 0.13, 0.07, 420, 1500, 0.9, "bandpass", 0.03); noise(t, 0.05, 0.05, 1400, 600, 1.4); thump(t, 90, 0.05, 0.06); }),
+  // the portal gun: a charge chirp, the body of the shot, a thud you feel, and air after it. Blue is the higher voice, orange the lower
+  shoot: SFX((t, i) => { const b = i ? 0.76 : 1; osc("sine", 380 * b, 1500 * b, t, 0.045, 0.1, null, 0.004); osc("sawtooth", 720 * b, 250 * b, t + 0.02, 0.2, 0.09); osc("triangle", 1440 * b, 520 * b, t + 0.02, 0.14, 0.05);
+    thump(t + 0.015, 150 * b, 0.26, 0.2); noise(t + 0.01, 0.07, 0.14, 4200, 1200, 1.1); noise(t + 0.05, 0.34, 0.05, 2600 * b, 700, 0.8, "bandpass", 0.03); }),
+  open: SFX((t, i) => { const b = i ? 0.75 : 1; for (const [f, d] of [[392, 0], [588.5, 0.03], [784.6, 0.06]]) osc("sine", f * b * 0.82, f * b, t + d, 0.6, 0.065, null, 0.06);
+    osc("triangle", 196 * b, 98 * b, t, 0.5, 0.12, null, 0.03); noise(t, 0.5, 0.09, 500, 5200, 1.6, "bandpass", 0.12); noise(t + 0.02, 0.1, 0.06, 5000, 2500, 1); }),
+  fizzle: SFX(t => { for (let k = 0; k < 4; k++) noise(t + k * 0.055, 0.06, 0.16 / (1 + k * 0.5), 2800 - k * 500, 500, 3.5); osc("square", 210, 55, t, 0.26, 0.06); osc("sine", 900, 180, t, 0.18, 0.04); }),
+  enter: SFX((t, i, v) => { const k = v || 1, b = i ? 0.8 : 1; noise(t, 0.34, 0.15 * k, 3200, 260, 1.4, "bandpass", 0.03); osc("sine", 760 * b, 240 * b, t, 0.3, 0.16 * k); osc("sine", 1140 * b, 420 * b, t + 0.02, 0.22, 0.05 * k); thump(t + 0.03, 110, 0.12 * k, 0.16); }),
+  grab: SFX(t => { osc("triangle", 290, 520, t, 0.15, 0.11, null, 0.02); osc("sine", 580, 880, t + 0.06, 0.16, 0.07, null, 0.02); noise(t, 0.12, 0.035, 900, 3200, 2, "bandpass", 0.04); tick(t, 0.03, 2200); }),
+  drop: SFX(t => { osc("triangle", 520, 250, t, 0.17, 0.11); osc("sine", 880, 420, t, 0.1, 0.05); noise(t, 0.12, 0.06, 2600, 500, 1.5); }),
+  // something heavy hits something: a crate (a hollow steel box), a sentry (plastic shell on a steel foot), a camera
+  clank: SFX((t, dv, kind) => { const k = clamp((dv - 1.5) / 9, 0.12, 1), f = kind === "sentry" ? 250 : kind === "cam" ? 410 : 172;
+    thump(t, kind === "cube" ? 84 : 120, 0.34 * k, 0.16); ring(t, f * rp(0.08), 0.1 * k, kind === "cube" ? 0.5 : 0.24, kind === "cube" ? 0.85 : 0.5); noise(t, 0.07, 0.2 * k, 1900, 380, 1.1); tick(t, 0.07 * k, 3000); }),
+  button: SFX((t, on) => { tick(t, 0.09, 2400); thump(t, on ? 170 : 130, 0.2, 0.09); ring(t + 0.004, on ? 620 : 470, 0.03, 0.2, 0.6); osc("sine", on ? 660 : 392, on ? 660 : 330, t + 0.05, 0.22, 0.085, null, 0.015); if (on) osc("sine", 990, 990, t + 0.11, 0.26, 0.05, null, 0.015); }),
+  tick: SFX((t, left) => { const f = left < 1.5 ? 1500 : 1100; osc("square", f, f, t, 0.035, 0.045); tick(t, 0.03, 3000); }),
+  // a chamber door: the lock lets go, the motor runs it, it lands on its stop
+  door: SFX((t, open) => { tick(t, 0.1, 1800); thump(t, 140, 0.16, 0.09); whirr(t + 0.04, open ? 70 : 96, open ? 132 : 62, 0.62, 0.05); noise(t + 0.04, 0.62, 0.075, open ? 260 : 900, open ? 900 : 240, 1.2, "bandpass", 0.06);
+    thump(t + 0.66, open ? 92 : 64, open ? 0.22 : 0.4, 0.2); ring(t + 0.66, open ? 240 : 150, open ? 0.04 : 0.085, 0.4, 0.6); noise(t + 0.66, 0.1, open ? 0.06 : 0.14, 1200, 250, 1); }),
+  slide: SFX((t, open) => { whirr(t, open ? 60 : 78, open ? 96 : 58, 0.85, 0.035); noise(t, 0.85, 0.045, open ? 300 : 700, open ? 700 : 300, 1.0, "bandpass", 0.08); thump(t + 0.84, 70, 0.14, 0.14); }),
+  slam: SFX(t => { noise(t, 0.4, 0.28, 800, 60, 1.0); thump(t, 74, 0.42, 0.4); ring(t, 118, 0.11, 0.9, 0.7); osc("square", 120, 40, t, 0.12, 0.06); noise(t + 0.12, 0.5, 0.05, 3000, 900, 0.8); }),
+  lift: SFX(t => { whirr(t, 52, 88, 0.95, 0.06); osc("sine", 68, 108, t, 0.9, 0.13); noise(t, 0.9, 0.06, 220, 520, 0.8, "lowpass", 0.1); thump(t, 60, 0.16, 0.2); osc("triangle", 880, 880, t + 0.72, 0.14, 0.05); }),
+  ding: SFX(t => { ring(t, 1318, 0.075, 1.3, 0.55, [1, 2.0, 3.01, 4.2]); ring(t + 0.24, 988, 0.075, 1.6, 0.55, [1, 2.0, 3.01, 4.2]); tick(t, 0.02, 4000); }),
+  launch: SFX(t => { thump(t, 120, 0.3, 0.2); osc("sine", 90, 440, t, 0.36, 0.24); osc("triangle", 180, 920, t, 0.3, 0.09); noise(t, 0.42, 0.15, 300, 3400, 1.4, "bandpass", 0.03); ring(t, 210, 0.05, 0.35, 0.6); }),
+  grav: SFX((t, up) => { osc("sine", up ? 110 : 520, up ? 620 : 90, t, 0.6, 0.18); osc("triangle", up ? 220 : 780, up ? 930 : 160, t, 0.5, 0.07); osc("sine", up ? 55 : 180, up ? 180 : 45, t, 0.7, 0.14); noise(t, 0.6, 0.09, up ? 400 : 3000, up ? 3000 : 400, 2, "bandpass", 0.08); }),
+  pump: SFX(t => { whirr(t, 46, 78, 1.3, 0.07); noise(t, 1.4, 0.11, 300, 900, 0.8, "lowpass", 0.15); noise(t + 0.2, 1.0, 0.04, 1400, 2600, 2, "bandpass", 0.3); }),
+  splat: SFX(t => { noise(t, 0.13, 0.1, 950, 200, 1.2); osc("sine", 250, 85, t, 0.11, 0.07); noise(t + 0.03, 0.08, 0.03, 2800, 1200, 2); }),
+  splash: SFX(t => { noise(t, 0.5, 0.2, 900, 230, 0.9, "lowpass"); noise(t + 0.04, 0.34, 0.11, 2800, 900, 1.4); thump(t, 110, 0.16, 0.16); for (let k = 0; k < 4; k++) osc("sine", 500 + Math.random() * 900, 1300 + Math.random() * 900, t + 0.12 + k * 0.07, 0.05, 0.03); }),
+  sparkOut: SFX(t => { osc("sawtooth", 900, 1800, t, 0.12, 0.045); noise(t, 0.16, 0.08, 5200, 2000, 2); tick(t, 0.06, 4500); }),
+  camSnap: SFX(t => { tick(t, 0.12, 2600); noise(t, 0.16, 0.16, 3400, 600, 2); osc("square", 320, 80, t, 0.2, 0.05); ring(t, 760, 0.04, 0.2, 0.8); }),
+  camCrash: SFX(t => { thump(t, 130, 0.22, 0.14); noise(t, 0.26, 0.2, 2100, 220, 1.3); ring(t, 410 * rp(), 0.07, 0.3, 0.6); for (let k = 1; k < 4; k++) tick(t + 0.06 * k + Math.random() * 0.03, 0.05 / k, 2600); }),      // the housing, then the bits
+  glassBreak: SFX(t => { noise(t, 0.5, 0.36, 6200, 1500, 1.5); noise(t + 0.08, 0.9, 0.2, 4200, 700, 2.5); thump(t, 160, 0.16, 0.1); for (let i = 0; i < 10; i++) osc("triangle", 2200 + Math.random() * 3000, 1500 + Math.random() * 900, t + 0.05 + i * 0.06 + Math.random() * 0.03, 0.12, 0.045); }),
+  glass: SFX(t => { tick(t, 0.14, 4200); noise(t, 0.12, 0.18, 5400, 2600, 3); ring(t, 2400 * rp(0.1), 0.06, 0.16, 0.9, [1, 1.38, 2.21]); }),
+  badge: SFX(t => { [0, 7, 12, 19].forEach((n, k) => { const f = 660 * Math.pow(2, n / 12); osc("triangle", f, f, t + k * 0.07, 0.34, 0.085); osc("sine", f * 2, f * 2, t + k * 0.07, 0.2, 0.03); }); }),
+  fridge: SFX(t => { noise(t, 0.09, 0.16, 1800, 400, 1.4); thump(t, 120, 0.1, 0.08); osc("sine", 62, 60, t + 0.05, 0.9, 0.05); }),
   gulp: SFX(t => { noise(t, 0.1, 0.12, 5000, 2500, 2); for (let i = 0; i < 4; i++) { const u = t + 0.3 + i * 0.34; osc("sine", 330 - i * 20, 110, u, 0.2, 0.2); osc("triangle", 170, 70, u + 0.03, 0.14, 0.12); noise(u, 0.05, 0.07, 1100, 300, 3); } noise(t + 1.8, 0.5, 0.05, 3200, 1500, 1); }),      // v8.32: a can opened, then four proper glugs and an "ahh"
   sip: SFX(t => { noise(t, 0.16, 0.14, 7000, 3500, 2.5); for (let i = 0; i < 3; i++) osc("sine", 190, 120, t + 0.25 + i * 0.32, 0.12, 0.12); noise(t + 1.2, 0.6, 0.05, 6000, 4000, 3); }),     // the ring pull, three swallows, the fizz
-  grab: SFX(t => { osc("triangle", 300, 500, t, 0.14, 0.14); osc("triangle", 500, 760, t + 0.07, 0.14, 0.1); }),
-  drop: SFX(t => { osc("triangle", 500, 260, t, 0.16, 0.14); noise(t, 0.1, 0.1, 700, 200, 1, "lowpass"); }),
-  button: SFX((t, on) => { osc("square", on ? 330 : 250, on ? 330 : 170, t, 0.1, 0.07); osc("sine", on ? 660 : 330, on ? 660 : 220, t + 0.05, 0.2, 0.12); }),
-  ding: SFX(t => { osc("triangle", 1318, 1318, t, 0.9, 0.07); osc("sine", 2636, 2636, t, 0.4, 0.02); osc("triangle", 988, 988, t + 0.22, 1.2, 0.07); }),
-  slide: SFX((t, open) => { noise(t, 0.85, 0.05, open ? 300 : 700, open ? 700 : 300, 1.0); osc("sine", 55, 50, t, 0.85, 0.05); }),
-  door: SFX((t, open) => { noise(t, 0.7, 0.1, open ? 200 : 900, open ? 900 : 200, 1.4); osc("sawtooth", open ? 90 : 140, open ? 140 : 80, t, 0.6, 0.05); }),
-  death: SFX(t => { noise(t, 0.9, 0.35, 2800, 120, 0.8); osc("sawtooth", 220, 40, t, 0.8, 0.22); }),
-  sentryOff: SFX(t => { osc("sawtooth", 300, 40, t, 0.6, 0.18); noise(t, 0.5, 0.2, 2400, 200, 1); osc("square", 90, 50, t + 0.4, 0.2, 0.1); }),
-  ping: SFX(t => { osc("sine", 1320, 1320, t, 0.14, 0.12); osc("sine", 1760, 1760, t + 0.1, 0.18, 0.1); }),
-  shot: SFX((t, d) => { const k = clamp(1 - (d || 0) / 45, .25, 1); noise(t, 0.07, 0.16 * k, 3800, 900, 1.4); osc("square", 520, 140, t, 0.07, 0.07 * k); }),
-  hurt: SFX(t => { osc("sine", 170, 70, t, 0.16, 0.2); noise(t, 0.1, 0.12, 900, 200, 1, "lowpass"); }),
-  lit: SFX(t => { osc("triangle", 520, 520, t, 0.14, 0.14); osc("triangle", 780, 780, t + 0.09, 0.14, 0.14); osc("triangle", 1040, 1040, t + 0.18, 0.4, 0.14); }),
-  field: SFX(t => { noise(t, 0.5, 0.2, 5000, 400, 1.2); osc("sawtooth", 1200, 200, t, 0.4, 0.07); }),
+  death: SFX(t => { noise(t, 0.9, 0.32, 2800, 120, 0.8); osc("sawtooth", 220, 40, t, 0.8, 0.2); thump(t, 90, 0.3, 0.5); }),
+  sentryOff: SFX(t => { whirr(t, 240, 40, 0.6, 0.1); osc("sawtooth", 300, 40, t, 0.6, 0.1); noise(t, 0.5, 0.16, 2400, 200, 1); thump(t + 0.42, 80, 0.2, 0.16); osc("square", 90, 50, t + 0.4, 0.2, 0.07); }),
+  ping: SFX(t => { osc("sine", 1320, 1320, t, 0.14, 0.11); osc("sine", 1760, 1760, t + 0.1, 0.18, 0.09); whirr(t, 300, 520, 0.16, 0.025); }),
+  shot: SFX((t, d) => { const k = sfxDest ? 1 : clamp(1 - (d || 0) / 45, .25, 1); tick(t, 0.2 * k, 3000); noise(t, 0.07, 0.17 * k, 3800, 900, 1.3); osc("square", 520, 140, t, 0.07, 0.06 * k); thump(t, 190, 0.16 * k, 0.07); }),
+  hurt: SFX(t => { osc("sine", 170, 70, t, 0.16, 0.2); noise(t, 0.1, 0.12, 900, 200, 1, "lowpass"); noise(t, 0.05, 0.05, 2600, 900, 1.5); }),
+  lit: SFX(t => { [520, 780, 1040].forEach((f, k) => { osc("triangle", f, f, t + k * 0.09, k === 2 ? 0.45 : 0.16, 0.11); osc("sine", f * 2, f * 2, t + k * 0.09, 0.12, 0.025); }); thump(t, 130, 0.08, 0.1); }),
+  field: SFX(t => { noise(t, 0.5, 0.18, 5200, 400, 1.2); osc("sawtooth", 1200, 200, t, 0.4, 0.06); osc("sine", 2400, 300, t, 0.3, 0.04); for (let k = 0; k < 3; k++) tick(t + 0.05 + k * 0.06, 0.06, 5000); }),
   complete: SFX(t => { [0, 4, 7, 12].forEach((s, k) => osc("triangle", 330 * Math.pow(2, s / 12), 330 * Math.pow(2, s / 12), t + k * 0.11, 0.9, 0.15, musicBus)); })
 };
+// ---- things that hum from where they are. One voice per kind; it follows the nearest one of its kind (level and side), so the cost never grows with the room.
+const Hum = (() => {
+  const V = {}, R = { laser: 4.5, field: 5, portal0: 2.6, portal1: 2.6, acid: 6, pad: 4, sentry: 3, bridge: 4.5, stream: 6, fridge: 2.6 };
+  const BASE = { laser: 0.05, field: 0.045, portal0: 0.03, portal1: 0.03, acid: 0.06, pad: 0.045, sentry: 0.011, bridge: 0.028, stream: 0.06, fridge: 0.03 };
+  let acc = 0, quiet = true;
+  const O = (type, f, dest, vol = 1) => { const o = actx.createOscillator(), g = actx.createGain(); o.type = type; o.frequency.value = f; g.gain.value = vol; o.connect(g); g.connect(dest); o.start(); return o; };
+  const N = (dest, type, f, q, vol = 1) => { const s = noiseSrc(), fl = actx.createBiquadFilter(), g = actx.createGain(); fl.type = type; fl.frequency.value = f; fl.Q.value = q; g.gain.value = vol; s.connect(fl); fl.connect(g); g.connect(dest); s.start(0, Math.random()); return { s, fl, g }; };
+  const lfo = (f, depth, param) => { const o = actx.createOscillator(), g = actx.createGain(); o.frequency.value = f; g.gain.value = depth; o.connect(g); g.connect(param); o.start(); };
+  const MAKE = {
+    laser: d => { const bp = actx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 2100; bp.Q.value = 2.5; bp.connect(d); O("sawtooth", 92, bp, 0.8); O("sawtooth", 138.7, bp, 0.5); const g = actx.createGain(); g.gain.value = 0.12; g.connect(d); O("sine", 3180, g); lfo(23, 0.08, g.gain); },
+    field: d => { const n = N(d, "bandpass", 3000, 0.6, 0.8); lfo(0.7, 800, n.fl.frequency); O("sine", 240, d, 0.25); O("sine", 243.1, d, 0.25); },
+    portal0: d => { O("sine", 220, d, 0.5); O("sine", 331, d, 0.3); const n = N(d, "bandpass", 1300, 5, 0.6); lfo(0.31, 400, n.fl.frequency); },
+    portal1: d => { O("sine", 165, d, 0.55); O("sine", 247.6, d, 0.3); const n = N(d, "bandpass", 900, 5, 0.6); lfo(0.27, 300, n.fl.frequency); },
+    acid: d => { const n = N(d, "lowpass", 480, 1.5, 0.6); lfo(5.3, 0.3, n.g.gain); lfo(8.1, 0.22, n.g.gain); lfo(0.9, 160, n.fl.frequency); O("sine", 70, d, 0.25); },
+    pad: d => { const g = actx.createGain(); g.gain.value = 0.7; g.connect(d); O("sine", 58, g, 0.9); O("triangle", 116.4, g, 0.3); lfo(3, 0.3, g.gain); },
+    sentry: d => { O("sine", 1210, d, 0.5); const bp = actx.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 820; bp.Q.value = 3; bp.connect(d); O("square", 11, bp, 0.9); },
+    bridge: d => { O("sine", 660, d, 0.4); O("sine", 991, d, 0.25); O("sine", 1323, d, 0.15); N(d, "highpass", 5200, 0.5, 0.12); },
+    stream: d => { const n = N(d, "bandpass", 520, 0.5, 1); lfo(0.5, 180, n.fl.frequency); N(d, "highpass", 3000, 0.5, 0.08); },
+    fridge: d => { const lp = actx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 170; lp.connect(d); O("sawtooth", 50, lp, 0.9); O("sine", 100, d, 0.3); }
+  };
+  function voice(k) { if (V[k]) return V[k]; const g = actx.createGain(), f = actx.createBiquadFilter(), p = actx.createStereoPanner(); g.gain.value = 0; f.type = "lowpass"; f.frequency.value = 12000; g.connect(f); f.connect(p); p.connect(sfxIn || sfxBus); MAKE[k](g); return (V[k] = { g, f, p, lev: 0 }); }
+  const _b = [0, 0, 0];
+  function near(best, x, y, z) { const L = cam.pos, d = Math.hypot(x - L.x, y - L.y, z - L.z); if (d < best.d) { best.d = d; best.x = x; best.y = y; best.z = z; } }
+  function nearSeg(best, g) { const L = cam.pos, t = clamp((L.x - g.o.x) * g.d.x + (L.y - g.o.y) * g.d.y + (L.z - g.o.z) * g.d.z, 0, g.len); near(best, g.o.x + g.d.x * t, g.o.y + g.d.y * t, g.o.z + g.d.z * t); }
+  function tick(dt) {
+    acc += dt; if (acc < 0.06) return; acc = 0;
+    const live = actx && sfxIn && opts.sfx && actx.state === "running" && world && (state === "play" || state === "dead") && !Lift.on;
+    if (!live) { if (!quiet) { quiet = true; for (const k in V) V[k].g.gain.setTargetAtTime(0, actx.currentTime, 0.15); } return; }
+    quiet = false; const W = world, L = cam.pos, B = {}; for (const k in R) B[k] = { d: 1e9 };
+    for (const b of W.beams) for (const g of (b.path || [])) if (g.len > 0.05) nearSeg(B.laser, g);
+    for (const f of W.fields) near(B.field, clamp(L.x, f.min[0], f.max[0]), clamp(L.y, f.min[1], f.max[1]), clamp(L.z, f.min[2], f.max[2]));
+    for (let i = 0; i < 2; i++) if (portals[i].on) near(B["portal" + i], portals[i].o.x, portals[i].o.y, portals[i].o.z);
+    for (const a of W.acid) near(B.acid, clamp(L.x, a.x0, a.x1), a.y, clamp(L.z, a.z0, a.z1));
+    for (const p of W.pads) near(B.pad, p.pos[0], p.pos[1], p.pos[2]);
+    for (const s of W.sentries) if (s.state === "on" && !s.held) near(B.sentry, s.p.x, s.p.y, s.p.z);
+    for (const w of (W.walks || [])) for (const g of (w.segs || [])) nearSeg(B.bridge, g);
+    for (const w of (W.streams || [])) for (const g of (w.segs || [])) nearSeg(B.stream, g);
+    for (const f of (W.lv.furn || [])) if ((f.k === "fridge" || f.k === "vending" || f.k === "cooler") && f.at) near(B.fridge, f.at[0], f.at[1] + 1, f.at[2]);
+    const now = actx.currentTime, cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
+    for (const k in B) { const b = B[k]; let lev = b.d < R[k] * 5 ? 1 / (1 + Math.pow(b.d / R[k], 2)) : 0, cut = 12000;
+      if (!lev && !V[k]) continue; const v = voice(k);
+      if (lev > 0.02 && b.d > 2 && segBlocked([L.x, L.y, L.z], [b.x + (L.x - b.x) * 0.3 / b.d, b.y + (L.y - b.y) * 0.3 / b.d, b.z + (L.z - b.z) * 0.3 / b.d], W.solids)) { lev *= 0.4; cut = 900; }
+      v.g.gain.setTargetAtTime(BASE[k] * lev, now, 0.12); v.f.frequency.setTargetAtTime(cut, now, 0.15);
+      if (lev) v.p.pan.setTargetAtTime(clamp(((b.x - L.x) * cy - (b.z - L.z) * sy) / Math.max(b.d, 1.5), -1, 1) * 0.8, now, 0.1); }
+  }
+  return { tick, get voices() { return Object.keys(V).length; }, levels: () => { const o = {}; for (const k in V) o[k] = +V[k].g.gain.value.toFixed(4); return o; } };
+})();
+// ---- the room tone: air handling you only notice when it stops, and now and then something a long way off in the building
+const Amb = (() => {
+  let bed = null, next = 6, acc = 0, lev = 0, set = "";
+  function start() { const g = actx.createGain(); g.gain.value = 0; g.connect(sfxBus);
+    const a = noiseSrc(), lp = actx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 240; lp.Q.value = 0.4; a.connect(lp); lp.connect(g); a.start();
+    const b = noiseSrc(), bp = actx.createBiquadFilter(), bg = actx.createGain(); bp.type = "bandpass"; bp.frequency.value = 1150; bp.Q.value = 0.35; bg.gain.value = 0.05; b.connect(bp); bp.connect(bg); bg.connect(g); b.start(0, 0.3);
+    const lf = actx.createOscillator(), lg = actx.createGain(); lf.frequency.value = 0.07; lg.gain.value = 60; lf.connect(lg); lg.connect(lp.frequency); lf.start();
+    const m = actx.createOscillator(), mg = actx.createGain(); m.frequency.value = 100; mg.gain.value = 0.012; m.connect(mg); mg.connect(g); m.start();
+    bed = { g, lp }; }
+  // far-off events. Each plays at a made-up place 16 to 34 m away, so it is quiet, dull, off to one side and mostly echo
+  const FAR = {
+    clean: [
+      t => { ring(t, 150 * rp(0.2), 0.5, 1.2, 0.6); thump(t, 70, 0.5, 0.3); },                                    // a panel settling
+      t => { whirr(t, 110, 190 * rp(0.2), 0.9, 0.3); },                                                              // a servo somewhere
+      t => { noise(t, 1.1, 0.35, 3600, 2400, 0.7, "highpass", 0.25); },                                              // pneumatics
+      t => { tick(t, 0.5, 1800); tick(t + 0.13, 0.4, 1500); thump(t, 120, 0.3, 0.1); },                              // a relay
+      t => { thump(t, 62, 0.7, 0.5); noise(t, 0.5, 0.25, 300, 90, 0.8, "lowpass"); }                                 // a door, floors away
+    ],
+    back: [
+      t => { osc("sine", 1500 * rp(0.2), 640, t, 0.06, 0.5); osc("sine", 1250, 560, t + 0.19, 0.05, 0.2); },         // a drip
+      t => { osc("sawtooth", 58 * rp(0.1), 47, t, 2.0, 0.4, null, 0.6); noise(t, 2.0, 0.15, 160, 110, 2, "bandpass", 0.5); },      // a pipe groans
+      t => { ring(t, 96 * rp(0.2), 0.6, 1.6, 0.7); noise(t, 0.12, 0.4, 1500, 300, 1); },                             // something heavy set down
+      t => { for (let k = 0; k < 5; k++) if (Math.random() < 0.7) osc("sawtooth", 100, 100, t + k * 0.09, 0.06, 0.3); noise(t, 0.5, 0.12, 1700, 1500, 3); },      // a lamp ballast flickers
+      t => { noise(t, 1.6, 0.3, 4200, 2600, 0.6, "highpass", 0.5); },                                                // steam
+      t => { whirr(t, 70, 100, 1.4, 0.3); }                                                                          // a fan runs up and gives in
+    ]
+  };
+  function tick(dt) {
+    if (!actx || !sfxIn) return; acc += dt; if (acc < 0.25) return; const d = acc; acc = 0;
+    const live = opts.sfx && opts.amb !== false && actx.state === "running" && world && (state === "play" || state === "dead") && !Lift.on, bs = !!(world && world.lv.bs);
+    const want = live ? (bs ? 0.04 : 0.027) : 0; if (!bed) { if (!want) return; start(); }
+    if (want !== lev) { lev = want; bed.g.gain.setTargetAtTime(want, actx.currentTime, want ? 1.2 : 0.3); bed.lp.frequency.setTargetAtTime(bs ? 330 : 240, actx.currentTime, 1); }
+    // the echo follows where you are: the lift car and furnished rooms are small and soft
+    if (world && state !== "cut") { if (Lift.on) setSfxRoom(4, 0.45); else { const p = player.p, lv = world.lv, den = (lv.denAir || []).find(a => p.x > a[0] && p.x < a[3] && p.y > a[1] && p.y < a[4] + 1 && p.z > a[2] && p.z < a[5]);
+      if (den) setSfxRoom(Math.max(den[3] - den[0], den[5] - den[2], 3), (lv.furn || []).length ? 0.4 : 0.8); else setSfxRoom(roomSize(), bs ? 0.85 : 1); } }
+    if (!live) return; next -= d; if (next > 0) return; next = 9 + Math.random() * 17;
+    const L = cam.pos, a = Math.random() * 6.283, r = 16 + Math.random() * 18, list = FAR[bs ? "back" : "clean"], fn = list[Math.floor(Math.random() * list.length)];
+    try { sfxDest = spot([L.x + Math.cos(a) * r, L.y + (Math.random() - 0.3) * 8, L.z + Math.sin(a) * r], true); if (sfxDest) { sfxDest.gain.value *= 0.4; fn(actx.currentTime + 0.02); } } catch (e) {} sfxDest = null;
+  }
+  return { tick, get next() { return next; }, set next(v) { next = v; }, get level() { return lev; }, FAR };
+})();
+const Snd = { tick(dt) { if (!actx) return; try { Hum.tick(dt); Amb.tick(dt); } catch (e) {} }, Hum, Amb };
 
 /* ---------- SaDos ---------- */
 /* ---------- the courier's story (v7.4) ----------
@@ -8025,7 +8201,7 @@ click("bResetYes", () => { for (const k of ["progress5", "finished5", "room", "b
 if (store.get("progress5", null) === null) store.set("progress5", Math.min(Math.floor(store.get("progress4", 0) / 2), CHAMBERS.length - 1));     // v4.3 groups rooms into chambers: keep roughly how far you had got
 function syncOpts() {
   const on = (id, v) => { const b = $(id); b.textContent = v ? "On" : "Off"; b.classList.toggle("on", !!v); };
-  on("oChal", opts.challenge); on("oMusic", opts.music); on("oSfx", opts.sfx); on("oVoice", opts.voice); on("oInvert", opts.invert); { const b = $("oScroll"); b.textContent = opts.scrollInv ? "Back" : "Forward"; b.classList.toggle("on", !!opts.scrollInv); }
+  on("oChal", opts.challenge); on("oMusic", opts.music); on("oSfx", opts.sfx); on("oAmb", opts.amb !== false); on("oVoice", opts.voice); on("oInvert", opts.invert); { const b = $("oScroll"); b.textContent = opts.scrollInv ? "Back" : "Forward"; b.classList.toggle("on", !!opts.scrollInv); }
   $("oSens").value = opts.sens; $("oQuality").textContent = { auto: "Auto", high: "High", low: "Low" }[opts.quality];
   $("oFull").textContent = inFull() ? "Exit" : "Enter";
   $("oHand").textContent = opts.hand === "right" ? "Right" : "Left";
@@ -8034,6 +8210,7 @@ function syncOpts() {
 const saveOpts = () => store.set("opts", opts);
 click("oMusic", () => { opts.music = !opts.music; applyAudioOpts(); saveOpts(); syncOpts(); });
 click("oSfx", () => { opts.sfx = !opts.sfx; applyAudioOpts(); saveOpts(); syncOpts(); });
+click("oAmb", () => { opts.amb = opts.amb === false; saveOpts(); syncOpts(); });      // v8.41
 click("oVoice", () => { opts.voice = !opts.voice; if (!opts.voice) sadosShutUp(); saveOpts(); syncOpts(); });
 click("oInvert", () => { opts.invert = !opts.invert; saveOpts(); syncOpts(); });
 click("oHand", () => { opts.hand = opts.hand === "right" ? "left" : "right"; applyHand(); saveOpts(); syncOpts(); });
@@ -8323,7 +8500,7 @@ function sightVia(s, eye, o, want) {
 }
 function tipSentry(s, why, dir) {
   if (s.state === "off") return; s.state = "off"; s.why = why; s.eye.material = SENT.eyeOff; s.laser.visible = false; s.jamRing.visible = false; s.wake = 0;
-  sfx.sentryOff(); run.sentriesOff = (run.sentriesOff || 0) + 1;
+  sndAt(s.p); sfx.sentryOff(); run.sentriesOff = (run.sentriesOff || 0) + 1;
   for (let i = 0; i < 4; i++) fxSpark(tmpA.copy(s.p).setY(s.p.y + 0.25));
   s.spray = 5 + Math.floor(Math.random() * 6); s.sprayT = 0.05 + Math.random() * 0.1;   // a few wild shots on the way down
   if (s.body) { s.lock = false; s.body.setEnabledRotations(true, true, true, true); if (s.bolt) s.body.setEnabledTranslations(true, true, true, true); }
@@ -8341,7 +8518,7 @@ function sentryWildShot(s) {
   s.group.getWorldQuaternion(_wq); _wd.set(rand(-.5, .5), rand(-.35, .5), -1).applyQuaternion(_wq).normalize();
   const ray = castRay(_ws, _wd, 30, true, true, s), len = ray.hit ? ray.hit.dist : 30, end = pathPoint(ray, len) || _ws.clone().addScaledVector(_wd, len);
   fxTracer(_ws, end); if (ray.hit) { fxSpark(end); officeHit(end); }
-  const dist = _ws.distanceTo(tmpA.set(player.p.x, player.p.y + 0.4, player.p.z)); sfx.shot(dist);
+  const dist = _ws.distanceTo(tmpA.set(player.p.x, player.p.y + 0.4, player.p.z)); sndAt(_ws); sfx.shot(dist);
   if (state === "play" && ray.segs.length === 1 && distSegPoint(_ws, _wd, len, tmpB.set(player.p.x, player.p.y + 0.3, player.p.z)) < 0.45) hurt(9, "shot");
 }
 // its last words: original lines, pre-recorded like SaDos (voice/<hash>.mp3), shown in their own small subtitle
@@ -8420,7 +8597,7 @@ function updateSentries(dt, time) {
     if (!held && s.body) { const vy = s.v.y; if (s.vyPrev !== undefined && Math.abs(vy - s.vyPrev) > 7 && s.wake <= 0) { s.vyPrev = undefined; tipSentry(s, "fall", tmpA.set(s.v.x, 0, s.v.z)); continue; } s.vyPrev = vy; } else s.vyPrev = undefined;
     s.yaw0 = bodyYaw(s);
     if (held || s.wake > 0) {                            // carried, or just put down: asleep, amber eye
-      if (!held) { s.wake -= dt; if (s.wake <= 0) sfx.ping(); }
+      if (!held) { s.wake -= dt; if (s.wake <= 0) { sndAt(s.p); sfx.ping(); } }
       s.seen = 0; s.burst = 0; s.laser.visible = false; s.yaw = s.yaw0; s.inner.rotation.y = 0; s.open = Math.max(0, s.open - dt * 2.5);
       for (const f of s.flaps) f.piv.rotation.y = f.sx * (0.05 + s.open * 1.05);
       const k = held ? 1 : 0.55 + 0.45 * Math.sin(time * 14); s.eyeMat.color.setRGB(1.5 * k, .85 * k, .1);
@@ -8441,7 +8618,7 @@ function updateSentries(dt, time) {
       if (o === s && v.dist < 1.2) continue; tgt = v.V; via = v; other = o; break;
     }
     if (tgt) {
-      if (s.seen === 0) sfx.ping();
+      if (s.seen === 0) { sndAt(s.p); sfx.ping(); }
       s.seen = Math.min(1.2, s.seen + dt / 0.55);
       const tdist = via ? via.dist : dist, want = Math.atan2(-(tgt.x - _se.x), -(tgt.z - _se.z)), dy = clamp(angDiff(want, s.yaw0), -s.turn, s.turn);
       s.yaw += angDiff(s.yaw0 + dy, s.yaw) * Math.min(1, dt * 7);
@@ -8452,7 +8629,7 @@ function updateSentries(dt, time) {
           if (s.burst <= 0) { s.burst = 7; s.cd = 0; }
           if (s.cd <= 0) {
             s.burst--; s.cd = s.burst > 0 ? 0.085 : 0.7;
-            const side = s.burst % 2 ? 1 : -1, mz = s.flaps[side > 0 ? 1 : 0].mz; mz.getWorldPosition(tmpC); mz.material.opacity = 1; sfx.shot(tdist);
+            const side = s.burst % 2 ? 1 : -1, mz = s.flaps[side > 0 ? 1 : 0].mz; mz.getWorldPosition(tmpC); mz.material.opacity = 1; sndAt(tmpC); sfx.shot(tdist);
             if (other) {                                 // into the portal, out of the other one, into its colleague
               fxTracer(tmpC, via.X); tmpB.copy(other.p).add(tmpA.set(rand(-.2, .2), rand(-.3, .4), rand(-.2, .2))); fxTracer(via.X2, tmpB); fxSpark(tmpB);
               if (s.burst === 0) shotList.push([other, other.p.clone().sub(via.X2), other === s]);
@@ -8500,7 +8677,7 @@ function updateBeams(dt, time) {
   for (const r of world.receivers) r.lit = false;
   const carried = holding; if (carried) carried.held = false;      // rays skip held cubes; light shouldn't, so a carried cube is a shield
   for (const b of world.beams) {
-    let res = castRay(b.o, b.dir, 160, true, true); const allSegs = res.segs.slice();
+    let res = castRay(b.o, b.dir, 160, true, true); const allSegs = res.segs.slice(); b.path = allSegs;
     for (let k = 0; k < 3 && res.hit && res.hit.box.mat === "cube"; k++) {          // a prism crate sends the light on out of its lens, squared up to the nearest quarter turn
       const pc = world.cubes.find(c => c.prism && c.box === res.hit.box); if (!pc) break;
       const pd = new V3(0, 0, -1).applyQuaternion(pc.q); if (Math.abs(pd.y) > 0.7) pd.set(0, Math.sign(pd.y), 0); else if (Math.abs(pd.x) > Math.abs(pd.z)) pd.set(Math.sign(pd.x), 0, 0); else pd.set(0, 0, Math.sign(pd.z));
@@ -8535,7 +8712,7 @@ function updateBeams(dt, time) {
   }
   if (carried) carried.held = true;
   for (const r of world.receivers) {
-    if (r.lit && !r.wasLit) { sfx.lit(); if (!run.said.lit) { run.said.lit = 1; say("receiverOn"); } } r.wasLit = r.lit;
+    if (r.lit && !r.wasLit) { sndAt(r.pos); sfx.lit(); if (!run.said.lit) { run.said.lit = 1; say("receiverOn"); } } r.wasLit = r.lit;
     r.glow += ((r.lit ? 1 : 0) - r.glow) * Math.min(1, dt * 8); const k = .45 + r.glow * 1.25; r.mat.color.setRGB(k, k * (.95 + r.glow * .05), k * (1 - r.glow * .2));
   }
   for (const c of world.cubes) { c.heat = Math.max(0, (c.heat || 0) - dt * 0.8); c.mats[0].emissiveIntensity = 1.5 + c.heat * 2.5; }
@@ -8596,7 +8773,7 @@ function frame(ts) {
   requestAnimationFrame(frame);
   if (!world) return;
   const dt = Math.min(0.05, (ts - lastT) / 1000 || 0.016); lastT = ts;
-  Furn.tick(performance.now() / 1000); HoldShow.tick(dt); Parcel.tick(dt); Slot7.tick(dt); Items.tick(dt); LintRoom.tick(dt);
+  Furn.tick(performance.now() / 1000); HoldShow.tick(dt); Parcel.tick(dt); Slot7.tick(dt); Items.tick(dt); LintRoom.tick(dt); Snd.tick(dt);
   if (state === "cut") { Cut.tick(dt, ts / 1000); return; }
   if (Lift.on) { Lift.tick(dt, ts / 1000); return; }
   fpsAcc += dt * 1000; if (++fpsN >= 10) { adaptQuality(fpsAcc / fpsN); fpsAcc = fpsN = 0; }
@@ -10871,7 +11048,7 @@ const Lift = (() => {
     px += vx * dt; pz += vz * dt;
     if (px < x0) { px = x0; vx = Math.max(0, vx); } else if (px > x1) { px = x1; vx = Math.min(0, vx); }
     if (pz < z0) { pz = z0; vz = Math.max(0, vz); } else if (pz > z1) { pz = z1; vz = Math.min(0, vz); }
-    const s2 = Math.hypot(vx, vz); bob += dt * Math.min(s2, 7) * 1.6; stepAcc += s2 * dt; if (stepAcc > 2.3) { stepAcc = 0; sfx.step(); }
+    const s2 = Math.hypot(vx, vz); bob += dt * Math.min(s2, 7) * 1.6; stepAcc += s2 * dt; if (stepAcc > 2.3) { stepAcc = 0; sfx.step("lino", 0.8); }
     return Math.sin(bob * 2) * Math.min(s2, 6) * 0.0035;
   }
   function build() {
@@ -11162,7 +11339,7 @@ function boot() {
   setTimeout(() => HoldMusic.render(), 2200);
   setTimeout(() => { try { HoldShow.ensure(); HoldShow.preload(); } catch (e) { console.error(e); } }, 3000);   // the TV show's picture and voices, ready before anyone reaches the office                                       // and its music, rendered once in the background
 }
-window.__tc = { version: VERSION, kit: { shell, exitPort, refinish, stairs, pane, opening, mergeBoxes }, kitAudit: lv => kitAudit(lv || world.lv), dbg: { wallHit, lvRay, rayBox, hallOf, camTarget, corner, I3 }, secretAudit, CAM_PLAN, Loose, camResolve, sadosPick, holdQuiet, get curPr() { return curPr; }, get subBusy() { return subBusy; }, Bonus, STAFF_DOORS, denAudit, LEVEL_FUNCS, bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, set sevenAt(i) { sevenHere = i; sevenSlotted = false; sevenSaid = false; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get liftFloor() { return liftFloorTxt; }, liftSeq, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
+window.__tc = { version: VERSION, Snd, sfx, sndAt, floorKind, setSfxRoom, get actx() { return actx; }, get audioBus() { return { master, sfxBus, sfxIn, sfxWet, musicBus }; }, ensureAudio, kit: { shell, exitPort, refinish, stairs, pane, opening, mergeBoxes }, kitAudit: lv => kitAudit(lv || world.lv), dbg: { wallHit, lvRay, rayBox, hallOf, camTarget, corner, I3 }, secretAudit, CAM_PLAN, Loose, camResolve, sadosPick, holdQuiet, get curPr() { return curPr; }, get subBusy() { return subBusy; }, Bonus, STAFF_DOORS, denAudit, LEVEL_FUNCS, bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, set sevenAt(i) { sevenHere = i; sevenSlotted = false; sevenSaid = false; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get liftFloor() { return liftFloorTxt; }, liftSeq, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
 try { boot(); } catch (err) { console.error(err); $("loading").hidden = false; $("loading").innerHTML = '<div style="max-width:420px;text-align:center;line-height:1.6;font-size:13px;letter-spacing:.05em">Something went wrong starting the game.<br><small>' + String(err && err.message || err) + "</small></div>"; }
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>
