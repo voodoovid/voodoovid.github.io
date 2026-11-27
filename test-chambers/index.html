@@ -248,6 +248,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
 .games-pill:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
 .games-pill[hidden] { display: none !important; }
 </style>
+<script>if (/[?&]diffcheck\b/.test(location.search)) { window.requestAnimationFrame = () => 0; window.__tcSolo = true; window.__tcNoLift = true; }      // v8.40: the Difficulty Check page drives the game itself, one physics step at a time</script>
 <script>
 (() => {
   const pill = document.getElementById("gamesPill");
@@ -582,9 +583,9 @@ import { Furn } from "./furniture.js";
 import { GLYPHS as HAND_GLYPHS, handWrite, handBlock, handWidth } from "./hand.js";      // v8.19: hand-lettering                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.39";
+const VERSION = "v8.40";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
-const SC_TEST = /[?&]secretstest\b/.test(location.search), IT_TEST = SC_TEST || /[?&]itemtest\b/.test(location.search), SPFX = SC_TEST ? "testchambers.stest." : IT_TEST ? "testchambers.itest." : "testchambers.";      // v8.35: ?secretstest plays only the Secrets Test room
+const SC_TEST = /[?&]secretstest\b/.test(location.search), IT_TEST = SC_TEST || /[?&]itemtest\b/.test(location.search), EX_TEST = /[?&]exittest\b/.test(location.search), DF_TEST = /[?&]diffcheck\b/.test(location.search), SPFX = SC_TEST ? "testchambers.stest." : IT_TEST ? "testchambers.itest." : EX_TEST ? "testchambers.xtest." : DF_TEST ? "testchambers.dtest." : "testchambers.";      // v8.40: ?exittest (the side-exit test rooms) and ?diffcheck (the Difficulty Check page's robots) keep their own saves      // v8.35: ?secretstest plays only the Secrets Test room
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -1564,19 +1565,47 @@ function hall(o) {
   }
   B.push(bx(x, -4, -2, L, 0, Wd + 2));
   B.push(bx(-2, -6, -2, L + 6, H + 2, 0)); B.push(bx(-2, -6, Wd, L + 6, H + 2, Wd + 2)); B.push(bx(-2, -6, 0, 0, H + 2, Wd)); B.push(bx(-2, H, 0, L, H + 2, Wd));
-  alcove(B, L, 0, Wd, zc, 3, ey, 3.2, 4, -6, H + 2);
-  air.push([L, ey, zc - 1.5, L + 4, ey + 3.2, zc + 1.5]);
+  const SX = o.exit && o.exit.wall && o.exit.wall !== "x1" ? o.exit : null;      // v8.40 (Batch J step 1): o.exit = { wall: "z0" | "zW", at: x, y } puts the exit in a side wall instead of the far end wall
+  if (SX) B.push(bx(L, -6, 0, L + 2, H + 2, Wd));                                    // the far end is then a plain wall
+  else { alcove(B, L, 0, Wd, zc, 3, ey, 3.2, 4, -6, H + 2); air.push([L, ey, zc - 1.5, L + 4, ey + 3.2, zc + 1.5]); }
   if (ey > 0) { const d = o.ledge || 5; B.push(bx(L - d, 0, 0, L, ey, Wd, o.ledgeMat || "dark")); }
   for (let lx = 4; lx < L; lx += 9) { lamps.push(lamp(lx, H - .3, Wd / 2, .55, 10)); fixtures.push([lx, H, Wd / 2]); }
-  lamps.push(lamp(L + 2.2, ey + 2.9, zc, .75, 5, ...WARM));
-  return {
+  const h = {
     boxes: B, air, acid, lamps, fixtures, H, zc, ey,
-    exit: { min: [L + 2, ey, zc - 1.2], max: [L + 4, ey + 2.4, zc + 1.2] }, exitLight: { x: L + 3.97, y0: ey + .4, y1: ey + 2.8, z0: zc - 1.1, z1: zc + 1.1 },
     doors: [], plates: [], cubes: [], sentries: [], beams: [], receivers: [], fields: [], pads: [], gravs: [], pools, offices: [],
     cams: [{ pos: [0, H - 0.9, Wd - 1.6], n: [1, 0, 0] }],
-    signs: [{ kind: "exit", a: "EXIT", pos: [L, ey + 4.4, zc], n: [-1, 0, 0], w: 2.2, h: .75 }],
+    signs: [],
     start: { pos: [2, 0, Wd / 2], yaw: -Math.PI / 2, pitch: -0.05 }
   };
+  if (SX) sideExit(h, SX.wall, SX.at, SX.y || 0, Wd);
+  else { lamps.push(lamp(L + 2.2, ey + 2.9, zc, .75, 5, ...WARM)); h.exit = { min: [L + 2, ey, zc - 1.2], max: [L + 4, ey + 2.4, zc + 1.2] }; h.exitLight = { x: L + 3.97, y0: ey + .4, y1: ey + 2.8, z0: zc - 1.1, z1: zc + 1.1 };
+    h.signs.push({ kind: "exit", a: "EXIT", pos: [L, ey + 4.4, zc], n: [-1, 0, 0], w: 2.2, h: .75 }); }
+  return h;
+}
+// v8.40 (Batch J step 1): an exit in a side wall (z = 0 or z = Wd), at x = a, its floor at fy. The doorway, its 4 m passage and the exit light
+// are all dark; the side wall's own boxes are cut round the doorway, so nothing overlaps. The room's lift car still docks behind the start (planDock
+// keeps clear of the passage, which is in lv.air). sideDoor(h, id, need) gives a door for the doorway; with no door of its own it gets one that opens as you come near.
+function sideExit(h, wall, a, fy, Wd) {
+  const B = h.boxes, aw = 3, ah = 3.2, D = 4, s = wall === "zW" ? 1 : -1, f0 = wall === "zW" ? Wd : 0;      // s: the way into the wall
+  const Z = d => f0 + s * d, zb = (d0, d1) => [Math.min(Z(d0), Z(d1)), Math.max(Z(d0), Z(d1))];
+  const box = (x0, y0, d0, x1, y1, d1, mat) => { const [z0, z1] = zb(d0, d1); return bx(x0, y0, z0, x1, y1, z1, mat); };
+  const x0 = a - aw / 2, x1 = a + aw / 2, r = 0.3;
+  { const [z0, z1] = zb(0, 2); carveBoxes(B, { min: [x0 - r, fy - r, z0], max: [x1 + r, fy + ah + r, z1] }); }      // through the wall slab
+  B.push(box(x0 - r, fy - r, 0, x0, fy + ah + r, 2, "dark"), box(x1, fy - r, 0, x1 + r, fy + ah + r, 2, "dark"),          // its jambs, lintel and sill: dark
+    box(x0, fy + ah, 0, x1, fy + ah + r, 2, "dark"), box(x0, fy - r, 0, x1, fy, 2, "dark"));
+  const yb = fy - 2.5, yt = fy + ah + 2.5;                                            // the passage beyond the slab, and its end wall
+  B.push(box(a - 4, yb, 2, x0, yt, D, "dark"), box(x1, yb, 2, a + 4, yt, D, "dark"), box(x0, fy + ah, 2, x1, yt, D, "dark"), box(x0, yb, 2, x1, fy, D, "dark"), box(a - 4, yb, D, a + 4, yt, D + 2, "dark"));
+  { const [z0, z1] = zb(0, D); h.air.push([x0, fy, z0, x1, fy + ah, z1]); }
+  { const [z0, z1] = zb(2, D); h.exit = { min: [a - 1.2, fy, z0], max: [a + 1.2, fy + 2.4, z1] }; }
+  h.exitLight = { f: wall, z: Z(D - 0.03), x0: a - 1.1, x1: a + 1.1, y0: fy + .4, y1: fy + 2.8 };
+  h.exitSide = { wall, at: a, fy, s, f0 };
+  h.lamps.push(lamp(a, fy + 2.9, Z(2.2), .75, 5, ...WARM));
+  h.signs.push({ kind: "exit", a: "EXIT", pos: [a, fy + 4.4, f0], n: [0, 0, -s], w: 2.2, h: .75 });
+  return h;
+}
+function sideDoor(h, id = "d1", need = 1) {
+  const e = h.exitSide, z0 = e.s < 0 ? e.f0 - 0.6 : e.f0, z1 = e.s < 0 ? e.f0 : e.f0 + 0.6;
+  return { id, min: [e.at - 1.5, e.fy, z0], max: [e.at + 1.5, e.fy + 3.2, z1], rise: 3.5, need, zf: e.s };
 }
 const chSign = (num, name, x, w = 4.4) => ({ kind: "chamber", a: "TEST CHAMBER " + String(num).padStart(2, "0"), b: name, pos: [x, 4.3, 0], n: [0, 0, 1], w, h: 1.15 });
 const hint = (a, pos, n, w = 4, h = .9) => ({ kind: "hint", a, pos, n, w, h });
@@ -3792,6 +3821,7 @@ function level46() {                       // Mirror Test: show the bolted sentr
   const L = 30, W = 12, H = 7, h = hall({ L, W, H, zc: 6 }); darkAll(h);
   whiteOn(h, bx(12, 0, 0, 18, 3.4, 0.1)); whiteOn(h, bx(25, 0, W - 0.1, 29.5, 3.4, W));
   h.sentries = [{ pos: [22.5, 0, 6], yaw: Math.PI / 2, range: 16, cone: 60, dmg: 15, bolt: true }];
+  h.doors = [Object.assign(exitDoor(L, 6), { sentry: 0, latch: true })];                           // v8.40 (Batch J step 1): the exit has a door, and it opens only once the sentry is finished (a run past it used to get out with the sentry still working)
   h.par = [70, 2];
   h.signs.push(chSign(46, "MIRROR TEST", 4.6, 4.4),
     scrawl("SHE NEVER BUILT A MIRROR.", "WONDER WHY.  - O.", [8, 1.3, 0.001], [0, 0, 1], 3.2, 0.95));
@@ -4500,6 +4530,25 @@ const I3 = {
   "Terminal Velocity": h => { denCover(h, { id: "cover30", way: "loop", seen: [[5, 0, 9]], ev: { min: [2.9, 8, 3.9], max: [7.1, 15, 8.1], empty: true } }); obsWindow(h, { w: "z0", a: 30, y: 11, lit: true, props: ["chair", "monitor"] }); }, // round the loop with nothing in your hands
 };
 
+// v8.40 (Batch J step 1): the side-exit test rooms (?exittest only). A: the exit halfway down the near wall. B: the exit by your shoulder, behind
+// a door a crate opens. C: the exit up a level in the near wall, reached by three steps. None of them is a puzzle; they prove the exits, doors and lift car.
+function levelExitA() {
+  const h = hall({ L: 20, W: 10, H: 7, exit: { wall: "z0", at: 12 } }); darkAll(h);
+  h.signs.push(chSign(90, "EXIT TEST A", 5, 4.4));
+  return Object.assign(h, { num: 90, name: "Exit Test A", track: 0, par: [30, 0], say: { intro: ["Exit test. The way out is on your right."], hint: ["The way out is in the wall on your right."], hint2: ["Halfway down the room, on your right."], done: ["Exit test passed."] } });
+}
+function levelExitB() {
+  const h = hall({ L: 20, W: 10, H: 7, exit: { wall: "zW", at: 3.5 } }); darkAll(h);
+  h.cubes = [[10, 0.35, 5]]; h.plates = [{ pos: [14, 0, 5], door: "d1" }]; h.doors = [sideDoor(h, "d1", 1)];
+  h.signs.push(chSign(91, "EXIT TEST B", 8, 4.4));
+  return Object.assign(h, { num: 91, name: "Exit Test B", track: 0, par: [30, 0], say: { intro: ["Exit test. The way out is behind you, and the crate opens it."], hint: ["The crate goes on the button."], hint2: ["Then turn round."], done: ["Exit test passed."] } });
+}
+function levelExitC() {
+  const h = hall({ L: 22, W: 10, H: 8, exit: { wall: "z0", at: 18.5, y: 3 } }); darkAll(h);
+  h.boxes.push(bx(11, 0, 0, 13.5, 1, 3, "dark"), bx(13.5, 0, 0, 15.5, 2, 3, "dark"), bx(15.5, 0, 0, 21.5, 3, 3, "dark"));      // three steps up to the doorway
+  h.signs.push(chSign(92, "EXIT TEST C", 5, 4.4));
+  return Object.assign(h, { num: 92, name: "Exit Test C", track: 0, par: [30, 0], say: { intro: ["Exit test. The way out is up the steps."], hint: ["Up the steps."], hint2: ["Up the steps, on your right."], done: ["Exit test passed."] } });
+}
 const CHAMBERS = [
   // v6.0 (Batch 1): the Act 1 order from the room map. Rooms past 23 keep their v5.3 form at their new number until their own batch arrives. Room 22 (Dead Drop) came in Batch 3 (v6.2).
   ["Orientation", level1, level54, level55], ["Deliveries", level2, level56], ["Up And Over", level3, level4, level5],
@@ -4510,7 +4559,8 @@ const CHAMBERS = [
   ["Second Opinion", level47, level41], ["Burnout", level50, level51], ["Loose Ends", level52, level42, level49],
   ["Final Exam", level53, level24], ["Out Of Order", level32], ["Behind The Walls", level33, level34], ["The Last Order", level45, level35, level36]
 ];
-if (IT_TEST) CHAMBERS.splice(0, CHAMBERS.length, SC_TEST ? ["Secrets Test", levelSecretsTest] : ["Item Test", levelItemTest]);      // v8.5: ?itemtest plays only the Item Test room
+if (IT_TEST) CHAMBERS.splice(0, CHAMBERS.length, SC_TEST ? ["Secrets Test", levelSecretsTest] : ["Item Test", levelItemTest]);
+if (EX_TEST) CHAMBERS.splice(0, CHAMBERS.length, ["Exit Test", levelExitA, levelExitB, levelExitC]);      // v8.40 (Batch J step 1): ?exittest plays the three side-exit test rooms      // v8.5: ?itemtest plays only the Item Test room
 const LEVEL_FUNCS = [], ROOM = [], FIRST = [];
 CHAMBERS.forEach(([name, ...fns], c) => { FIRST.push(LEVEL_FUNCS.length); fns.forEach((f, k) => { ROOM.push({ c, part: k, parts: fns.length }); LEVEL_FUNCS.push(camWrap(denWrap(f, LEVEL_FUNCS.length), LEVEL_FUNCS.length)); }); });      // v8.14: denWrap dresses the dens of rooms 1 to 30; v8.35: camWrap puts in CAM_PLAN
 const ROOM_NAMES = LEVEL_FUNCS.map(f => f().name), CH_NAMES = CHAMBERS.map(c => c[0]);
@@ -5112,7 +5162,9 @@ function buildLevel(idx) {
     const fr = new THREE.Mesh(new THREE.PlaneGeometry(2.9, 1.6), MAT.dark); fr.rotation.x = Math.PI / 2; fr.position.set(x, y - 0.006, z); fr.userData.skip = 1; levelGroup.add(fr);
   }
   // exit light panel
-  { const e = lv.exitLight, p = new THREE.Mesh(new THREE.PlaneGeometry(e.z1 - e.z0, e.y1 - e.y0), MAT.exitLight); p.rotation.y = -Math.PI / 2; p.position.set(e.x, (e.y0 + e.y1) / 2, (e.z0 + e.z1) / 2); levelGroup.add(p); }
+  { const e = lv.exitLight;
+    if (e.f) { const p = new THREE.Mesh(new THREE.PlaneGeometry(e.x1 - e.x0, e.y1 - e.y0), MAT.exitLight); p.rotation.y = e.f === "zW" ? Math.PI : 0; p.position.set((e.x0 + e.x1) / 2, (e.y0 + e.y1) / 2, e.z); levelGroup.add(p); }      // v8.40: a side-wall exit's light faces back along z
+    else { const p = new THREE.Mesh(new THREE.PlaneGeometry(e.z1 - e.z0, e.y1 - e.y0), MAT.exitLight); p.rotation.y = -Math.PI / 2; p.position.set(e.x, (e.y0 + e.y1) / 2, (e.z0 + e.z1) / 2); levelGroup.add(p); } }
   // signs
   for (const s of lv.signs) {
     if (s.kind === "chamber" && s.n[2] > 0.5) {        // v6.7: a panel standing proud of the wall under a sign hid half of it: lift the sign above a white panel, or set it on the face of a dark one
@@ -5146,7 +5198,9 @@ function buildLevel(idx) {
   // set back 4 cm from the wall face so it never shows through the wall above when open. An exit with no door of its own gets one
   // that simply opens as you come near (`auto`), so every exit reads as a door rather than an empty dark hole.
   const doorDefs = lv.doors.slice(), ex = lv.exit;
-  if (!doorDefs.some(d => d.min[0] >= ex.min[0] - 2.6 && d.max[0] <= ex.min[0] && d.min[1] <= ex.min[1] + 0.1 && d.max[2] > ex.min[2] && d.min[2] < ex.max[2])) {
+  if (lv.exitSide) { const sd = sideDoor(lv, "auto"), cover = d => d.zf && d.min[0] < sd.max[0] && d.max[0] > sd.min[0] && d.min[2] < sd.max[2] + 0.01 && d.max[2] > sd.min[2] - 0.01 && Math.abs(d.min[1] - sd.min[1]) < 0.1;      // v8.40: a side-wall exit with no door of its own gets one that opens as you come near
+    if (!doorDefs.some(cover)) doorDefs.push(Object.assign(sd, { auto: true })); }
+  else if (!doorDefs.some(d => d.min[0] >= ex.min[0] - 2.6 && d.max[0] <= ex.min[0] && d.min[1] <= ex.min[1] + 0.1 && d.max[2] > ex.min[2] && d.min[2] < ex.max[2])) {
     const fy = ex.min[1], al = W.air.find(a => a.min[0] > ex.min[0] - 2.6 && a.min[0] < ex.min[0] - 0.9 && a.max[0] >= ex.max[0] - 0.6 && Math.abs(a.min[1] - fy) < 0.05 && a.min[2] <= ex.min[2] && a.max[2] >= ex.max[2] && a.max[2] - a.min[2] < 4);
     const fx = al && al.min[0];
     if (al) doorDefs.push({ id: "auto", min: [fx, fy, al.min[2]], max: [fx + 0.6, fy + Math.min(3.2, al.max[1] - fy), al.max[2]], rise: 3.5, auto: true });
@@ -5167,7 +5221,7 @@ function buildLevel(idx) {
       piece(d.min[0] - 0.2, d.min[1], d.min[0] + 0.02, d.max[1] + 0.3); piece(d.max[0] - 0.02, d.min[1], d.max[0] + 0.2, d.max[1] + 0.3); piece(d.min[0] - 0.2, d.max[1] - 0.02, d.max[0] + 0.2, d.max[1] + 0.3);
       const lights = [], strip = (ww, hh, x, y) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(ww, hh), MAT.doorRed); if (n < 0) m.rotation.y = Math.PI; m.position.set(x, y, zf1 + n * 0.006); m.frustumCulled = false; fr.add(m); lights.push(m); };
       strip(wx - 0.4, 0.08, xc, d.max[1] + 0.15); strip(0.05, hgt * 0.5, d.min[0] - 0.09, d.min[1] + hgt * 0.45); strip(0.05, hgt * 0.5, d.max[0] + 0.09, d.min[1] + hgt * 0.45);
-      W.doors.push({ need: d.need || 1, id: d.id, auto: false, box, min0: d.min.slice(), max0: d.max.slice(), rise: d.rise, t: 0, group: g, lights, light: lights[0], open: false, ev: d.ev, grav: d.grav, latch: !!d.latch, sentry: d.sentry, presses: d.presses, near: d.near, relay: d.relay });
+      W.doors.push({ need: d.need || 1, id: d.id, auto: !!d.auto, zf: d.zf, box, min0: d.min.slice(), max0: d.max.slice(), rise: d.rise, t: 0, group: g, lights, light: lights[0], open: false, ev: d.ev, grav: d.grav, latch: !!d.latch, sentry: d.sentry, presses: d.presses, near: d.near, relay: d.relay, when: d.when });
       continue;
     }
     const slab = new THREE.Mesh(new THREE.BoxGeometry(th - 0.06, hgt - 0.02, w - 0.06), d.hide ? DOOR.side : [DOOR.side, DOOR.face, DOOR.side, DOOR.side, DOOR.side, DOOR.side]);
@@ -5184,7 +5238,7 @@ function buildLevel(idx) {
     const strip = (ww, hh, y, z) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(ww, hh), MAT.doorRed); m.rotation.y = -Math.PI / 2; m.position.set(fx0 - 0.006, y, z); m.frustumCulled = false; fr.add(m); lights.push(m); };
     strip(w - 0.5, 0.09, d.max[1] + 0.16, zc);                                  // a status bar across the header
     strip(0.05, hgt * 0.55, d.min[1] + hgt * 0.45, d.min[2] - 0.085); strip(0.05, hgt * 0.55, d.min[1] + hgt * 0.45, d.max[2] + 0.085);   // and down each jamb
-    W.doors.push({ need: d.need || 1, id: d.id, auto: !!d.auto, safe: !!d.safe, box, min0: d.min.slice(), max0: d.max.slice(), rise: d.rise, t: 0, group: g, lights, light: lights[0], open: false });
+    W.doors.push({ need: d.need || 1, id: d.id, auto: !!d.auto, safe: !!d.safe, box, min0: d.min.slice(), max0: d.max.slice(), rise: d.rise, t: 0, group: g, lights, light: lights[0], open: false, ev: d.ev, grav: d.grav, latch: !!d.latch, sentry: d.sentry, presses: d.presses, near: d.near, relay: d.relay, when: d.when });      // v8.40: a standard door keeps its open rules too (Mirror Test's exit opens on the sentry)
   }
   Dock.attach(W);           // v7.1: the docked car and its doors
   HoldShow.attach(W);       // v7.2: the office TV, where a level has one
@@ -7069,7 +7123,7 @@ function physicsStep(dt) {
     if (p.active) for (const d of W.doors) if (Array.isArray(p.door) ? p.door.includes(d.id) : d.id === p.door) d.cnt++;      // v6.6: one plate can count toward several doors
   }
   v5Doors(W); Items.doors(W);
-  for (const d of W.doors) d.want = d.auto ? (alive && Math.abs(pl.p.x - d.box.min[0]) < 5 && Math.abs(pl.p.z - (d.min0[2] + d.max0[2]) / 2) < 4 && Math.abs(pl.p.y - HY - d.min0[1]) < 2.5 ? 1 : d.want0 || 0) : d.cnt >= (d.need || 1) ? 1 : 0;
+  for (const d of W.doors) d.want = d.auto ? (alive && (d.zf ? Math.abs(pl.p.z - d.box.min[2]) < 5 && Math.abs(pl.p.x - (d.min0[0] + d.max0[0]) / 2) < 4 : Math.abs(pl.p.x - d.box.min[0]) < 5 && Math.abs(pl.p.z - (d.min0[2] + d.max0[2]) / 2) < 4) && Math.abs(pl.p.y - HY - d.min0[1]) < 2.5 ? 1 : d.want0 || 0) : d.cnt >= (d.need || 1) ? 1 : 0;
   for (const d of W.doors) if (d.auto && d.want) d.want0 = 1;     // once an open-plan exit has opened for you it stays open
   for (const d of W.doors) if (d.safe && !d.want && d.t > 0.02) {       // v8.32: a safe door never shuts on the player or a crate in or near its doorway
     const lo = d.min0, hi = d.max0, m = 0.7, inz = (p, y) => p.x > lo[0] - m && p.x < hi[0] + m && p.z > lo[2] && p.z < hi[2] && y > lo[1] - 0.3 && y < hi[1];
@@ -10950,7 +11004,7 @@ function boot() {
   setTimeout(() => HoldMusic.render(), 2200);
   setTimeout(() => { try { HoldShow.ensure(); HoldShow.preload(); } catch (e) { console.error(e); } }, 3000);   // the TV show's picture and voices, ready before anyone reaches the office                                       // and its music, rendered once in the background
 }
-window.__tc = { dbg: { wallHit, lvRay, rayBox, hallOf, camTarget, corner, I3 }, secretAudit, CAM_PLAN, Loose, camResolve, sadosPick, holdQuiet, get curPr() { return curPr; }, get subBusy() { return subBusy; }, Bonus, STAFF_DOORS, denAudit, LEVEL_FUNCS, bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, set sevenAt(i) { sevenHere = i; sevenSlotted = false; sevenSaid = false; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get liftFloor() { return liftFloorTxt; }, liftSeq, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
+window.__tc = { version: VERSION, dbg: { wallHit, lvRay, rayBox, hallOf, camTarget, corner, I3 }, secretAudit, CAM_PLAN, Loose, camResolve, sadosPick, holdQuiet, get curPr() { return curPr; }, get subBusy() { return subBusy; }, Bonus, STAFF_DOORS, denAudit, LEVEL_FUNCS, bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, set sevenAt(i) { sevenHere = i; sevenSlotted = false; sevenSaid = false; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get liftFloor() { return liftFloorTxt; }, liftSeq, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
 try { boot(); } catch (err) { console.error(err); $("loading").hidden = false; $("loading").innerHTML = '<div style="max-width:420px;text-align:center;line-height:1.6;font-size:13px;letter-spacing:.05em">Something went wrong starting the game.<br><small>' + String(err && err.message || err) + "</small></div>"; }
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>

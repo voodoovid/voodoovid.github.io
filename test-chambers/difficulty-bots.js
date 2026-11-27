@@ -1,0 +1,324 @@
+/* Test Chambers: the Difficulty Check robots (v8.40, Batch J step 1, Nov 25, 2026).
+   Used by difficulty.html, which loads the game in a hidden frame with ?diffcheck (no frame loop, no lift rides, its own saves) and
+   drives it one physics step at a time. One file for the page and for the headless runs, so both run the same robots.
+   - DIFF_BOTS.install(win): puts the robot's hands, B, into the game's window (walk, aim, fire, use, step...).
+   - solve[room]: a real solving robot. A STEP is one portal shot, one grab or drop (or press), or one trip through a portal or on a pad.
+     Walking is not a step. B.stops records where the robot stood for each step (the Choices column looks from there).
+   - shortcut[room]: a robot that tries a way round the puzzle. `skipped: true` means it got out without solving the room.
+     (Mirror Test's checks the opposite: `ok: true` means the door held while the sentry worked.) */
+(function (root) {
+  function install(win) {
+    win.B = (() => {
+      const T = () => win.__tc;
+      const B = { t: 0, log: [], steps: 0, shots: [], stops: [] };
+      B.load = (name) => {
+        const tc = T(), i = tc.names.indexOf(name); if (i < 0) throw new Error('no room ' + name);
+        tc.startLevel(i, true); tc.state = 'play'; B.t = 0; B.steps = 0; B.log = []; B.shots = []; B.stops = [];
+        tc.player.hp = 100; tc.run.sinceHit = 99; tc.run.deaths = 0;
+        return i;
+      };
+      B.pl = () => T().player;
+      B.at = () => { const p = T().player.p; return [+p.x.toFixed(2), +(p.y - 0.9).toFixed(2), +p.z.toFixed(2)]; };
+      B.P = c => [c.p.x, c.p.y, c.p.z].map(v => +v.toFixed(2));
+      B.count = label => { B.steps++; B.log.push(label); B.stop(); };
+      B.stop = () => { const p = T().player.p; B.stops.push([p.x, p.y + 0.7, p.z]); };
+      B.step = (sec, until) => {
+        const tc = T(), dt = 1 / 120; let n = Math.round(sec / dt);
+        for (let k = 0; k < n; k++) {
+          if (tc.state === 'done' || tc.state === 'results') return 'done';
+          tc.physicsStep(dt); B.t += dt;
+          if (k % 2) {
+            tc.hazards(dt * 2, B.t);
+            tc.run.sinceHit = (tc.run.sinceHit || 0) + dt * 2;
+            if (tc.state === 'play' && tc.run.sinceHit > 3) tc.player.hp = Math.min(100, tc.player.hp + 28 * dt * 2);
+          }
+          if (k % 4 === 0 && tc.Items && tc.Items.tick) try { tc.Items.tick(dt * 4); } catch (e) {}
+          if (until && until()) return 'until';
+        }
+        return tc.state;
+      };
+      B.aim = (x, y, z) => {
+        const p = T().player, e = [p.p.x, p.p.y + 0.7, p.p.z], d = [x - e[0], y - e[1], z - e[2]], l = Math.hypot(...d);
+        p.yaw = Math.atan2(-d[0], -d[2]); p.pitch = Math.asin(d[1] / l);
+      };
+      B.face = (x, z) => { const p = T().player; p.yaw = Math.atan2(-(x - p.p.x), -(z - p.p.z)); p.pitch = 0; };
+      B.fire = (idx, x, y, z) => {
+        const tc = T(); B.stop(); B.aim(x, y, z); const before = tc.portals[idx].on && tc.portals[idx].o.clone();
+        tc.firePortal(idx); B.step(0.3);
+        const P = tc.portals[idx], ok = P.on && (!before || P.o.distanceTo(before) > 0.01);
+        B.steps++; B.log.push('shot ' + (idx ? 'orange' : 'blue') + ' ' + (ok ? 'ok' : 'FAIL') + ' @' + (P.on ? [P.o.x, P.o.y, P.o.z].map(v => v.toFixed(1)).join(',') : '-'));
+        if (ok) B.shots.push([P.o.x, P.o.y, P.o.z]);
+        return ok;
+      };
+      B.walk = (x, z, o = {}) => {
+        const tc = T(), p = tc.player, lim = o.time || 12; let t = 0;
+        const r = o.r || 0.25;
+        while (t < lim) {
+          const dx = x - p.p.x, dz = z - p.p.z, d = Math.hypot(dx, dz);
+          if (d < r) break;
+          const want = Math.atan2(-dx, -dz);
+          if (o.look === undefined) { p.yaw = want; tc.inp.fwd = Math.min(o.max || 1, d * 1.5 + 0.15); tc.inp.right = 0; }
+          else { if (Array.isArray(o.look)) B.aim(...o.look); else if (o.look && o.look.p) B.aim(o.look.p.x, o.look.p.y + 0.2, o.look.p.z);
+            const rel = want - p.yaw, s = Math.min(1, d * 1.5 + 0.15); tc.inp.fwd = Math.cos(rel) * s; tc.inp.right = -Math.sin(rel) * s;
+          }
+          if (o.jump && p.ground && t > (o.jumpAt || 0)) tc.inp.jumpQ = true;
+          const st = B.step(1 / 30); t += 1 / 30;
+          if (st === 'done' || st === 'dead' || tc.state === 'dead') break;
+          if (o.until && o.until()) break;
+        }
+        tc.inp.fwd = tc.inp.right = 0; B.step(0.15);
+        return tc.state;
+      };
+      B.hold = (fwd, right, sec, jump) => { const tc = T(); tc.inp.fwd = fwd; tc.inp.right = right; if (jump) tc.inp.jumpQ = true; const s = B.step(sec); tc.inp.fwd = tc.inp.right = 0; return s; };
+      B.use = (label) => { const tc = T(); B.stop(); tc.useAction(); B.step(0.2); B.steps++; B.log.push('use ' + (label || '')); };
+      B.deaths = () => T().run.deaths || 0;
+      B.state = () => T().state;
+      B.world = () => T().world;
+      B.door = (id = 'd1') => { const d = T().world.doors.find(d => d.id === id); return d && +d.t.toFixed(2); };
+      B.held = () => { const w = T().world; return [...w.cubes, ...(w.sentries || [])].find(c => c.held) || null; };
+      // walk slowly toward (x, z) until `until` (a portal trip), then settle
+      B.into = (x, z, until, sp = 0.5, max = 4) => { const tc = T(); B.face(x, z); tc.inp.fwd = sp; B.step(max, until); tc.inp.fwd = 0; B.step(0.8); };
+      B.res = (r) => Object.assign(r, { state: B.state(), deaths: B.deaths(), steps: B.steps, log: B.log, hp: Math.round(B.pl().hp) });
+      return B;
+    })();
+  }
+  const solve = {
+    "Doorway": function (B, tc) {
+      const r = { tr: [] }; B.load('Doorway'); B.step(0.5); const pl = B.pl();
+      B.walk(2.2, 3); B.walk(4.2, 1.6, { jump: true, time: 3 }); r.over = B.at();
+      B.walk(5.5, 1.0); r.near = B.at();
+      B.face(5.5, -2); tc.inp.fwd = 0.6; for (let i = 0; i < 20; i++) { B.step(0.1); r.tr.push(B.at().join(',')); if (pl.p.x > 12) break; } tc.inp.fwd = 0;
+      B.count('walk through the held portals'); B.step(0.5); r.out = B.at();
+      B.walk(20, 5); B.walk(26, 5, { time: 5 }); return B.res(r);
+    },
+    "One Way": function (B, tc) {
+      const r = {}; B.load('One Way'); B.step(0.5);
+      r.a = B.fire(0, 5.5, 1.2, 0.05);
+      B.walk(5.5, 1.2); B.walk(5.5, -0.5, { time: 2, until: () => B.pl().p.x > 12 }); B.count('walk through'); B.step(0.5); r.out = B.at();
+      B.walk(22, 5); B.walk(28, 5, { time: 5 }); return B.res(r);
+    },
+    "Line Of Sight": function (B, tc) {
+      const r = {}; B.load('Line Of Sight'); B.step(0.5);
+      B.walk(9, 5); r.a = B.fire(1, 20.35, 1.4, 1.9); r.b = B.fire(0, 6.5, 1.2, 0.05);
+      B.walk(6.5, 1.2); B.walk(6.5, -0.5, { time: 2, until: () => B.pl().p.x > 13 }); B.count('walk through'); B.step(0.5); r.out = B.at();
+      B.walk(20, 5); B.walk(26, 5, { time: 5 }); return B.res(r);
+    },
+    "Delivery": function (B, tc) {
+      const r = {}; B.load('Delivery'); B.step(0.5); const c = B.world().cubes[0], pl = B.pl();
+      B.walk(8, 8.4); r.a = B.fire(1, 0.05, 1.2, 8.4); B.walk(5, 3); r.b = B.fire(0, 5, 0.02, 4.6);
+      B.into(5, 6, () => pl.p.x < 4.2 && pl.p.z > 6.6); B.count('through the floor into the cube room'); r.in = B.at();
+      B.walk(c.p.x + 1.1, c.p.z); B.aim(c.p.x, c.p.y, c.p.z); B.use('grab crate'); r.held = !!B.held();
+      B.face(-3, 8.4); tc.inp.fwd = 0.5; B.step(4, () => pl.p.x > 4.5); B.face(8, 2.5); tc.inp.fwd = 1; B.step(0.7); tc.inp.fwd = 0; B.step(0.5); B.count('back out with it'); r.back = B.at(); r.held1 = !!B.held();
+      B.walk(7, 4); r.c = B.fire(1, 20, 1.2, 0.05); r.d = B.fire(0, 7, 1.2, 0.05);
+      B.walk(7, 2); B.into(7, -3, () => pl.p.x > 15); B.walk(20, 4); B.face(22, 6); tc.inp.fwd = 1; B.step(0.6); tc.inp.fwd = 0; B.step(0.4); B.count('across the pit'); r.over = B.at(); r.held2 = !!B.held();
+      B.walk(20, 6.4); B.aim(20, 0.2, 5); B.step(0.3); B.use('put on the button'); B.step(1); r.door = B.door();
+      B.walk(23, 5); B.walk(28, 5, { time: 5 }); return B.res(r);
+    },
+    "Drop Box": function (B, tc) {
+      const r = {}; B.load('Drop Box'); B.step(0.5); const c = B.world().cubes[0];
+      B.walk(17, 4); r.a = B.fire(1, 17, 2.49, 8.3);
+      B.walk(c.p.x + 1.1, c.p.z); B.aim(c.p.x, c.p.y, c.p.z); B.use('grab crate');
+      B.walk(6, 3.4, { look: [6, 0, 5] }); B.aim(6, 0.1, 4.9); B.step(0.3); B.use('drop the crate into the held floor portal'); B.step(2); r.c = B.P(c); r.door = B.door();
+      B.walk(23, 5); B.walk(30, 5, { time: 5 }); return B.res(r);
+    },
+    "Freefall": function (B, tc) {
+      const r = {}; B.load('Freefall'); B.step(0.5); const pl = B.pl();
+      B.walk(5, 3.2, { r: 0.08 }); r.a = B.fire(0, 5, 0.02, 6.2); r.b = B.fire(1, 0.05, 9, 7); B.face(5, 9); tc.inp.fwd = 0.3; B.step(2, () => !pl.ground && pl.p.y < 13.9); tc.inp.fwd = 0; pl.v.set(0, pl.v.y, 1.2);
+      B.step(3, () => pl.p.x > 1 && pl.v.x > 5); B.count('fall into the floor, fly across'); B.step(3); r.land = B.at();
+      B.walk(30, 6); B.walk(34, 6, { time: 5 }); return B.res(r);
+    },
+    "Lift": function (B, tc) {
+      const r = {}; B.load('Lift'); B.step(0.5); const pl = B.pl();
+      B.walk(2.8, 4, { r: 0.08 }); r.a = B.fire(0, 4.8, 0.02, 4); r.b = B.fire(1, 8.4, 3.02, 4); B.face(9, 4); tc.inp.fwd = 0.3; B.step(2, () => !pl.ground && pl.p.y < 7.9); tc.inp.fwd = 0; pl.v.set(1.9, pl.v.y, 0);
+      B.step(3, () => pl.v.y > 5 && pl.p.y > 3); B.count('fall into the floor, rise out of the block'); pl.v.x = 1.6; B.step(2.5); r.land = B.at();
+      B.walk(17, 4, { time: 5 }); return B.res(r);
+    },
+    "Special Delivery": function (B, tc) {
+      const r = {}; B.load('Special Delivery'); B.step(0.5); const pl = B.pl(), c = B.world().cubes[0];
+      B.walk(5, 3.2, { r: 0.08 }); r.a = B.fire(0, 5, 0.02, 6.2); r.b = B.fire(1, 0.05, 9, 7);
+      B.walk(5.4, 1.8); B.aim(c.p.x, c.p.y, c.p.z); B.use('grab crate'); r.held = !!B.held();
+      B.walk(5, 3.2, { r: 0.08 }); B.face(5, 9); pl.pitch = 0; tc.inp.fwd = 0.3; B.step(2, () => !pl.ground && pl.p.y < 13.9); tc.inp.fwd = 0; pl.v.set(0, pl.v.y, 1.2);
+      B.step(3, () => pl.p.x > 1 && pl.v.x > 5); B.count('fall with the crate, fly across'); B.step(3); r.land = B.at(); r.held2 = !!B.held(); r.c = B.P(c);
+      B.walk(24.8, 6); B.aim(26, 0.2, 6); B.step(0.3); B.use('put on the button'); B.step(1); r.door = B.door();
+      r.c2 = B.P(c); B.walk(25, 8.5); B.walk(29, 8); B.walk(30, 6); r.p30 = B.at(); B.walk(36, 6, { time: 5 }); r.end = B.at(); r.doors = B.world().doors.map(d => d.id + ':' + d.t.toFixed(2) + ':' + d.box.min.map(v=>v.toFixed(1)) + '>' + d.box.max.map(v=>v.toFixed(1))); r.plates = B.world().plates.map(p => JSON.stringify(Object.keys(p))); return B.res(r);
+    },
+    "Redirect": function (B, tc) {
+      const r = {}; B.load('Redirect'); B.step(0.5); const pl = B.pl();
+      B.walk(8, 6); r.a = B.fire(0, 14.95, 1.5, 2); r.b = B.fire(1, 0.05, 1.5, 10); B.step(1.5); r.d0 = B.door('d0');
+      B.walk(14, 6); B.walk(17.5, 6); B.walk(20, 8); r.c = B.fire(1, 16.05, 1.5, 10); B.step(1.5); r.d1 = B.door('d1');
+      B.walk(28, 6); B.walk(34, 6, { time: 5 }); return B.res(r);
+    },
+    "Sentry Duty": function (B, tc) {
+      const r = {}; B.load('Sentry Duty'); B.step(0.5); const c = B.world().cubes[0];
+      B.walk(c.p.x - 1.1, c.p.z); B.aim(c.p.x, c.p.y, c.p.z); B.use('grab crate');
+      for (const [x, z] of [[7, 11.4], [14.5, 11.4], [14.6, 4.6], [19, 4.2], [21, 2.4]]) B.walk(x, z);
+      B.walk(26, 3.2); B.aim(27, 0.2, 2.5); B.step(0.3); B.use('put on the button'); B.step(1); r.door = B.door();
+      B.walk(28.5, 6); B.walk(34, 6, { time: 5 }); r.hpMin = 0; return B.res(r);
+    },
+    "Heavy Lifting": function (B, tc) {
+      const r = {}; B.load('Heavy Lifting'); B.step(0.5); const pl = B.pl(), w = B.world(), c = w.cubes[0], S = w.sentries[0];
+      B.walk(24, 10); r.a = B.fire(0, 26, 1.2, 11.95);
+      B.walk(26, 10.8); B.into(26, 14, () => pl.p.z < 6); B.count('through the held doorway'); r.in = B.at();
+      B.walk(S.p.x + 1.2, S.p.z); B.aim(S.p.x, S.p.y + 0.3, S.p.z); B.use('pick up the sentry'); r.heldS = !!B.held();
+      B.walk(22, 2.6); B.face(22, -5); B.step(0.3); B.use('put it on a plate, facing the wall'); B.step(2); r.S = S.state + ' ' + B.P(S);
+      B.walk(c.p.x + 1.2, c.p.z + 0.5); B.aim(c.p.x, c.p.y, c.p.z); B.use('grab crate');
+      B.walk(20.8, 4.5); B.aim(22, 0.2, 4.5); B.step(0.3); B.use('put on the second plate'); B.step(1); r.door = B.door();
+      B.walk(27, 3); B.walk(34, 3, { time: 5 }); return B.res(r);
+    },
+    "Air Mail": function (B, tc) {
+      const r = {}; B.load('Air Mail'); B.step(0.5); const pl = B.pl(), c = B.world().cubes[0];
+      B.walk(c.p.x - 1.1, c.p.z); B.aim(c.p.x, c.p.y, c.p.z); B.use('grab crate');
+      B.walk(3, 6, { look: [6, 1, 6] }); B.face(8, 6); tc.inp.fwd = 0.6; B.step(1.5, () => pl.p.y > 1.2); tc.inp.fwd = 0; B.count('ride the pad with the crate'); B.step(2.5); r.isl = B.at(); r.held = !!B.held();
+      B.walk(20, 4.2, { look: [20, 0, 2.6] }); B.aim(20, 0.3, 2.6); B.step(0.3); B.use('drop the crate on the second pad'); B.step(3); r.c = B.P(c); r.door = B.door();
+      B.walk(26, 6); B.walk(34, 6, { time: 5 }); return B.res(r);
+    },
+    "Reset": function (B, tc) {
+      const r = {}; B.load('Reset'); B.step(0.5); const pl = B.pl(), c = B.world().cubes[0];
+      B.walk(9, 7); r.a = B.fire(1, 18, 0.02, 7.2); r.b = B.fire(0, 8, 1.2, 0.05);
+      B.walk(c.p.x + 1.1, c.p.z); B.aim(c.p.x, c.p.y, c.p.z); B.use('grab crate');
+      B.walk(8, 1.6); B.face(8, -3); tc.inp.fwd = 0.5; B.step(4, () => pl.p.x > 15); B.face(18, 10.5); tc.inp.fwd = 1; B.step(0.6); tc.inp.fwd = 0; B.step(0.6); B.count('through the wall, out of the far floor'); r.far = B.at(); r.held = !!B.held();
+      B.walk(20.8, 9.4); B.walk(22, 7.3, { look: [22, 0, 6] }); B.aim(22, 0.2, 6); B.step(0.3); B.use('put on the button'); B.step(1); r.door = B.door();
+      B.walk(25, 9); B.walk(28, 6); B.walk(34, 6, { time: 5 }); return B.res(r);
+    },
+    "Scales": function (B, tc) {
+      const r = {}; B.load('Scales'); B.step(0.5); const pl = B.pl(), w = B.world();
+      r.cams = (w.cams || []).map(k => Object.keys(k).join(',')).slice(0, 1);
+      B.walk(8, 7); r.a = B.fire(0, 12, 5.3, 13.95); B.step(2.5);
+      const k = (w.camProps || [])[0]; r.k = k && B.P(k);
+      if (k) { B.walk(k.p.x, k.p.z - 1.2); B.aim(k.p.x, k.p.y, k.p.z); B.use('pick up the camera'); }
+      r.held = !!(k && k.held);
+      B.walk(16, 4); r.b = B.fire(1, 23.5, 6, 0.05); r.c = B.fire(0, 15, 0.02, 2.5);
+      B.walk(15, 4.2); B.face(15, 0); pl.pitch = 0; tc.inp.fwd = 0.4; B.step(3, () => pl.p.x > 20); tc.inp.fwd = 0; B.step(1.5); B.count('fall in, out high over the ledge'); r.up = B.at(); r.held2 = !!(k && k.held);
+      B.walk(24.4, 9.8, { look: [24.4, 4, 11.5] }); B.aim(24.4, 4.2, 11.5); B.step(0.3); B.use('put it on the scale'); B.step(1); r.door = B.door();
+      B.walk(25, 7); B.walk(30, 7, { time: 5 }); return B.res(r);
+    },
+    "Upside": function (B, tc) {
+      const r = {}; B.load('Upside'); B.step(0.5); const pl = B.pl(), c = B.world().cubes[0];
+      B.walk(11, 6); r.a = B.fire(0, 16, 7.98, 6); r.b = B.fire(1, 0.05, 1.5, 9);
+      B.walk(9, 4); B.walk(9, 6, { time: 2 }); B.count('step on the gravity panel'); B.step(3); r.c = B.P(c);
+      B.walk(9, 3); B.step(2); r.c2 = B.P(c);
+      B.walk(c.p.x + (c.p.x < 2 ? 1.1 : -1.1), c.p.z); B.aim(c.p.x, c.p.y, c.p.z); B.use('grab crate'); r.held = !!B.held();
+      B.walk(13, 2.5); B.walk(20, 2.5); B.walk(21.8, 6, { look: [23, 0, 6] }); B.aim(23, 0.2, 6); B.step(0.3); B.use('put on the button'); B.step(1); r.door = B.door();
+      B.walk(24.5, 9); B.walk(26, 6); B.walk(32, 6, { time: 5 }); return B.res(r);
+    },
+    "Mirror Test": function (B, tc) {
+      const r = {}; B.load('Mirror Test'); B.step(0.5); const S = B.world().sentries[0];
+      r.a = B.fire(0, 16.5, 1.4, 0.05); r.b = B.fire(1, 28.5, 1.4, 11.95);
+      B.step(12, () => S.state !== 'on');      // (waiting while it shoots itself is not a step) r.S = S.state; r.door = B.door(); r.t = +B.t.toFixed(1);
+      B.walk(26, 6); B.walk(34, 6, { time: 5 }); return B.res(r);
+    }
+  };
+  const shortcut = {
+    "Delivery": { what: "Grab the crate through the cube room\u2019s window and back away: it comes out through the window, and the room is done without ever going in.", run: function (B, tc) {
+      const r = {}; B.load('Delivery'); B.step(0.5); const c = B.world().cubes[0], pl = B.pl();
+      B.walk(4.6, 8.4, { r: 0.05 }); r.at = B.at(); B.aim(c.p.x, c.p.y, c.p.z); B.use('grab the crate through the window'); r.held = !!B.held();
+      B.aim(2, 1.9, 8.4); B.step(0.6); r.cWin = B.P(c); tc.inp.fwd = -0.5; B.step(1.5); tc.inp.fwd = 0; r.out = !!B.held() && c.p.x > 4.5; r.cOut = B.P(c); B.walk(7, 4);
+      B.walk(7, 2); r.c = B.fire(1, 20, 1.2, 0.05); r.d = B.fire(0, 7, 1.2, 0.05); B.into(7, -3, () => pl.p.x > 15); B.walk(20, 4); r.held2 = !!B.held();
+      B.walk(20, 6.4); B.aim(20, 0.2, 5); B.step(0.3); B.use('put on the button'); B.step(1);
+      B.walk(23, 5); B.walk(28, 5, { time: 5 }); r.skipped = B.state() === 'done' && B.deaths() === 0; return B.res(r);
+    } },
+    "Mirror Test": { ok: true, what: "With the sentry still working, stand at the exit: the door must stay shut until it is finished, then let you out.", run: function (B, tc) {
+      const r = {}; B.load('Mirror Test'); B.step(0.5); const pl = B.pl(), S = B.world().sentries[0];
+      B.fire(0, 16.5, 1.4, 0.05); B.fire(1, 28.5, 1.4, 11.95);
+      pl.p.set(29.2, 0.9, 6); pl.v.set(0, 0, 0); B.face(34, 6); tc.inp.fwd = 1; B.step(0.4, () => S.state !== 'on'); tc.inp.fwd = 0;
+      r.Son = S.state === 'on'; r.doorWhileOn = B.door(); r.leftWhileOn = B.state() === 'done' && r.Son;
+      B.step(10, () => S.state !== 'on'); B.walk(34, 6, { time: 4 }); r.leftAfter = B.state() === 'done';
+      r.ok = r.Son && !r.leftWhileOn && r.leftAfter; return B.res(r);
+    } }
+  };
+
+  /* ---------- the plan (Batch J, approved Nov 25, 2026, with the early-room amendment) ---------- */
+  const PLAN = {
+    acts: [[1, 8, "Act 1, Opening"], [9, 15, "Act 2, Mechanics"], [16, 23, "Act 3, Combinations"], [24, 30, "Act 4, Momentum"], [31, 38, "Act 5, Multi-step"]],
+    exams: [8, 15, 23, 30, 38],                                            // each act's last room: the room after it is compared with the room before it
+    // the first room for a new device or a new idea may take one step fewer than the room before it, never more
+    fresh: { 4: "the crate", 5: "things go through a portal without you", 6: "speed through portals", 9: "the laser", 10: "sentries", 12: "launch pads", 13: "the reset field", 14: "the camera scale", 15: "the gravity panel" },
+    change: (() => { const c = {}; for (let i = 1; i <= 38; i++) c[i] = "Choice pass"; for (const i of [1, 2, 3, 4, 11, 13, 14, 15]) c[i] = "Keep"; for (const i of [8, 10, 16, 17, 18, 19, 23, 24, 25, 27, 30, 31]) c[i] = "Rework"; return c; })(),
+    // the plan's step targets after the work (section 4 and 6). The plan counted steps from the build notes; this page counts its own way (see the page), so these are a guide
+    target: [0, 1, 2, 2, 5, 4, 4, 4, 7, 4, 5, 5, 4, 4, 5, 5, 6, 7, 7, 7, 6, 2, 6, 10, 6, 7, 6, 5, 5, 6, 8, 8, 7, 8, 7, 8, 8, 8, 10],
+    minTests: i => i < 16 ? 0 : i < 31 ? 3 : 4
+  };
+  const actOf = i => PLAN.acts.findIndex(a => i >= a[0] && i <= a[1]);
+
+  /* ---------- measuring a room as built (all from the game's own world after B.load) ---------- */
+  // every white surface: one face of a white box, clipped to the room's air, at least 0.25 square metres
+  function whiteFaces(lv) {
+    const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+    const dk = lv.dock, behind = a => dk && (dk.sg > 0 ? a[dk.ax + 3] <= dk.wall + 0.03 : a[dk.ax] >= dk.wall - 0.03);      // the lift car's alcove behind the start is not the room
+    const airs = lv.air.filter(a => !behind(a));
+    for (const a of airs) { for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], a[k] - 0.05); hi[k] = Math.max(hi[k], a[k + 3] + 0.05); } }
+    const F = [];
+    lv.boxes.forEach((b, bi) => { if (!b.portal) return;
+      for (let a = 0; a < 3; a++) for (const sg of [-1, 1]) {
+        const pl = sg > 0 ? b.max[a] : b.min[a]; if (pl < lo[a] || pl > hi[a]) continue;
+        const u = (a + 1) % 3, v = (a + 2) % 3, u0 = Math.max(b.min[u], lo[u]), u1 = Math.min(b.max[u], hi[u]), v0 = Math.max(b.min[v], lo[v]), v1 = Math.min(b.max[v], hi[v]);
+        if (u1 - u0 < 0.3 || v1 - v0 < 0.3 || (u1 - u0) * (v1 - v0) < 0.25) continue;
+        const c = [0, 0, 0]; c[a] = pl + sg * 0.06; c[u] = (u0 + u1) / 2; c[v] = (v0 + v1) / 2;
+        if (!airs.some(q => c[0] > q[0] && c[0] < q[3] && c[1] > q[1] && c[1] < q[4] && c[2] > q[2] && c[2] < q[5])) {      // the face must look into the room (not flush with a wall), checked at its middle and its corners
+          const hit = [[0.1, 0.1], [0.9, 0.1], [0.1, 0.9], [0.9, 0.9]].some(([fu, fv]) => { c[u] = u0 + (u1 - u0) * fu; c[v] = v0 + (v1 - v0) * fv; return airs.some(q => c[0] > q[0] && c[0] < q[3] && c[1] > q[1] && c[1] < q[4] && c[2] > q[2] && c[2] < q[5]); });
+          if (!hit) continue; }
+        F.push({ id: bi + ":" + a + sg, a, sg, pl, u, v, u0, u1, v0, v1 });
+      } });
+    return F;
+  }
+  function lineClear(tc, lv, e, p) { const d = [p[0] - e[0], p[1] - e[1], p[2] - e[2]], L = Math.hypot(...d); if (L < 0.05) return true; const n = d.map(x => x / L), h = tc.dbg.lvRay(lv, e, n, L + 0.05); return !h || h.t >= L - 0.04; }
+  function faceSeen(tc, lv, f, e) {
+    if (f.sg * (e[f.a] - f.pl) <= 0.05) return false;
+    for (const fu of [1 / 6, 1 / 2, 5 / 6]) for (const fv of [1 / 6, 1 / 2, 5 / 6]) {
+      const p = [0, 0, 0]; p[f.a] = f.pl + f.sg * 0.01; p[f.u] = f.u0 + (f.u1 - f.u0) * fu; p[f.v] = f.v0 + (f.v1 - f.v0) * fv;
+      if (lineClear(tc, lv, e, p)) return true;
+    }
+    return false;
+  }
+  function faceAt(F, p) { let best = null, bd = 0.12; for (const f of F) { const d = Math.abs(p[f.a] - f.pl); if (d < bd && p[f.u] > f.u0 - 0.6 && p[f.u] < f.u1 + 0.6 && p[f.v] > f.v0 - 0.6 && p[f.v] < f.v1 + 0.6) { bd = d; best = f; } } return best; }
+  // one room: what the start shows, what each stop shows, the exit's shape, timing windows, the exit door
+  function measure(win, name, sol) {
+    const tc = win.__tc, B = win.B; B.load(name); B.step(0.3);
+    const w = tc.world, lv = w.lv, F = whiteFaces(lv), st = lv.start.pos, eye0 = [st[0], st[1] + 1.6, st[2]];
+    const out = { white: F.length, seen0: F.filter(f => faceSeen(tc, lv, f, eye0)).length };
+    // the panels and goals the solving robot needed
+    if (sol && sol.shots) {
+      const need = new Map(); for (const p of sol.shots.concat((lv.held || []).map(h => h.pos))) { const f = faceAt(F, p); if (f) need.set(f.id, f); }      // (a portal the facility holds open counts as a panel you need)
+      const goals = [...(lv.plates || []).map(p => [p.pos[0], p.pos[1] + 0.15, p.pos[2]]), ...(lv.receivers || []).map(r => r.pos), [(lv.exit.min[0] + lv.exit.max[0]) / 2, lv.exit.min[1] + 1.2, (lv.exit.min[2] + lv.exit.max[2]) / 2]];
+      const pSeen = [...need.values()].filter(f => faceSeen(tc, lv, f, eye0)).length, gSeen = goals.filter(g => lineClear(tc, lv, eye0, g)).length;
+      out.needed = need.size + goals.length; out.neededSeen = pSeen + gSeen; out.panels = need.size;
+    }
+    // what each stop shows: the robot's stops, or the room's own route spots where there is no robot yet
+    const stops = sol && sol.stops && sol.stops.length ? sol.stops : [eye0].concat((lv.route || []).map(r => [r[0], r[1] + 1.6, r[2]]));
+    out.stopsFrom = sol && sol.stops && sol.stops.length ? "robot" : lv.route && lv.route.length ? "route" : "start";
+    out.stopCounts = stops.map(e => F.filter(f => faceSeen(tc, lv, f, e)).length);
+    // shape: is the exit straight ahead in the far end wall?
+    const R = tc.dbg.hallOf(lv), ex = lv.exit;
+    out.side = !!lv.exitSide; out.farEnd = !lv.exitSide && ex.min[0] >= R.x1 - 0.01 && st[0] < R.x0 + 0.3 * R.L;      // the exit in the far end wall, the start at the other end
+    // timing windows: plates and switches that stay down for a while, and presses that must all be up at once
+    const win_ = [];
+    for (const p of lv.plates || []) if (p.hold) win_.push(["a button stays down", p.hold]);
+    for (const s of lv.switches || []) if (s.hold) win_.push(["a switch stays on", s.hold]);
+    if ((lv.doors || []).some(d => d.presses) && w.crushers && w.crushers.length) {
+      let best = 0, run = 0; for (let k = 0; k < 900; k++) { B.step(1 / 60); if (w.crushers.every(c => c.s < 0.35)) { run += 1 / 60; best = Math.max(best, run); } else run = 0; }
+      win_.push(["all the presses are up", +best.toFixed(2)]);
+    }
+    out.windows = win_;
+    // the exit door: a room with sentries needs a real door on its exit, or a run past them gets out
+    const ec = [(ex.min[0] + ex.max[0]) / 2, (ex.min[2] + ex.max[2]) / 2];
+    const ed = w.doors.filter(d => d.id !== "lift" && Math.hypot((d.min0[0] + d.max0[0]) / 2 - ec[0], (d.min0[2] + d.max0[2]) / 2 - ec[1]) < 4.5 && !d.hide);
+    out.exitDoor = ed.length ? (ed.every(d => d.auto) ? "auto" : "real") : "none";
+    out.sentries = (w.sentries || []).length;
+    out.dock = !!lv.dock;
+    return out;
+  }
+  // run a solving robot and keep what the page needs
+  function runSolve(win, name) {
+    const fn = solve[name]; if (!fn) return null;
+    let r; try { r = fn(win.B, win.__tc); } catch (e) { return { error: String(e && e.message || e) }; }
+    const B = win.B, shots = B.shots.map(p => p.slice()), stops = B.stops.map(p => p.slice());
+    return { done: r.state === "done", deaths: r.deaths, steps: r.steps, log: r.log.slice(), hp: r.hp,
+      nShots: r.log.filter(l => /^shot .* ok/.test(l)).length, nUse: r.log.filter(l => /^use/.test(l)).length, shots, stops };
+  }
+  function runShortcut(win, name) {
+    const s = shortcut[name]; if (!s) return null;
+    let r; try { r = s.run(win.B, win.__tc); } catch (e) { return { error: String(e && e.message || e), what: s.what }; }
+    return { what: s.what, hole: s.ok ? !r.ok : !!r.skipped, steps: r.steps };
+  }
+  root.DIFF_BOTS = { install, solve, shortcut, PLAN, actOf, measure, runSolve, runShortcut, whiteFaces };
+})(typeof window !== "undefined" ? window : globalThis);

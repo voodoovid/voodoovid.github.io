@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Difficulty Check</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#07090c">
+<style>
+/* Test Chambers Difficulty Check (v1.0, for game v8.40, Batch J step 1, Nov 25, 2026): one row per room, 1 to 38, green and red, for the Batch J plan.
+   It loads the game in a hidden frame with ?diffcheck (no frame loop, no lift rides, its own saves, so nothing you have found or finished changes),
+   then runs the robots in difficulty-bots.js and measures each room as the game builds it. Everything starts below the status bar. */
+:root { color-scheme: dark; --bg: #07090c; --panel: #0e1318; --line: rgba(255,255,255,.08); --ink: #eef2f5; --dim: rgba(238,242,245,.58);
+  --blue: #2fa4ff; --orange: #ff9d2e; --pass: #2fd47a; --fail: #ff4d5e; --warn: #f4b942; --run: #7fb6ff;
+  --font: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--font); -webkit-text-size-adjust: 100%; }
+body { overflow: hidden; }
+#page { position: fixed; inset: 0; display: flex; flex-direction: column;
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) calc(env(safe-area-inset-right, 0px) + 16px) calc(env(safe-area-inset-bottom, 0px) + 12px) calc(env(safe-area-inset-left, 0px) + 16px); }
+header { display: flex; align-items: center; gap: 14px; padding: 4px 2px 12px; border-bottom: 1px solid var(--line); flex: none; flex-wrap: wrap; }
+.logo { width: 34px; height: 34px; border-radius: 50%; flex: none;
+  background: radial-gradient(circle at 35% 50%, var(--blue) 0 34%, transparent 35%), radial-gradient(circle at 65% 50%, var(--orange) 0 34%, transparent 35%), #111820;
+  box-shadow: 0 0 0 1px rgba(255,255,255,.12) inset; }
+.title b { display: block; font-size: 11px; letter-spacing: .26em; color: var(--dim); font-weight: 700; }
+.title span { display: block; font-size: 20px; font-weight: 700; letter-spacing: .05em; }
+#summary { margin-left: auto; text-align: right; font-size: 13px; color: var(--dim); line-height: 1.35; max-width: 46ch; }
+#summary strong { display: block; font-size: 15px; color: var(--ink); letter-spacing: .02em; }
+.pill { flex: none; border: 0; border-radius: 22px; padding: 11px 18px; font: 700 15px/1 var(--font); letter-spacing: .04em; color: #071018;
+  background: linear-gradient(180deg, #59baff, #2b8fe0); cursor: pointer; box-shadow: 0 6px 18px rgba(47,164,255,.25); }
+.pill.ghost { background: rgba(255,255,255,.07); color: var(--ink); box-shadow: none; border: 1px solid rgba(255,255,255,.16); padding: 10px 14px; text-decoration: none; }
+.pill:disabled { opacity: .45; cursor: default; }
+main { flex: 1; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; padding-top: 10px; }
+#bar { height: 4px; border-radius: 2px; background: rgba(255,255,255,.06); margin: 0 2px 10px; overflow: hidden; }
+#bar i { display: block; height: 100%; width: 0; background: var(--run); transition: width .2s; }
+table { border-collapse: separate; border-spacing: 0 6px; width: 100%; min-width: 1020px; }
+th { position: sticky; top: 0; z-index: 2; background: var(--bg); font: 800 10.5px/1.2 var(--font); letter-spacing: .14em; color: var(--dim); text-align: center; padding: 4px 4px 8px; white-space: nowrap; cursor: default; }
+th:first-child { text-align: left; padding-left: 12px; }
+td { background: var(--panel); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 7px 5px; vertical-align: middle; text-align: center; }
+td:first-child { border-left: 1px solid var(--line); border-radius: 12px 0 0 12px; text-align: left; padding-left: 12px; width: 250px; }
+td:last-child { border-right: 1px solid var(--line); border-radius: 0 12px 12px 0; }
+tr.act td { background: none; border: 0; padding: 14px 2px 2px; text-align: left; font: 800 11px/1 var(--font); letter-spacing: .22em; color: var(--dim); }
+.rn { font-size: 14px; font-weight: 700; }
+.rn small { display: block; font-size: 11.5px; color: var(--dim); font-weight: 600; letter-spacing: .02em; margin-top: 2px; }
+.kind { display: inline-block; font: 700 10px/1 var(--font); letter-spacing: .06em; padding: 3px 5px; border-radius: 4px; margin-left: 4px; vertical-align: 1px; background: rgba(255,255,255,.07); color: var(--dim); }
+.kind.Rework { background: rgba(255,157,46,.15); color: #ffc58a; } .kind.Choice { background: rgba(47,164,255,.13); color: #9fd2ff; }
+.c { display: inline-block; min-width: 78px; font: 800 11px/1.15 var(--font); letter-spacing: .06em; padding: 7px 6px; border-radius: 7px; cursor: pointer; border: 0;
+  background: rgba(255,255,255,.05); color: var(--dim); }
+.c em { display: block; font-style: normal; font-weight: 600; font-size: 10.5px; letter-spacing: .02em; margin-top: 2px; opacity: .9; }
+.c.pass { background: rgba(47,212,122,.16); color: var(--pass); }
+.c.fail { background: rgba(255,77,94,.17); color: var(--fail); }
+.c.warn { background: rgba(244,185,66,.15); color: var(--warn); }
+.c.run { background: rgba(127,182,255,.14); color: var(--run); }
+#ver { position: fixed; right: calc(env(safe-area-inset-right, 0px) + 12px); bottom: calc(env(safe-area-inset-bottom, 0px) + 6px); font-size: 11px; color: var(--dim); letter-spacing: .08em; pointer-events: none; }
+#tip { position: fixed; z-index: 9; max-width: 280px; padding: 7px 10px; border-radius: 8px; background: #1b232c; border: 1px solid rgba(255,255,255,.16); font-size: 12.5px; line-height: 1.35; pointer-events: none; box-shadow: 0 8px 22px rgba(0,0,0,.45); }
+/* the details pop-up: floats over the page, closes with Done or a tap outside */
+#pop { position: fixed; inset: 0; z-index: 8; background: rgba(0,0,0,.5); display: flex; align-items: center; justify-content: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 20px) 16px calc(env(safe-area-inset-bottom, 0px) + 20px); }
+#popBox { width: min(620px, 100%); max-height: 100%; overflow: auto; -webkit-overflow-scrolling: touch; background: #10161c; border: 1px solid rgba(255,255,255,.14); border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+#popHead { position: sticky; top: 0; display: flex; align-items: center; gap: 12px; padding: 14px 16px; background: #10161c; border-bottom: 1px solid var(--line); }
+#popHead h3 { margin: 0; font-size: 16px; flex: 1; }
+#popBody { padding: 12px 16px 16px; font-size: 13.5px; line-height: 1.45; }
+#popBody h5 { margin: 12px 0 4px; font-size: 11px; letter-spacing: .18em; color: var(--dim); }
+#popBody p { margin: 4px 0; }
+#popBody .pass { color: var(--pass); } #popBody .fail { color: var(--fail); } #popBody .warn { color: var(--warn); }
+#popBody ol { margin: 4px 0; padding-left: 20px; color: var(--dim); }
+#legend { font-size: 12.5px; color: var(--dim); line-height: 1.45; margin: 2px 2px 4px; }
+#legend b { color: var(--ink); }
+iframe { position: fixed; left: -9999px; top: 0; width: 640px; height: 400px; border: 0; visibility: hidden; }
+</style>
+</head>
+<body>
+<div id="page">
+  <header>
+    <div class="logo"></div>
+    <div class="title"><b>TEST CHAMBERS</b><span>Difficulty Check</span></div>
+    <div id="summary"><strong id="sumHead">Starting</strong><span id="sumText">Loading the game in the background.</span></div>
+    <button class="pill" id="bRun" data-tip="Build every room again, run every robot and repeat all the checks." disabled>Run again</button>
+    <button class="pill ghost" id="bHow" data-tip="What each column checks, and how steps are counted.">How it works</button>
+    <a class="pill ghost" href="secrets.html" data-tip="The camera and secrets checks (Secrets Check).">Secrets Check</a>
+    <a class="pill ghost" href="./" data-tip="Back to Test Chambers.">Game</a>
+  </header>
+  <main>
+    <div id="bar"><i></i></div>
+    <table><thead><tr id="heads"></tr></thead><tbody id="rows"></tbody></table>
+  </main>
+</div>
+<div id="pop" hidden><div id="popBox"><div id="popHead"><h3 id="popTitle"></h3><button class="pill ghost" id="popDone" data-tip="Close this window.">Done</button></div><div id="popBody"></div></div></div>
+<div id="ver"></div>
+<div id="tip" hidden></div>
+<script src="difficulty-bots.js"></script>
+<script>
+const VERSION = "v1.0";
+const $ = id => document.getElementById(id), esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+$("ver").textContent = "Difficulty Check " + VERSION;
+const D = window.DIFF_BOTS, P = D.PLAN;
+// [id, heading, what it means (the hint on its heading)]
+const COLS = [
+  ["solver", "SOLVER", "A robot finishes the room with no deaths. Shows its steps, and the plan's target after the Batch J work."],
+  ["curve", "CURVE", "No room takes fewer steps than the room before it. The first room for a new device may take one fewer; the room after an act's exam is compared with the room before the exam. Forced for rooms 1 to 15."],
+  ["doorway", "DOORWAY", "From the start you can see less than half of the panels and goals the robot needed. Required from room 16 on."],
+  ["choices", "CHOICES", "Three or more white surfaces in view at most of the robot's stops. Required from room 16 on."],
+  ["first", "FIRST PLAN", "A recorded 'obvious plan' robot fails, and can still finish without restarting. Required from room 16 on."],
+  ["shortcut", "SHORTCUT", "No way round the puzzle: the room's shortcut robots, a room that needs no portal at all, and an exit with no door in a room with sentries."],
+  ["shape", "SHAPE", "In reworked rooms, the exit is not straight ahead in the far end wall."],
+  ["touch", "TOUCH", "No timing window shorter than 1.5 seconds."],
+  ["secrets", "SECRETS", "The room passes the Secrets Check and the Den Check."]
+];
+$("heads").innerHTML = "<th>ROOM</th>" + COLS.map(([id, h, t]) => '<th data-tip="' + esc(t) + '">' + h + "</th>").join("");
+const roomLabel = (tc, i) => { const R = tc.ROOM[i - 1]; return "Chamber " + (R.c + 1) + " Room " + (R.part + 1) + " [" + i + "]"; };
+const later = i => i < 16 ? "" : i <= 23 ? "Step 3" : i <= 30 ? "Step 4" : "Step 5";      // the plan's step that builds each act
+const res = {};   // per room: { cells: { id: { s, short, text } }, ... }
+let frame = null, running = false;
+function chip(st, short, sub) { return '<span class="c ' + st + '">' + esc(short) + (sub ? "<em>" + esc(sub) + "</em>" : "") + "</span>"; }
+function paint(i) {
+  const r = res[i], tr = $("r" + i); if (!tr) return;
+  for (const [id] of COLS) { const td = tr.querySelector('[data-c="' + id + '"]'), c = r.cells[id]; if (!c) continue; td.innerHTML = chip(c.s, c.short, c.sub); td.firstChild.dataset.tip = c.tip || c.text || ""; td.firstChild.dataset.room = i; }
+}
+function buildRows(tc) {
+  const T = $("rows"); T.innerHTML = "";
+  for (let a = 0; a < P.acts.length; a++) {
+    const [f, l, nm] = P.acts[a], tests = P.minTests(f);
+    const h = document.createElement("tr"); h.className = "act"; h.innerHTML = '<td colspan="' + (COLS.length + 1) + '">' + esc(nm.toUpperCase() + ", ROOMS " + f + " TO " + l + (tests ? ", AT LEAST " + tests + " OF THE FIVE TESTS" : a === 1 ? ", AT LEAST 1 OF THE FIVE TESTS" : ", TEACHING ROOMS")) + "</td>"; T.appendChild(h);
+    for (let i = f; i <= l; i++) {
+      const tr = document.createElement("tr"); tr.id = "r" + i; const k = P.change[i];
+      tr.innerHTML = '<td><div class="rn">' + esc(roomLabel(tc, i)) + ' <span class="kind ' + k.split(" ")[0] + '" data-tip="The plan\'s change for this room.">' + esc(k) + "</span><small>" + esc(tc.names[i - 1]) + "</small></div></td>" +
+        COLS.map(([id]) => '<td data-c="' + id + '">' + chip("", "…") + "</td>").join("");
+      tr.querySelector(".rn").dataset.room = i; tr.querySelector(".rn").style.cursor = "pointer"; tr.querySelector(".rn").dataset.tip = "Everything measured in this room.";
+      T.appendChild(tr);
+    }
+  }
+}
+// ---------- judging one room ----------
+function judge(i, name, sol, sc, m, aud) {
+  const C = {}, act = D.actOf(i), teach = i < 9, act2 = i >= 9 && i <= 15, step = later(i);      // Act 1 teaches; Act 2 must pass at least one of the tests; from room 16 every test counts
+  // Solver
+  if (!sol) C.solver = { s: "", short: "NO ROBOT", sub: step ? "comes in " + step : "", text: "No solving robot for this room yet. Its builder records one in " + step + ", together with its obvious-plan robot." };
+  else if (sol.error) C.solver = { s: "fail", short: "ERROR", sub: "", text: "The robot stopped with an error: " + sol.error };
+  else { const trips = sol.steps - sol.nShots - sol.nUse, ok = sol.done && !sol.deaths;
+    C.solver = { s: ok ? "pass" : "fail", short: ok ? sol.steps + (sol.steps === 1 ? " STEP" : " STEPS") : sol.done ? "DIED" : "STUCK", sub: "target " + P.target[i],
+      text: (ok ? "Finished with no deaths in " : sol.done ? "Finished, but died " + sol.deaths + " time(s), in " : "Did not finish, after ") + sol.steps + " steps: " + sol.nShots + " portal shot(s), " + sol.nUse + " grab, drop or press, " + trips + " trip(s) through a portal or on a pad. The plan's target after the work is " + P.target[i] + " (counted from the build notes, a little differently)." }; }
+  // Choices (always measurable)
+  { const n = m.stopCounts.length, good = m.stopCounts.filter(c => c >= 3).length, ok = good * 2 > n, from = { robot: "the robot's " + n + " stop(s)", route: "the room's " + n + " solver spots (no robot yet)", start: "the start only (no robot yet)" }[m.stopsFrom];
+    const startOnly = m.stopsFrom === "start";
+    C.choices = { s: teach || startOnly ? (ok && !startOnly ? "pass" : "") : ok ? "pass" : "fail", ok, short: good + " OF " + n, sub: teach ? "teaching room" : m.stopsFrom === "robot" ? "stops" : m.stopsFrom === "route" ? "solver spots" : "start only",
+      text: "Three or more white surfaces in view at " + good + " of " + from + " (counts: " + m.stopCounts.join(", ") + "). The room has " + m.white + " white surfaces facing into it; " + m.seen0 + " show from the start." + (teach ? " Not required in a teaching room." : startOnly ? " Measured from the start only, so not judged until the room has its robot." : "") }; }
+  // Doorway
+  if (m.needed == null) C.doorway = { s: "", short: "NO ROBOT", sub: m.seen0 + " of " + m.white + " white", text: "Needs the solving robot to know which panels and goals it used. From the start, " + m.seen0 + " of the room's " + m.white + " white surfaces show." };
+  else { const ok = m.neededSeen * 2 < m.needed;
+    C.doorway = { s: teach ? (ok ? "pass" : "") : ok ? "pass" : "fail", ok, short: m.neededSeen + " OF " + m.needed, sub: teach ? "teaching room" : "in view",
+      text: "From the start you can see " + m.neededSeen + " of the " + m.needed + " things the robot needed (" + m.panels + " white panel(s), plus every button, receiver and the exit). Green when that is less than half." + (teach ? " Not required in a teaching room." : "") }; }
+  if (act2) {      // Act 2: one test is enough. A red only when the room passes neither of the two this page can measure yet
+    const any = (C.doorway.ok || C.choices.ok);
+    for (const k of ["doorway", "choices"]) if (C[k].s === "fail" && any) { C[k].s = ""; C[k].text += " Act 2 needs only one test, and this room passes the other."; }
+    for (const k of ["doorway", "choices"]) if (C[k].sub === "teaching room") C[k].sub = "";
+  }
+  // First plan
+  C.first = i < 16 ? { s: "", short: "—", sub: i < 9 ? "teaching room" : "not required", text: "Not required in rooms 1 to 15." } : { s: "", short: "NO ROBOT", sub: "comes in " + step, text: "Each room's builder records its obvious-plan robot in " + step + "." };
+  // Shortcut
+  { const holes = [], fine = [];
+    if (sc) (sc.hole ? holes : fine).push(sc.what);
+    if (sol && !sol.error && sol.done && sol.nShots === 0 && !m.held && !sol.log.some(l => /portal|through|fall|floor|wall/i.test(l))) holes.push("The solving robot finished without using a portal at all.");
+    else if (sol && !sol.error && sol.done) fine.push("The solving robot needed a portal.");
+    if (m.sentries) (m.exitDoor === "real" ? fine : holes).push(m.exitDoor === "real" ? "The exit has a door the puzzle opens (no running past the sentries)." : "The exit has no door of its own, and the room has sentries: a run past them gets out.");
+    C.shortcut = holes.length ? { s: "fail", short: "HOLE", sub: holes.length > 1 ? holes.length + " found" : "", text: holes.join(" ") + (fine.length ? " Checked and fine: " + fine.join(" ") : "") }
+      : fine.length ? { s: "pass", short: "NONE FOUND", sub: fine.length + " check" + (fine.length > 1 ? "s" : ""), text: "Checked: " + fine.join(" ") } : { s: "", short: "NO ROBOT", sub: "", text: "No shortcut robot for this room, no sentries, and no solving robot yet." }; }
+  // Shape
+  { const rw = P.change[i] === "Rework";
+    C.shape = m.side ? { s: "pass", short: "SIDE WALL", sub: "", text: "The exit is in a side wall." } : !m.farEnd ? { s: "pass", short: "NOT AHEAD", sub: "", text: "The exit is not in the far end wall at the other end from the start (it is up a level or off to one side)." }
+      : { s: rw ? "fail" : "", short: "FAR END", sub: rw ? "reworked room" : "not reworked", text: "The exit is straight ahead in the far end wall." + (rw ? " This room is reworked, so it must change." : " Allowed: this room is not reworked.") }; }
+  // Touch
+  { const w = m.windows, low = w.filter(x => x[1] < 1.5), extra = i === 22 ? " The crate's bounce in this room (the plan: about 1.8 seconds) is not measured here." : "";
+    C.touch = !w.length ? { s: "pass", short: "NONE", sub: "", text: "No timed button, switch or press found." + extra } : { s: low.length ? "fail" : "pass", short: Math.min(...w.map(x => x[1])).toFixed(1) + " S", sub: "shortest",
+      text: w.map(x => x[0] + ": " + x[1] + " s").join("; ") + "." + (w.some(x => /presses/.test(x[0])) ? " (Presses: the time all of them are clear of head height at once, the moment the game itself waits for.)" : "") + extra }; }
+  // Secrets
+  { const sa = aud.sec && aud.sec.rows.find(r => r.i === i - 1), da = aud.den && aud.den.rows.find(r => r.i === i - 1), probs = [];
+    if (sa) probs.push(...sa.bad.map(b => "Secrets: " + b)); if (da) probs.push(...(da.err ? ["Dens: " + da.err] : da.bad.map(b => "Dens: " + b)));
+    C.secrets = !aud.sec ? { s: "fail", short: "ERROR", sub: "", text: aud.secErr || "The Secrets Check did not run." } : probs.length ? { s: "fail", short: probs.length + " PROBLEM" + (probs.length > 1 ? "S" : ""), sub: "", text: probs.join(" ") } : { s: "pass", short: "PASS", sub: "", text: "Passes the Secrets Check" + (aud.den ? " and the Den Check." : ".") }; }
+  return C;
+}
+function curve(i) {
+  const r = res[i], prevI = P.exams.includes(i - 1) && i - 2 >= 1 ? i - 2 : i - 1, p = res[prevI];
+  if (i === 1) return { s: "pass", short: "FIRST", sub: "", text: "The first room." };
+  const forced = i <= 15;
+  if (!r.sol || r.sol.error || !r.sol.done || !p || !p.sol || p.sol.error || !p.sol.done) return { s: "", short: "NO ROBOT", sub: forced ? "" : later(i), text: "Needs solving robots for this room and the one it is compared with." };
+  const a = r.sol.steps, b = p.sol.steps, fresh = P.fresh[i], ok = a >= b || (fresh && a >= b - 1);
+  const vs = "Room " + prevI + (prevI !== i - 1 ? " (the room before the exam, room " + (i - 1) + ")" : "") + " took " + b + " steps; this room takes " + a + ".";
+  return { s: ok ? "pass" : forced ? "fail" : "warn", short: (a - b >= 0 ? "+" : "") + (a - b), sub: "vs room " + prevI,
+    text: vs + (ok ? (a < b ? " One fewer is allowed: this is the first room with " + fresh + "." : " It does not fall.") : " It falls" + (fresh ? " by more than the one step allowed for the first room with " + fresh : "") + "." + (forced ? "" : " From room 16 on, a fall needs a written reason.")) };
+}
+function detail(i) {
+  const r = res[i]; if (!r) return;
+  $("popTitle").textContent = roomLabel(window.__tcRef, i) + " " + r.name;
+  let h = "<p>Plan: <b>" + esc(P.change[i]) + "</b>. " + (i < 16 ? "A teaching room." : "Must pass at least " + P.minTests(i) + " of the five tests.") + "</p>";
+  for (const [id, head] of COLS) { const c = r.cells[id]; if (!c) continue; h += "<h5>" + head + '</h5><p class="' + (c.s || "") + '">' + esc(c.short + (c.sub ? " (" + c.sub + ")" : "")) + "</p><p>" + esc(c.text || "") + "</p>"; }
+  if (r.sol && r.sol.log) h += "<h5>THE ROBOT'S STEPS</h5><ol>" + r.sol.log.map(l => "<li>" + esc(l) + "</li>").join("") + "</ol>";
+  $("popBody").innerHTML = h; $("pop").hidden = false;
+}
+// ---------- running ----------
+function start() {
+  if (running) return; running = true; $("bRun").disabled = true;
+  $("sumHead").textContent = "Running"; $("sumText").textContent = "Loading the game in the background."; $("bar").firstChild.style.width = "0";
+  if (frame) frame.remove();
+  frame = document.createElement("iframe"); frame.src = "./index.html?diffcheck=" + Date.now(); document.body.appendChild(frame);
+  const t0 = Date.now(), wait = setInterval(() => {
+    let tc = null; try { tc = frame.contentWindow.__tc; } catch (e) {}
+    if (tc && tc.names && tc.secretAudit && tc.physicsStep) { clearInterval(wait); setTimeout(() => run(frame.contentWindow), 60); }
+    else if (Date.now() - t0 > 120000) { clearInterval(wait); $("sumHead").textContent = "Could not run"; $("sumText").textContent = "The game did not start within two minutes."; running = false; $("bRun").disabled = false; }
+  }, 250);
+}
+function run(win) {
+  const tc = win.__tc; window.__tcRef = tc; D.install(win); buildRows(tc);
+  const aud = {}; $("sumText").textContent = "Running the Secrets Check and the Den Check.";
+  setTimeout(() => {
+    try { aud.sec = tc.secretAudit(); } catch (e) { aud.secErr = "The Secrets Check stopped: " + e; }
+    try { aud.den = tc.denAudit(); } catch (e) { aud.den = null; }
+    let i = 1;
+    const next = () => {
+      if (i > 38) return finish(tc);
+      const name = tc.names[i - 1]; $("sumText").textContent = "Room " + i + " of 38: " + name + ".";
+      let sol = null, sc = null, m = null;
+      try { sol = D.runSolve(win, name); } catch (e) { sol = { error: String(e) }; }
+      try { sc = D.runShortcut(win, name); } catch (e) { sc = null; }
+      try { m = D.measure(win, name, sol && !sol.error ? sol : null); m.held = !!(tc.world.lv.held && tc.world.lv.held.length); } catch (e) { m = { white: 0, seen0: 0, stopCounts: [], windows: [], err: String(e) }; }
+      res[i] = { name, sol, sc, m }; res[i].cells = judge(i, name, sol, sc, m, aud); res[i].cells.curve = curve(i); paint(i);
+      $("bar").firstChild.style.width = (i / 38 * 100) + "%"; i++; setTimeout(next, 20);
+    };
+    next();
+  }, 40);
+}
+function finish(tc) {
+  const reds = {}, early = []; for (const [id] of COLS) reds[id] = 0;
+  for (let i = 1; i <= 38; i++) for (const [id] of COLS) if (res[i].cells[id] && res[i].cells[id].s === "fail") reds[id]++;
+  for (let i = 2; i <= 15; i++) if (res[i].cells.curve.s === "fail") early.push(i);
+  const total = Object.values(reds).reduce((a, b) => a + b, 0);
+  $("sumHead").textContent = total ? total + " red result" + (total > 1 ? "s" : "") + " in 38 rooms" : "All green";
+  $("sumText").textContent = "Game " + (tc.version || "") + ". Curve: " + (early.length ? "falls at room" + (early.length > 1 ? "s " : " ") + early.join(", ") : "no falls in rooms 1 to 15") + ". " +
+    COLS.filter(([id]) => reds[id]).map(([id, h]) => h.charAt(0) + h.slice(1).toLowerCase() + " " + reds[id]).join(", ") + (total ? " red." : "");
+  window.__diffcheck = { reds, early, rooms: Object.fromEntries(Object.entries(res).map(([k, v]) => [k, { name: v.name, cells: Object.fromEntries(Object.entries(v.cells).map(([c, x]) => [c, x.s + " " + x.short])) }])) };
+  running = false; $("bRun").disabled = false; frame.remove(); frame = null;
+}
+$("bRun").addEventListener("click", start);
+$("bHow").addEventListener("click", () => {
+  $("popTitle").textContent = "How the Difficulty Check works";
+  $("popBody").innerHTML = "<p>The game loads in a hidden frame with its own saves, so nothing you have found or finished changes. Robots play each room by stepping the game's own physics, and the page measures each room as the game builds it.</p>" +
+    "<h5>STEPS</h5><p>A step is one portal shot, one grab, drop or press, or one trip through a portal or on a launch pad. Walking and waiting are not steps. The plan's targets were counted from the build notes, so they are a guide: the Curve column compares rooms measured the same way.</p>" +
+    COLS.map(([id, h, t]) => "<h5>" + h + "</h5><p>" + esc(t) + "</p>").join("") +
+    "<h5>COLOURS</h5><p><span class=\"pass\">Green</span> passes. <span class=\"fail\">Red</span> fails something this room must pass. <span class=\"warn\">Amber</span> is a fall in steps from room 16 on: allowed only with a written reason. Grey is not required here, or not measured yet (the robot comes with a later step).</p>" +
+    "<p>Robots prove a room can be solved and that a hole exists. They cannot prove a room is fun: that is the playtest.</p>";
+  $("pop").hidden = false;
+});
+$("popDone").addEventListener("click", () => { $("pop").hidden = true; });
+$("pop").addEventListener("click", e => { if (e.target === $("pop")) $("pop").hidden = true; });
+document.addEventListener("keydown", e => { if (e.key === "Escape") $("pop").hidden = true; });
+$("rows").addEventListener("click", e => { const t = e.target.closest("[data-room]"); if (t) detail(+t.dataset.room); });
+// hover hints
+const tip = $("tip");
+document.addEventListener("pointerover", e => { const b = e.target.closest("[data-tip]"); if (!b || !b.dataset.tip) { tip.hidden = true; return; } tip.textContent = b.dataset.tip; tip.hidden = false; const r = b.getBoundingClientRect(); tip.style.left = Math.max(8, Math.min(innerWidth - 290, r.left)) + "px"; tip.style.top = (r.bottom + 8 + 120 > innerHeight ? r.top - tip.offsetHeight - 8 : r.bottom + 8) + "px"; });
+document.addEventListener("pointerout", e => { if (e.target.closest("[data-tip]")) tip.hidden = true; });
+start();
+</script>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>
+</body></html>
