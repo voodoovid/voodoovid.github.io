@@ -585,6 +585,7 @@ await RAPIER.init();
 
 const VERSION = "v8.40";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
+const KT_TEST = /[?&]kittest\b/.test(location.search);      // v8.41: the room kit's test rooms
 const SC_TEST = /[?&]secretstest\b/.test(location.search), IT_TEST = SC_TEST || /[?&]itemtest\b/.test(location.search), EX_TEST = /[?&]exittest\b/.test(location.search), DF_TEST = /[?&]diffcheck\b/.test(location.search), SPFX = SC_TEST ? "testchambers.stest." : IT_TEST ? "testchambers.itest." : EX_TEST ? "testchambers.xtest." : DF_TEST ? "testchambers.dtest." : "testchambers.";      // v8.40: ?exittest (the side-exit test rooms) and ?diffcheck (the Difficulty Check page's robots) keep their own saves      // v8.35: ?secretstest plays only the Secrets Test room
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
@@ -1614,6 +1615,124 @@ const exitDoor = (L, zc, id = "d1", need = 1, y = 0) => ({ id, min: [L, y, zc - 
 const launchTo = (from, to, T) => [(to[0] - from[0]) / T, (to[1] - from[1]) / T + 0.5 * GRAV * T, (to[2] - from[2]) / T];
 // a wall with a doorway (z0..z1, up to 3.2) at x = X, thickness t
 function partition(B, X, t, Wd, H, z0, z1) { B.push(bx(X, 0, 0, X + t, H, z0)); B.push(bx(X, 0, z1, X + t, H, Wd)); B.push(bx(X, 3.2, z0, X + t, H, z1)); }
+
+/* =====================================================================================
+   v8.41 THE ROOM KIT (so that a room need not be a straight hall).
+   shell() builds a room of any plan from its OPEN SPACES ("cells"): everything that is not a cell is solid, so walls, floors and
+   ceilings always meet with no gaps. Cells may touch or overlap; cells at different heights make split levels, a small cell joining
+   two big ones is a doorway or a corridor, and a cell below the floor is a pit. Then:
+     exitPort(h, wall, x, y, z)   the way out, in any wall that faces -x ("x1"), +z ("z0") or -z ("zW"); (x, y, z) is the middle of the
+                                  doorway's sill on the wall face. Combine with the start's yaw to put the exit ahead, beside or behind you.
+     refinish(h, box, mat)        make every solid inside `box` white or dark (flush: no proud panel)
+     stairs(h, o)                 a flight of steps you can walk up (o: { x0, z0, x1, z1, y0, y1, up: "x+" | "x-" | "z+" | "z-" })
+     pane(h, box)                 a clear window you can see through and nothing can pass (not you, not a portal shot, not a sentry's eye)
+     opening(h, box)              a hole through a wall (a doorway, a hatch, a slot): the same as adding a cell afterwards
+     kitAudit(lv)                 checks a kit room: the start, the lift car, the exit, overlaps, and which spaces can only be reached by portal
+   A kit room is an ordinary level object (the same fields hall() returns), so plates, doors, sentries, dens and secrets work unchanged.
+   Test rooms: ?kittest. Notes: the Project doc kit-v8.41-notes.md.
+   ===================================================================================== */
+function mergeBoxes(B) {                       // join neighbours that make one exact box (same finish), so walls are a few big boxes and not a pile of offcuts
+  const same = (a, b) => a.mat === b.mat && a.portal === b.portal && a.look === b.look && Object.keys(a).length === Object.keys(b).length;
+  for (let again = true; again;) { again = false;
+    outer: for (let i = 0; i < B.length; i++) for (let j = i + 1; j < B.length; j++) { const a = B[i], b = B[j]; if (!same(a, b)) continue;
+      for (let ax = 0; ax < 3; ax++) { const t1 = (ax + 1) % 3, t2 = (ax + 2) % 3;
+        if (Math.abs(a.min[t1] - b.min[t1]) > 1e-6 || Math.abs(a.max[t1] - b.max[t1]) > 1e-6 || Math.abs(a.min[t2] - b.min[t2]) > 1e-6 || Math.abs(a.max[t2] - b.max[t2]) > 1e-6) continue;
+        if (Math.abs(a.max[ax] - b.min[ax]) < 1e-6) a.max[ax] = b.max[ax]; else if (Math.abs(b.max[ax] - a.min[ax]) < 1e-6) a.min[ax] = b.min[ax]; else continue;
+        B.splice(j, 1); again = true; break outer; } } }
+  return B;
+}
+function shell(o) {
+  // o.cells: [[x0, y0, z0, x1, y1, z1, { lamp: false }?], ...]   o.mat: the finish of every wall ("dark" by default; "white" takes portals)
+  // o.pits: [[x0, z0, x1, z1, floorY = 0, cool?]] acid (or coolant) pits, 4 deep    o.start: { pos, yaw, pitch }    o.exit: { wall, at: [x, y, z] }
+  const cells = o.cells.map(c => c.slice(0, 6)), opt = o.cells.map(c => c[6] || {}), lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+  for (const c of cells) for (let a = 0; a < 3; a++) { lo[a] = Math.min(lo[a], c[a]); hi[a] = Math.max(hi[a], c[a + 3]); }
+  const acid = [], pools = [], lamps = [], fixtures = [], air = cells.map(c => c.slice());
+  for (const p of (o.pits || [])) { const [x0, z0, x1, z1, fy = 0, cool] = p; lo[1] = Math.min(lo[1], fy - 4); air.push([x0, fy - 4, z0, x1, fy, z1]);
+    if (cool) { pools.push({ x0, x1, z0, z1, y: fy - 0.7 }); lamps.push(lamp((x0 + x1) / 2, fy - 2.4, (z0 + z1) / 2, .5, 6, .3, .7, 1)); }
+    else { acid.push({ x0, x1, z0, z1, y: fy - 3 }); lamps.push(lamp((x0 + x1) / 2, fy - 2.4, (z0 + z1) / 2, .55, 6, .25, 1, .45)); } }
+  const B = [bx(lo[0] - 2, lo[1] - 4, lo[2] - 2, hi[0] + 2, hi[1] + 2, hi[2] + 2, o.mat || "dark")];
+  for (const a of air) carveBoxes(B, { min: a.slice(0, 3), max: a.slice(3) });
+  for (const p of (o.pits || [])) { const [x0, z0, x1, z1, fy = 0] = p; for (const b of B) if (Math.abs(b.max[1] - (fy - 4)) < 1e-6 && b.min[0] < x1 && b.max[0] > x0 && b.min[2] < z1 && b.max[2] > z0) darken(b); }      // a pit's bed never takes a portal
+  mergeBoxes(B);
+  const inAir = (x, y, z) => air.some(a => x > a[0] && x < a[3] && y > a[1] && y < a[4] && z > a[2] && z < a[5]);
+  cells.forEach((c, i) => {                      // ceiling lamps: a grid over every cell big enough to want one, only where its ceiling really is a ceiling
+    if (opt[i].lamp === false) return; const lx = c[3] - c[0], lz = c[5] - c[2], H = c[4] - c[1]; if (lx < 2.5 || lz < 2.5) return;
+    const nx = Math.max(1, Math.round(lx / 9)), nz = Math.max(1, Math.round(lz / 9)), low = H < 4.2;
+    for (let i2 = 0; i2 < nx; i2++) for (let j = 0; j < nz; j++) { const x = c[0] + lx * (i2 + .5) / nx, z = c[2] + lz * (j + .5) / nz;
+      if (inAir(x, c[4] + 0.2, z)) continue;
+      if (lamps.some(l => Math.abs(l.x - x) < 3 && Math.abs(l.z - z) < 3 && Math.abs(l.y - (c[4] - .3)) < 1.5)) continue;
+      lamps.push(lamp(x, c[4] - .3, z, low ? .5 : .55, low ? 6 : 10)); fixtures.push([x, c[4], z]); } });
+  const h = { boxes: B, air, acid, lamps, fixtures, pools, kit: { cells, mat: o.mat || "dark" }, H: hi[1], zc: (lo[2] + hi[2]) / 2, ey: 0,
+    doors: [], plates: [], cubes: [], sentries: [], beams: [], receivers: [], fields: [], pads: [], gravs: [], offices: [], panes: [], cams: o.cams || [], signs: [],
+    start: Object.assign({ pitch: -0.05 }, o.start) };
+  if (o.exit) exitPort(h, o.exit.wall, ...o.exit.at);
+  return h;
+}
+// the way out: a dark-lined doorway and a 4 m passage cut into the solid behind a wall face. wall "x1": the face looks back along -x (the passage runs +x);
+// "z0": the face looks along +z (the passage runs -z); "zW": the face looks along -z (the passage runs +z). (x, y, z) is the middle of the sill, on the face.
+function exitPort(h, wall, x, y, z) {
+  const B = h.boxes, aw = 3, ah = 3.2, D = 4, r = 0.3, ax = wall === "x1" ? 0 : 2, lat = 2 - ax, s = wall === "z0" ? -1 : 1, f0 = ax === 0 ? x : z, c = ax === 0 ? z : x;
+  const box = (d0, d1, l0, l1, y0, y1, mat) => { const mn = [0, y0, 0], mx = [0, y1, 0]; mn[ax] = Math.min(f0 + s * d0, f0 + s * d1); mx[ax] = Math.max(f0 + s * d0, f0 + s * d1); mn[lat] = l0; mx[lat] = l1; return bx(...mn, ...mx, mat); };
+  const liner = box(0, D + 2, c - aw / 2 - r, c + aw / 2 + r, y - r, y + ah + r, "dark"), hole = box(0, D, c - aw / 2, c + aw / 2, y, y + ah);
+  carveBoxes(B, liner); B.push(liner); carveBoxes(B, hole);
+  h.air.push([...hole.min, ...hole.max]);
+  const zone = box(2, D, c - 1.2, c + 1.2, y, y + 2.4); h.exit = { min: zone.min, max: zone.max };
+  const P = d => f0 + s * d, at = (d, l, yy) => { const p = [0, yy, 0]; p[ax] = P(d); p[lat] = l; return p; };
+  if (ax === 0) h.exitLight = { x: P(D - 0.03), y0: y + .4, y1: y + 2.8, z0: c - 1.1, z1: c + 1.1 };
+  else { h.exitLight = { f: wall, z: P(D - 0.03), x0: c - 1.1, x1: c + 1.1, y0: y + .4, y1: y + 2.8 }; h.exitSide = { wall, at: c, fy: y, s, f0 }; }
+  h.exitPort = { wall, at: [x, y, z] };
+  h.lamps.push(lamp(...at(2.2, c, y + 2.9), .75, 5, ...WARM));
+  let top = y + ah; const q = at(-0.3, c, 0); while (top < y + 12 && h.air.some(a => q[0] > a[0] && q[0] < a[3] && top + 0.05 > a[1] && top + 0.05 < a[4] && q[2] > a[2] && q[2] < a[5])) top += 0.1;      // how high the wall goes above the doorway
+  const sy = Math.min(y + 4.4, top - 0.6); if (sy > y + ah + 0.45) { const n = [0, 0, 0]; n[ax] = -s; h.signs.push({ kind: "exit", a: "EXIT", pos: at(0, c, sy), n, w: 2.2, h: .75 }); }
+  return h;
+}
+function refinish(h, R, mat) {                 // R: a box { min, max } or [x0, y0, z0, x1, y1, z1]
+  if (Array.isArray(R)) R = { min: R.slice(0, 3), max: R.slice(3) };
+  const B = h.boxes, add = [];
+  for (const b of B.slice()) { if (b.mat === mat || b.look || !(b.min[0] < R.max[0] && R.min[0] < b.max[0] && b.min[1] < R.max[1] && R.min[1] < b.max[1] && b.min[2] < R.max[2] && R.min[2] < b.max[2])) continue;
+    if (!Object.keys(b).every(k => k === "min" || k === "max" || k === "mat" || k === "portal" || k === "look")) continue;
+    add.push(bx(Math.max(b.min[0], R.min[0]), Math.max(b.min[1], R.min[1]), Math.max(b.min[2], R.min[2]), Math.min(b.max[0], R.max[0]), Math.min(b.max[1], R.max[1]), Math.min(b.max[2], R.max[2]), mat)); }
+  for (const a of add) { carveBoxes(B, a); B.push(a); }
+  return add;
+}
+function opening(h, c) { carveBoxes(h.boxes, { min: c.slice(0, 3), max: c.slice(3, 6) }); h.air.push(c.slice(0, 6)); if (h.kit) h.kit.cells.push(c.slice(0, 6)); return h; }
+function pane(h, c, o) {                       // the pane fills the hole `c` cut through a wall; it is as thick as the wall, and the glass you see is in the middle of it
+  carveBoxes(h.boxes, { min: c.slice(0, 3), max: c.slice(3, 6) }); h.air.push(c.slice(0, 6)); h.panes.push(Object.assign({ min: c.slice(0, 3), max: c.slice(3, 6) }, o)); return h; }
+function stairs(h, o) {                        // steps of at most 0.15 m, each at least 0.3 m deep, so you walk up them (no jumping). Solid from y0 up, dark.
+  // (measured in v8.41: the player walks up 0.15 m steps at full speed, stalls after a few 0.2 m steps and cannot climb a 0.25 m step at all, so 1 m of height needs 2 m of floor)
+  const n = Math.ceil((o.y1 - o.y0) / 0.15 - 1e-6), ax = o.up[0] === "x" ? 0 : 2, sg = o.up[1] === "+" ? 1 : -1, a0 = ax === 0 ? o.x0 : o.z0, a1 = ax === 0 ? o.x1 : o.z1, run = (a1 - a0) / n;
+  if (run < 0.3 - 1e-6) throw new Error("stairs: " + n + " steps need " + (n * 0.3).toFixed(1) + " m, got " + (a1 - a0).toFixed(1));
+  for (let i = 0; i < n; i++) { const k = sg > 0 ? i : n - 1 - i, top = o.y0 + (o.y1 - o.y0) * (i + 1) / n, b = bx(o.x0, o.base !== undefined ? o.base : o.y0, o.z0, o.x1, top, o.z1, o.mat || "dark");
+    b.min[ax] = a0 + run * k; b.max[ax] = a0 + run * (k + 1); h.boxes.push(b); }
+  return h;
+}
+// checks on a kit room (also run by ?kittest and __tc.kitAudit). Returns { ok, bad: [...], info: [...] }.
+function kitAudit(lv) {
+  const bad = [], info = [], B = lv.boxes, S = lv.start.pos, air = lv.air, inAir = (x, y, z) => air.some(a => x > a[0] && x < a[3] && y > a[1] && y < a[4] && z > a[2] && z < a[5]);
+  const solid = (x, y, z) => !!inAny(B, x, y, z);
+  if (!inAir(S[0], S[1] + 0.9, S[2]) || solid(S[0], S[1] + 0.9, S[2])) bad.push("the start is not in open space");
+  if (!solid(S[0], S[1] - 0.1, S[2])) bad.push("no floor under the start");
+  if (!lv.dock) bad.push("no place for the lift car behind the start (it needs a plain wall 5 m wide with nothing behind it)");
+  const dk = lv.dock && lv.dock.inner, inDock = b => dk && b.min[0] > dk.min[0] - 0.7 && b.max[0] < dk.max[0] + 0.7 && b.min[2] > dk.min[2] - 0.7 && b.max[2] < dk.max[2] + 0.7;      // the lift car's own shell and liners overlap by design
+  let ov = 0; for (let i = 0; i < B.length; i++) for (let j = i + 1; j < B.length; j++) { const a = B[i], b = B[j]; if (inDock(a) || inDock(b)) continue;
+    if (Math.min(a.max[0], b.max[0]) - Math.max(a.min[0], b.min[0]) > 0.011 && Math.min(a.max[1], b.max[1]) - Math.max(a.min[1], b.min[1]) > 0.011 && Math.min(a.max[2], b.max[2]) - Math.max(a.min[2], b.min[2]) > 0.011) ov++; }
+  if (ov) info.push(ov + " pairs of boxes overlap (fine for panels laid on a wall and for furniture; not for walls)");
+  // flood the open space from the start in 0.5 m cubes: what the flood cannot reach is sealed off (a mistake), what it reaches only over a drop or a gap needs a portal
+  const G = 0.5, key = (i, j, k) => i + "," + j + "," + k, seen = new Set(), q = [[Math.floor(S[0] / G), Math.floor((S[1] + 0.9) / G), Math.floor(S[2] / G)]]; seen.add(key(...q[0]));
+  const blk = [...B, ...(lv.panes || []), ...(lv.glass || [])], open = (i, j, k) => { const x = (i + .5) * G, y = (j + .5) * G, z = (k + .5) * G; return inAir(x, y, z) && !inAny(blk, x, y, z); };
+  while (q.length) { const [i, j, k] = q.pop(); for (const [a, b, c] of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]]) { const n = [i + a, j + b, k + c], kk = key(...n); if (!seen.has(kk) && open(...n)) { seen.add(kk); q.push(n); } } }
+  const E = lv.exit, ec = [(E.min[0] + E.max[0]) / 2, E.min[1] + 1, (E.min[2] + E.max[2]) / 2];
+  const exitOpen = seen.has(key(Math.floor(ec[0] / G), Math.floor(ec[1] / G), Math.floor(ec[2] / G)));
+  if (!exitOpen) info.push("the exit is sealed off from the start except through a door or a portal");
+  (lv.kit ? lv.kit.cells : []).forEach((c, n) => { const m = [(c[0] + c[3]) / 2, (c[1] + c[4]) / 2, (c[2] + c[5]) / 2]; if (!solid(...m) && !seen.has(key(Math.floor(m[0] / G), Math.floor(m[1] / G), Math.floor(m[2] / G)))) info.push("space " + (n + 1) + " is cut off from the start (behind glass, or portal only)"); });
+  // shape: where the exit is, as you stand at the start
+  const f = [-Math.sin(lv.start.yaw), -Math.cos(lv.start.yaw)], d = [ec[0] - S[0], ec[2] - S[2]], L = Math.hypot(...d) || 1, cos = (f[0] * d[0] + f[1] * d[1]) / L, up = E.min[1] - S[1];
+  const seenExit = !segBlocked([S[0], S[1] + 1.6, S[2]], [ec[0], ec[1] + 0.4, ec[2]], B);      // glass does not hide it
+  const where = cos > 0.92 ? "straight ahead" : cos > 0.3 ? "ahead and to one side" : cos > -0.3 ? "beside you" : "behind you";
+  const shape = { where, level: Math.abs(up) < 0.5 ? "same level" : up > 0 ? up.toFixed(1) + " m up" : (-up).toFixed(1) + " m down", inView: seenExit };
+  if (where === "straight ahead" && Math.abs(up) < 0.5 && seenExit) bad.push("the exit is straight ahead, on your level and in plain view: this is the old straight hall");
+  return { ok: !bad.length, bad, info, shape, boxes: B.length };
+}
 
 function level6() {
   const h = hall({ L: 30, W: 12, H: 7 });
@@ -4549,6 +4668,32 @@ function levelExitC() {
   h.signs.push(chSign(92, "EXIT TEST C", 5, 4.4));
   return Object.assign(h, { num: 92, name: "Exit Test C", track: 0, par: [30, 0], say: { intro: ["Exit test. The way out is up the steps."], hint: ["Up the steps."], hint2: ["Up the steps, on your right."], done: ["Exit test passed."] } });
 }
+// v8.41: the room kit's test rooms (?kittest only). None is a puzzle; each proves one kind of room shape, its exit, its lift car and its lighting.
+const kitSay = (a, b) => ({ intro: [a], hint: [b], hint2: [b], done: ["Kit test passed."] });
+function levelKitA() {                         // a corner: the room turns right, and the way out is at the end of the second arm
+  const h = shell({ cells: [[0, 0, 0, 14, 6, 8], [8, 0, 8, 14, 6, 22]], start: { pos: [2, 0, 4], yaw: -Math.PI / 2 }, exit: { wall: "zW", at: [11, 0, 22] } });
+  h.signs.push(chSign(93, "KIT TEST A: CORNER", 4.6, 4.4));
+  return Object.assign(h, { num: 93, name: "Kit Test A", track: 0, par: [30, 0], say: kitSay("Kit test. The room turns a corner.", "Round the corner, on your right.") });
+}
+function levelKitB() {                         // a split level: stairs up to a gallery that runs back over your shoulder; the way out is up there, beside the start
+  const h = shell({ cells: [[0, 0, 0, 20, 8, 6], [0, 3, 6, 20, 8, 10]], start: { pos: [2, 0, 3], yaw: -Math.PI / 2 }, exit: { wall: "zW", at: [3, 3, 10] } });
+  stairs(h, { x0: 10.4, x1: 16.4, z0: 4.4, z1: 6, y0: 0, y1: 3, up: "x+" }); h.boxes.push(bx(16.4, 0, 4.4, 20, 3, 6, "dark"));
+  h.signs.push(chSign(94, "KIT TEST B: SPLIT LEVEL", 4.6, 4.8));
+  return Object.assign(h, { num: 94, name: "Kit Test B", track: 0, par: [40, 0], say: kitSay("Kit test. The way out is upstairs, behind you.", "Up the steps at the far end, then back along the gallery.") });
+}
+function levelKitC() {                         // a window: you see the button room through glass before you find the way round to it
+  const h = shell({ cells: [[0, 0, 0, 12, 6, 10], [13, 0, 0, 24, 6, 10], [9, 0, 10, 16, 3.2, 12.5, { lamp: false }]], start: { pos: [2, 0, 5], yaw: -Math.PI / 2 }, exit: { wall: "z0", at: [20, 0, 0] } });
+  pane(h, [12, 1, 3, 13, 3.6, 7]); h.lamps.push(lamp(12.5, 2.9, 11.3, .5, 5));
+  h.cubes = [[6, 0.35, 2]]; h.plates = [{ pos: [17, 0, 7], door: "d1" }]; h.doors = [sideDoor(h, "d1", 1)];
+  h.signs.push(chSign(95, "KIT TEST C: WINDOW", 4.6, 4.4));
+  return Object.assign(h, { num: 95, name: "Kit Test C", track: 0, par: [50, 0], say: kitSay("Kit test. You can see where the crate goes. Getting there is another matter.", "The passage is in the wall on your left.") });
+}
+function levelKitD() {                         // a U-turn with a pit: two legs side by side, an acid pit in the second, flush white walls for the portals that cross it
+  const h = shell({ cells: [[0, 0, 0, 18, 7, 6], [12, 0, 6, 18, 7, 9, { lamp: false }], [0, 0, 9, 18, 7, 15]], pits: [[5, 9, 10, 15]], start: { pos: [2, 0, 3], yaw: -Math.PI / 2 }, exit: { wall: "zW", at: [2.5, 0, 15] } });
+  refinish(h, [18, 0, 9, 20, 4, 15], "white"); refinish(h, [-2, 0, 9, 0, 4, 15], "white");
+  h.signs.push(chSign(96, "KIT TEST D: U-TURN", 4.6, 4.4));
+  return Object.assign(h, { num: 96, name: "Kit Test D", track: 0, par: [50, 2], say: kitSay("Kit test. The room doubles back, and there is a pit in the way.", "A portal on the wall behind you, and one on the wall across the pit.") });
+}
 const CHAMBERS = [
   // v6.0 (Batch 1): the Act 1 order from the room map. Rooms past 23 keep their v5.3 form at their new number until their own batch arrives. Room 22 (Dead Drop) came in Batch 3 (v6.2).
   ["Orientation", level1, level54, level55], ["Deliveries", level2, level56], ["Up And Over", level3, level4, level5],
@@ -4560,6 +4705,7 @@ const CHAMBERS = [
   ["Final Exam", level53, level24], ["Out Of Order", level32], ["Behind The Walls", level33, level34], ["The Last Order", level45, level35, level36]
 ];
 if (IT_TEST) CHAMBERS.splice(0, CHAMBERS.length, SC_TEST ? ["Secrets Test", levelSecretsTest] : ["Item Test", levelItemTest]);
+if (KT_TEST) CHAMBERS.splice(0, CHAMBERS.length, ["Kit Test", levelKitA, levelKitB, levelKitC, levelKitD]);      // v8.41: ?kittest plays the room kit's test rooms
 if (EX_TEST) CHAMBERS.splice(0, CHAMBERS.length, ["Exit Test", levelExitA, levelExitB, levelExitC]);      // v8.40 (Batch J step 1): ?exittest plays the three side-exit test rooms      // v8.5: ?itemtest plays only the Item Test room
 const LEVEL_FUNCS = [], ROOM = [], FIRST = [];
 CHAMBERS.forEach(([name, ...fns], c) => { FIRST.push(LEVEL_FUNCS.length); fns.forEach((f, k) => { ROOM.push({ c, part: k, parts: fns.length }); LEVEL_FUNCS.push(camWrap(denWrap(f, LEVEL_FUNCS.length), LEVEL_FUNCS.length)); }); });      // v8.14: denWrap dresses the dens of rooms 1 to 30; v8.35: camWrap puts in CAM_PLAN
@@ -4665,6 +4811,8 @@ MAT.white = bakedMat(TEX.white, NRM_WHITE, 0.5, 0.0, 0.55);
 MAT.bare = bakedMat(TEX.white, NRM_WHITE, 0.88, 0.0, 0.12, 0x9a8362);      // bare board (v6.4): takes no portal until primer lands on it
 MAT.floor = bakedMat(TEX.white, NRM_WHITE, 0.26, 0.0, 0.95, 0xc4cad0);
 MAT.dark = bakedMat(TEX.dark, panelNormal(true), 0.32, 0.45, 0.9);
+MAT.pane = new THREE.MeshStandardMaterial({ color: 0xcfe6f2, roughness: .04, metalness: .1, transparent: true, opacity: .13, envMap: ENV, envMapIntensity: 1.5, depthWrite: false, side: THREE.DoubleSide });      // v8.41 (room kit): clear window glass
+MAT.paneFrame = new THREE.MeshStandardMaterial({ color: 0x8e979f, roughness: .36, metalness: .85, envMap: ENV, envMapIntensity: 1.0 });
 MAT.trimD = bakedMat(null, null, 0.38, 0.6, 0.8, 0x59616a);        // v8.19 edge trims
 MAT.trimW = bakedMat(null, null, 0.45, 0.1, 0.5, 0xc9ced3);
 // v8.16 backstage looks (a box's `look`): none of them changes what takes a portal
@@ -5376,6 +5524,16 @@ function buildLevel(idx) {
     W.pools.push({ ...a, tex: t, on: false, was: false, dir: -1 });
   }
   for (const d of (lv.glass || [])) W.glass.push({ box: { min: d.min.slice(), max: d.max.slice(), mat: "glass", portal: false }, hp: d.hp || 6, broken: false });
+  for (const d of (lv.panes || [])) {            // v8.41 (room kit): a clear window. Nothing passes it and it never breaks; the sheet you see stands in the middle of the wall's thickness, in a steel frame
+    W.glass.push({ box: { min: d.min.slice(), max: d.max.slice(), mat: "glass", portal: false }, hp: Infinity, broken: false, pane: true });
+    const sz = [0, 1, 2].map(k => d.max[k] - d.min[k]), a = sz[0] <= sz[2] ? 0 : 2, t = 2 - a, mid = (d.min[a] + d.max[a]) / 2, g = new THREE.Group();
+    const put = (m, w, hh, dp, u, y) => { const s = [0, hh, 0]; s[t] = w; s[a] = dp; m.scale.set(...s); const p = [0, y, 0]; p[t] = u; p[a] = mid; m.position.set(...p); g.add(m); return m; };
+    const uc = (d.min[t] + d.max[t]) / 2, yc = (d.min[1] + d.max[1]) / 2, fw = 0.07;
+    put(new THREE.Mesh(V5.unit, MAT.pane), sz[t], sz[1], 0.02, uc, yc).renderOrder = 3;
+    put(new THREE.Mesh(V5.unit, MAT.paneFrame), sz[t], fw, 0.1, uc, d.min[1] + fw / 2); put(new THREE.Mesh(V5.unit, MAT.paneFrame), sz[t], fw, 0.1, uc, d.max[1] - fw / 2);
+    put(new THREE.Mesh(V5.unit, MAT.paneFrame), fw, sz[1], 0.1, d.min[t] + fw / 2, yc); put(new THREE.Mesh(V5.unit, MAT.paneFrame), fw, sz[1], 0.1, d.max[t] - fw / 2, yc);
+    levelGroup.add(g);
+  }
   // the observation offices: frosted windows high on the wall, lit from inside
   for (const d of (lv.offices || [])) {
     const cv = document.createElement("canvas"); cv.width = 512; cv.height = Math.max(64, Math.round(512 * d.h / d.w));
@@ -11004,7 +11162,7 @@ function boot() {
   setTimeout(() => HoldMusic.render(), 2200);
   setTimeout(() => { try { HoldShow.ensure(); HoldShow.preload(); } catch (e) { console.error(e); } }, 3000);   // the TV show's picture and voices, ready before anyone reaches the office                                       // and its music, rendered once in the background
 }
-window.__tc = { version: VERSION, dbg: { wallHit, lvRay, rayBox, hallOf, camTarget, corner, I3 }, secretAudit, CAM_PLAN, Loose, camResolve, sadosPick, holdQuiet, get curPr() { return curPr; }, get subBusy() { return subBusy; }, Bonus, STAFF_DOORS, denAudit, LEVEL_FUNCS, bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, set sevenAt(i) { sevenHere = i; sevenSlotted = false; sevenSaid = false; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get liftFloor() { return liftFloorTxt; }, liftSeq, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
+window.__tc = { version: VERSION, kit: { shell, exitPort, refinish, stairs, pane, opening, mergeBoxes }, kitAudit: lv => kitAudit(lv || world.lv), dbg: { wallHit, lvRay, rayBox, hallOf, camTarget, corner, I3 }, secretAudit, CAM_PLAN, Loose, camResolve, sadosPick, holdQuiet, get curPr() { return curPr; }, get subBusy() { return subBusy; }, Bonus, STAFF_DOORS, denAudit, LEVEL_FUNCS, bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, set sevenAt(i) { sevenHere = i; sevenSlotted = false; sevenSaid = false; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get liftFloor() { return liftFloorTxt; }, liftSeq, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
 try { boot(); } catch (err) { console.error(err); $("loading").hidden = false; $("loading").innerHTML = '<div style="max-width:420px;text-align:center;line-height:1.6;font-size:13px;letter-spacing:.05em">Something went wrong starting the game.<br><small>' + String(err && err.message || err) + "</small></div>"; }
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>
