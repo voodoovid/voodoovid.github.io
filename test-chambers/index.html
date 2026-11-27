@@ -1628,7 +1628,8 @@ function partition(B, X, t, Wd, H, z0, z1) { B.push(bx(X, 0, 0, X + t, H, z0)); 
      stairs(h, o)                 a flight of steps you can walk up (o: { x0, z0, x1, z1, y0, y1, up: "x+" | "x-" | "z+" | "z-" })
      pane(h, box)                 a clear window you can see through and nothing can pass (not you, not a portal shot, not a sentry's eye)
      opening(h, box)              a hole through a wall (a doorway, a hatch, a slot): the same as adding a cell afterwards
-     kitAudit(lv)                 checks a kit room: the start, the lift car, the exit, overlaps, and which spaces can only be reached by portal
+     nook(h, box, o)              a hiding place (see below): out of sight from the start, never empty, and the clock stops inside it
+     kitAudit(lv)                 checks a kit room: the start, the lift car, the exit, overlaps, hiding places, and which spaces can only be reached by portal
    A kit room is an ordinary level object (the same fields hall() returns), so plates, doors, sentries, dens and secrets work unchanged.
    Test rooms: ?kittest. Notes: the Project doc kit-v8.41-notes.md.
    ===================================================================================== */
@@ -1696,6 +1697,14 @@ function refinish(h, R, mat) {                 // R: a box { min, max } or [x0, 
   for (const a of add) { carveBoxes(B, a); B.push(a); }
   return add;
 }
+// a hidden place: a pocket cut into the solid, anywhere and at any height (round a corner, a shelf above a doorway, a recess behind the start).
+// It gets a dim warm lamp. kitAudit insists that you cannot see into it from the start, and that it holds something (an item in lv.items, or the
+// room's key card): an empty hiding place teaches the player to stop looking. o.white: a box to make white, so the nook can be reached by portal.
+function nook(h, c, o = {}) {
+  opening(h, c); (h.kit.nooks = h.kit.nooks || []).push(c.slice(0, 6)); if (o.lamp !== false) h.lamps.push(lamp((c[0] + c[3]) / 2, c[4] - 0.25, (c[2] + c[5]) / 2, .4, 3.5, ...WARM));
+  if (o.white) refinish(h, o.white, "white"); if (o.den !== false) (h.denAir = h.denAir || []).push([c[0], c[1] - 0.2, c[2], c[3], c[4], c[5]]);      // off the test track: the clock stops in here
+  return c;
+}
 function opening(h, c) { carveBoxes(h.boxes, { min: c.slice(0, 3), max: c.slice(3, 6) }); h.air.push(c.slice(0, 6)); if (h.kit) h.kit.cells.push(c.slice(0, 6)); return h; }
 function pane(h, c, o) {                       // the pane fills the hole `c` cut through a wall; it is as thick as the wall, and the glass you see is in the middle of it
   carveBoxes(h.boxes, { min: c.slice(0, 3), max: c.slice(3, 6) }); h.air.push(c.slice(0, 6)); h.panes.push(Object.assign({ min: c.slice(0, 3), max: c.slice(3, 6) }, o)); return h; }
@@ -1732,7 +1741,12 @@ function kitAudit(lv) {
   const where = cos > 0.92 ? "straight ahead" : cos > 0.3 ? "ahead and to one side" : cos > -0.3 ? "beside you" : "behind you";
   const shape = { where, level: Math.abs(up) < 0.5 ? "same level" : up > 0 ? up.toFixed(1) + " m up" : (-up).toFixed(1) + " m down", inView: seenExit };
   if (where === "straight ahead" && Math.abs(up) < 0.5 && seenExit) bad.push("the exit is straight ahead, on your level and in plain view: this is the old straight hall");
-  return { ok: !bad.length, bad, info, shape, boxes: B.length };
+  (lv.kit && lv.kit.nooks || []).forEach((c, n) => {             // hiding places: out of sight from the start, and never empty
+    const m = [(c[0] + c[3]) / 2, (c[1] + c[4]) / 2, (c[2] + c[5]) / 2], inC = p => p && p[0] > c[0] - 0.1 && p[0] < c[3] + 0.1 && p[1] > c[1] - 0.3 && p[1] < c[4] + 0.3 && p[2] > c[2] - 0.1 && p[2] < c[5] + 0.1;
+    if (!segBlocked([S[0], S[1] + 1.6, S[2]], m, B)) bad.push("hiding place " + (n + 1) + " can be seen from the start");
+    if (!(lv.items || []).some(it => inC(it.pos)) && !inC(lv.badge)) bad.push("hiding place " + (n + 1) + " is empty: exploring it pays nothing");
+  });
+  return { ok: !bad.length, bad, info, shape, boxes: B.length, nooks: (lv.kit && lv.kit.nooks || []).length };
 }
 
 function level6() {
@@ -4673,6 +4687,7 @@ function levelExitC() {
 const kitSay = (a, b) => ({ intro: [a], hint: [b], hint2: [b], done: ["Kit test passed."] });
 function levelKitA() {                         // a corner: the room turns right, and the way out is at the end of the second arm
   const h = shell({ cells: [[0, 0, 0, 14, 6, 8], [8, 0, 8, 14, 6, 22]], start: { pos: [2, 0, 4], yaw: -Math.PI / 2 }, exit: { wall: "zW", at: [11, 0, 22] } });
+  nook(h, [5.5, 0, 14, 8, 2.6, 17]); h.items = [{ id: "kitmug", kind: "pickup", name: "A mug that says KIT TEST", look: "mug", pos: [6.5, 0, 15.5] }];      // a hiding place round the corner, with something in it
   h.signs.push(chSign(93, "KIT TEST A: CORNER", 4.6, 4.4));
   return Object.assign(h, { num: 93, name: "Kit Test A", track: 0, par: [30, 0], say: kitSay("Kit test. The room turns a corner.", "Round the corner, on your right.") });
 }
@@ -7315,7 +7330,7 @@ function physicsStep(dt) {
   if (alive && W.badge && !W.badge.onCam && tmpA.set(pl.p.x, pl.p.y + 0.3, pl.p.z).distanceTo(W.badge.pos) < W.badge.r && (!W.badge.door || W.doors.some(d => d.id === W.badge.door && d.t > 0.8))) {       // picked up the staff badge
     levelGroup.remove(W.badge.g); W.badge = null; const got = store.get("badges", []); if (!got.includes(ROOM[levelIdx].c)) { got.push(ROOM[levelIdx].c); store.set("badges", got); }
     { const ks = store.get("keys", []); if (!ks.includes("ch" + ROOM[levelIdx].c)) { ks.push("ch" + ROOM[levelIdx].c); store.set("keys", ks); } }       // v8.12: a chamber card also goes on the key ring, so the staff doors count it
-    sfx.badge(); Bonus.mark(); toast("Key card found: " + got.filter(c => BADGE_CH.has(c)).length + " of " + BADGE_CH.size); if (!store.get("saidBadge", 0)) { store.set("saidBadge", 1); say("badge"); }
+    sfx.badge(); Bonus.mark(); findRefund(); toast("Key card found: " + got.filter(c => BADGE_CH.has(c)).length + " of " + BADGE_CH.size); if (!store.get("saidBadge", 0)) { store.set("saidBadge", 1); say("badge"); }
   }
   if (alive && W.lv.trig) for (const z of W.lv.trig) if (!z.done && pl.p.x > z.min[0] && pl.p.x < z.max[0] && pl.p.y > z.min[1] && pl.p.y < z.max[1] && pl.p.z > z.min[2] && pl.p.z < z.max[2]) { z.done = true; say(null, z.line); }
   // exit
@@ -7389,6 +7404,12 @@ function nextPart(S7) {
 }
 // ratings: each room has a par (seconds, portals); a chamber's par is the sum. Gold beats both, silver one, bronze is finishing
 const roomPar = i => LEVEL_FUNCS[i]().par || [80, 4];
+// v8.41 (exploration pays): looking round used to cost you the medal, because the detour ran the clock and used portals. Now the first time you
+// find anything hidden, the detour is handed back: 15 s off the chamber clock and 2 portals off the count. (Finds stay found, so this cannot be farmed.)
+// And the clock does not run at all while you are inside a den (offTrack()).
+function findRefund() { if (!run) return; run.time = Math.max(0, run.time - 15); run.portals = Math.max(0, (run.portals || 0) - 2); run.refunds = (run.refunds || 0) + 1;
+  const w = world; setTimeout(() => { if (world === w && state === "play") toast("Explorer's refund · 15 s and 2 portals back", 2600); }, 2700); }
+function offTrack() { const lv = world && world.lv; if (!lv || !lv.denAir) return false; const p = player.p; return lv.denAir.some(a => p.x > a[0] && p.x < a[3] && p.y > a[1] && p.y < a[4] + 1 && p.z > a[2] && p.z < a[5]); }
 function chamberPar(c) { let t = 0, p = 0; for (let i = FIRST[c]; i < FIRST[c] + CHAMBERS[c].length - 1; i++) { const q = roomPar(i); t += q[0]; p += q[1]; } return [t, p]; }
 const MEDAL = ["", "BRONZE", "SILVER", "GOLD"], fmtT = t => Math.floor(t / 60) + ":" + String(Math.floor(t % 60)).padStart(2, "0");
 const allBadges = () => BADGE_CH.size > 0 && store.get("badges", []).filter(c => BADGE_CH.has(c)).length >= BADGE_CH.size;
@@ -8946,7 +8967,8 @@ function frame(ts) {
     inp.fwd = clamp((keys.f ? 1 : 0) - (keys.b ? 1 : 0) - stick.y - pad.my + wheelV, -1, 1);
     inp.right = clamp((keys.r ? 1 : 0) - (keys.l ? 1 : 0) + stick.x + pad.mx + wheelS, -1, 1);
     acc += dt; let n = 0;
-    while (acc >= STEP && n++ < 12) { physicsStep(STEP); acc -= STEP; if (!Dock.holding) run.time += STEP; }      // v7.1: the clock starts when you step out of the lift
+    const offT = offTrack();      // v8.41: the clock stops while you are in a den
+    while (acc >= STEP && n++ < 12) { physicsStep(STEP); acc -= STEP; if (!Dock.holding && !offT) run.time += STEP; }      // v7.1: the clock starts when you step out of the lift
     if (n >= 12) acc = 0;
     sadosTick(dt); bsTick(dt);
     cam.yaw = player.yaw; cam.pitch = player.pitch;
@@ -10738,7 +10760,7 @@ const Items = (() => {
     sadosPick(pool, true);
   }
   function take(e) {
-    const it = e.it; levelGroup.remove(e.g); L.splice(L.indexOf(e), 1); add("finds", e.gid); sfx.badge(); if (["card", "sticker", "tape", "page"].includes(it.kind)) Bonus.mark();
+    const it = e.it; levelGroup.remove(e.g); L.splice(L.indexOf(e), 1); add("finds", e.gid); sfx.badge(); if (it.kind !== "clock") findRefund(); if (["card", "sticker", "tape", "page"].includes(it.kind)) Bonus.mark();
     if (it.kind === "card") { add("keys", it.key); toast("Key card: " + (it.label || it.key) + " · on your key ring"); }
     else if (it.kind === "sticker") {
       add("stickers", it.sticker);
@@ -11500,7 +11522,7 @@ function boot() {
   setTimeout(() => HoldMusic.render(), 2200);
   setTimeout(() => { try { HoldShow.ensure(); HoldShow.preload(); } catch (e) { console.error(e); } }, 3000);   // the TV show's picture and voices, ready before anyone reaches the office                                       // and its music, rendered once in the background
 }
-window.__tc = { version: VERSION, Lit, GLOW, probeAt, scene, Music, roomProgress, actOf, Snd, sfx, sndAt, floorKind, setSfxRoom, get actx() { return actx; }, get audioBus() { return { master, sfxBus, sfxIn, sfxWet, musicBus }; }, ensureAudio, kit: { shell, exitPort, refinish, stairs, pane, opening, mergeBoxes }, kitAudit: lv => kitAudit(lv || world.lv), dbg: { wallHit, lvRay, rayBox, hallOf, camTarget, corner, I3 }, secretAudit, CAM_PLAN, Loose, camResolve, sadosPick, holdQuiet, get curPr() { return curPr; }, get subBusy() { return subBusy; }, Bonus, STAFF_DOORS, denAudit, LEVEL_FUNCS, bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, set sevenAt(i) { sevenHere = i; sevenSlotted = false; sevenSaid = false; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get liftFloor() { return liftFloorTxt; }, liftSeq, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
+window.__tc = { version: VERSION, Lit, GLOW, probeAt, scene, Music, roomProgress, actOf, Snd, sfx, sndAt, floorKind, setSfxRoom, get actx() { return actx; }, get audioBus() { return { master, sfxBus, sfxIn, sfxWet, musicBus }; }, ensureAudio, kit: { shell, exitPort, refinish, stairs, pane, opening, nook, mergeBoxes }, findRefund, offTrack, kitAudit: lv => kitAudit(lv || world.lv), dbg: { wallHit, lvRay, rayBox, hallOf, camTarget, corner, I3 }, secretAudit, CAM_PLAN, Loose, camResolve, sadosPick, holdQuiet, get curPr() { return curPr; }, get subBusy() { return subBusy; }, Bonus, STAFF_DOORS, denAudit, LEVEL_FUNCS, bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, set sevenAt(i) { sevenHere = i; sevenSlotted = false; sevenSaid = false; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || [])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get liftFloor() { return liftFloorTxt; }, liftSeq, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
 try { boot(); } catch (err) { console.error(err); $("loading").hidden = false; $("loading").innerHTML = '<div style="max-width:420px;text-align:center;line-height:1.6;font-size:13px;letter-spacing:.05em">Something went wrong starting the game.<br><small>' + String(err && err.message || err) + "</small></div>"; }
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>
