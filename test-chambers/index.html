@@ -8550,35 +8550,84 @@ const SENT_GEO = {
 };
 const JAM = 4, S_H = [0.26, 0.64, 0.26];      // portals fizzle within JAM metres of a live sentry; half size of its body
 const JAM_GEO = new THREE.RingGeometry(0.985, 1, 96);
+// v8.41: the sentry, redesigned. An original design: a smooth head with a dark visor, on a telescopic mast, on a low heavy disc.
+// The stand stays put and only the head turns to follow you (s.inner). A pod on each side of the head (s.flaps[].piv) swings out
+// to uncover twin barrels. The lens, the seam of light round the disc, the strip up the mast, the collar and the visor's slits are one light (s.eyeMat):
+// red and steady on watch, flickering when it has seen you, amber when carried, dead when it is off. Same size, same hit box, same behaviour.
+const SENT2 = (() => {
+  let G = null;
+  function build() {
+    const bk = {}, M = new M4(), M2 = new M4(), E = new THREE.Euler(), Q = new QT(), S = new V3(), T = new V3(), PI = Math.PI;
+    const add = (grp, mat, geo, x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, sc, pre) => {
+      const g = geo.index ? geo.toNonIndexed() : geo.clone(); M.compose(T.set(x, y, z), Q.setFromEuler(E.set(rx, ry, rz)), sc ? S.set(...sc) : S.set(1, 1, 1)); if (pre) M.premultiply(pre); g.applyMatrix4(M);
+      for (const k of Object.keys(g.attributes)) if (k !== "position" && k !== "normal" && k !== "uv") g.deleteAttribute(k); (bk[grp + "|" + mat] = bk[grp + "|" + mat] || []).push(g); geo.dispose(); };
+    const box = (w, h, d) => new THREE.BoxGeometry(w, h, d), cyl = (r0, r1, h, n = 16) => new THREE.CylinderGeometry(r0, r1, h, n), tor = (r, t, n = 28) => new THREE.TorusGeometry(r, t, 8, n), sph = (r, a = 14, b = 10) => new THREE.SphereGeometry(r, a, b);
+    const lathe = (pts, n = 32) => new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), n);
+    // ---- the stand (stays put): a low heavy disc with a lit seam, three stabiliser pads, and a telescopic mast in armoured sleeves
+    add("base", "carbon", lathe([[0, 0], [0.25, 0], [0.26, 0.02], [0.256, 0.04], [0.236, 0.062], [0.16, 0.086], [0.1, 0.1], [0, 0.1]], 40));
+    add("ringL", "light", tor(0.2585, 0.0045, 56), 0, 0.041, 0, PI / 2);                                      // the seam of light round the disc
+    add("base", "steel", tor(0.165, 0.004, 44), 0, 0.087, 0, PI / 2); add("base", "steel", cyl(0.098, 0.104, 0.012, 32), 0, 0.104, 0);
+    for (let i = 0; i < 3; i++) { const a = i / 3 * PI * 2 + PI / 2, R = M2.clone().makeRotationY(-a);
+      add("base", "steel", box(0.075, 0.016, 0.05), 0.2, 0.074, 0, 0, 0, -0.3, null, R); add("base", "carbon", box(0.03, 0.01, 0.036), 0.215, 0.079, 0, 0, 0, -0.3, null, R);      // pads let into the disc
+      add("bolt", "steel", cyl(0.016, 0.016, 0.03, 6), 0.232, 0.062, 0.05, 0, 0, 0, null, R); add("bolt", "steel", cyl(0.016, 0.016, 0.03, 6), 0.232, 0.062, -0.05, 0, 0, 0, null, R); }
+    add("bolt", "carbon", cyl(0.3, 0.325, 0.03, 36), 0, 0.015, 0); add("bolt", "steel", tor(0.3, 0.006, 48), 0, 0.03, 0, PI / 2);       // bolted down: a floor flange under the disc
+    add("base", "steel", lathe([[0.095, 0.1], [0.075, 0.13], [0.062, 0.18], [0.054, 0.3], [0.05, 0.66], [0.056, 0.71], [0.07, 0.742], [0, 0.742]], 28));      // the mast
+    for (const [y, r, h] of [[0.25, 0.076, 0.12], [0.4, 0.069, 0.11], [0.54, 0.062, 0.1]]) { add("base", "armor", cyl(r - 0.003, r, h, 28), 0, y, 0); add("base", "carbon", tor(r - 0.001, 0.004, 28), 0, y - h / 2 - 0.004, 0, PI / 2); }      // its three sleeves, each smaller than the last
+    add("ringL", "light", box(0.007, 0.3, 0.004), 0, 0.4, -0.0785); add("base", "carbon", box(0.018, 0.42, 0.012), 0, 0.4, -0.071);        // a strip of light up the front of the mast
+    add("base", "carbon", tor(0.068, 0.008, 28), 0, 0.735, 0, PI / 2);
+    // ---- the head (turns): a smooth shell, a dark visor across the front with the lens in it, a gun under a cover on each side
+    add("head", "steel", sph(0.052, 20, 14), 0, 0.79, 0); add("head", "carbon", cyl(0.07, 0.058, 0.03, 28), 0, 0.826, 0);
+    add("ringL2", "light", tor(0.066, 0.0035, 36), 0, 0.812, 0, PI / 2);                                      // a collar of light under the head
+    add("head", "armor", lathe([[0, -0.205], [0.035, -0.2], [0.075, -0.18], [0.105, -0.14], [0.122, -0.07], [0.126, 0.01], [0.118, 0.09], [0.096, 0.15], [0.066, 0.185], [0.05, 0.195], [0, 0.195]], 40), 0, 0.955, 0, PI / 2, 0, 0, [1.05, 1, 0.86]);
+    add("head", "carbon", tor(0.1262, 0.0028, 48), 0, 0.955, 0.012, 0, 0, 0, [1.05, 0.86, 1]);                // the shell's seam
+    add("head", "visor", sph(1, 32, 20), 0, 0.958, -0.118, 0, 0, 0, [0.113, 0.05, 0.1]);                      // the visor
+    add("head", "steel", tor(0.03, 0.005, 28), 0, 0.958, -0.2165); add("head", "carbon", cyl(0.027, 0.027, 0.02, 20), 0, 0.958, -0.21, PI / 2);      // the lens and its bezel
+    for (const sx of [-1, 1]) for (const k of [0, 1]) { const x = sx * (0.052 + k * 0.026), z = -0.118 - 0.1 * Math.sqrt(1 - (x / 0.113) ** 2) - 0.0015; add("headL", "light", box(0.016, 0.0045, 0.004), x, 0.958, z, 0, -sx * (0.5 + k * 0.33), 0); }      // scanner slits in the visor
+    add("head", "carbon", cyl(0.052, 0.046, 0.03, 24), 0, 0.955, 0.2, PI / 2); for (const r of [0.05, 0.036, 0.022]) add("head", "steel", tor(r, 0.0035, 24), 0, 0.955, 0.216);      // the exhaust at the back
+    add("head", "carbon", box(0.012, 0.05, 0.13), 0, 1.075, 0.06, -0.16); add("head", "armor", box(0.008, 0.11, 0.05), 0, 1.14, 0.1, -0.2); add("head", "carbon", box(0.0085, 0.012, 0.052), 0, 1.196, 0.111, -0.2);      // the dorsal fin and its sensor blade
+    add("head", "carbon", box(0.07, 0.008, 0.09), 0, 1.062, -0.06, 0.1);                                      // a flush hatch on top
+    for (const sx of [-1, 1]) {
+      add("head", "carbon", box(0.04, 0.03, 0.07), sx * 0.132, 0.95, 0.03);                                   // the gun mount
+      for (const y of [0.936, 0.964]) { add("head", "carbon", cyl(0.0085, 0.0085, 0.2, 10), sx * 0.158, y, -0.07, PI / 2); add("head", "steel", cyl(0.0115, 0.0115, 0.026, 10), sx * 0.158, y, -0.165, PI / 2); }
+      add("head", "steel", box(0.022, 0.05, 0.05), sx * 0.158, 0.95, 0.01);
+      // the gun cover, in its hinge's own space: hinged at the back, a smooth pod running forward
+      const D = sx < 0 ? "doorL" : "doorR"; add(D, "armor", new THREE.CapsuleGeometry(0.033, 0.19, 8, 20), sx * 0.016, 0, -0.105, PI / 2); add(D, "accent", tor(0.0335, 0.004, 24), sx * 0.016, 0, -0.16);
+      add(D, "carbon", tor(0.0335, 0.003, 24), sx * 0.016, 0, -0.04); add(D, "carbon", cyl(0.016, 0.016, 0.006, 16), sx * 0.016, 0, -0.2335, PI / 2); add(D, "steel", cyl(0.007, 0.007, 0.06, 8), 0, 0, 0.012); }
+    const out = {}; for (const k in bk) { out[k] = mergeGeometries(bk[k], false); for (const g of bk[k]) g.dispose(); } return out;
+  }
+  const glass = new THREE.MeshStandardMaterial({ color: 0x10161c, roughness: 0.03, metalness: 0.2, transparent: true, opacity: 0.32, envMap: ENV, envMapIntensity: 2.4, depthWrite: false });
+  const visor = new THREE.MeshStandardMaterial({ color: 0x06090c, roughness: 0.06, metalness: 0.55, envMap: ENV, envMapIntensity: 2.2 });
+  const accent = new THREE.MeshStandardMaterial({ color: 0xf27a1c, roughness: 0.5, metalness: 0.1, envMap: ENV, envMapIntensity: 0.6 });
+  function mats() { return { armor: new THREE.MeshStandardMaterial({ color: 0xe8ecef, roughness: 0.22, metalness: 0.18, envMap: ENV, envMapIntensity: 1.45 }), carbon: new THREE.MeshStandardMaterial({ color: 0x1c2126, roughness: 0.5, metalness: 0.62, envMap: ENV, envMapIntensity: 1.1 }),
+    steel: new THREE.MeshStandardMaterial({ color: 0xaab3bb, roughness: 0.24, metalness: 0.93, envMap: ENV, envMapIntensity: 1.35 }), glass, accent, visor }; }
+  // fills `grp` with every merged piece whose name starts with `name`
+  function put(grp, name, mm, light) { G = G || build(); for (const k in G) { const [g, m] = k.split("|"); if (g !== name) continue; const mesh = new THREE.Mesh(G[k], m === "light" ? light : mm[m]); mesh.frustumCulled = false; if (m === "glass") mesh.renderOrder = 2; grp.add(mesh); } }
+  return { put, mats };
+})();
 function makeSentry(d) {
-  const g = new THREE.Group(), inn = new THREE.Group(); inn.position.y = -S_H[1]; g.add(inn);
-  for (let i = 0; i < 3; i++) { const a = i / 3 * Math.PI * 2 + Math.PI / 2, leg = new THREE.Mesh(SENT_GEO.leg, SENT.steel); leg.position.set(Math.cos(a) * 0.09, 0.31, Math.sin(a) * 0.09); leg.rotation.set(Math.sin(a) * 0.22, 0, -Math.cos(a) * 0.22); inn.add(leg); }
-  const torso = new THREE.Mesh(SENT_GEO.torso, SENT.white); torso.position.y = 0.9; torso.scale.z = 0.92; inn.add(torso);
-  const band = new THREE.Mesh(new THREE.TorusGeometry(0.152, 0.008, 8, 32), SENT.dark); band.rotation.x = Math.PI / 2; band.position.y = 0.78; inn.add(band);
-  const plate = new THREE.Mesh(new THREE.CircleGeometry(0.108, 28), SENT.dark); plate.position.set(0, 0.95, -0.141); plate.rotation.y = Math.PI; inn.add(plate);
-  const eyeMat = SENT.eye.clone(), eye = new THREE.Mesh(SENT_GEO.eye, eyeMat); eye.position.set(0, 0.95, -0.15); inn.add(eye);
-  const ring = new THREE.Mesh(SENT_GEO.ring, SENT.steel); ring.position.set(0, 0.95, -0.146); inn.add(ring);
-  const dish = new THREE.Mesh(SENT_GEO.dish, SENT.dark); dish.position.y = 1.2; inn.add(dish);
+  const g = new THREE.Group(), base = new THREE.Group(), inn = new THREE.Group(); inn.position.y = base.position.y = -S_H[1]; g.add(base, inn);
+  const mm = SENT2.mats(), eyeMat = SENT.eye.clone(), lights = [];
+  SENT2.put(base, "base", mm); if (d.bolt) SENT2.put(base, "bolt", mm);
+  { const r = new THREE.Group(); SENT2.put(r, "ringL", mm, eyeMat); base.add(r); lights.push(...r.children); }
+  SENT2.put(inn, "head", mm);
+  { const r = new THREE.Group(); SENT2.put(r, "headL", mm, eyeMat); SENT2.put(r, "ringL2", mm, eyeMat); inn.add(r); lights.push(...r.children); }
+  const eye = new THREE.Mesh(SENT_GEO.eye, eyeMat); eye.scale.set(0.52, 0.52, 0.4); eye.position.set(0, 0.958, -0.216); inn.add(eye);
   const flaps = [];
   for (const sx of [-1, 1]) {
-    const piv = new THREE.Group(); piv.position.set(sx * 0.15, 0.9, 0.05); const f = new THREE.Mesh(SENT_GEO.flap, SENT.white); f.position.set(sx * 0.01, 0, -0.12); piv.add(f); inn.add(piv); flaps.push({ piv, sx });
-    const b = new THREE.Mesh(SENT_GEO.barrel, SENT.dark); b.position.set(sx * 0.1, 0.88, -0.14); inn.add(b);
-    const mz = new THREE.Mesh(new THREE.SphereGeometry(0.02, 8, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(2, 1.4, .5), transparent: true, opacity: 0 })); mz.position.set(sx * 0.1, 0.88, -0.25); inn.add(mz); flaps[flaps.length - 1].mz = mz;
+    const piv = new THREE.Group(); piv.position.set(sx * 0.142, 0.95, 0.1); SENT2.put(piv, sx < 0 ? "doorL" : "doorR", mm); inn.add(piv);
+    const mz = new THREE.Mesh(new THREE.SphereGeometry(0.024, 8, 6), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 1.5, .5), transparent: true, opacity: 0 })); mz.scale.z = 1.8; mz.position.set(sx * 0.158, 0.95, -0.2); inn.add(mz);
+    flaps.push({ piv, sx: -sx * 0.45, mz });       // (sx is the way and how far the cover swings: outwards, about 30 degrees when open)
   }
   const laser = new THREE.Mesh(SENT_GEO.laser, SENT.laser); laser.visible = false; laser.frustumCulled = false; laser.renderOrder = 6; levelGroup.add(laser);
-  if (d.bolt) {                                   // bolted down: a heavy dark foot plate with four bolt heads
-    const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.34, 0.06, 24), SENT.dark); foot.position.y = 0.03; inn.add(foot);
-    for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + Math.PI / 4, b = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.05, 6), SENT.steel); b.position.set(Math.cos(a) * 0.24, 0.07, Math.sin(a) * 0.24); inn.add(b); }
-  }
   const p = new V3(d.pos[0], d.pos[1] + S_H[1] + 0.01, d.pos[2]), q = new QT().setFromEuler(new THREE.Euler(0, d.yaw, 0));
-  g.position.copy(p); g.quaternion.copy(q); g.traverse(o => { o.frustumCulled = false; });
+  g.position.copy(p); g.quaternion.copy(q); g.traverse(o => { o.frustumCulled = false; if (o.isMesh) o.userData.ownMat = 1; });
   const jam = d.jam === undefined ? JAM : d.jam;
   const jamRing = new THREE.Mesh(JAM_GEO, new THREE.MeshBasicMaterial({ color: new THREE.Color(1.7, .2, .12), transparent: true, opacity: .5, depthWrite: false, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -3 }));
   jamRing.rotation.x = -Math.PI / 2; jamRing.scale.setScalar(jam); jamRing.userData.ownMat = 1; jamRing.renderOrder = 3; jamRing.frustumCulled = false; levelGroup.add(jamRing);
   const shadow = new THREE.Mesh(SHADOW_GEO, new THREE.MeshBasicMaterial({ map: SHADOW_TEX, transparent: true, depthWrite: false, opacity: .55, polygonOffset: true, polygonOffsetFactor: -2 }));
   shadow.userData.ownMat = 1; shadow.frustumCulled = false; shadow.renderOrder = 2; levelGroup.add(shadow);
   return { kind: "sentry", group: g, inner: inn, base: new V3(...d.pos), p, v: new V3(), q, pv: p.clone(), spawn: [p.x, p.y, p.z], spawnQ: q.clone(), h: S_H, held: false, far: false,
-    yaw0: d.yaw, yaw: d.yaw, eye, eyeMat, flaps, laser, jam, jamRing, jamFlash: 0, shadow, state: "on", wake: 0, hp: 2, seen: 0, cd: 0, burst: 0, open: 0, spray: 0, pingT: 0, sweep: Math.random() * 6,
+    yaw0: d.yaw, yaw: d.yaw, eye, eyeMat, lights, mats: [mm.armor, mm.carbon, mm.steel], flaps, laser, jam, jamRing, jamFlash: 0, shadow, state: "on", wake: 0, hp: 2, seen: 0, cd: 0, burst: 0, open: 0, spray: 0, pingT: 0, sweep: Math.random() * 6,
     dmg: d.dmg || 9, acc: d.acc, range: d.range || 40, cone: Math.cos((d.cone || 52) * Math.PI / 180), turn: d.turn || 1.15, bolt: !!d.bolt, still: !!d.still };
 }
 const _se = new V3(), _sp = new V3(), _sf = new V3(), _su = new V3(), _sd = new V3(), _pc = new V3(), _ph = new V3();
@@ -8611,7 +8660,7 @@ function sightVia(s, eye, o, want) {
   return null;
 }
 function tipSentry(s, why, dir) {
-  if (s.state === "off") return; s.state = "off"; s.why = why; s.eye.material = SENT.eyeOff; s.laser.visible = false; s.jamRing.visible = false; s.wake = 0;
+  if (s.state === "off") return; s.state = "off"; s.why = why; s.eye.material = SENT.eyeOff; for (const m of (s.lights || [])) m.material = SENT.eyeOff; s.laser.visible = false; s.jamRing.visible = false; s.wake = 0;
   sndAt(s.p); sfx.sentryOff(); run.sentriesOff = (run.sentriesOff || 0) + 1;
   for (let i = 0; i < 4; i++) fxSpark(tmpA.copy(s.p).setY(s.p.y + 0.25));
   s.spray = 5 + Math.floor(Math.random() * 6); s.sprayT = 0.05 + Math.random() * 0.1;   // a few wild shots on the way down
