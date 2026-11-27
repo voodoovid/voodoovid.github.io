@@ -589,7 +589,7 @@ import { Furn } from "./furniture.js";
 import { GLYPHS as HAND_GLYPHS, handWrite, handBlock, handWidth } from "./hand.js";      // v8.19: hand-lettering                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.44";
+const VERSION = "v8.45";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const KT_TEST = /[?&]kittest\b/.test(location.search);      // v8.41: the room kit's test rooms
 const SC_TEST = /[?&]secretstest\b/.test(location.search), IT_TEST = SC_TEST || /[?&]itemtest\b/.test(location.search), EX_TEST = /[?&]exittest\b/.test(location.search), DF_TEST = /[?&]diffcheck\b/.test(location.search), SPFX = SC_TEST ? "testchambers.stest." : IT_TEST ? "testchambers.itest." : EX_TEST ? "testchambers.xtest." : DF_TEST ? "testchambers.dtest." : "testchambers.";      // v8.40: ?exittest (the side-exit test rooms) and ?diffcheck (the Difficulty Check page's robots) keep their own saves      // v8.35: ?secretstest plays only the Secrets Test room
@@ -1890,6 +1890,8 @@ function level12() {
   whiteOn(h, bx(0, 0.05, 7.25, 0.1, 2.35, 8.75));                                                  // where the beam lands: it can be seen from the far side through the doorway
   whiteOn(h, bx(5, 0.05, 0, 6.5, 2.35, 0.1));                                                      // a way in, this side
   whiteOn(h, bx(25.9, 0.05, 10, 26, 2.35, 11.5));                                                  // the back wall of the cell, facing its window and the receiver
+  whiteOn(h, bx(L - 0.1, 0.05, 1, L, 2.35, 2.5));                                                  // v8.45 (Batch J step 5): two spare panels on the far side, both behind the sentry's back. Neither sends the light or the crate
+  whiteOn(h, bx(30, 0.05, 0, 31.5, 2.35, 0.1));                                                    // into the cell (the cell has one panel), and neither lines up with the sentry. They are there so the far side is not one panel and no choice
   h.fields = [{ min: [13.35, 0, 4.5], max: [13.65, 3.2, 7.5] }];
   h.beams = [{ pos: [9.98, 1.15, 8], dir: [-1, 0, 0] }];
   h.receivers = [{ pos: [23, 1.15, 10.75], n: [1, 0, 0], w: 1.0, h: 1.0, door: "d1" }];
@@ -2030,6 +2032,7 @@ function level19() {
   B.push(bx(23.5, 0, 0, 33, H, 4), bx(23.5, 0, 8, 33, H, W));                                      // the canyon beyond it
   for (const b of B.slice(n0)) darken(b);
   whiteOn(h, bx(13.25, 0.05, W - 0.1, 14.75, 2.35, W));                                            // where one of the beams lands
+  whiteOn(h, bx(16.25, 0.95, W - 0.1, 17.75, 3.25, W));                                            // v8.45 (Batch J step 5): where another one lands. This panel is hung higher, so the beam goes in near its foot and comes out near the floor, under the receiver
   whiteOn(h, bx(21, 3.05, 0, 22.5, 5.35, 0.1));                                                    // on the terrace, behind the screen
   whiteOn(h, bx(L - 0.1, 0.05, 8.6, L, 2.35, 10.1));                                               // past the canyon, seen down it at a slant
   h.beams = [11, 12, 13, 14, 15, 16, 17, 18, 19].map(x => ({ pos: [x, 1.15, 0.02], dir: [0, 0, 1] }));
@@ -2301,7 +2304,8 @@ function level30() {
   for (const b of B.slice(n0)) darken(b);
   whiteOn(h, bx(13.55, 1.05, 3, 13.65, 3.35, 4.6));                                                  // inside the booth, seen through its window
   whiteOn(h, bx(0, 0.05, 5, 0.1, 2.35, 6.5));                                                      // the back wall
-  h.fields = [{ min: [15.85, 0, 2.6], max: [16.15, H, W] }];                                       // the way round on foot, which no object survives
+  B.push(bx(15.85, 0, 2.6, 16.15, H, 9.2, "dark"), bx(15.85, 0, 11.8, 16.15, H, W, "dark"), bx(15.85, 3.2, 9.2, 16.15, H, 11.8, "dark"));      // v8.45 (Batch J step 5): the field was a curtain across the whole room; it is a doorway in a wall now,
+  h.fields = [{ min: [15.85, 0, 9.2], max: [16.15, 3.2, 11.8] }];                                  // off to one side, so the far button and the way out cannot be seen from the start. Still the way round on foot, which no object survives
   h.cubes = [{ pos: [21.1, -0.6, 1.2] }];
   h.sentries = [{ pos: [5, 0, 10.6], yaw: Math.PI, range: 9, cone: 35, dmg: 14, acc: 0.85, still: true }];
   h.plates = [{ pos: [8.5, 0, 9.5], door: "x", hold: 12, pump: "p1" }, { pos: [29, 0, 9.5], door: "d1" }]; h.doors = [exitDoor(L, 6)]; h.par = [240, 2];
@@ -2492,32 +2496,37 @@ function farDark(h, x0, L, W, H, zc, floorFrom, ey = 0) {
   for (const sg of h.signs) if (sg.kind === "exit") sg.pos = [sg.pos[0] - 0.11, sg.pos[1], sg.pos[2]];
 }
 function level37() {
-  // v6.4 Walkway: the light is a bridge, and it ends short every time. From the back wall it runs out to a dark wall in the acid; from there you can
-  // see a panel that sends it across the room under your feet, then one behind you that sends it on, then one by the far bank. Each new panel can
-  // only be seen from the end of the bridge before it, so the bridge has to be re-aimed while you are standing on it
-  const L = 40, W = 12, H = 7, h = hall({ L, W, H, zc: 2, pits: [[10, 32]] }); darkAll(h);
-  const B = h.boxes, far = B.findIndex(b => b.min[0] === 32 && b.max[1] === 0 && b.min[1] === -4);
-  B[far] = bx(32, -4, -2, L, 0, 3.5, "dark"); B.push(bx(32, -6, 3.5, L, -4, W + 2, "dark"));            // the far bank is only a shelf along one wall; the rest is more acid
-  h.acid.push({ x0: 32, x1: L, z0: 3.5, z1: W, y: -3 }); h.air.push([32, -4, 3.5, L, 0, W]);
-  B.push(bx(20, -4, 0, 21, H, 6, "dark"));                                                         // where the first bridge stops
-  B.push(bx(17.3, -4, 0, 17.7, H, 2.2, "dark"));                                                   // hides the side panel from the bank
-  B.push(bx(12, -4, 8.25, 13, H, 9.75, "dark"));                                                   // a pillar whose far face can only be seen from out over the acid
-  B.push(bx(33.6, -4, 9.6, 34, H, W, "dark"));                                                     // hides the last panel until you are almost past it
-  whiteOn(h, bx(5.25, 0.05, W - 0.1, 6.75, 2.27, W));                                              // A: where the light lands
-  whiteOn(h, bx(0, 0.05, 2.25, 0.1, 2.27, 3.75));                                                  // B: the back wall
-  whiteOn(h, bx(18.45, 0.05, 0, 19.95, 2.27, 0.1));                                                // C: the side wall, just before the dark wall
-  whiteOn(h, bx(13, 0.05, 8.25, 13.1, 2.27, 9.75));                                                // D: the pillar's far face
-  whiteOn(h, bx(35.25, 0.05, W - 0.1, 36.75, 2.27, W));                                            // F: by the far bank
-  h.walks = [{ pos: [6, 0.16, 0.03], dir: [0, 0, 1] }];
-  h.cubes = [[3, 0.35, 9]]; h.plates = [{ pos: [34, 0, 1.6], door: "d1" }]; h.doors = [exitDoor(L, 2)]; h.par = [150, 5];
-  h.lamps.push(lamp(36, H - .3, 3, .5, 8));
+  // v8.45 (Batch J step 5) Walkway, reworked. Nothing hides the panels now: the bank shows you the lake, the pier and four places to send the light.
+  // The light by the door is on a meter, and the meter is the crate: lift the crate off its plate and that light goes out. The door, round the corner
+  // on a walled shelf, wants the crate. A second light runs for a metre and a half on the pier and lands on a panel you can only see from out there.
+  // So: cross on the first light with your hands empty, move the blue end to where the second light lands, come back for the crate, and go on.
+  // The exit is in the far side wall, behind its own walls; the far end of the room is a plain wall
+  const L = 40, W = 12, H = 7, h = hall({ L, W, H, pits: [[10, 34]], exit: { wall: "zW", at: 26 } }); darkAll(h);
+  const B = h.boxes;
+  B.push(bx(18.5, -4, 0, 24.5, 0, 6.2, "dark"));                                                   // the pier
+  B.push(bx(20.4, 0, 1.5, 20.8, H, 6.2, "dark"));                                                  // the wall across it: the first walkway stops here, and you walk round its end
+  B.push(bx(24.1, 0, 2.1, 24.5, 0.55, 2.9, "dark"));                                                 // the second light's housing: low, so the far bank can see over it
+  B.push(bx(23.5, -4, 9.2, 28.5, 0, W, "dark"));                                                   // the shelf with the door on it,
+  B.push(bx(23.1, -4, 8.8, 28.5, H, 9.2, "dark"), bx(23.1, -4, 9.2, 23.5, H, W, "dark"));          // walled off from the lake but for its far end
+  B.push(bx(37.6, 0, 9.6, 38, H, 11.6, "dark"));                                                   // a post on the far bank, square to the shelf
+  whiteOn(h, bx(5.25, 0.05, W - 0.1, 6.75, 2.27, W));                                              // A: where the first light lands
+  whiteOn(h, bx(0, 0.05, 2.25, 0.1, 2.27, 3.75));                                                  // B: the back wall, in line with the pier
+  whiteOn(h, bx(0, 0.05, 8.25, 0.1, 2.27, 9.75));                                                  // the back wall again: this one runs out to a blank wall and stops (the shelf is behind it)
+  whiteOn(h, bx(20.3, 0.05, 4.3, 20.4, 2.27, 5.8));                                                // the pier wall, facing the bank: the same crossing from the other end
+  whiteOn(h, bx(20.8, 0.05, 1.75, 20.9, 2.27, 3.25));                                              // A2: where the second light lands. It faces away from the bank
+  whiteOn(h, bx(20.8, 0.05, 3.9, 20.9, 2.27, 5.4));                                                // beside it: the way on to the far bank
+  whiteOn(h, bx(37.5, 0.05, 9.85, 37.6, 2.27, 11.35));                                             // the post: the way to the shelf
+  h.plates = [{ pos: [3, 0, 9], door: "x", quiet: true }, { pos: [24.4, 0, 10.2], door: "d1" }];      // the first is the light's meter (quiet: no remark about a crate on a button when the room opens)
+  h.walks = [{ pos: [6, 0.16, 0.03], dir: [0, 0, 1], when: w => w.plates[0].pressed }, { pos: [24.08, 0.16, 2.5], dir: [-1, 0, 0] }];
+  h.cubes = [[3, 0.35, 9]]; h.doors = [sideDoor(h)]; h.par = [170, 5];
+  h.lamps.push(lamp(21.8, H - .3, 3, .45, 7), lamp(26, H - .3, 10.6, .45, 6), lamp(37, H - .3, 6, .5, 8));
   whiteOn(h, bx(7, 3.65, 0, 8.5, 5.87, 0.1));                                                    // v8.39: one more, high on the wall over the bank, where no route needs it. The light comes out of it three and a half metres up
   den(h, { W, side: 1, x: 7.75, y: 3.6, two: 1, scr: ["I WALKED ON IT FOR A WEEK", "BEFORE I LOOKED DOWN.  - O."], scr2: ["DAY 88. NOBODY IN PHYSICS ANSWERS.", "I TRIED FROM THEIR OWN PHONE.  - O."],
     line: "That is where the lamp fitters kept their lunch. The lunch is still there. I would leave it." });
   h.signs.push(chSign(31, "WALKWAY", 3.4, 3.6));
   return Object.assign(h, { num: 31, name: "Walkway", track: 0, say: {
-    intro: ["That strip of light on the floor is a walkway. It is solid. The physics department assured me of this shortly before they stopped answering their telephone.", "It goes in a straight line until something stops it. Over the acid, a number of things stop it. I had them put there."],
-    hint: ["The light does not mind where you are standing when it moves. Find out whether you do."], hint2: ["Each next panel can only be seen from the end of the walkway before it. Stand on the light, and aim it again."],
+    intro: ["That strip of light on the floor is a walkway. It is solid. The physics department assured me of this shortly before they stopped answering their telephone.", "It is also on a meter. The meter is the crate. I did not have a coin."],
+    hint: ["Plan the whole crossing before you step out. One end of the walkway has to move, and it is not the end you keep moving."], hint2: ["This light goes out when the crate leaves its plate. There is a second light on the pier. Stand where you can see what it lands on."],
     done: ["You have walked on light. Do not tell the others. There are no others. Do not tell them anyway."] } });
 }
 function level38() {
@@ -2534,6 +2543,8 @@ function level38() {
   whiteOn(h, bx(1.85, H - 0.1, 9.35, 4.15, H, 11.65));                                             // the ceiling over the stream
   whiteOn(h, bx(13.25, 7.85, W - 0.1, 14.75, 10.15, W));                                            // high on the side wall, square to the cell window
   whiteOn(h, bx(25.2, 4, 1.15, 27.6, 4.1, 2.65));                                                    // on the ledge, seen only from the window
+  whiteOn(h, bx(0, 7.85, 6.75, 0.1, 10.15, 8.25));                                                   // v8.45 (Batch J step 5): two more high panels. This one, over the way in, sends the stream down the room into the wall in front of the ledge,
+  whiteOn(h, bx(20.5, 7.85, 4.25, 20.6, 10.15, 5.75));                                               // and this one, on that wall, sends it back over your head. Neither goes through the cell window
   h.streams = [{ pos: [3, 0.06, 10.5], dir: [0, 1, 0], speed: 4.5 }];
   h.cubes = [[6, 0.35, 6]]; h.plates = [{ pos: [14, 0, 0.75], door: "d1" }]; h.doors = [exitDoor(L, 6, "d1", 1, 4)]; h.par = [150, 3];
   h.lamps.push(lamp(14, 5, 1, .45, 6), lamp(25, H - .3, 6, .5, 10));
@@ -2665,7 +2676,8 @@ function level44() {
   h.fields = [{ min: [15.85, 0, 0], max: [16.15, H, W] }];
   whiteOn(h, bx(6, 0.05, W - 0.1, 7.5, 2.35, W));                                                   // this side of the field
   whiteOn(h, bx(25.9, 0.05, 5.25, 26, 2.35, 6.75));                                                 // the foot of the ledge, seen through the field
-  whiteOn(h, bx(L - 0.1, 2.8, 8, L, 5.1, 9.5));                                                    // up on the ledge, beside the door
+  whiteOn(h, bx(27, 2.8, W - 0.1, 28.5, 5.1, W));                                                  // v8.45 (Batch J step 5): up on the ledge, on its side wall (it was beside the door, the way Field Trip ended)
+  h.streams = [{ pos: [24.9, 0.06, 2.2], dir: [0, 1, 0], speed: 1 }];                              // v8.45: a second way up, at the foot of the ledge: a crate lift. It is slower than the door is patient
   h.cubes = [[4, 0.35, 9, "seven"]];
   h.plates = [{ pos: [20, 0, 4.4], door: "d1", hold: 3, charge: 3.5 }, { pos: [20, 0, 7.6], door: "d1", hold: 3, charge: 3.5 }]; h.doors = [exitDoor(L, 6, "d1", 2, 2.8)]; h.par = [100, 3];
   h.boxes.push(bx(13, 0, 10.6, 13.6, 2, 11.2, "dark"));
@@ -4615,9 +4627,9 @@ const I3 = {
   // 31. The den is up the wall over the bank, behind a plain panel, across from a white panel nobody needs. Send the light out of that panel and it runs across, high up,
   // to the blank wall, and the wall lets it in. You get up there the way the light did
   "Walkway": h => {
-    h.route = [[3, 0, 7.7], [6, 0, 8.5], [5, 0, 3], [19.2, 0, 3], [19.2, 0, 9], [36, 0, 9], [36, 0, 2.5], [35.4, 0, 1.6], [37, 0, 2]];
+    h.route = [[5, 0, 6], [5, 0, 3], [19.6, 0, 3], [22, 0, 4.4], [3.9, 0, 8.3], [22, 0, 4.6], [35.5, 0, 4.6], [36, 0, 10.6], [27.5, 0, 10.6], [26, 0, 11]];      // v8.45: the reworked room
     denCover(h, { id: "cover31", way: "bridge", seen: [[7.75, 0, 5]], when: walkOn });
-    obsWindow(h, { w: "z1", a: 26, y: 4.9, props: ["chair"] });
+    obsWindow(h, { w: "z1", a: 32, y: 4.9, props: ["chair"] });      // v8.45: it was at 26, where the exit is now
   },
   // 33. A catwalk over the exit ledge with no way up, and one bare board at its end. Only a throw from the far end of the block (already primed) reaches the board;
   // a portal on it puts you on the catwalk, and the wall beside you opens
@@ -4643,7 +4655,7 @@ const I3 = {
   },
   // 36. Key card 16: in the back of the pump housing past the field, on the side that faces the channel wall. A light is on in there
   "Cold Storage": h => {
-    h.route = [[5, 0, 9], [8.5, 0, 9.5], [11.6, 0, 8.4], [1.2, 0, 5.75], [13.15, 1, 2.95], [13.15, 1, 3.8], [14, 0, 8.5], [25, 0, 8.5], [28, 0, 5], [28, 0, 1.2], [23.2, 0, 1.2], [27.6, 0, 1.2], [28, 0, 8.2], [31, 0, 6]];
+    h.route = [[5, 0, 9], [8.5, 0, 9.5], [11.6, 0, 8.4], [1.2, 0, 5.75], [13.15, 1, 2.95], [13.15, 1, 3.8], [14, 0, 10.5], [18, 0, 10.5], [25, 0, 8.5], [28, 0, 5], [28, 0, 1.2], [23.2, 0, 1.2], [27.6, 0, 1.2], [28, 0, 8.2], [31, 0, 6]];
     h.boxes.push(bx(17.5, 0, 3.4, 20.5, 1.9, 4.9, "dark"), bx(18.1, 1.9, 3.7, 19.1, 2.5, 4.6, "dark"), bx(19.6, 1.9, 3.9, 20.2, 2.2, 4.5, "dark"));
     (h.loose = h.loose || []).push(["box", 18.6, 2.7, 3.0, 0.16, 0.16, 1.4, 0x6b7279], ["box", 18.6, 3.4, 2.68, 0.16, 1.5, 0.16, 0x6b7279], ["box", 19.9, 2.3, 3.2, 0.12, 0.12, 1.3, 0x7d6a4a]);      // pipes over to the channel wall (not solid, out of reach)
     ajar(h, "z1", 30.5);
@@ -7327,7 +7339,7 @@ function physicsStep(dt) {
     if (p.cams) {           // a camera scale: weighed in cameras, and only cameras (a crate or a person is the wrong sort of weight)
       let n = 0; for (const c of W.camProps) if (!c.held && Math.abs(c.p.x - p.pos[0]) < 0.95 && Math.abs(c.p.z - p.pos[2]) < 0.95 && c.p.y - c.h[1] < p.pos[1] + 0.45 && c.p.y > p.pos[1]) n++;
       if (n !== p.camN) { if (n > p.camN) sfx.tick(1); p.camN = n; } on = n >= p.cams;
-    } else if (!on) for (const c of props()) if (!c.held && c.kind !== "camera" && (!p.only || c.kind === p.only) && Math.abs(c.p.x - p.pos[0]) < 0.8 && Math.abs(c.p.z - p.pos[2]) < 0.8 && c.p.y - c.h[1] < p.pos[1] + 0.3 && c.p.y > p.pos[1]) { on = true; if (!p.pressed && c.kind === "cube" && alive) chatter("plateCube", 0.2, 600); break; }
+    } else if (!on) for (const c of props()) if (!c.held && c.kind !== "camera" && (!p.only || c.kind === p.only) && Math.abs(c.p.x - p.pos[0]) < 0.8 && Math.abs(c.p.z - p.pos[2]) < 0.8 && c.p.y - c.h[1] < p.pos[1] + 0.3 && c.p.y > p.pos[1]) { on = true; if (!p.pressed && c.kind === "cube" && alive && !p.quiet) chatter("plateCube", 0.2, 600); break; }
     if (on !== p.pressed) { p.pressed = on; sndAt(p.pos); sfx.button(on); }
     const full = !p.charge || (p.chg = on ? Math.min(p.charge, (p.chg || 0) + dt) : 0) >= p.charge;      // a slow button needs weight on it for a while before it counts
     if (p.hold) { if (on && full) p.left = p.hold; else if (p.left > 0) { const b = Math.ceil(p.left * 2); p.left -= dt; if (Math.ceil(p.left * 2) !== b) sfx.tick(p.left); } }   // a relay holds it for a few seconds after you step off

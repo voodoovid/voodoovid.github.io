@@ -5,7 +5,8 @@
    - solve[room]: a real solving robot. A STEP is one portal shot, one grab or drop (or press), or one trip through a portal or on a pad.
      Walking is not a step. B.stops records where the robot stood for each step (the Choices column looks from there).
    - shortcut[room]: a robot that tries a way round the puzzle. `skipped: true` means it got out without solving the room.
-     (Mirror Test's checks the opposite: `ok: true` means the door held while the sentry worked.) */
+     (Mirror Test's checks the opposite: `ok: true` means the door held while the sentry worked.)
+   - first[room] (v8.45): a robot that tries the obvious plan. Green when the plan fails and the room can still be finished without restarting. */
 (function (root) {
   function install(win) {
     win.B = (() => {
@@ -206,6 +207,110 @@
       r.a = B.fire(0, 16.5, 1.4, 0.05); r.b = B.fire(1, 28.5, 1.4, 11.95);
       B.step(12, () => S.state !== 'on');      // (waiting while it shoots itself is not a step) r.S = S.state; r.door = B.door(); r.t = +B.t.toFixed(1);
       B.walk(26, 6); B.walk(34, 6, { time: 5 }); return B.res(r);
+    },
+    // ---- v8.45 (Batch J step 5): rooms 31 to 38
+    "Walkway": function (B, tc) {
+      const r = {}; B.load('Walkway'); B.step(0.5); const w = B.world(), c = w.cubes[0];
+      B.walk(5, 6); r.A = B.fire(0, 6, 1.2, 11.95); r.B = B.fire(1, 0.05, 1.2, 3); B.step(0.5);
+      B.walk(5, 3); B.walk(19.6, 3, { time: 8 }); B.walk(19.6, 0.8); B.walk(21.8, 0.8); B.walk(22, 4.4); r.pier = B.at();
+      r.A2 = B.fire(0, 20.85, 1.2, 2.5); B.step(0.5);                                             // the blue end moves to where the second light lands
+      B.walk(21.8, 0.8); B.walk(19.6, 0.8); B.walk(19.6, 3); B.walk(5, 3, { time: 8 });
+      B.walk(3.9, 8.3); B.aim(c.p.x, c.p.y, c.p.z); B.use('take the crate off the meter'); r.held = !!B.held(); B.step(0.5); r.firstLightOut = !w.walks[0].segs.length;
+      B.walk(5, 3); B.walk(19.6, 3, { time: 8 }); B.walk(19.6, 0.8); B.walk(21.8, 0.8); B.walk(21.8, 4.6); B.walk(23.1, 4.65);
+      r.X2 = B.fire(1, 20.85, 1.2, 4.65); B.step(0.5); B.walk(35.5, 4.65, { time: 8 }); r.far = B.at();
+      B.walk(34.8, 10.6); r.X3 = B.fire(1, 37.55, 1.2, 10.6); B.step(0.5); B.walk(27.5, 10.6, { time: 8 }); r.shelf = B.at(); r.held2 = !!B.held();
+      B.walk(25.6, 10.4); B.aim(24.4, 0.3, 10.2); B.step(0.3); B.use('put it on the button'); B.step(1); r.door = B.door();
+      B.walk(26, 11); B.walk(26, 15.5, { time: 5 }); return B.res(r);
+    },
+    "Updraft": function (B, tc) {
+      const r = {}; B.load('Updraft'); B.step(0.5); const w = B.world(), c = w.cubes[0], pl = B.pl();
+      B.walk(6, 8); r.a = B.fire(0, 3, 11.95, 10.5); r.b = B.fire(1, 14, 9, 11.95); B.step(0.5);
+      B.walk(c.p.x + 1.1, c.p.z - 0.3); B.aim(c.p.x, c.p.y, c.p.z); B.use('grab crate'); r.held = !!B.held();
+      B.walk(4.6, 9.6); B.aim(3, 1.0, 10.5); B.step(0.4); B.use('let the stream take the crate'); B.step(10, () => c.p.z < 1.9); r.cIn = B.P(c);
+      B.walk(3, 10.5, { time: 3, until: () => !pl.ground }); B.count('ride the stream up to the cell window'); B.step(12, () => pl.p.z < 3.6 && pl.p.y > 8); B.step(1.5); r.window = B.at();
+      r.c = B.fire(1, 26.4, 4.05, 1.9); B.step(4); r.fell = B.at(); r.door = B.door();
+      B.walk(6, 8); B.walk(3, 10.5, { time: 4, until: () => !pl.ground }); B.count('ride it again, out of the ledge floor'); B.step(12, () => pl.p.x > 20); B.step(1.5);
+      B.walk(28.5, 6); B.walk(34, 6, { time: 5 }); return B.res(r);
+    },
+    "Primer": function (B, tc) {
+      const r = {}; B.load('Primer'); B.step(2.5); const w = B.world(), c = w.cubes[0], pl = B.pl();
+      B.walk(7, 8); r.a = B.fire(0, 4, 0.05, 9); B.walk(11.4, 3.6); r.b = B.fire(1, 10.05, 6, 0.8); B.step(4);      // a high throw from the pillar: the tall slab
+      r.c = B.fire(1, 21.25, 7.2, 1.55); B.step(4);                                                    // from the tall slab: the block
+      r.d = B.fire(1, 21.6, 4.2, 10.45); B.step(0.5);
+      B.walk(6.2, 9); B.into(4, 9, () => pl.p.x > 15, 0.5, 4); B.count('into the floor, out of the block, down into the pocket'); B.step(1); r.pocket = B.at();
+      B.walk(c.p.x + 0.2, c.p.z + 1.2); B.aim(c.p.x, c.p.y, c.p.z); B.use('grab crate'); r.held = !!B.held();
+      B.walk(19.5, 6); r.e = B.fire(1, 23.9, 4.2, 10.45); r.f = B.fire(0, 21.25, 1.2, 1.55);
+      B.walk(21.25, 3.2); B.into(21.25, 0, () => pl.p.y > 2.5, 0.5, 4); B.count('through the slab onto the ledge'); B.step(0.6); r.ledge = B.at(); r.held2 = !!B.held();
+      B.walk(25, 8); B.walk(27, 4.4); B.aim(27, 3.3, 3); B.step(0.3); B.use('put on the button'); B.step(1); r.door = B.door();
+      B.walk(28.5, 6); B.walk(34, 6, { time: 5 }); return B.res(r);
+    },
+    "Crate Seven": function (B, tc) {
+      const r = {}; B.load('Crate Seven'); B.step(0.5); const w = B.world(), c = w.cubes[0], pl = B.pl();
+      B.walk(8, 7); r.far = B.fire(1, 25.95, 1.2, 6); r.near = B.fire(0, 6.75, 1.2, 11.95);
+      B.walk(4.6, 7.8); B.aim(c.p.x, c.p.y, c.p.z); B.use('grab crate'); r.held = !!B.held();
+      B.walk(6.75, 10.6); B.walk(6.75, 12.4, { time: 2, until: () => pl.p.x > 20 }); B.count('through the wall with the crate'); B.step(0.3); r.held2 = !!B.held();
+      B.walk(21.4, 4.4); B.aim(20, 0.3, 4.4); B.step(0.3); B.use('put on the first slow button'); B.step(0.3);
+      B.walk(18.5, 8.6); r.up = B.fire(0, 27.75, 3.95, 11.95);
+      B.walk(20, 7.6, { r: 0.15 }); B.step(3.8); r.charged = B.door();
+      B.walk(24.5, 6); B.walk(26.5, 6, { time: 2, until: () => pl.p.y > 3 }); B.count('through the foot of the ledge, out on top'); B.step(0.2); r.ledge = B.at();
+      B.walk(29, 6); B.walk(34, 6, { time: 3 }); return B.res(r);
+    },
+    "The Last Word": function (B, tc) {
+      const r = {}; B.load('The Last Word'); B.step(0.5); const w = B.world(), c = w.cubes[0], S = w.sentries[0], pl = B.pl();
+      B.walk(12, 4.9); B.walk(15, 4.9); B.walk(17, 0.6); B.walk(27.6, 0.6); B.walk(27.6, 6.5); B.walk(26.9, 8.0);
+      B.aim(S.p.x, S.p.y, S.p.z); B.use('pick up the sentry from behind'); r.heldS = B.held() === S;
+      B.walk(33, 2.2, { max: 0.7 }); B.aim(33, 0.8, 0); B.step(0.3); B.use('park it facing a wall'); B.step(3);
+      B.walk(27, 5); B.walk(15, 6); B.walk(12, 6); B.walk(5, 2.43);
+      r.f1 = B.fire(1, 25.95, 1.2, 10.75); r.n2 = B.fire(0, 5.75, 1.2, 0.05);
+      B.walk(4.3, 2.8); B.aim(c.p.x, c.p.y, c.p.z); B.use('grab crate'); r.held = !!B.held();
+      B.walk(5.75, 1.6); B.walk(5.75, -0.5, { time: 2, until: () => pl.p.x > 20 }); B.count('through the wall into the cell'); B.step(0.3); r.held2 = !!B.held();
+      B.aim(24.3, 0.3, 9.9); B.step(0.3); B.use('crate on the button'); B.step(0.6);
+      B.walk(25.2, 10.75); B.walk(26.5, 10.75, { time: 2, until: () => pl.p.x < 10 }); B.count('back out of the cell'); B.step(0.3);
+      B.walk(11, 6); B.walk(16, 6);
+      B.walk(21.5, 9.5); r.b1 = B.fire(0, 25.95, 1.4, 10.75); B.walk(17, 6.9); r.b2 = B.fire(1, 0.05, 1.2, 8); B.step(1); r.door = B.door();
+      B.walk(34, 6); B.walk(40, 6, { time: 4 }); return B.res(r);
+    },
+    "Cold Storage": function (B, tc) {
+      const r = {}; B.load('Cold Storage'); B.step(0.5); const w = B.world(), S = w.sentries[0], F = w.cubes[0], pl = B.pl();
+      B.walk(5, 9.0); B.aim(S.p.x, S.p.y, S.p.z); B.use('pick up the sentry from behind'); r.held = !!B.held();
+      B.walk(8.5, 9.5, { r: 0.15 }); B.count('stand on the pump button: the float comes back');
+      r.a = B.fire(0, 0.05, 1.3, 5.75); B.walk(11.6, 8.4); r.booth = B.fire(1, 13.55, 2.2, 4.0); B.step(5);
+      B.walk(1.2, 5.75); B.walk(-0.5, 5.75, { time: 2, until: () => pl.p.x > 10 }); B.count('through the wall into the booth'); B.step(0.4);
+      B.walk(13.15, 2.95, { r: 0.1 }); B.aim(13.15, 0.9, 1.3); B.step(0.5); B.use('set the sentry on the float, facing the wall'); B.step(1.5);
+      B.walk(13.15, 3.8); B.walk(14.2, 3.8, { time: 2, until: () => pl.p.x < 5 }); B.count('back out of the booth'); B.step(0.4);
+      B.walk(8.5, 9.5, { r: 0.15 }); B.count('the pump button again: the float goes over');
+      B.walk(14, 10.5); B.walk(18, 10.5); B.walk(25, 8.5); B.walk(28, 5); B.walk(28, 1.2);
+      B.step(8, () => F.p.x > 21.1); B.step(0.5); B.walk(23.2, 1.2); r.hpDock = Math.round(pl.hp);
+      B.aim(S.p.x, S.p.y, S.p.z); B.use('lift the sentry off'); r.held2 = !!B.held();
+      B.walk(27.6, 1.2); B.walk(28, 8.2, { look: [28, 1, 20] }); B.aim(29, 0.3, 9.5); B.step(0.3); B.use('sentry on the button'); B.step(1); r.door = B.door();
+      B.walk(31, 6); B.walk(38, 6, { time: 5 }); return B.res(r);
+    },
+    "Retrieval": function (B, tc) {
+      const r = {}; B.load('Retrieval'); B.step(0.5); const w = B.world(), c = w.cubes[0], pl = B.pl();
+      B.walk(4, 9); r.s1 = B.fire(0, 6, 1.1, 11.95); r.s2 = B.fire(1, 0.05, 1.1, 9); B.step(0.5);
+      B.walk(3, 9); B.walk(16, 9, { time: 6 }); B.walk(19.5, 9, { time: 4 }); r.cell = B.at();
+      B.aim(c.p.x, c.p.y, c.p.z); B.use('take the crate'); r.held = !!B.held();
+      B.walk(20, 8.6); r.s3 = B.fire(0, 18.05, 1.1, 10.4); B.walk(20.3, 9); r.s4 = B.fire(1, 0.05, 1.1, 9);
+      B.walk(19.2, 10.4); B.walk(17.5, 10.4, { time: 2, until: () => pl.p.x < 6 }); B.count('out through the cell wall with the crate'); B.step(0.4); r.held2 = !!B.held();
+      B.walk(4, 6); r.s5 = B.fire(0, 6, 1.1, 11.95); r.s6 = B.fire(1, 0.05, 1.1, 3); B.step(0.5);
+      B.walk(3, 3); B.walk(29.5, 3, { time: 8 }); r.held3 = !!B.held();
+      B.walk(30.2, 8.4); B.aim(31, 0.3, 9.6); B.step(0.3); B.use('crate on the button'); B.step(1); r.door = B.door();
+      B.walk(32, 6); B.walk(37, 6, { time: 5 }); return B.res(r);
+    },
+    "Gauntlet": function (B, tc) {
+      const r = {}; B.load('Gauntlet'); B.step(0.5); const w = B.world(), c = w.cubes[0], [S1, S2, S3] = w.sentries, pl = B.pl();
+      B.walk(3, 7.8); B.aim(c.p.x, c.p.y, c.p.z); B.use('take the crate'); B.walk(4.6, 6); B.aim(6, 0.6, 6); B.step(0.4); B.use('crate onto the pad'); B.step(3); r.S1 = S1.state;
+      B.walk(6, 6, { time: 3, until: () => !pl.ground }); B.count('ride the pad'); B.step(2.2); r.terrace = B.at();
+      B.walk(21.75, 3.6); r.s1 = B.fire(0, 21.75, 4.2, 0.05); B.walk(21.2, 4.3); r.s2 = B.fire(1, 39.95, 1.2, 9.3);
+      B.walk(21.75, 2); B.walk(21.75, -0.5, { time: 3, until: () => pl.p.x > 30 }); B.count('through the terrace wall, out behind the pair'); B.step(0.4);
+      B.walk(34.2, 5.0); B.aim(S2.p.x, S2.p.y, S2.p.z); B.use('take a sentry from behind'); r.gotS2 = !!B.held();
+      B.walk(34.6, 2.9, { look: [34.6, 1, -20] }); B.aim(34.6, 0.5, 1.3); B.step(0.3); B.use('sentry on a button'); B.step(0.5);
+      B.walk(35.5, 5); B.walk(34.2, 7.6); B.aim(S3.p.x, S3.p.y, S3.p.z); B.use('take the other'); r.gotS3 = !!B.held();
+      B.walk(36.8, 2.9, { look: [36.8, 1, -20] }); B.aim(36.8, 0.5, 1.3); B.step(0.3); B.use('sentry on the other button'); B.step(0.5);
+      B.walk(38, 6); B.walk(38.5, 9.35); B.walk(40.5, 9.35, { time: 3, until: () => pl.p.x < 30 }); B.count('back up to the terrace'); B.step(0.4);
+      B.walk(21, 9); r.s3 = B.fire(0, 14, 1.2, 11.95); B.step(1); r.lit = !!w.receivers[0].lit;
+      B.walk(23, 5.3); B.walk(26, 5.3, { time: 4 }); B.step(0.5); B.walk(34, 4.6);
+      B.walk(37.5, 3); B.walk(44, 3, { time: 5 }); return B.res(r);
     }
   };
   const shortcut = {
@@ -225,6 +330,86 @@
       B.step(10, () => S.state !== 'on'); B.walk(34, 6, { time: 4 }); r.leftAfter = B.state() === 'done';
       r.ok = r.Son && !r.leftWhileOn && r.leftAfter; return B.res(r);
     } }
+    ,"Walkway": { what: "Stand on the meter yourself with the crate in your hands, set the walkway, and step off towards it: the light must go out as you leave the plate.", run: function (B, tc) {
+      const r = {}; B.load('Walkway'); B.step(0.5); const w = B.world(), c = w.cubes[0];
+      B.walk(3.9, 8.3); B.aim(c.p.x, c.p.y, c.p.z); B.use('take the crate'); B.walk(3, 9, { r: 0.1 }); B.step(0.5); r.onPlate = w.plates[0].pressed;
+      B.fire(0, 6, 1.2, 11.95); B.fire(1, 0.05, 1.2, 3); B.step(0.5); r.litOnPlate = w.walks[0].segs.length > 1;
+      B.walk(5, 5); B.step(0.3); r.litOff = w.walks[0].segs.length > 1; r.skipped = r.litOff; return B.res(r);
+    } }
+  };
+
+  /* ---------- v8.45 (Batch J step 5): the obvious plan. Each robot tries the plan you make at the doorway.
+     `failed`: the plan did not finish the room. `recovered`: you can still carry on without restarting (after a death, the room is as it was).
+     `died`: the plan got you killed. The plan only allows that where a sentry does it. ---------- */
+  const first = {
+    "Walkway": { what: "Set the walkway to the pier and pick up the crate to take it across. The crate is the light’s meter: the walkway goes out under your nose. Put it back and the light returns.", run: function (B, tc) {
+      const r = {}; B.load('Walkway'); B.step(0.5); const w = B.world(), c = w.cubes[0], lit = () => w.walks[0].segs.length > 1;
+      B.walk(5, 6); B.fire(0, 6, 1.2, 11.95); B.fire(1, 0.05, 1.2, 3); B.step(0.5); r.bridge0 = lit();
+      B.walk(4.4, 7.9); B.aim(c.p.x, c.p.y, c.p.z); B.use('take the crate'); B.step(0.6); r.bridge1 = lit(); r.failed = r.bridge0 && !r.bridge1 && B.state() !== 'done';
+      B.aim(3, 0.3, 9); B.step(0.3); B.use('put it back'); B.step(1.2); r.recovered = lit() && B.state() === 'play'; r.died = B.deaths() > 0; return B.res(r);
+    } },
+    "Updraft": { what: "Ride the stream yourself to see where it goes. It pins you against the cell window: the crate fits through, you do not. Move a portal and you drop back to the floor.", run: function (B, tc) {
+      const r = {}; B.load('Updraft'); B.step(0.5); const pl = B.pl();
+      B.walk(6, 8); B.fire(0, 3, 11.95, 10.5); B.fire(1, 14, 9, 11.95); B.step(0.5);
+      B.walk(3, 10.5, { time: 3, until: () => !pl.ground }); B.count('ride the stream'); B.step(12, () => pl.p.z < 3.6 && pl.p.y > 8); B.step(2.5); r.pinned = B.at();
+      r.failed = pl.p.z > 2.4 && B.door() === 0 && B.state() !== 'done';
+      B.fire(1, 20.55, 9, 5); B.step(4); r.down = B.at(); r.recovered = B.state() === 'play' && pl.hp > 0 && pl.p.y < 2; r.died = B.deaths() > 0; return B.res(r);
+    } },
+    "Primer": { what: "Prime the low slab, the nearest bare board across the acid. From it no other bare board can be reached, and the ledge stays out of reach. A higher throw from the pillar still primes the tall slab afterwards.", run: function (B, tc) {
+      const r = {}; B.load('Primer'); B.step(2.5); const w = B.world(), box = x => w.lv.boxes.find(b => Math.abs(b.min[0] - x) < 0.01 && b.min[1] === 0 && b.min[2] === 0);
+      B.walk(7, 8); B.fire(0, 4, 0.05, 9); B.walk(11.4, 3.6); B.fire(1, 10.05, 3, 0.8); B.step(5); r.low = !!box(18.3).portal; r.tall = !!box(20.5).portal;
+      const block = w.lv.boxes.find(b => Math.abs(b.min[0] - 20.5) < 0.01 && b.min[1] === 3); r.block = !!block.portal;
+      B.fire(1, 18.25, 1.3, 0.8); B.step(5); r.blockAfter = !!block.portal; r.tallAfter = !!box(20.5).portal;      // the throw from the low slab goes back over the acid
+      r.failed = r.low && !r.tallAfter && !r.blockAfter && B.state() !== 'done';
+      B.fire(1, 10.05, 6, 0.8); B.step(5); r.recovered = !!box(20.5).portal && B.state() === 'play'; r.died = B.deaths() > 0; return B.res(r);
+    } },
+    "Crate Seven": { what: "Charge both slow buttons, then take the crate lift at the foot of the ledge. It is right there, and it needs no portal. It is also slower than the door: the door is shut before you are up. Drop down and do it again by portal.", run: function (B, tc) {
+      const r = {}; B.load('Crate Seven'); B.step(0.5); const c = B.world().cubes[0], pl = B.pl();
+      B.walk(8, 7); B.fire(1, 25.95, 1.2, 6); B.fire(0, 6.75, 1.2, 11.95);
+      B.walk(4.6, 7.8); B.aim(c.p.x, c.p.y, c.p.z); B.use('grab crate');
+      B.walk(6.75, 10.6); B.walk(6.75, 12.4, { time: 2, until: () => pl.p.x > 20 }); B.count('through'); B.step(0.3);
+      B.walk(21.4, 4.4); B.aim(20, 0.3, 4.4); B.step(0.3); B.use('put on the first slow button'); B.step(0.3);
+      B.walk(18.5, 8.6); B.fire(0, 27.75, 3.95, 11.95);
+      B.walk(20, 7.6, { r: 0.15 }); B.step(3.8); const t0 = B.t;
+      B.walk(24.9, 2.2, { time: 4, r: 0.1, until: () => pl.p.y > 1.3 }); B.count('the crate lift'); B.step(10, () => pl.p.y - 0.9 > 3.0);
+      tc.inp.fwd = 1; B.face(29, 2.2); B.step(0.6); tc.inp.fwd = 0; r.up = B.at(); r.secs = +(B.t - t0).toFixed(1); r.doorWhenUp = B.door();
+      B.walk(28.5, 6); B.walk(34, 6, { time: 3 }); r.failed = B.state() !== 'done';
+      B.walk(24.5, 6); B.step(0.5); B.walk(20, 7.6, { r: 0.15 }); B.step(3.8); B.walk(24.5, 6); B.walk(26.5, 6, { time: 2, until: () => pl.p.y > 3 }); B.step(0.2); B.walk(29, 6); B.walk(34, 6, { time: 3 });
+      r.recovered = B.state() === 'done'; r.died = B.deaths() > 0; return B.res(r);
+    } },
+    "The Last Word": { what: "Shoot the cell’s panel from the start, and carry the crate through the doorway. The sentry by the cell jams the panel, and the field in the doorway sends the crate back to where it started.", run: function (B, tc) {
+      const r = {}; B.load('The Last Word'); B.step(0.5); const c = B.world().cubes[0], pl = B.pl();
+      B.walk(5, 2.43); r.cellPanel = B.fire(1, 25.95, 1.2, 10.75);
+      B.walk(4.3, 2.8); B.aim(c.p.x, c.p.y, c.p.z); B.use('grab crate'); B.walk(11, 6); B.walk(16, 6); r.stillHeld = !!B.held(); r.c = B.P(c);
+      r.failed = !r.cellPanel && !r.stillHeld && B.state() !== 'done'; r.recovered = B.state() === 'play' && pl.hp > 50 && Math.abs(c.p.x - 4) < 0.5; r.died = B.deaths() > 0; return B.res(r);
+    } },
+    "Cold Storage": { what: "Put the sentry on the float through the hatch on the bank, the way the room shows you. It rides across looking down the slip, and shoots you as you come to lift it off. The pump brings it back.", sentry: true, run: function (B, tc) {
+      const r = {}; B.load('Cold Storage'); B.step(0.5); const w = B.world(), S = w.sentries[0], F = w.cubes[0], pl = B.pl();
+      B.walk(5, 9.0); B.aim(S.p.x, S.p.y, S.p.z); B.use('pick up the sentry');
+      B.walk(8.5, 9.5, { r: 0.15 }); B.count('pump'); B.step(0.3);
+      B.walk(10.2, 1.2, { r: 0.1 }); B.step(8); B.face(13, 1.2); B.walk(11.42, 1.2, { r: 0.05, time: 2, look: [14, 0.9, 1.2] }); B.aim(13.1, 0.3, 1.2); B.step(0.5); B.use('sentry through the hatch'); B.step(2); r.onFloat = Math.abs(S.p.x - F.p.x) < 0.8;
+      B.walk(8.5, 9.5, { r: 0.15 }); B.count('pump');
+      B.walk(14, 10.5); B.walk(18, 10.5); B.walk(25, 8.5); B.walk(28, 5); B.step(9, () => F.p.x > 21.0); B.step(0.5);
+      let minHp = 100; B.walk(28, 1.2, { time: 3 }); tc.inp.fwd = 1; B.face(23.2, 1.2); for (let i = 0; i < 40 && pl.p.x > 23.4 && tc.state === 'play'; i++) { B.step(0.1); minHp = Math.min(minHp, pl.hp); } tc.inp.fwd = 0;
+      B.step(1.5); minHp = Math.min(minHp, pl.hp); r.minHp = Math.round(minHp); r.died = B.deaths() > 0 || tc.state === 'dead'; r.failed = (r.died || minHp < 60) && B.state() !== 'done';
+      B.step(3);                                                                                   // (after a death you are back at the start)
+      if (pl.p.x > 16) { B.walk(28, 1.2); B.walk(28, 5); B.walk(25, 8.5); B.walk(18, 10.5); B.walk(14, 10.5); }
+      B.walk(8.5, 9.5, { r: 0.15 }); B.count('pump: bring it back'); B.step(0.3); B.walk(10.2, 1.2, { r: 0.1 }); B.step(9, () => F.p.x < 13.3); B.step(1);
+      B.walk(11.42, 1.2, { r: 0.05, time: 2 }); B.aim(S.p.x, S.p.y, S.p.z); B.use('take the sentry back off, from behind'); r.recovered = B.held() === S && B.state() === 'play'; return B.res(r);
+    } },
+    "Retrieval": { what: "Walk the light to the cell, pick up the crate, and carry it back out the way you came in. The field in the doorway sends the crate back to where it sat (and has already closed your portals). The cell’s own panel still gets you out.", run: function (B, tc) {
+      const r = {}; B.load('Retrieval'); B.step(0.5); const c = B.world().cubes[0], pl = B.pl();
+      B.walk(4, 9); B.fire(0, 6, 1.1, 11.95); B.fire(1, 0.05, 1.1, 9); B.step(0.5);
+      B.walk(3, 9); B.walk(16, 9, { time: 6 }); B.walk(19.5, 9, { time: 4 }); B.aim(c.p.x, c.p.y, c.p.z); B.use('take the crate');
+      B.walk(18.6, 9); B.walk(17.25, 9, { time: 3, r: 0.1 }); r.stillHeld = !!B.held(); r.c = B.P(c); r.failed = !r.stillHeld && c.p.x > 20 && B.state() !== 'done';
+      B.walk(19.5, 9, { time: 4 }); B.fire(0, 18.05, 1.1, 10.4); B.walk(20.3, 9); B.fire(1, 0.05, 1.1, 9);
+      B.walk(19.2, 10.4); B.walk(17.5, 10.4, { time: 2, until: () => pl.p.x < 6 }); B.count('out by the cell’s own panel'); B.step(0.4); r.recovered = pl.p.x < 6 && B.state() === 'play'; r.died = B.deaths() > 0; return B.res(r);
+    } },
+    "Gauntlet": { what: "Step on the launch pad. A sentry stands on the spot where it lands you. (This is a death by sentry, which the plan allows; you start the room again with everything where it was.)", sentry: true, run: function (B, tc) {
+      const r = {}; B.load('Gauntlet'); B.step(0.5); const pl = B.pl(), c = B.world().cubes[0];
+      B.walk(6, 6, { time: 3, until: () => !pl.ground }); B.count('ride the pad'); for (let i = 0; i < 60 && tc.state === 'play'; i++) B.step(0.1);
+      r.died = tc.state === 'dead' || B.deaths() > 0; r.failed = r.died; B.step(3); r.recovered = B.state() === 'play' && pl.p.x < 5 && Math.abs(c.p.x - 3) < 0.5; return B.res(r);
+    } }
   };
 
   /* ---------- the plan (Batch J, approved Nov 25, 2026, with the early-room amendment) ---------- */
@@ -236,6 +421,21 @@
     change: (() => { const c = {}; for (let i = 1; i <= 38; i++) c[i] = "Choice pass"; for (const i of [1, 2, 3, 4, 11, 13, 14, 15]) c[i] = "Keep"; for (const i of [8, 10, 16, 17, 18, 19, 23, 24, 25, 27, 30, 31]) c[i] = "Rework"; return c; })(),
     // the plan's step targets after the work (section 4 and 6). The plan counted steps from the build notes; this page counts its own way (see the page), so these are a guide
     target: [0, 1, 2, 2, 5, 4, 4, 4, 7, 4, 5, 5, 4, 4, 5, 5, 6, 7, 7, 7, 6, 2, 6, 10, 6, 7, 6, 5, 5, 6, 8, 8, 7, 8, 7, 8, 8, 8, 10],
+    // v8.45 (Batch J step 5): the written reason for each fall in steps from room 16 on (the Curve column shows them amber, not red)
+    fall: { 34: "Crate Seven is a timing room: its difficulty is the three-second door and the wrong way up, not the number of steps. The plan listed this fall.",
+      37: "Retrieval takes one step fewer than Cold Storage, whose count includes two presses of the pump button. The plan lists both rooms at 8." },
+    // v8.45 (Batch J step 5): two of the five tests cannot be measured by a robot. The room's builder writes down whether it passes each, and why.
+    // A room that reaches its number of tests (4 in Act 5) is not marked red for a test it does not need
+    judged: {
+      31: { order: "Taking the crate first puts the light out. The blue end has to move to the second light before the crate leaves its plate.", second: "The crate is the light's meter and then the door's weight. The walkway to the pier is carried by the first light and then by the second." },
+      32: { order: null, second: "The stream carries the crate into the cell, then carries you up to the window to look, then carries you out of the ledge floor." },
+      33: { order: "The first board you prime decides which boards can be reached next. The low slab, the nearest, leads nowhere.", second: "The portal under the nozzle feeds the paint and then is your own way across. The block takes one portal over the pocket and another over the ledge." },
+      34: { order: "The way up has to be open before you step off the second slow button: after that there are three seconds.", second: "The panel at the foot of the ledge brings the crate across, and then is your way up." },
+      35: { order: "The sentry has to be carried off before the cell's panel will take a portal. The crate has to go in before the light, because the light can only be set from the far side.", second: "The cell's one panel takes the crate in, lets you back out, and then carries the light." },
+      36: { order: null, second: "The pump button runs the float both ways. The sentry is the passenger and then the door's weight." },
+      37: { order: "The crate has to leave the cell by its own panel before the light is sent to the far bank: the cell's field closes whatever portals you had.", second: "The same landing panel carries both walkways. The back-wall panel is the first walkway and then the crate's way out." },
+      38: { order: "The crate rides the pad before you do. Both sentries go on the buttons before you give up the portal that took you behind them.", second: "The crate is a missile, not a weight. The sentries are the weights. The terrace portal is your way down and then the light's way across." }
+    },
     minTests: i => i < 16 ? 0 : i < 31 ? 3 : 4
   };
   const actOf = i => PLAN.acts.findIndex(a => i >= a[0] && i <= a[1]);
@@ -248,7 +448,7 @@
     const airs = lv.air.filter(a => !behind(a));
     for (const a of airs) { for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], a[k] - 0.05); hi[k] = Math.max(hi[k], a[k + 3] + 0.05); } }
     const F = [];
-    lv.boxes.forEach((b, bi) => { if (!b.portal) return;
+    lv.boxes.forEach((b, bi) => { if (!b.portal && b.mat !== "bare") return;      // v8.45: bare board (Primer) is a surface you choose between, the same as white
       for (let a = 0; a < 3; a++) for (const sg of [-1, 1]) {
         const pl = sg > 0 ? b.max[a] : b.min[a]; if (pl < lo[a] || pl > hi[a]) continue;
         const u = (a + 1) % 3, v = (a + 2) % 3, u0 = Math.max(b.min[u], lo[u]), u1 = Math.min(b.max[u], hi[u]), v0 = Math.max(b.min[v], lo[v]), v1 = Math.min(b.max[v], hi[v]);
@@ -276,10 +476,11 @@
     const tc = win.__tc, B = win.B; B.load(name); B.step(0.3);
     const w = tc.world, lv = w.lv, F = whiteFaces(lv), st = lv.start.pos, eye0 = [st[0], st[1] + 1.6, st[2]];
     const out = { white: F.length, seen0: F.filter(f => faceSeen(tc, lv, f, eye0)).length };
+    const own = q => !/^(den|cover|lock|card)/.test(String([].concat(q.door || q.ev || "")[0]));      // v8.45: a button, receiver or switch that works a den or a secret is not one of the room's goals
     // the panels and goals the solving robot needed
     if (sol && sol.shots) {
       const need = new Map(); for (const p of sol.shots.concat((lv.held || []).map(h => h.pos))) { const f = faceAt(F, p); if (f) need.set(f.id, f); }      // (a portal the facility holds open counts as a panel you need)
-      const goals = [...(lv.plates || []).map(p => [p.pos[0], p.pos[1] + 0.15, p.pos[2]]), ...(lv.receivers || []).map(r => r.pos), [(lv.exit.min[0] + lv.exit.max[0]) / 2, lv.exit.min[1] + 1.2, (lv.exit.min[2] + lv.exit.max[2]) / 2]];
+      const goals = [...(lv.plates || []).filter(own).map(p => [p.pos[0], p.pos[1] + 0.15, p.pos[2]]), ...(lv.receivers || []).filter(own).map(r => r.pos), [(lv.exit.min[0] + lv.exit.max[0]) / 2, lv.exit.min[1] + 1.2, (lv.exit.min[2] + lv.exit.max[2]) / 2]];
       const pSeen = [...need.values()].filter(f => faceSeen(tc, lv, f, eye0)).length, gSeen = goals.filter(g => lineClear(tc, lv, eye0, g)).length;
       out.needed = need.size + goals.length; out.neededSeen = pSeen + gSeen; out.panels = need.size;
     }
@@ -292,8 +493,8 @@
     out.side = !!lv.exitSide; out.farEnd = !lv.exitSide && ex.min[0] >= R.x1 - 0.01 && st[0] < R.x0 + 0.3 * R.L;      // the exit in the far end wall, the start at the other end
     // timing windows: plates and switches that stay down for a while, and presses that must all be up at once
     const win_ = [];
-    for (const p of lv.plates || []) if (p.hold) win_.push(["a button stays down", p.hold]);
-    for (const s of lv.switches || []) if (s.hold) win_.push(["a switch stays on", s.hold]);
+    for (const p of (lv.plates || []).filter(own)) if (p.hold) win_.push(["a button stays down", p.hold]);
+    for (const s of (lv.switches || []).filter(own)) if (s.hold) win_.push(["a switch stays on", s.hold]);
     if ((lv.doors || []).some(d => d.presses) && w.crushers && w.crushers.length) {
       let best = 0, run = 0; for (let k = 0; k < 900; k++) { B.step(1 / 60); if (w.crushers.every(c => c.s < 0.35)) { run += 1 / 60; best = Math.max(best, run); } else run = 0; }
       win_.push(["all the presses are up", +best.toFixed(2)]);
@@ -320,5 +521,11 @@
     let r; try { r = s.run(win.B, win.__tc); } catch (e) { return { error: String(e && e.message || e), what: s.what }; }
     return { what: s.what, hole: s.ok ? !r.ok : !!r.skipped, steps: r.steps };
   }
-  root.DIFF_BOTS = { install, solve, shortcut, PLAN, actOf, measure, runSolve, runShortcut, whiteFaces };
+  // v8.45: run a room's obvious-plan robot
+  function runFirst(win, name) {
+    const f = first[name]; if (!f) return null;
+    let r; try { r = f.run(win.B, win.__tc); } catch (e) { return { error: String(e && e.message || e), what: f.what }; }
+    return { what: f.what, failed: !!r.failed, recovered: !!r.recovered, died: !!r.died, sentry: !!f.sentry, raw: r };
+  }
+  root.DIFF_BOTS = { install, solve, shortcut, first, PLAN, actOf, measure, runSolve, runShortcut, runFirst, whiteFaces };
 })(typeof window !== "undefined" ? window : globalThis);

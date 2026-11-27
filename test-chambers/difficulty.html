@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#07090c">
 <style>
-/* Test Chambers Difficulty Check (v1.0, for game v8.40, Batch J step 1, Nov 25, 2026): one row per room, 1 to 38, green and red, for the Batch J plan.
+/* Test Chambers Difficulty Check (v1.1, for game v8.45, Batch J step 5, Nov 27, 2026; v1.0 was Batch J step 1, v8.40): one row per room, 1 to 38, green and red, for the Batch J plan.
    It loads the game in a hidden frame with ?diffcheck (no frame loop, no lift rides, its own saves, so nothing you have found or finished changes),
    then runs the robots in difficulty-bots.js and measures each room as the game builds it. Everything starts below the status bar. */
 :root { color-scheme: dark; --bg: #07090c; --panel: #0e1318; --line: rgba(255,255,255,.08); --ink: #eef2f5; --dim: rgba(238,242,245,.58);
@@ -102,7 +102,7 @@ const COLS = [
   ["curve", "CURVE", "No room takes fewer steps than the room before it. The first room for a new device may take one fewer; the room after an act's exam is compared with the room before the exam. Forced for rooms 1 to 15."],
   ["doorway", "DOORWAY", "From the start you can see less than half of the panels and goals the robot needed. Required from room 16 on."],
   ["choices", "CHOICES", "Three or more white surfaces in view at most of the robot's stops. Required from room 16 on."],
-  ["first", "FIRST PLAN", "A recorded 'obvious plan' robot fails, and can still finish without restarting. Required from room 16 on."],
+  ["first", "FIRST PLAN", "A recorded 'obvious plan' robot fails, and can still finish without restarting. A plan may only get you killed where a sentry does it. Required from room 16 on."],
   ["shortcut", "SHORTCUT", "No way round the puzzle: the room's shortcut robots, a room that needs no portal at all, and an exit with no door in a room with sentries."],
   ["shape", "SHAPE", "In reworked rooms, the exit is not straight ahead in the far end wall."],
   ["touch", "TOUCH", "No timing window shorter than 1.5 seconds."],
@@ -133,7 +133,7 @@ function buildRows(tc) {
   }
 }
 // ---------- judging one room ----------
-function judge(i, name, sol, sc, m, aud) {
+function judge(i, name, sol, sc, m, aud, fp) {
   const C = {}, act = D.actOf(i), teach = i < 9, act2 = i >= 9 && i <= 15, step = later(i);      // Act 1 teaches; Act 2 must pass at least one of the tests; from room 16 every test counts
   // Solver
   if (!sol) C.solver = { s: "", short: "NO ROBOT", sub: step ? "comes in " + step : "", text: "No solving robot for this room yet. Its builder records one in " + step + ", together with its obvious-plan robot." };
@@ -158,6 +158,17 @@ function judge(i, name, sol, sc, m, aud) {
   }
   // First plan
   C.first = i < 16 ? { s: "", short: "—", sub: i < 9 ? "teaching room" : "not required", text: "Not required in rooms 1 to 15." } : { s: "", short: "NO ROBOT", sub: "comes in " + step, text: "Each room's builder records its obvious-plan robot in " + step + "." };
+  if (fp && i >= 16) {      // v8.45: the room's obvious-plan robot. Green when the plan fails and the room can still be finished; a death is allowed only where a sentry does it
+    const ok = !fp.error && fp.failed && fp.recovered && (!fp.died || fp.sentry);
+    C.first = fp.error ? { s: "fail", short: "ERROR", sub: "", text: "The obvious-plan robot stopped with an error: " + fp.error }
+      : { s: ok ? "pass" : "fail", ok, short: !fp.failed ? "IT WORKS" : !fp.recovered ? "STUCK" : fp.died && !fp.sentry ? "KILLS" : "FAILS", sub: !fp.failed ? "no puzzle" : fp.died ? "shot by a sentry" : "can carry on",
+        text: "The obvious plan: " + fp.what + (fp.failed ? " It fails" + (fp.recovered ? ", and the room can still be finished without restarting." : ", and the room is then stuck.") : " It finishes the room, so the first plan you make is the answer.") + (fp.died ? (fp.sentry ? " The plan gets you shot by a sentry, which is allowed." : " The plan kills you with no sentry involved, which is not allowed.") : "") }; }
+  // v8.45: the two tests no robot can measure (order, second use) are written down by the room's builder. With them, a room that reaches its number of tests is not red for one it does not need
+  { const J = P.judged && P.judged[i];
+    if (J && i >= 16) { const got = [["Doorway", C.doorway.ok], ["Choices", C.choices.ok], ["First plan", C.first.ok], ["Order", !!J.order], ["Second use", !!J.second]], n = got.filter(g => g[1]).length, need = P.minTests(i);
+      const sum = " This room passes " + n + " of the five tests (it needs " + need + "): " + got.filter(g => g[1]).map(g => g[0]).join(", ") + "." + (J.order ? " Order: " + J.order : " Order: not claimed.") + (J.second ? " Second use: " + J.second : " Second use: not claimed.");
+      for (const k of ["doorway", "choices", "first"]) { if (C[k].s === "fail" && n >= need && !(k === "first")) { C[k].s = ""; C[k].sub = "not needed"; } C[k].text += sum; }
+    } }
   // Shortcut
   { const holes = [], fine = [];
     if (sc) (sc.hole ? holes : fine).push(sc.what);
@@ -188,7 +199,7 @@ function curve(i) {
   const a = r.sol.steps, b = p.sol.steps, fresh = P.fresh[i], ok = a >= b || (fresh && a >= b - 1);
   const vs = "Room " + prevI + (prevI !== i - 1 ? " (the room before the exam, room " + (i - 1) + ")" : "") + " took " + b + " steps; this room takes " + a + ".";
   return { s: ok ? "pass" : forced ? "fail" : "warn", short: (a - b >= 0 ? "+" : "") + (a - b), sub: "vs room " + prevI,
-    text: vs + (ok ? (a < b ? " One fewer is allowed: this is the first room with " + fresh + "." : " It does not fall.") : " It falls" + (fresh ? " by more than the one step allowed for the first room with " + fresh : "") + "." + (forced ? "" : " From room 16 on, a fall needs a written reason.")) };
+    text: vs + (ok ? (a < b ? " One fewer is allowed: this is the first room with " + fresh + "." : " It does not fall.") : " It falls" + (fresh ? " by more than the one step allowed for the first room with " + fresh : "") + "." + (forced ? "" : P.fall && P.fall[i] ? " Written reason: " + P.fall[i] : " From room 16 on, a fall needs a written reason.")) };
 }
 function detail(i) {
   const r = res[i]; if (!r) return;
@@ -220,11 +231,12 @@ function run(win) {
     const next = () => {
       if (i > 38) return finish(tc);
       const name = tc.names[i - 1]; $("sumText").textContent = "Room " + i + " of 38: " + name + ".";
-      let sol = null, sc = null, m = null;
+      let sol = null, sc = null, m = null, fp = null;
       try { sol = D.runSolve(win, name); } catch (e) { sol = { error: String(e) }; }
       try { sc = D.runShortcut(win, name); } catch (e) { sc = null; }
+      try { fp = D.runFirst ? D.runFirst(win, name) : null; } catch (e) { fp = null; }
       try { m = D.measure(win, name, sol && !sol.error ? sol : null); m.held = !!(tc.world.lv.held && tc.world.lv.held.length); } catch (e) { m = { white: 0, seen0: 0, stopCounts: [], windows: [], err: String(e) }; }
-      res[i] = { name, sol, sc, m }; res[i].cells = judge(i, name, sol, sc, m, aud); res[i].cells.curve = curve(i); paint(i);
+      res[i] = { name, sol, sc, m, fp }; res[i].cells = judge(i, name, sol, sc, m, aud, fp); res[i].cells.curve = curve(i); paint(i);
       $("bar").firstChild.style.width = (i / 38 * 100) + "%"; i++; setTimeout(next, 20);
     };
     next();
