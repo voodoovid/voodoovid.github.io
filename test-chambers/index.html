@@ -480,6 +480,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
             <li><b>Moving panels</b> slide along a lit wall. A portal placed on one rides with it, so pick your moment to step through.</li>
             <li><b>Turning panels</b> spin half a turn every few seconds. A portal on one goes round to the other side with it.</li>
             <li><b>Office windows</b> are tougher than they look, but not bullet-proof.</li>
+            <li><b>Looking round is free.</b> The first time you find anything hidden, you get 15 seconds and 2 portals back, and the clock stops while you are inside a hidden room. Exploring never costs you a medal.</li>
             <li><b>Light walkways</b> are solid: walk on them. <b>Carrier streams</b> lift whatever steps in and carry it along; walk sideways to step out. Both go through portals.</li>
             <li><b>Pastes</b> drip from nozzles and fall through portals. <b>Green</b> bounces you, <b>pink</b> makes you fast, and white <b>primer</b> makes a dark panel take portals.</li>
             <li>A <b>prism crate</b> sends a light beam out of its lens, which points where you were looking when you put it down.</li>
@@ -584,7 +585,7 @@ import { Furn } from "./furniture.js";
 import { GLYPHS as HAND_GLYPHS, handWrite, handBlock, handWidth } from "./hand.js";      // v8.19: hand-lettering                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.40";
+const VERSION = "v8.41";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const KT_TEST = /[?&]kittest\b/.test(location.search);      // v8.41: the room kit's test rooms
 const SC_TEST = /[?&]secretstest\b/.test(location.search), IT_TEST = SC_TEST || /[?&]itemtest\b/.test(location.search), EX_TEST = /[?&]exittest\b/.test(location.search), DF_TEST = /[?&]diffcheck\b/.test(location.search), SPFX = SC_TEST ? "testchambers.stest." : IT_TEST ? "testchambers.itest." : EX_TEST ? "testchambers.xtest." : DF_TEST ? "testchambers.dtest." : "testchambers.";      // v8.40: ?exittest (the side-exit test rooms) and ?diffcheck (the Difficulty Check page's robots) keep their own saves      // v8.35: ?secretstest plays only the Secrets Test room
@@ -7358,13 +7359,13 @@ function respawn() {
 }
 function resetLevelState() {
   run.deaths = 0; run.roomT = 0;
-  run.time = 0; run.portals = 0; run.top = 0; run.idle = 0; run.hinted = 0; run.said = {}; run.deadT = 0; holding = null; run.caught = 0; run.used = 0; run.hintAt = -1e9; run.hintLv = 0; run.ventSkip = null;
+  run.time = 0; run.portals = 0; run.top = 0; run.idle = 0; run.hinted = 0; run.said = {}; run.deadT = 0; holding = null; run.caught = 0; run.used = 0; run.hintAt = -1e9; run.hintLv = 0; run.ventSkip = null; run.refunds = 0;
   clearPortals(true); updateCross();
 }
 function startLevel(idx, quiet) {
   removeCubes(); disposeLevel();
   levelIdx = idx; buildLevel(idx); resetLevelState(); respawn(); placeHeld();
-  if (carry) { run.time = carry.time; run.portals = carry.portals; run.top = carry.top; run.ventSkip = carry.ventSkip || null; carry = null; }      // a later room of the same chamber: the clock runs on
+  if (carry) { run.time = carry.time; run.portals = carry.portals; run.top = carry.top; run.ventSkip = carry.ventSkip || null; run.refunds = carry.refunds || 0; carry = null; }      // a later room of the same chamber: the clock runs on
   { const R = ROOM[idx]; $("chNum").textContent = (world.lv.back ? "OFF THE TEST TRACK" : "CHAMBER " + String(R.c + 1).padStart(2, "0")) + (R.parts > 1 ? " · PART " + (R.part + 1) + " OF " + R.parts : ""); $("chTitle").textContent = world.lv.name; }
   Music.room(idx, actOf(idx)); Music.kick(); Lit.room(); setVoiceRoom(roomSize());
   if (!world.lv.silent) preloadVoice([...(world.lv.say.intro || []), ...(world.lv.say.hint || []), ...(world.lv.say.hint2 || []), ...(world.lv.say.done || []), ...(storyLine(world.lv.name) ? [STORY[world.lv.name]] : []), ...(lintLine(world.lv.name) ? [LINT_ASIDE[world.lv.name]] : []), ...(world.lv.hatch ? PARCEL_LINES : [])]);
@@ -7394,7 +7395,7 @@ function nextPart(S7) {
   const R = ROOM[levelIdx], i = levelIdx + 1; S7 = S7 || sevenStatus();
   const line = pick((S7.took7 && world.lv.say.done7) || (S7.away7 && world.lv.say.doneAway) || world.lv.say.done);
   if (S7.took7) { v5Seven(); sevenHere = i; sevenSlotted = false; sevenSaid = false; }        // v8.4: it comes with you, down in the lift, into the next room
-  carry = { time: run.time, portals: run.portals, top: run.top, ventSkip: run.ventSkip };
+  carry = { time: run.time, portals: run.portals, top: run.top, ventSkip: run.ventSkip, refunds: run.refunds || 0 };
   sfx.complete(); if (holding) dropCube(true); sadosShutUp(); store.set("room", i);
   const go = () => { startLevel(i, true); sevenToHands(); toast("Checkpoint · part " + (R.part + 2) + " of " + R.parts); say("done", line); introWhenOut(i, 900); };
   if (window.__tcNoLift) { go(); return; }
@@ -7430,7 +7431,7 @@ function completeLevel() {
   $("dTime").textContent = m + ":" + String(s).padStart(2, "0"); $("dPortals").textContent = run.portals; $("dSpeed").textContent = run.top.toFixed(1);
   const [parT, parP] = chamberPar(CH), medal = (run.time <= parT ? 1 : 0) + (run.portals <= parP ? 1 : 0) + 1, best = store.get("best", {});
   if (!run.ventSkip && !(best[CH] >= medal)) { best[CH] = medal; store.set("best", best); }       // v8.14: a run that skipped a room through a vent gets no medal
-  { const R = []; R.push(run.ventSkip ? "<b>No medal</b> &middot; " + run.ventSkip + " skipped through a vent" : '<b class="m' + medal + '">' + MEDAL[medal] + "</b> &middot; par " + fmtT(parT) + ", " + parP + " portals");      // v8.32: one clean row per award
+  { const R = []; R.push(run.ventSkip ? "<b>No medal</b> &middot; " + run.ventSkip + " skipped through a vent" : '<b class="m' + medal + '">' + MEDAL[medal] + "</b> &middot; par " + fmtT(parT) + ", " + parP + " portals"); if (run.refunds) R.push("Explorer's refund &middot; " + run.refunds * 15 + " s and " + run.refunds * 2 + " portals back");      // v8.32: one clean row per award
     R.push(store.get("badges", []).includes(CH) ? "Key card found" : "Key card not found");
     { const [cd, ct] = chamberCams(CH); if (ct) R.push("Cameras down " + cd + " of " + ct + (cd === ct ? ' &middot; <b class="m3">Lens Cap award</b>' : "")); }
     if (world.lv.hatch) R.push(Parcel.done ? "Parcel delivered and signed for" : "Parcel not delivered");
