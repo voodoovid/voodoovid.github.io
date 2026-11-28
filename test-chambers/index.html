@@ -440,6 +440,8 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
       <div class="opt">Picture <button id="oQuality" type="button">Auto</button></div>
       <div class="opt">Full screen <button id="oFull" type="button">Enter</button></div>
       <div class="opt">Challenge: portal limit <button id="oChal" type="button">Off</button></div>
+      <div class="opt">Watch opening movie <button id="oStory" type="button" data-tip="Watch the opening movie again (Skip or Esc comes back here)">Watch</button></div>
+      <div class="opt">Watch closing movie <button id="oEnding" type="button" data-tip="Watch the closing movie, the very end of the game (Skip or Esc comes back here)">Watch</button></div>
       <div class="opt">Unlock all levels (beta) <button id="oUnlock" type="button" data-tip="Beta testing only: every chamber can be picked from Chambers, whatever you have reached. This switch will be removed before release.">Off</button></div>
       <div class="opt">Saved progress <button id="oReset" type="button">Reset</button></div>
       <button class="btn" id="bOptBack" type="button" style="margin-top:16px">&lsaquo; Back</button>
@@ -593,7 +595,7 @@ import { createFilm } from "./film.js";      // v8.49: the film lens and the fil
 import { GLYPHS as HAND_GLYPHS, handWrite, handBlock, handWidth } from "./hand.js";      // v8.19: hand-lettering                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.49";
+const VERSION = "v8.50";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const KT_TEST = /[?&]kittest\b/.test(location.search);      // v8.41: the room kit's test rooms
 const FT_TEST = /[?&]firetest\b/.test(location.search);     // v8.47: the fire engine's test room (its own saves)
@@ -8876,6 +8878,8 @@ click("bBonusDone", () => Bonus.close());
 click("bPauseBonus", () => Bonus.open(null, "ovPause"));
 click("bSettings", openSettings);
 click("oGuide", () => { howFrom = "ovOptions"; showOv("ovHow"); });
+click("oStory", () => { ensureAudio(); Cut.play(() => { syncOpts(); showOv("ovOptions"); }); });          // v8.50: back in Settings (they had moved to Bonuses > Videos in v8.24; both places now)
+click("oEnding", () => { ensureAudio(); Cut.playEnding(() => { syncOpts(); showOv("ovOptions"); }); });
 click("bLogBack", () => Log.back());
 click("bMonBack", () => Log.close());
 click("bShowAgain", showStart);
