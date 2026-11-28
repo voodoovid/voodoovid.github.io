@@ -1,4 +1,4 @@
-/* Test Chambers: the Difficulty Check robots (v8.40, Batch J step 1, Nov 25, 2026; v8.46 adds Water Feature's three robots, which the page does not show: it stops at room 38).
+/* Test Chambers: the Difficulty Check robots (v8.40, Batch J step 1, Nov 25, 2026; v8.46 adds Water Feature's three robots and v8.48 Pilot Light's three, which the page does not show: it stops at room 38).
    Used by difficulty.html, which loads the game in a hidden frame with ?diffcheck (no frame loop, no lift rides, its own saves) and
    drives it one physics step at a time. One file for the page and for the headless runs, so both run the same robots.
    - DIFF_BOTS.install(win): puts the robot's hands, B, into the game's window (walk, aim, fire, use, step...).
@@ -325,9 +325,37 @@
   B.step(2.5); r.landed = B.at(); r.held2 = !!B.held();
   B.walk(29.6, 9.6); B.aim(29.6, 0.7, 11.6); B.step(0.3); B.use('crate on the button'); B.step(1); r.door = B.door('d1'); r.cr2 = B.P(crate);
   B.walk(32.5, 12.5); B.walk(32.5, 17.5, { time: 6 }); return B.res(r);
-    }
+    },
+    // v8.48: Pilot Light [49]. Blue on the burner's panel, orange on the pilot's (it lights), blue on the tank's panel (the boards), blue on K (the strap),
+    // down into the ash pit for the crate, orange on the pit floor, out of K over the pit, crate on the button
+    "Pilot Light": function (B, tc) {
+  const r = {}; B.load('Pilot Light'); B.step(0.5); const pl = B.pl(), W = B.world(), main = W.burners[0], pilot = W.burners[1], crate = W.cubes[0], strap = W.straps[0], boards = W.boards[0];
+  const wait = (max, f) => { let t = 0; while (t < max && !f()) { B.step(0.1); t += 0.1; } return +t.toFixed(1); };
+  B.walk(8, 5.6); r.blue = B.fire(0, 8, 1.5, 0.1);                                   // 1: blue on the burner's panel
+  B.walk(14, 10); B.walk(26.6, 11.5); B.walk(29.6, 7.6); r.orange = B.fire(1, 27.1, 1.5, 5);      // 2: orange on the pilot's panel
+  r.lightT = wait(4, () => pilot.lit); r.lit = pilot.lit;
+  B.walk(32.4, 6.2); r.x = B.fire(0, 30.9, 1.5, 2.5);                                // 3: blue on the tank's panel: the boards
+  r.boardT = wait(6, () => boards.gone); r.boards = boards.gone;
+  B.walk(27.5, 9); B.walk(26.6, 12.6); B.walk(21.8, 12.8); r.k = B.fire(0, 24, 5.4, 6.9);      // 4: blue on K: the strap
+  r.strapT = wait(6, () => strap.gone); r.strap = strap.gone; B.step(2); r.crate = B.P(crate);
+  B.walk(24.9, 12); B.walk(24.9, 10.4, { time: 3 }); B.step(0.8); r.inPit = B.at();
+  B.aim(crate.p.x, crate.p.y, crate.p.z); B.use('take the crate'); r.held = !!B.held();      // 5
+  B.walk(25.1, 10.5, { r: 0.1, time: 2 }); r.tile = B.fire(1, 23.5, -2.6, 8.9);      // 6: orange on the pit floor, clear of your own feet
+  B.aim(23.6, pl.p.y + 0.7, 9.2); tc.inp.fwd = 0.6; B.step(4, () => pl.p.y > 2.5); tc.inp.fwd = 0; B.count('through the pit floor, out of K, over the pit'); B.step(1.6); r.landed = B.at(); r.held2 = !!B.held();      // 7
+  B.walk(26.6, 12.4);
+  B.walk(28, 7.6); B.walk(31.5, 7.2); B.aim(31.5, 0.1, 5.6); B.step(0.3); B.use('crate on the button'); B.step(1); r.door = B.door('d1'); r.cr2 = B.P(crate);      // 8
+  B.walk(32.6, 4.4); B.walk(36.8, 3.9, { time: 6 }); return B.res(r);
+}
   };
   const shortcut = {
+    // v8.48: Pilot Light. The crate is in the ash pit: try to take it from the rim, all round, with the crate against each wall. `skipped` if it can be
+    "Pilot Light": { what: "taking the crate out of the ash pit from the rim, without going down", run: function (B, tc) {
+      const r = { tries: 0, got: 0 }; B.load('Pilot Light'); B.step(0.5); const W = B.world(), c = W.cubes[0], pl = B.pl(); W.straps[0].burn = 99; B.step(2.5);
+      for (const [cx, cz, spots] of [[24, 9.6, [[22.7, 9.6], [24.2, 11.1], [25.7, 9.6], [24.2, 8.1]]], [23.4, 9.6, [[22.7, 9.6], [22.7, 9.0], [22.7, 10.2]]], [25.0, 9.6, [[25.7, 9.6], [25.7, 9.0], [25.7, 10.2]]], [24.2, 10.4, [[24.2, 11.1], [23.6, 11.1], [24.8, 11.1]]], [24.2, 8.8, [[24.2, 8.1], [23.6, 8.1], [24.8, 8.1]]], [23.4, 8.8, [[23.4, 8.1], [22.7, 8.8], [22.7, 8.1]]], [25.0, 10.4, [[25.0, 11.1], [25.7, 10.4], [25.7, 11.1]]]]) {
+        c.body.setTranslation({ x: cx, y: -2.25, z: cz }, true); c.body.setLinvel({ x: 0, y: 0, z: 0 }, true); B.step(0.5);
+        for (const [x, z] of spots) { pl.p.set(x, 0.91, z); B.step(0.15); pl.p.set(x, 0.91, z); B.step(0.1); if (pl.p.y < 0.5) continue; B.aim(c.p.x, c.p.y, c.p.z); tc.useAction(); B.step(0.2); r.tries++; if (B.held()) { r.got++; tc.useAction(); B.step(1); } } }
+      r.skipped = r.got > 0; return B.res(r);
+    } },
     // v8.46: Water Feature. A running jump from the bank, and one from the top pond step, toward the deck. `skipped` if either gets there
     "Water Feature": { what: "running jumps across the pond, from the gap in the balustrade and from the top step", run: function (B, tc) {
       const pl = B.pl(), r = { tries: [] }, tp = (x, y, z) => { pl.p.set(x, y + 0.92, z); pl.v.set(0, 0, 0); B.step(1 / 120); pl.p.set(x, y + 0.92, z); pl.v.set(0, 0, 0); B.step(0.3); };
@@ -366,6 +394,16 @@
      `failed`: the plan did not finish the room. `recovered`: you can still carry on without restarting (after a death, the room is as it was).
      `died`: the plan got you killed. The plan only allows that where a sentry does it. ---------- */
   const first = {
+    // v8.48: Pilot Light. The obvious plan: the burner's panel and the panel you see from the way in (then the one behind the boiler). Both fall short
+    "Pilot Light": { what: "the burner's flame out of the panel you see from the way in: it dies 2.3 m short of the strap (0.7 m short from the panel behind the boiler)", run: function (B, tc) {
+  const r = {}; B.load('Pilot Light'); B.step(0.5); const W = B.world(), main = W.burners[0], pilot = W.burners[1], strap = W.straps[0];
+  const tip = b => { const g = b.segs[b.segs.length - 1]; return [g.o.x + g.d.x * g.len, g.o.y + g.d.y * g.len, g.o.z + g.d.z * g.len].map(v => +v.toFixed(2)); };
+  B.walk(8, 5.6); B.fire(0, 8, 1.5, 0.1); B.walk(14, 10); B.walk(21.8, 11.6); B.fire(1, 24, 5, 13.9); B.step(8);
+  r.tipF = tip(main); r.shortF = +(r.tipF[2] - strap.z).toFixed(2); r.failed = !strap.gone;
+  B.walk(21.8, 12.8); B.fire(1, 24, 5.4, 6.9); B.step(8); r.tipK = tip(main); r.shortK = +(strap.z - r.tipK[2]).toFixed(2); r.failedK = !strap.gone;
+  r.pilotLit = pilot.lit; r.recovered = !strap.gone && B.state() === 'play' && B.deaths() === 0;      // nothing is lost: the room is as it was
+  return B.res(r);
+} },
     // v8.46: Water Feature. The obvious plan: a portal in the top bowl, at your feet on the roof, under the spout
     "Water Feature": { what: "a portal in the top bowl: the water dribbles out of the panel onto the paving, and the long fall stops", run: function (B, tc) {
       const r = {}; B.load('Water Feature'); B.step(0.5); const W = B.world(), pond = W.pools[0], sp = id => W.sprayers.find(s => s.id === id);

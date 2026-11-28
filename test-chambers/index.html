@@ -490,6 +490,7 @@ kbd { font: 700 11px var(--font); padding: 1px 6px; border: 1px solid rgba(255,2
             <li><b>Water</b> goes through portals too, and leaves as fast as it arrived: the further it fell, the further it flies. It fills a pool, and crates float. Pond water is safe: fall in and you are put back on the bank.</li>
             <li>A <b>prism crate</b> sends a light beam out of its lens, which points where you were looking when you put it down.</li>
             <li><b>Sparks</b> fly straight and bounce. Send one into a <b>socket</b> to open its door. They sting.</li>
+            <li><b>Fire</b> comes from gas burners. A flame is four metres long and goes through portals, but the four metres are shared by the whole path: what it spends before the portal it does not have after it. It burns through straps and boards, and it lights a <b>pilot light</b>, which is then a burner of its own. Water puts fire out, and a flame stops at the surface of a pool. A red <b>drain valve</b> (GRAB) empties a pond.</li>
             <li><b>Presses</b> flatten anything under them as they fall. <b>Wall switches</b> are pressed with GRAB and run on a timer. <b>Slow buttons</b> need weight for a few seconds before they count.</li>
             <li><b>Cameras</b> hang on walls. Open a portal on the wall one hangs from and it falls off and goes dark. Bring down every camera in a chamber for the <b>Lens Cap</b> award, and every camera in the game for <b>Blind Spot</b>.</li>
             <li><b>Off the test track</b>, cameras sweep a cone of light. Stay in one too long and SaDos puts you back at the start of the section.</li>
@@ -590,7 +591,7 @@ import { Furn } from "./furniture.js";
 import { GLYPHS as HAND_GLYPHS, handWrite, handBlock, handWidth } from "./hand.js";      // v8.19: hand-lettering                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.47";
+const VERSION = "v8.48";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const KT_TEST = /[?&]kittest\b/.test(location.search);      // v8.41: the room kit's test rooms
 const FT_TEST = /[?&]firetest\b/.test(location.search);     // v8.47: the fire engine's test room (its own saves)
@@ -2408,6 +2409,54 @@ function level33() {
     hint: ["One of my cameras sweeps. The other has not blinked since it was installed. Neither of them can see through a pot plant."], hint2: ["There are three clean panels down here, and the third cannot be seen until you have used the second. I would rather you had not noticed any of them."],
     done: ["I have lost you again. Please stop doing that. It is a very long time since I lost anybody."] } });
 }
+// v8.48 Pilot Light (Batch L step L-2; plan: the Project doc batchL-plan.md, section 6; a new room, Chamber 21 Room 2, between Out Of Order and Corridor Nine).
+// The boiler room behind the tests. It teaches fire, and what fire has that a laser has not: a length. No water in this room.
+//   By the way in: the main burner in a railed bay, its flame on its own white panel 2 m from the nozzle. Half its 4 m are spent before any portal.
+//   The boiler is the block down the left-hand side. Past it, in the flue bay, the door's crate hangs by a strap over the ash pit (2.6 m deep, a white
+//   floor). Two high panels look at the strap: F on the far wall, seen from the way in (4.3 m from the strap), and K on the boiler's flank, hidden by
+//   the flue's cheek until you are in the bay (2.7 m from the strap). Behind the boiler: a pilot light, out, 0.6 m from its own panel PP; the way
+//   out, boarded up; and a tank whose panel X faces the boards from 2.8 m.
+//   The obvious plan: the burner's panel and F. The flame comes out of F and dies 2.3 m short of the strap. From K it dies 0.7 m short.
+//   The answer: the burner's flame out of PP lights the pilot (fire lights fire). The pilot spends 0.6 m, not 2, so its flame out of K reaches the
+//   strap (out of F it is still 0.9 m short). The crate drops into the ash pit. Nothing in the pit climbs out: the only white is under your feet,
+//   and both your portals are carrying fire. One of them goes on the pit floor; you (and the crate) come out of the other on the boiler's catwalk.
+//   Second use: the same pilot flame, out of X, burns the boards off the way out (the burner's own flame is 0.5 m short of them).
+// No trap: the pit's floor is white and F shows from every part of it; the burner's bay has a rail you can jump both ways; a flame that comes up
+// through the pit floor leaves room to stand beside it. Measured by robot: see the Project doc batchL-2-v8.48-notes.md.
+function level59() {
+  const L = 34, W = 14, H = 8, h = hall({ L, W, H, zc: 3.4 }), B = h.boxes; darkAll(h);
+  B.push(bx(16, 0, 0, 27, 6.2, 6.8, "dark"));                                                            // the boiler
+  B.push(bx(22.7, 0, 6.8, 22.95, H, 9.0, "dark"));                                                       // the flue's cheek: it hides the boiler's flank from the way in
+  opening(h, [23, -2.6, 8.4, 25.4, 0, 10.8]); refinish(h, [23, -2.7, 8.4, 25.4, -2.6, 10.8], "white");    // the ash pit under the flue, and its white floor
+  B.push(bx(6.5, 0, 3.6, 9.5, 0.95, 3.7, "dark"), bx(6.5, 0, 0, 6.6, 0.95, 3.6, "dark"), bx(9.4, 0, 0, 9.5, 0.95, 3.6, "dark"));      // the rail round the main burner's bay
+  B.push(bx(7.8, 0, 2.52, 8.2, 1.37, 2.92, "dark"), bx(28.12, 0, 4.8, 28.52, 1.37, 5.2, "dark"));        // the two burners' posts
+  B.push(bx(29.9, 0, 1.5, 30.8, 2.8, 3.5, "dark"));                                                      // the expansion tank, facing the way out
+  whiteOn(h, bx(7.25, 0.4, 0, 8.75, 2.6, 0.1));                                                          // PB: the main burner's panel, 2 m from its nozzle
+  whiteOn(h, bx(23.25, 3.9, 13.9, 24.75, 6.1, W));                                                       // F: high on the far wall, 4.3 m from the strap
+  whiteOn(h, bx(23.25, 3.9, 6.8, 24.75, 6.1, 6.9));                                                      // K: high on the boiler's flank, 2.7 m from the strap
+  whiteOn(h, bx(27, 0.4, 4.25, 27.1, 2.6, 5.75));                                                        // PP: the pilot light's panel, 0.6 m from its nozzle
+  whiteOn(h, bx(30.8, 0.4, 1.75, 30.9, 2.6, 3.25));                                                      // X: on the tank, 2.8 m from the boards
+  h.burners = [{ id: "main", pos: [8, 1.5, 2.1], dir: [0, 0, -1] },
+    { id: "pilot", pos: [27.7, 1.5, 5], dir: [-1, 0, 0], pilot: true, line: "You have lit the pilot light. It went out the day the engineer left. He said he would be right back." }];
+  h.cubes = [[24, 3.85, 9.6]]; h.straps = [{ id: "strap", pos: [24, 4.2, 9.6], top: H, cube: 0 }];
+  h.boards = [{ id: "way", min: [L - 0.3, 0, 1.9], max: [L, 3.2, 4.9] }];
+  h.plates = [{ pos: [31.5, 0, 5.6], door: "d1" }]; h.doors = [exitDoor(L, 3.4)]; h.par = [180, 6];
+  h.lamps.push(Object.assign(lamp(24.2, -0.5, 9.6, .4, 4, ...WARM), { bare: true }), lamp(30.5, 5.5, 3.4, .5, 8, ...WARM), Object.assign(lamp(8, 3.2, 1.8, .3, 4, ...WARM), { bare: true }));
+  h.loose = [["cyl", 21.5, 7.0, 3.4, 0.8, 10.4, 0, 0x4a4f55, 0, Math.PI / 2], ["cyl", 17.2, 6.75, 3.4, 0.5, 1.1, 0, 0x3a3f44], ["cyl", 25.8, 6.75, 3.4, 0.5, 1.1, 0, 0x3a3f44],      // the steam drum on top of the boiler, on two saddles (all of this is out of reach, and none of it is solid)
+    ["box", 24, 7.6, 8.98, 1.5, 0.8, 0.06, 0x30353a], ["box", 24, 7.6, 10.22, 1.5, 0.8, 0.06, 0x30353a], ["box", 23.28, 7.6, 9.6, 0.06, 0.8, 1.3, 0x30353a], ["box", 24.72, 7.6, 9.6, 0.06, 0.8, 1.3, 0x30353a],      // the flue's hood, round the top of the strap
+    ["cyl", 8, 4.75, 2.72, 0.045, 6.5, 0, 0x8a4a32], ["cyl", 28.32, 4.75, 5, 0.035, 6.5, 0, 0x8a4a32],                                    // the gas risers, down from the ceiling (they start above the burners' boxes)
+    ...[19, 20.2].flatMap((x, k) => [["cyl", x, 4.6, 6.82, 0.36, 0.04, 0, 0x23282c, Math.PI / 2, Math.PI / 2], ["cyl", x, 4.6, 6.85, 0.3, 0.04, 0, 0xd8d4c4, Math.PI / 2, Math.PI / 2],      // two pressure gauges on the boiler's flank: a dark bezel, a pale dial,
+      ["box", x + (k ? 0.07 : -0.09), 4.68, 6.875, 0.03, 0.24, 0.012, 0xb0251c, 0, k ? -0.7 : 0.9], ["cyl", x, 4.6, 6.88, 0.04, 0.02, 0, 0x23282c, Math.PI / 2, Math.PI / 2],      // a red needle (the two do not agree) and its boss,
+      ...[-1, 0, 1].map(t => ["box", x + t * 0.2, 4.6 + (t ? 0.12 : 0.23), 6.873, 0.02, 0.07, 0.008, 0x23282c, 0, -t * 0.9])])];      // and three marks round the dial
+  h.route = [[2, 0, 7], [9, 0, 6], [20, 0, 10.5], [26.5, 0, 12], [29, 0, 6], [31.5, 0, 4.4]];
+  h.signs.push(chSign(49, "PILOT LIGHT", 3.2, 4.4), hint("BOILER 2", [15.999, 4.6, 3.4], [-1, 0, 0], 3.0, 0.8), hint("PILOT", [27.001, 3.2, 5], [1, 0, 0], 1.5, 0.45), hint("ASH PIT", [24.2, 2.6, W - 0.001], [0, 0, -1], 2.0, 0.5),
+    scrawl("IT STILL HEATS THE WHOLE BUILDING.", "FOR NOBODY.  - O.", [19.5, 1.9, 6.801], [0, 0, 1], 3.6, 0.9));
+  return Object.assign(h, { num: 59, name: "Pilot Light", track: 1, say: {
+    intro: ["This is the boiler room. It is the only warm room I have, and you are the first visitor it has had who did not come to mend it.", "That is a gas burner. Its flame is four metres long, and it is four metres long however you bend it. A portal does not give it a fresh start. Nothing in here gets a fresh start."],
+    hint: ["The big flame spends two of its four metres getting to its own panel. There is a burner in here that wastes less. It is not lit. Fire lights fire."],
+    hint2: ["Light the small burner with the big one, and send the small one's flame instead. Of the two high panels, only one is near enough to the strap. And the ash pit has a white floor for a reason."],
+    done: ["You have set fire to my boiler room with my own boiler. I would be cross, but it is the first thing in here to work properly in years."] } });
+}
 // v8.46 Water Feature (plan: the Project doc water-plan.md; a new room, between Corridor Nine and Sorting Hall).
 // A staff atrium nobody has used in years. The fountain still runs: a spout pours half a metre into a tiled bowl up on the roof of the office block,
 // the bowl runs over through a hole in the overhang, and that falls six metres into a tiled basin by the way in. Across the room is an ornamental
@@ -3656,12 +3705,12 @@ function denAudit(only) {
    in is a small puzzle with that room's own device; the inner room is reached by portal through a slot (or, in Second
    Opinion, by weighing a plate down with a dead sentry). Nothing in a den is ever needed to finish.
    ===================================================================================== */
-const BS_FIRST = 38, BS_LAST = 50;                    // room indexes (0-based) of rooms 39 to 51 (v8.46: Water Feature went in as room 50, so 51 here; 50 in v8.17; 44 in v8.16). Rooms 52 to 54 keep their look
+const BS_FIRST = 38, BS_LAST = 51;                    // room indexes (0-based) of rooms 39 to 52 (v8.48: Pilot Light went in as room 49, so 52 here; 51 in v8.46, when Water Feature went in; 50 in v8.17; 44 in v8.16). Rooms 53 to 55 keep their look
 const isBS = i => !IT_TEST && i >= BS_FIRST && i <= BS_LAST;
 const isOff = i => !IT_TEST && i >= BS_FIRST;         // v8.17: from room 39 to the end nobody rides a lift (rooms 51 to 53 are not re-dressed, but you still arrive on foot)
-const BS_PLAIN = { "Corridor Nine": 1, "Water Feature": 1, "Sorting Hall": 1 };      // service corridors already: bare concrete throughout (their walls with hatches in are not pallets or girders)
+const BS_PLAIN = { "Corridor Nine": 1, "Water Feature": 1, "Sorting Hall": 1, "Pilot Light": 1 };      // service corridors already: bare concrete throughout (their walls with hatches in are not pallets or girders)
 const BS_LIGHT = { "Out Of Order": 1 };               // a light touch: the staff office keeps its own look (shutters and O.'s sign only)
-const BS_NAME = { "Water Feature": "STAFF ATRIUM", "Second Opinion": "SENTRY CHARGING BAY", "Prism": "OPTICS STORE", "Hot Seat": "BURN-IN BENCH", "Heavy Hat": "OVERHEAD STORES", "Lift Off": "GRAVITY RIG", "Live Wire": "SWITCH ROOM", "Paperweight": "CAMERA STORES",
+const BS_NAME = { "Pilot Light": "BOILER ROOM", "Water Feature": "STAFF ATRIUM", "Second Opinion": "SENTRY CHARGING BAY", "Prism": "OPTICS STORE", "Hot Seat": "BURN-IN BENCH", "Heavy Hat": "OVERHEAD STORES", "Lift Off": "GRAVITY RIG", "Live Wire": "SWITCH ROOM", "Paperweight": "CAMERA STORES",
   "Hall Of Mirrors": "SENTRY GRAVEYARD", "Final Exam": "PANEL ASSEMBLY", "Out Of Order": "OUT OF ORDER" };
 // what SaDos says when a camera first finds you in each room: she wants you back on the track (the device is still named, the route never is)
 const BS_SAY = {
@@ -4371,7 +4420,7 @@ const CAM_PLAN = {
   "Hall Of Mirrors": [{ keep: "plain", m: "corner" }, { m: "pole", at: [20, 9.5], drop: 2.2, watch: { aim: [20, 0, 6], sweep: 0.8, period: 6, range: 12, cone: 18 } }],     // the sweeping one now hangs from the ceiling (a white patch round its pole), no longer Paperweight's pair
   "Final Exam": [{ m: "corner", w: "x0", end: 1, look: "start" }, { keep: "watch" }],
   "Out Of Order": [{ m: "pole", at: [12, 6], drop: 1.2, look: "start" }],
-  "Corridor Nine": [{ keep: "watch" }, { keep: "watch" }], "Water Feature": [{ m: "corner", w: "x0", end: 1, look: "start" }], "Sorting Hall": [{ keep: "watch" }],
+  "Pilot Light": [{ m: "corner", w: "x0", end: 1, look: "start" }], "Corridor Nine": [{ keep: "watch" }, { keep: "watch" }], "Water Feature": [{ m: "corner", w: "x0", end: 1, look: "start" }], "Sorting Hall": [{ keep: "watch" }],
   "The Argument": [{ m: "corner", w: "x0", end: 1, look: "start" }],
   "The Last Order": [{ keep: "watch" }, { keep: "watch" }],
   "The Way Out": "none"
@@ -4439,7 +4488,7 @@ function camWrap(f, i) {
    route, seen from at least one spot off it, at least one find that needs no key card, no way in used more than three times, plate dens
    two at most; seams add no white and nothing in reach; the rooms that have nothing have nothing. Dens from before Batch I are listed
    as "rebuilt later" (they go in steps I-2 to I-4), not as failures. */
-const NOTHING_ROOMS = [1, 5, 6, 9, 11, 17, 22, 32, 53];      // v8.46: the last one was 52 until Water Feature went in as room 50
+const NOTHING_ROOMS = [1, 5, 6, 9, 11, 17, 22, 32, 54];      // v8.48: the last one was 53 until Pilot Light went in as room 49 (and 52 until Water Feature went in as room 50, in v8.46)
 const sentryBox = s => ({ min: [s.pos[0] - 0.26, s.pos[1], s.pos[2] - 0.26], max: [s.pos[0] + 0.26, s.pos[1] + 1.28, s.pos[2] + 0.26] });
 const WATCH_FIXED = { "Scales": [[12, 5.6, 13.9]], "Paperweight": [[23.5, 5.6, 11.9]], "Final Exam": [[31.7, 7.9, 13.9]], "Corridor Nine": [[12.5, 3.8, 0.02], [28.98, 3.9, 5]], "Sorting Hall": [[14, 6.5, 0.02]], "The Last Order": [[33.98, 4.2, 3], [26.1, 8.2, 0.02]], "Hall Of Mirrors": [[20, 8.9, 9.5]] };
 function secretAudit(only) {
@@ -4791,6 +4840,7 @@ function levelKitD() {                         // a U-turn with a pit: two legs 
   h.signs.push(chSign(96, "KIT TEST D: U-TURN", 4.6, 4.4));
   return Object.assign(h, { num: 96, name: "Kit Test D", track: 0, par: [50, 2], say: kitSay("Kit test. The room doubles back, and there is a pit in the way.", "A portal on the wall behind you, and one on the wall across the pit.") });
 }
+// v8.48: it also has a burner on the deck aimed down into the pool (the flame stops at the surface) and the pool's drain valve.
 // v8.46: the water engine's test room (?watertest only). Not a puzzle. Two spouts that never stop: a short fall (0.5 m, tile A) and a long one
 // (6 m, tile B). One wall panel, its middle 4.8 m up. Paving with a drain, then a dry pool 3.5 m long and 3 m deep with a crate in a glass column
 // in its corner, then a deck. The robots put a portal under each fall in turn and measure where the water lands, how long the pool takes,
@@ -4829,6 +4879,9 @@ function levelWaterTest() {
     parts: [{ x0: 17.5, x1: 18.4, z0: 9.1, z1: 10, cur: [-1.6, 0], vol: -3 }], spill: { min: [16.1, -0.25, 9.1], max: [18.42, 1.2, 10], push: [-2.2, 0] } }];
   h.sheets = [{ x0: 16.1, x1: 17.5, z0: 9.1, z1: 10, y: 0.02, flow: [-1, 0], full: "pond" }];
   h.cubes = [[17.95, -2.64, 9.55]];
+  B.push(bx(21.5, 0.6, 6.8, 21.9, 1.62, 7.2, "dark"));                                                   // v8.48: a burner on a post on the deck, aimed down into the pool (dry: the flame runs its 4 m; full: it stops at the surface),
+  h.burners = [{ id: "dip", pos: [21.45, 1.8, 7], dir: [-1, -0.6, 0] }];
+  h.valves = [{ pool: "pond", pos: [15, 1.2, 9.999], n: [0, 0, -1] }];                                   // and the pool's drain valve, on the wall by the bank
   h.lamps.push(lamp(19.2, -0.6, 5, .5, 7, .7, .9, 1));
   h.signs.push(chSign(97, "WATER TEST", 4.6, 4.4));
   return Object.assign(h, { num: 97, name: "Water Test", track: 0, par: [90, 2], say: kitSay("Water test. Two spouts, one panel, one pool. Water goes through portals at the speed it fell.", "A portal under the long fall, and one on the high panel.") });
@@ -4841,7 +4894,7 @@ const CHAMBERS = [
   ["Leaps", level15, level39, level20], ["Timing", level43, level29], ["Moving Parts", level31, level23],
   ["Bright Ideas", level37, level38], ["Handle With Care", level40, level44, level12], ["Cold Storage", level30, level21, level19],
   ["Second Opinion", level47, level41], ["Burnout", level50, level51], ["Loose Ends", level52, level42, level49],
-  ["Final Exam", level53, level24], ["Out Of Order", level32], ["Behind The Walls", level33, level58, level34], ["The Last Order", level45, level35, level36]
+  ["Final Exam", level53, level24], ["Out Of Order", level32, level59], ["Behind The Walls", level33, level58, level34], ["The Last Order", level45, level35, level36]
 ];
 if (IT_TEST) CHAMBERS.splice(0, CHAMBERS.length, SC_TEST ? ["Secrets Test", levelSecretsTest] : ["Item Test", levelItemTest]);
 if (KT_TEST) CHAMBERS.splice(0, CHAMBERS.length, ["Kit Test", levelKitA, levelKitB, levelKitC, levelKitD]);      // v8.41: ?kittest plays the room kit's test rooms
@@ -4865,8 +4918,11 @@ if (!store.get("mig53", 0)) {   // v5.3 put four chambers in after Handle With C
 if (!store.get("mig846", 0)) {  // v8.46 put a room (Water Feature) in as room 50: anyone saved in a later room moves along one. Medals and key cards are kept by chamber, finds by room name: nothing else moves
   store.set("mig846", 1); const r = store.get("room", -1); if (r >= 49) store.set("room", r + 1);
 }
+if (!store.get("mig848", 0)) {  // v8.48 put a room (Pilot Light) in as room 49: anyone saved in a later room moves along one, the same step as mig846. (A save that has not had mig846 yet was moved by it just above, so the two steps add up)
+  store.set("mig848", 1); const r = store.get("room", -1); if (r >= 48) store.set("room", r + 1);
+}
 if (!store.get("mig60", 0)) {   // v6.0 (the rewrite, Batch 1) reorders every chamber: saved progress, medals and badges start again, as agreed
-  store.set("mig60", 1); store.set("mig50", 1); store.set("mig53", 1); store.set("mig846", 1);
+  store.set("mig60", 1); store.set("mig50", 1); store.set("mig53", 1); store.set("mig846", 1); store.set("mig848", 1);
   store.set("progress5", 0); for (const k of ["finished5", "room", "best", "badges"]) { try { localStorage.removeItem(SPFX + k); } catch (e) {} }
 }
 { const bs = store.get("badges", []), ks = store.get("keys", []); let ch = false; for (const c of bs) if (!ks.includes("ch" + c)) { ks.push("ch" + c); ch = true; } if (ch) store.set("keys", ks); }      // v8.12: a badge found before the rename counts as a key card
@@ -5819,6 +5875,7 @@ function zonesStep(dt) {
   for (const a of W.pools) { a.was = a.on; a.on = false; }
   for (const p of W.plates) if (p.active && p.pump) for (const a of W.pools) if (a.pump === p.pump) a.on = true;
   for (const p of W.plates) { if (p.pump && p.pressed && !p.wasP) for (const a of W.pools) if (a.pump === p.pump) { a.dir = a.dir === 1 ? -1 : 1; sfx.pump(); } p.wasP = p.pressed; }   // each press runs the pump the other way: there, then back
+  valveStep(dt);
   for (const a of W.pools) {                    // v8.46: a pool that fills. Each drop that lands in it lifts the level; full, it spills
     if (!a.fill) continue;
     const f = Math.min(1, a.got / a.fill.drops), tgt = a.fill.from + (a.fill.to - a.fill.from) * f; a.y += (tgt - a.y) * Math.min(1, 3 * dt);
@@ -7013,6 +7070,7 @@ function useAction() {
   if (LintRoom.use()) return;
   if (Items.use()) return;
   if (v5Use()) return;
+  if (valveUse()) return;
   if (holding) { dropCube(); return; }
   const eye = eyePos(new V3()), f = viewDir(new V3());
   let best = null, bs = 0, watched = false, bolted = false;
@@ -7170,7 +7228,7 @@ function waterCatch(pt, isHit) {                       // what a drop has met: a
   const W = world, Q = W.water;
   for (const a of W.pools) {
     if (!a.fill || pt.y > (isHit ? a.rim : a.y) || !poolPart(a, pt.x, pt.z, 0.06)) continue;
-    if (a.got < a.fill.drops) a.got++; a.rain = Q.now; return a;
+    if (a.got < a.fill.drops && !a.draining) a.got++; a.rain = Q.now; return a;      // v8.48: while its drain is open, a pool does not rise
   }
   if (isHit) for (const d of W.drains) if (pt.x > d.min[0] - 0.05 && pt.x < d.max[0] + 0.05 && pt.y > d.min[1] - 0.05 && pt.y < d.max[1] + 0.05 && pt.z > d.min[2] - 0.05 && pt.z < d.max[2] + 0.05) { Q.fed[d.id] = Q.now; return d; }
   return null;
@@ -7256,6 +7314,8 @@ function poolOut(a) {                                  // a safe pool: you are p
    WATER BEATS FIRE. A water drop that meets a flame is turned to steam, and the flame is out for as long as water keeps crossing the line it
    would take (and FIRE.relight seconds after). While it is out, the water goes through. A main burner lights itself again; a pilot light
    stays out until it is lit again.
+   v8.48: a flame stops at the surface of a pool (`fireWater`: any pool, a filling one once it has water in it), and at nothing if it starts below
+   the surface. A burner's `sunk` is the point where it was cut. A pilot light takes `line` (SaDos, once, the first time it is lit).
    Flames do not burn crates, sentries or cameras, and loose things do not block them. Test room: ?firetest. __tc.fire has the numbers.
    ===================================================================================== */
 const FIRE = { reach: 4, r: 0.3, dps: 70, strap: 1.2, board: 2.0, light: 0.5, relight: 1.0, cap: 420 };
@@ -7278,7 +7338,7 @@ function fireBuild(W, lv) {
     const box = new THREE.Mesh(new THREE.BoxGeometry(0.26 * k, 0.26 * k, 0.22), SENT.dark); box.position.z = -0.62;
     const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.07 * k, 0.014, 8, 18), new THREE.MeshStandardMaterial({ color: new THREE.Color(.55, .08, .05), roughness: .55, metalness: .3 })); wheel.userData.ownMat = 1; wheel.rotation.x = Math.PI / 2; wheel.position.set(0, 0.16 * k, -0.62);
     g.add(pipe, noz, box, wheel); levelGroup.add(g);
-    W.burners.push({ o, dir, id: d.id || "b" + n, reach: d.reach || FIRE.reach, pilot: !!d.pilot, lit: !d.pilot, when: d.when, wetT: -9, heat: 0, hot: -1, on: false, a: 0, segs: [], len: 0, seed: Math.random() });
+    W.burners.push({ o, dir, id: d.id || "b" + n, reach: d.reach || FIRE.reach, pilot: !!d.pilot, lit: !d.pilot, when: d.when, line: d.line, wetT: -9, heat: 0, hot: -1, on: false, a: 0, segs: [], len: 0, seed: Math.random() });
   });
   for (const d of S) {
     const c = d.cube != null ? W.cubes[d.cube] : null, [x, y0, z] = d.pos, y1 = d.top;
@@ -7317,12 +7377,71 @@ function fireTouch(b, test) {                          // does this burner's fla
   for (const g of b.segs) { const n = Math.max(1, Math.ceil(g.len / 0.15)); for (let k = 0; k <= n; k++) { _fv.copy(g.o).addScaledVector(g.d, g.len * k / n); if (test(_fv)) return true; } }
   return false;
 }
+/* v8.48: A DRAIN VALVE (`lv.valves`: { id, pool, pos, n, time }). A red hand wheel on a wall or a post. GRAB opens it: the pool named by `pool`
+   (one with `fill`) runs out in `time` seconds (10), whatever is still pouring in, and the valve shuts itself when the pool is empty. While it is
+   open the pool is not full (world.ev["full:" + id] goes false, the current and the spill stop) and what floats goes down with the water.
+   world.ev["drained:" + id] is set each time a pool has run dry. */
+function valveBuild(W, lv) {
+  W.valves = [];
+  for (const d of (lv.valves || [])) {
+    const pos = new V3(...d.pos), n = new V3(...d.n).normalize(), g = new THREE.Group(); g.position.copy(pos); g.lookAt(pos.clone().add(n));
+    const red = new THREE.MeshStandardMaterial({ color: new THREE.Color(.62, .07, .05), roughness: .5, metalness: .35 });
+    const flange = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.05, 20).rotateX(Math.PI / 2), SENT.dark); flange.position.z = 0.025;
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.22, 12).rotateX(Math.PI / 2), SENT.steel); stem.position.z = 0.13;
+    const wheel = new THREE.Group(); wheel.position.z = 0.22;
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.17, 0.024, 10, 28), red); rim.userData.ownMat = 1; wheel.add(rim);
+    for (let k = 0; k < 3; k++) { const sp = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.03, 0.022), red); sp.rotation.z = k * Math.PI / 3; wheel.add(sp); }
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.05, 12).rotateX(Math.PI / 2), SENT.steel); wheel.add(hub);
+    g.add(flange, stem, wheel); levelGroup.add(g);
+    W.valves.push({ id: d.id || d.pool, pool: d.pool, pos, n, time: d.time || 10, open: false, wheel, spin: 0 });
+  }
+}
+function valveNear() {
+  if (!world || !world.valves || !world.valves.length) return null; const eye = eyePos(tmpB), f = viewDir(tmpC);
+  for (const v of world.valves) { tmpA.copy(v.pos).sub(eye); const d = tmpA.length(); if (d < 2.7 && tmpA.dot(f) / d > 0.78) return v; }
+  return null;
+}
+function valveUse() {                                  // GRAB on a drain valve opens it
+  const v = valveNear(); if (!v) return false; const a = world.pools.find(p => p.id === v.pool);
+  if (!a || v.open) { toast("The drain is open"); return true; }
+  if (a.got <= 0) { sfx.button(false); toast("Nothing to drain: it is empty"); return true; }
+  v.open = true; sndAt(v.pos); sfx.button(true); sfx.pump(); toast("Drain open");
+  return true;
+}
+function valveStep(dt) {
+  const W = world; if (!W.valves || !W.valves.length) return;
+  for (const v of W.valves) {
+    const a = W.pools.find(p => p.id === v.pool); if (!a || !a.fill) continue;
+    v.spin += ((v.open ? 1 : 0) - v.spin) * Math.min(1, 4 * dt); v.wheel.rotation.z = v.spin * 4.4;
+    a.draining = v.open; if (!v.open) continue;
+    a.got = Math.max(0, a.got - a.fill.drops / v.time * dt);
+    if (a.full) { a.full = false; W.ev["full:" + (a.id || "pool")] = false; }
+    if (a.got <= 0) { v.open = false; a.draining = false; W.ev["drained:" + (a.id || "pool")] = true; sndAt(v.pos); sfx.button(false); toast("Empty. The drain has shut itself"); }
+  }
+}
+function fireWater(b) {                                 // v8.48: cut a flame's path where it meets standing water. Water beats fire: nothing under a pool's surface burns
+  const W = world; let cut = null;
+  for (let i = 0; i < b.segs.length && !cut; i++) {
+    const g = b.segs[i]; let t = g.len;
+    for (const a of W.pools) {
+      if (a.fill && a.y < a.fill.from + 0.03) continue;                                      // a dry pond is not water
+      if (g.o.y <= a.y) { if (poolPart(a, g.o.x, g.o.z)) t = 0; continue; }                 // it starts under water (a portal below the surface)
+      if (g.d.y >= -1e-6) continue; const tt = (a.y - g.o.y) / g.d.y; if (tt >= t) continue;
+      if (poolPart(a, g.o.x + g.d.x * tt, g.o.z + g.d.z * tt)) t = tt;
+    }
+    if (t < g.len) { g.len = t; b.segs.length = t > 0.01 ? i + 1 : i; b.len = g.t0 + t; cut = _fw.copy(g.o).addScaledVector(g.d, t); }
+  }
+  return cut;
+}
+const _fw = new V3();
 function fireStep(dt) {
   const W = world, F = W.fire; if (!F) return; F.now += dt; const Q = W.water, pl = player, r = FIRE.r, now = F.now;
   for (const s of W.straps) if (!s.gone && s.c && s.c.body && !s.locked) { s.locked = true; s.c.body.setBodyType(RAPIER.RigidBodyType.Fixed, true); }
   for (const b of W.burners) {
     const gas = b.lit && (!b.when || b.when(W)); b.segs.length = 0; b.len = 0;
     if (gas) { const res = castRay(b.o, b.dir, b.reach, false, true); for (const g of res.segs) if (g.len > 0.01) { b.segs.push({ o: g.o, d: g.d, len: g.len, t0: b.len }); b.len += g.len; } }
+    b.sunk = gas && fireWater(b);      // v8.48: a flame stops at the surface of a pool
+    if (b.sunk && b.on && Math.random() < 0.3) { fireBit(b.sunk, 0); if (now - (b.hissT || -9) > 0.9) { b.hissT = now; sndAt(b.sunk); sfx.fizzle(); } }
     if (gas && Q) for (let i = Q.drops.length - 1; i >= 0; i--) {
       const p = Q.drops[i].p; let hit = false; for (const g of b.segs) if (distSegPoint(g.o, g.d, g.len, p) < r + 0.08) { hit = true; break; }
       if (hit) { b.wetT = now; if (b.on) { fireBit(p, 0); Q.drops.splice(i, 1); } }
@@ -7342,7 +7461,7 @@ function fireStep(dt) {
       if (Math.min(d1, d2, d3) < 0.42) { hurt(FIRE.dps * dt, "fire"); break; }
     }
   }
-  for (const q of W.burners) if (q.pilot && !q.lit) { q.heat = q.hot === now ? q.heat + dt : 0; if (q.heat >= FIRE.light) { q.lit = true; q.heat = 0; q.wetT = -9; W.ev["lit:" + q.id] = true; sndAt(q.o); sfx.launch(); } }
+  for (const q of W.burners) if (q.pilot && !q.lit) { q.heat = q.hot === now ? q.heat + dt : 0; if (q.heat >= FIRE.light) { q.lit = true; q.heat = 0; q.wetT = -9; W.ev["lit:" + q.id] = true; sndAt(q.o); sfx.launch(); if (q.line && !q.said) { q.said = true; say(null, q.line); } } }      // v8.48: a pilot's `line`: SaDos, once, the first time it is lit
   for (const s of W.straps) {
     if (s.gone) continue; const hot = s.hot === now; s.burn = hot ? s.burn + dt : Math.max(0, s.burn - dt * 0.4);
     const k = clamp(s.burn / s.need, 0, 1); s.mat.color.setRGB(.6 - .52 * k, .44 - .4 * k, .13 - .1 * k); s.mat.emissive.setRGB(1.8 * k, .45 * k, .03 * k);
@@ -7423,7 +7542,7 @@ function v5Build(W, lv) {
     W.sprayers.push({ o, dir, kind: d.kind, rate: d.rate || 0.55, speed: d.speed || 0.6, spread: d.spread || 0, t: 0.5, when: d.when });
   }
   waterBuild(W, lv);
-  fireBuild(W, lv);
+  fireBuild(W, lv); valveBuild(W, lv);
   for (const d of (lv.sparkers || [])) {
     const o = new V3(...d.pos), dir = new V3(...d.dir).normalize(); v5Housing(o, dir, V5.hazard, 0.44);
     const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.6, 2.3, .7) }), mesh = new THREE.Mesh(V5.spark, mat); mesh.userData.ownMat = 1;
@@ -7641,6 +7760,7 @@ function v5Frame(dt, time) {
     const near = v5Near(); let left = 0; for (const s of W.switches) left = Math.max(left, s.left);
     W.v5msg = left > 0 ? "Switch holds for " + left.toFixed(1) : near ? "GRAB presses the switch" : "";
   }
+  if (state === "play" && W.valves && W.valves.length) { const v = valveNear(); if (v) W.v5msg = v.open ? "The drain is open" : "GRAB opens the drain valve"; }
 }
 // Crate Seven and the prism crate are ordinary crates with something added
 function v5Dress(c, A) {
@@ -7805,7 +7925,7 @@ function die(kind) {
   state = "dead"; run.deadT = 0; sfx.death(); flash("r"); player.hp = 0;
   if (holding) { const c = holding; dropCube(true); c.returnOnRespawn = true; }
   run.deaths = (run.deaths || 0) + 1;
-  say(kind === "crush" ? "crushed" : kind === "spark" ? "sparked" : run.deaths === 3 || run.deaths === 6 ? "manyDeaths" : "death");
+  say(kind === "crush" ? "crushed" : kind === "spark" ? "sparked" : kind === "fire" ? "burned" : run.deaths === 3 || run.deaths === 6 ? "manyDeaths" : "death");
 }
 function respawn() {
   run.used = 0;
@@ -8440,6 +8560,7 @@ function storyLine(name, mark) {            // the chamber's story line, if this
 const isDelivery = () => store.get("story", []).includes(lineHash(STORY["Air Mail"]));
 const LINES = {
   death: ["Acid. The oldest trick in the facility, and you fell for it.", "Please do not take that personally. Everyone does it once.", "That is what the acid is for. It is not decorative.", "I have noted the cause of death as optimism.", "Don't worry. We have thousands of you.", "Do not worry about that one. The next you is already on the way.", "You died. I have updated your file. It was a short update.", "That counts as an attempt. It does not count as a good one.", "There goes another one. Do not worry, I kept the receipt.", "Your body has been recycled. Your dignity went some time ago.", "Ouch. I assume. I have never had a body to hurt.", "I would call that a learning experience, if you appeared to be learning anything.", "Back to the start with you. The start missed you.", "If dying were a test, you would be top of the class.", "Remarkable. You have found a way to fail that I had not tested yet.", "Please stop doing that. The cleaning budget is not unlimited. It is not limited either. It is zero.", "I have seen that exact mistake before. It was also you. Earlier."],
+  burned: ["That was fire. It is the oldest test there is, and everybody fails it the same way.", "You walked into the flame. It was four metres long and bright orange. I do not know what more it could have done.", "Burnt. I will open a window. I have no windows. I will think about a window.", "The flame was not chasing you. It was standing still. You did all of the work."],      // v8.48: a death by fire
   deathD: ["The delivery has been damaged in transit. I will note it on the form.", "Fragile. That should have been written on you somewhere.", "Returned to sender. The sender is the start of the room."],
   first: ["Congratulations. You have made a hole in my wall.", "Oh, a portal. Look at you.", "A portal. The wall did nothing to deserve that.", "Your first hole in my facility. I will have it framed. Then I will have it filled."],
   bad: ["That surface is not portal-friendly. It is not you-friendly either.", "Dark panels reject portals. I was going to say it is not personal, but it is quite personal.", "Dark panels do not take portals. They do take fingerprints. Please stop shooting them.", "Wrong surface. I would draw you a diagram, but you would only shoot that too.", "That panel is dark for a reason. The reason is you."],
