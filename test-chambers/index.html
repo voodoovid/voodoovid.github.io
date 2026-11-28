@@ -590,11 +590,12 @@ import { Furn } from "./furniture.js";
 import { GLYPHS as HAND_GLYPHS, handWrite, handBlock, handWidth } from "./hand.js";      // v8.19: hand-lettering                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.46";
+const VERSION = "v8.47";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const KT_TEST = /[?&]kittest\b/.test(location.search);      // v8.41: the room kit's test rooms
+const FT_TEST = /[?&]firetest\b/.test(location.search);     // v8.47: the fire engine's test room (its own saves)
 const WT_TEST = /[?&]watertest\b/.test(location.search);    // v8.46: the water engine's test room (its own saves)
-const SC_TEST = /[?&]secretstest\b/.test(location.search), IT_TEST = SC_TEST || /[?&]itemtest\b/.test(location.search), EX_TEST = /[?&]exittest\b/.test(location.search), DF_TEST = /[?&]diffcheck\b/.test(location.search), SPFX = SC_TEST ? "testchambers.stest." : IT_TEST ? "testchambers.itest." : EX_TEST ? "testchambers.xtest." : WT_TEST ? "testchambers.wtest." : DF_TEST ? "testchambers.dtest." : "testchambers.";      // v8.40: ?exittest (the side-exit test rooms) and ?diffcheck (the Difficulty Check page's robots) keep their own saves      // v8.35: ?secretstest plays only the Secrets Test room
+const SC_TEST = /[?&]secretstest\b/.test(location.search), IT_TEST = SC_TEST || /[?&]itemtest\b/.test(location.search), EX_TEST = /[?&]exittest\b/.test(location.search), DF_TEST = /[?&]diffcheck\b/.test(location.search), SPFX = SC_TEST ? "testchambers.stest." : IT_TEST ? "testchambers.itest." : EX_TEST ? "testchambers.xtest." : FT_TEST ? "testchambers.ftest." : WT_TEST ? "testchambers.wtest." : DF_TEST ? "testchambers.dtest." : "testchambers.";      // v8.40: ?exittest (the side-exit test rooms) and ?diffcheck (the Difficulty Check page's robots) keep their own saves      // v8.35: ?secretstest plays only the Secrets Test room
 const $ = id => document.getElementById(id);
 const clamp = (x, a, b) => x < a ? a : x > b ? b : x;
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -4794,6 +4795,25 @@ function levelKitD() {                         // a U-turn with a pit: two legs 
 // (6 m, tile B). One wall panel, its middle 4.8 m up. Paving with a drain, then a dry pool 3.5 m long and 3 m deep with a crate in a glass column
 // in its corner, then a deck. The robots put a portal under each fall in turn and measure where the water lands, how long the pool takes,
 // whether the crate comes out through the notch, and where a player who takes the long fall comes down.
+function levelFireTest() {                      // v8.47: the fire engine's test room (?firetest). One burner, three panels at different distances from a strap, a pilot light, boards over a doorway, a spout
+  const h = hall({ L: 30, W: 12, H: 7 }), B = h.boxes;
+  partition(B, 23, 0.4, 12, 7, 1.6, 3.6); darkAll(h);                                                   // a wall with one doorway, boarded up
+  B.push(bx(7.8, 0, 1.42, 8.2, 1.37, 1.82, "dark"));                                                    // the burner's post
+  whiteOn(h, bx(7.25, 0.4, 0, 8.75, 2.6, 0.1));                                                         // where the flame lands, 0.9 m from the nozzle
+  B.push(bx(11.4, 0, 5, 12, 6.2, 7, "dark"), bx(18, 0, 5, 18.6, 6.2, 7, "dark"));                       // two blocks facing the hanging crate
+  whiteOn(h, bx(12, 3.9, 5.25, 12.1, 6.1, 6.75)); whiteOn(h, bx(17.9, 3.9, 5.25, 18, 6.1, 6.75));       // the near panel (1.9 m from the strap) and the far one (3.9 m: out of reach)
+  B.push(bx(19.72, 0, 2.4, 20.12, 1.37, 2.8, "dark"));                                                  // the pilot light's post
+  whiteOn(h, bx(19.85, 0.4, 0, 21.35, 2.6, 0.1));                                                       // the panel that looks at the pilot light
+  B.push(bx(3.92, 3.25, 10.2, 4.08, 3.4, 12, "dark")); whiteOn(h, bx(2.8, 0, 8.8, 5.2, 0.1, 11.2)); // the spout's arm, and the tile under it
+  h.burners = [{ id: "main", pos: [8, 1.5, 1.0], dir: [0, 0, -1] }, { id: "pilot", pos: [20.6, 1.5, 2.6], dir: [1, 0, 0], pilot: true, when: w => !w.ev["burnt:door"] }];
+  h.cubes = [[14, 3.6, 6]]; h.straps = [{ id: "strap", pos: [14, 3.95, 6], top: 7, cube: 0 }];
+  h.boards = [{ id: "door", min: [23.05, 0, 1.6], max: [23.35, 3.2, 3.6] }];
+  h.sprayers = [{ pos: [4, 3.2, 10], dir: [0, -1, 0], kind: "water", id: "spout" }];
+  h.drains = [{ id: "tile", min: [2.8, -0.2, 8.8], max: [5.2, 0.16, 11.2], grate: [4.85, 0.1, 10.85, 0.4, 0.4] }];
+  h.plates = [{ pos: [26.5, 0, 6], door: "d1" }]; h.doors = [exitDoor(30, 6, "d1", 1)];
+  h.signs.push(chSign(96, "FIRE TEST", 4.6, 4.4));
+  return Object.assign(h, { num: 96, name: "Fire Test", track: 0, par: [120, 4], say: kitSay("Fire test. One burner, and a flame four metres long. It goes through portals, and the four metres do not start again on the other side.", "The crate hangs by a strap. One of the two high panels is near enough to it.") });
+}
 function levelWaterTest() {
   const h = shell({ cells: [[0, 0, 0, 21, 11, 10], [21, 0.6, 0, 34, 11, 10]], start: { pos: [2, 0, 7], yaw: -Math.PI / 2 }, exit: { wall: "x1", at: [34, 0.6, 5] } });
   const B = h.boxes;
@@ -4825,6 +4845,7 @@ const CHAMBERS = [
 ];
 if (IT_TEST) CHAMBERS.splice(0, CHAMBERS.length, SC_TEST ? ["Secrets Test", levelSecretsTest] : ["Item Test", levelItemTest]);
 if (KT_TEST) CHAMBERS.splice(0, CHAMBERS.length, ["Kit Test", levelKitA, levelKitB, levelKitC, levelKitD]);      // v8.41: ?kittest plays the room kit's test rooms
+if (FT_TEST) CHAMBERS.splice(0, CHAMBERS.length, ["Fire Test", levelFireTest]);        // v8.47: ?firetest plays the fire engine's test room
 if (WT_TEST) CHAMBERS.splice(0, CHAMBERS.length, ["Water Test", levelWaterTest]);      // v8.46: ?watertest plays the water engine's test room
 if (EX_TEST) CHAMBERS.splice(0, CHAMBERS.length, ["Exit Test", levelExitA, levelExitB, levelExitC]);      // v8.40 (Batch J step 1): ?exittest plays the three side-exit test rooms      // v8.5: ?itemtest plays only the Item Test room
 const LEVEL_FUNCS = [], ROOM = [], FIRST = [];
@@ -5412,7 +5433,7 @@ function buildLevel(idx) {
   try { planDock(lv); } catch (e) { console.error(e); lv.dock = null; }       // v7.1: the lift alcove behind the start
   try { lintDress(lv, idx); } catch (e) { console.error(e); }                 // v8.2: Ted & Lint stickers and Ted's notes
   for (const sg of lv.signs) if (sg.kind === "chamber" && /^TEST CHAMBER/.test(sg.a)) sg.a = "TEST CHAMBER " + String(lv.num).padStart(2, "0");   // numbered by the chamber it belongs to
-  const W = world = { idx, lv, solids: lv.boxes, air: lv.air.map(a => bx(...a)), doors: [], plates: [], cubes: [], camProps: [], acid: [], fx: [], t: 0, dyn: [], sentries: [], beams: [], receivers: [], fields: [], gravs: [], pools: [], offices: [], cams: [], movers: [], glass: [], spinners: [], core: null, walks: [], streams: [], sprayers: [], sparkers: [], sockets: [], crushers: [], shifters: [], switches: [], blobs: [], patches: [], ev: {} };
+  const W = world = { idx, lv, solids: lv.boxes, air: lv.air.map(a => bx(...a)), doors: [], plates: [], cubes: [], camProps: [], acid: [], fx: [], t: 0, dyn: [], sentries: [], beams: [], receivers: [], fields: [], gravs: [], pools: [], offices: [], cams: [], movers: [], glass: [], spinners: [], core: null, walks: [], streams: [], sprayers: [], sparkers: [], sockets: [], crushers: [], shifters: [], boards: [], burners: [], straps: [], switches: [], blobs: [], patches: [], ev: {} };
   // static surfaces
   // v8.6: furniture (`lv.furn`, the kit in furniture.js). Its lamps join the bake; its solid boxes join the level AFTER the bake, so they
   // block you, crates and shots and take no portals, but are never drawn (the furniture's own meshes are the look)
@@ -6066,6 +6087,7 @@ function collectSolids(withCubes, except, noDyn) {
   for (const sp of world.spinners) { _sol.push(sp.box); if (sp.fin) _sol.push(sp.fin); }
   for (const m of world.crushers) _sol.push(m.box);
   for (const m of world.shifters) _sol.push(m.box);
+  for (const m of world.boards) if (!m.gone) _sol.push(m.box);      // v8.47: boards, until they are burnt
   if (withCubes) { for (const c of world.cubes) if (!c.held && c !== except) _sol.push(cubeBox(c)); for (const c of world.sentries) if (!c.held && c !== except) _sol.push(cubeBox(c)); }
   return _sol;
 }
@@ -6998,7 +7020,7 @@ function useAction() {
     tmpA.copy(c.p).sub(eye); const dist = tmpA.length(); if (dist > (c.kind === "sentry" ? 3.0 : 3.6)) continue;
     const dp = tmpA.dot(f) / dist; if (dp < (c.kind === "sentry" ? 0.78 : 0.84) || dist < 0.01) continue;
     const ray = castRay(eye, tmpA.clone().normalize(), dist, false); if (ray.hit && ray.hit.dist < dist - 0.5) continue;
-    if (c.raft) continue;
+    if (c.raft || c.hung) continue;      // v8.47: a crate hanging on a strap cannot be taken
     if (c.kind === "sentry" && c.state === "on" && c.seen > 0 && !(c.wake > 0)) { watched = true; continue; }   // not while it is looking at you
     if (c.bolt && c.state === "on") { bolted = true; continue; }                                                // bolted to the floor: think of something else
     if (dp > bs) { bs = dp; best = c; }
@@ -7011,7 +7033,7 @@ function useAction() {
       for (let k = 1; k < ray.segs.length && !best; k++) {
         const g = ray.segs[k], lim = Math.min(g.len, 4.2 - along);
         for (const c of props()) {
-          if (c.held || c.raft || (c.bolt && c.state === "on") || (c.kind === "sentry" && c.state === "on" && c.seen > 0 && !(c.wake > 0))) continue;
+          if (c.held || c.raft || c.hung || (c.bolt && c.state === "on") || (c.kind === "sentry" && c.state === "on" && c.seen > 0 && !(c.wake > 0))) continue;
           tmpA.copy(c.p).sub(g.o); const t = tmpA.dot(g.d); if (t < -0.3 || t > lim + 0.5) continue;
           const perp = tmpA.addScaledVector(g.d, -t).length(); if (perp > (c.kind === "sentry" ? 0.7 : 0.6)) continue;
           if (!best || t < bs) { best = c; bs = t; }
@@ -7219,6 +7241,153 @@ function poolOut(a) {                                  // a safe pool: you are p
   run.dunked = (run.dunked || 0) + 1; toast("Out of the water, back on the bank");
   if (a.dunk && !a.dunkSaid) { a.dunkSaid = true; say(null, a.dunk); }
 }
+/* =====================================================================================
+   v8.47: FIRE. A gas burner (`lv.burners`: { id, pos, dir, reach, pilot, when }) throws a flame FIRE.reach metres long (4 by default). The flame
+   is a ray (castRay, so it goes through portals), and the reach is shared by the whole path: a flame that has gone 1 m before the portal has
+   3 m left on the far side. That is what makes it a different device from the laser: distance is the puzzle.
+   What a flame does:
+     - a strap (`lv.straps`: { id, pos: [x, y, z] (its foot), top: y, cube: index, burn: seconds }) burns through after `burn` seconds in the
+       flame (FIRE.strap) and is gone for good: world.ev["burnt:" + id]. A crate named by `cube` hangs on it (fixed, cannot be taken) and drops;
+     - boards (`lv.boards`: { id, min, max, burn }) are a solid, dark box of planks. After `burn` seconds (FIRE.board) they are gone for good:
+       world.ev["burnt:" + id], and the box no longer blocks anything;
+     - a pilot light (a burner with `pilot: true`) is out until a flame passes within 0.45 m of its nozzle for FIRE.light seconds; then it
+       is a burner of its own: world.ev["lit:" + id];
+     - you: it hurts like a beam (FIRE.dps a second while you stand in it).
+   WATER BEATS FIRE. A water drop that meets a flame is turned to steam, and the flame is out for as long as water keeps crossing the line it
+   would take (and FIRE.relight seconds after). While it is out, the water goes through. A main burner lights itself again; a pilot light
+   stays out until it is lit again.
+   Flames do not burn crates, sentries or cameras, and loose things do not block them. Test room: ?firetest. __tc.fire has the numbers.
+   ===================================================================================== */
+const FIRE = { reach: 4, r: 0.3, dps: 70, strap: 1.2, board: 2.0, light: 0.5, relight: 1.0, cap: 420 };
+const _fv = new V3(), _fc = new THREE.Color(), fract = x => x - Math.floor(x);
+function woodTex() {
+  return canvasTex(256, 256, (g, w, h) => {
+    g.fillStyle = "#8a6a45"; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 140; i++) { const x = Math.random() * w, a = 0.08 + Math.random() * 0.2; g.strokeStyle = Math.random() < 0.6 ? "rgba(35,20,8," + a + ")" : "rgba(190,150,100," + a * 0.7 + ")"; g.lineWidth = 0.6 + Math.random() * 1.8;
+      g.beginPath(); g.moveTo(x, 0); g.bezierCurveTo(x + rand(-5, 5), h * 0.33, x + rand(-5, 5), h * 0.66, x + rand(-4, 4), h); g.stroke(); }
+    for (let i = 0; i < 3; i++) { const x = rand(30, w - 30), y = rand(30, h - 30); g.fillStyle = "rgba(40,22,9,.5)"; g.beginPath(); g.ellipse(x, y, rand(4, 8), rand(7, 14), 0, 0, 7); g.fill(); }
+  }, false);
+}
+function fireBuild(W, lv) {
+  W.fire = null; W.burners = []; W.straps = []; W.boards = [];
+  const B = lv.burners || [], S = lv.straps || [], P = lv.boards || []; if (!B.length && !S.length && !P.length) return;
+  B.forEach((d, n) => {
+    const o = new V3(...d.pos), dir = new V3(...d.dir).normalize(), k = d.pilot ? 0.7 : 1, g = new THREE.Group(); g.position.copy(o); g.lookAt(o.clone().add(dir));
+    const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.045 * k, 0.045 * k, 0.5, 14).rotateX(Math.PI / 2), SENT.steel); pipe.position.z = -0.3;
+    const noz = new THREE.Mesh(new THREE.CylinderGeometry(0.085 * k, 0.055 * k, 0.13, 16).rotateX(Math.PI / 2), SENT.dark); noz.position.z = -0.055;
+    const box = new THREE.Mesh(new THREE.BoxGeometry(0.26 * k, 0.26 * k, 0.22), SENT.dark); box.position.z = -0.62;
+    const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.07 * k, 0.014, 8, 18), new THREE.MeshStandardMaterial({ color: new THREE.Color(.55, .08, .05), roughness: .55, metalness: .3 })); wheel.userData.ownMat = 1; wheel.rotation.x = Math.PI / 2; wheel.position.set(0, 0.16 * k, -0.62);
+    g.add(pipe, noz, box, wheel); levelGroup.add(g);
+    W.burners.push({ o, dir, id: d.id || "b" + n, reach: d.reach || FIRE.reach, pilot: !!d.pilot, lit: !d.pilot, when: d.when, wetT: -9, heat: 0, hot: -1, on: false, a: 0, segs: [], len: 0, seed: Math.random() });
+  });
+  for (const d of S) {
+    const c = d.cube != null ? W.cubes[d.cube] : null, [x, y0, z] = d.pos, y1 = d.top;
+    const mat = new THREE.MeshStandardMaterial({ color: new THREE.Color(.6, .44, .13), roughness: .92, metalness: 0 });
+    const m = new THREE.Mesh(new THREE.BoxGeometry(0.075, y1 - y0, 0.014), mat); m.userData.ownMat = 1; m.position.set(x, (y0 + y1) / 2, z); levelGroup.add(m);
+    const eye = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.05, 0.3), SENT.dark); eye.position.set(x, y1 - 0.025, z); levelGroup.add(eye);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.014, 8, 16), SENT.steel); ring.position.set(x, y0 + 0.03, z); levelGroup.add(ring);
+    W.straps.push({ id: d.id, x, z, y0, y1, fy: (y0 + y1) / 2, c, need: d.burn || FIRE.strap, burn: 0, hot: -1, gone: false, locked: false, m, ring, mat });
+    if (c) c.hung = true;
+  }
+  if (P.length) {
+    const tex = woodTex();
+    for (const d of P) {
+      const box = { min: d.min.slice(), max: d.max.slice(), mat: "dark", portal: false }; fixedCollider(phys.world, box);
+      const a = (d.max[0] - d.min[0]) < (d.max[2] - d.min[2]) ? 0 : 2, w = a ? 0 : 2, th = d.max[a] - d.min[a], wd = d.max[w] - d.min[w], ht = d.max[1] - d.min[1];
+      const g = new THREE.Group(), mats = [], n = Math.max(2, Math.round(wd / 0.34)), pw = wd / n, dim = (t, wid, h) => a === 0 ? [t, h, wid] : [wid, h, t];
+      const piece = (t, wid, h, off, wo, y, tilt, sh = .5) => { const mt = new THREE.MeshStandardMaterial({ map: tex, color: new THREE.Color().setScalar(sh * rand(.85, 1.15)), roughness: .9, metalness: 0 }); mats.push(mt);
+        const m = new THREE.Mesh(new THREE.BoxGeometry(...dim(t, wid, h)), mt); m.userData.ownMat = 1; const p = [0, y, 0]; p[a] = (d.min[a] + d.max[a]) / 2 + off; p[w] = wo; m.position.set(...p); m.rotation[a === 0 ? "x" : "z"] = tilt; g.add(m); };
+      for (let i = 0; i < n; i++) piece(th * 0.5, pw - 0.035, ht - rand(0, 0.07), 0, d.min[w] + pw * (i + 0.5), d.min[1] + ht / 2, rand(-0.012, 0.012));
+      for (const f of [0.24, 0.72]) for (const sd of [-1, 1]) piece(th * 0.25, wd, 0.16, sd * th * 0.375, (d.min[w] + d.max[w]) / 2, d.min[1] + ht * f, rand(-0.03, 0.03), .36);
+      if (g.children[0]) g.children[0].userData.ownMap = W.boards.length ? 0 : 1; levelGroup.add(g);
+      W.boards.push({ id: d.id, box, g, mats, need: d.burn || FIRE.board, burn: 0, hot: -1, gone: false, c: [(d.min[0] + d.max[0]) / 2, (d.min[1] + d.max[1]) / 2, (d.min[2] + d.max[2]) / 2], fp: new V3() });
+    }
+  }
+  const fm = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: .3, depthWrite: false, blending: THREE.AdditiveBlending });
+  const mesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 10, 8), fm, FIRE.cap); mesh.userData.ownMat = 1; mesh.frustumCulled = false; mesh.count = 0; mesh.renderOrder = 6; mesh.setColorAt(0, _fc.setRGB(1, 1, 1)); levelGroup.add(mesh);
+  const sm = new THREE.MeshBasicMaterial({ color: new THREE.Color(.9, .93, .96), transparent: true, opacity: .16, depthWrite: false });
+  const smesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 8, 6), sm, 80); smesh.userData.ownMat = 1; smesh.frustumCulled = false; smesh.count = 0; smesh.renderOrder = 5; levelGroup.add(smesh);
+  W.fire = { now: 0, mesh, smesh, bits: [], near: null, dummy: new THREE.Object3D() };
+}
+function fireBit(p, kind, n = 1) {                     // kind 0: a puff of steam; 1: an ember
+  const F = world.fire; for (let i = 0; i < n && F.bits.length < 140; i++) F.bits.push(kind ? { k: 1, p: p.clone(), v: new V3(rand(-1.2, 1.2), rand(0.2, 2.2), rand(-1.2, 1.2)), life: rand(0.4, 0.9), l0: 0.9 }
+    : { k: 0, p: p.clone().add(_fv.set(rand(-.08, .08), rand(-.05, .08), rand(-.08, .08))), v: new V3(rand(-.3, .3), rand(0.7, 1.4), rand(-.3, .3)), life: rand(0.7, 1.3), l0: 1.3 });
+}
+function fireTouch(b, test) {                          // does this burner's flame pass a place? (sampled every 15 cm along it)
+  for (const g of b.segs) { const n = Math.max(1, Math.ceil(g.len / 0.15)); for (let k = 0; k <= n; k++) { _fv.copy(g.o).addScaledVector(g.d, g.len * k / n); if (test(_fv)) return true; } }
+  return false;
+}
+function fireStep(dt) {
+  const W = world, F = W.fire; if (!F) return; F.now += dt; const Q = W.water, pl = player, r = FIRE.r, now = F.now;
+  for (const s of W.straps) if (!s.gone && s.c && s.c.body && !s.locked) { s.locked = true; s.c.body.setBodyType(RAPIER.RigidBodyType.Fixed, true); }
+  for (const b of W.burners) {
+    const gas = b.lit && (!b.when || b.when(W)); b.segs.length = 0; b.len = 0;
+    if (gas) { const res = castRay(b.o, b.dir, b.reach, false, true); for (const g of res.segs) if (g.len > 0.01) { b.segs.push({ o: g.o, d: g.d, len: g.len, t0: b.len }); b.len += g.len; } }
+    if (gas && Q) for (let i = Q.drops.length - 1; i >= 0; i--) {
+      const p = Q.drops[i].p; let hit = false; for (const g of b.segs) if (distSegPoint(g.o, g.d, g.len, p) < r + 0.08) { hit = true; break; }
+      if (hit) { b.wetT = now; if (b.on) { fireBit(p, 0); Q.drops.splice(i, 1); } }
+    }
+    const wet = now - b.wetT < FIRE.relight, was = b.on;
+    if (wet && b.pilot && b.lit) { b.lit = false; b.heat = 0; W.ev["lit:" + b.id] = false; }
+    b.on = gas && b.lit && !wet;
+    if (was && !b.on && wet) { fireBit(b.o, 0, 8); sndAt(b.o); sfx.fizzle(); }
+  }
+  for (const b of W.burners) {
+    if (!b.on) continue;
+    for (const s of W.straps) if (!s.gone && fireTouch(b, p => { if (Math.abs(p.x - s.x) < r && Math.abs(p.z - s.z) < r && p.y > s.y0 - 0.1 && p.y < s.y1) { s.fy = p.y; return true; } return false; })) s.hot = now;
+    for (const o of W.boards) if (!o.gone && fireTouch(b, p => { const m = o.box; if (p.x > m.min[0] - r && p.x < m.max[0] + r && p.y > m.min[1] - r && p.y < m.max[1] + r && p.z > m.min[2] - r && p.z < m.max[2] + r) { o.fp.copy(p); return true; } return false; })) o.hot = now;
+    for (const q of W.burners) if (q !== b && q.pilot && !q.lit && fireTouch(b, p => p.distanceTo(q.o) < 0.45)) q.hot = now;
+    if (state === "play") for (const g of b.segs) {
+      tmpB.set(pl.p.x, pl.p.y, pl.p.z); const d1 = distSegPoint(g.o, g.d, g.len, tmpB); tmpB.y = pl.p.y + 0.6; const d2 = distSegPoint(g.o, g.d, g.len, tmpB); tmpB.y = pl.p.y - 0.6; const d3 = distSegPoint(g.o, g.d, g.len, tmpB);
+      if (Math.min(d1, d2, d3) < 0.42) { hurt(FIRE.dps * dt, "fire"); break; }
+    }
+  }
+  for (const q of W.burners) if (q.pilot && !q.lit) { q.heat = q.hot === now ? q.heat + dt : 0; if (q.heat >= FIRE.light) { q.lit = true; q.heat = 0; q.wetT = -9; W.ev["lit:" + q.id] = true; sndAt(q.o); sfx.launch(); } }
+  for (const s of W.straps) {
+    if (s.gone) continue; const hot = s.hot === now; s.burn = hot ? s.burn + dt : Math.max(0, s.burn - dt * 0.4);
+    const k = clamp(s.burn / s.need, 0, 1); s.mat.color.setRGB(.6 - .52 * k, .44 - .4 * k, .13 - .1 * k); s.mat.emissive.setRGB(1.8 * k, .45 * k, .03 * k);
+    if (hot && Math.random() < 0.35) fireBit(_fv.set(s.x, s.fy, s.z), 1);
+    if (s.burn >= s.need) { s.gone = true; s.m.visible = false; s.ring.visible = false; W.ev["burnt:" + s.id] = true; _fv.set(s.x, s.fy, s.z); fireBit(_fv, 1, 14); sndAt(_fv); sfx.fizzle();
+      if (s.c) { s.c.hung = false; if (s.c.body) { s.c.body.setBodyType(RAPIER.RigidBodyType.Dynamic, true); s.c.body.wakeUp(); } } }
+  }
+  for (const o of W.boards) {
+    if (o.gone) continue; const hot = o.hot === now; o.burn = hot ? o.burn + dt : Math.max(0, o.burn - dt * 0.3);
+    const k = clamp(o.burn / o.need, 0, 1); for (const m of o.mats) m.emissive.setRGB(1.5 * k * k, .32 * k * k, .02 * k); o.g.children.forEach((m, i) => { if (!m.userData.c0) m.userData.c0 = m.material.color.clone(); m.material.color.copy(m.userData.c0).multiplyScalar(1 - 0.8 * k); });
+    if (hot && Math.random() < 0.5) fireBit(o.fp, 1);
+    if (o.burn >= o.need) { o.gone = true; o.g.visible = false; W.ev["burnt:" + o.id] = true; _fv.set(...o.c); for (let i = 0; i < 26; i++) fireBit(_fv.set(o.c[0] + rand(-.5, .5), o.c[1] + rand(-1.2, 1.2), o.c[2] + rand(-.5, .5)), 1); _fv.set(...o.c); sndAt(_fv); sfx.fizzle();
+      o.box.min[1] -= 900; o.box.max[1] -= 900; syncCollider(o.box); for (const c of props()) if (c.body) c.body.wakeUp(); }
+  }
+  fireDraw(dt);
+}
+function fireDraw(dt) {
+  const W = world, F = W.fire, D = F.dummy, M = F.mesh, T = F.now; let n = 0, near = null, nd = 1e9; const L = cam.pos;
+  for (const b of W.burners) {
+    b.a = clamp(b.a + (b.on ? dt * 6 : -dt * 5), 0, 1); if (b.a < 0.02 || !b.segs.length) continue;
+    const len = b.len * b.a, N = Math.min(70, Math.ceil(len / 0.06) + 6);
+    for (let i = 0; i < N && n < FIRE.cap - 40; i++) {
+      const u = fract(i * 0.6180339 + b.seed + T * (1.3 + 0.7 * fract(i * 0.37))), s = u * len;      // every puff runs from the nozzle to the tip, each at its own pace
+      let g = b.segs[0]; for (const q of b.segs) if (s >= q.t0) g = q;
+      const w = (0.04 + 0.21 * Math.sin(Math.PI * Math.pow(u, 0.62))) * (0.75 + 0.5 * fract(i * 0.77)) * (0.6 + 0.4 * b.a);
+      D.position.copy(g.o).addScaledVector(g.d, Math.min(g.len, s - g.t0));
+      D.position.x += Math.sin(i * 1.3 + T * 7.1) * (0.012 + 0.07 * u); D.position.z += Math.sin(i * 3.7 + T * 5.3) * (0.012 + 0.07 * u);
+      D.position.y += Math.cos(i * 2.1 + T * 6.2) * (0.012 + 0.06 * u) + 0.22 * u * u * (1 - Math.abs(g.d.y));      // a flame lifts toward its tip
+      D.lookAt(_fv.copy(D.position).add(g.d)); D.scale.set(w, w, w * 1.9); D.updateMatrix(); M.setMatrixAt(n, D.matrix);
+      if (u < 0.1) _fc.setRGB(.35, .75, 2.3); else if (u < 0.32) _fc.setRGB(2.5, 2.0, .9); else if (u < 0.7) _fc.setRGB(2.4, .85 - .5 * (u - .32), .14); else _fc.setRGB(2.0 - 3.6 * (u - .7), .5 - 1.2 * (u - .7), .06);
+      M.setColorAt(n++, _fc);
+    }
+    const g = b.segs[b.segs.length - 1]; _fv.copy(g.o).addScaledVector(g.d, g.len);
+    for (const p of [b.o, _fv]) { const d = p.distanceTo(L); if (d < nd) { nd = d; near = near || new V3(); near.copy(p); } }
+  }
+  const S = F.smesh; let k = 0;
+  for (let i = F.bits.length - 1; i >= 0; i--) {
+    const b = F.bits[i]; b.life -= dt; if (b.life <= 0) { F.bits.splice(i, 1); continue; }
+    if (b.k) { b.v.y -= 5 * dt; b.p.addScaledVector(b.v, dt); if (n < FIRE.cap) { const sc = 0.012 + 0.02 * b.life; D.position.copy(b.p); D.rotation.set(0, 0, 0); D.scale.set(sc, sc, sc); D.updateMatrix(); M.setMatrixAt(n, D.matrix); M.setColorAt(n++, _fc.setRGB(8 * b.life, 3 * b.life, .5 * b.life)); } }
+    else { b.v.multiplyScalar(Math.exp(-1.2 * dt)); b.p.addScaledVector(b.v, dt); if (k < 80) { const sc = 0.07 + 0.3 * (1 - b.life / b.l0); D.position.copy(b.p); D.rotation.set(0, 0, 0); D.scale.set(sc, sc, sc); D.updateMatrix(); S.setMatrixAt(k++, D.matrix); } }
+  }
+  M.count = n; M.instanceMatrix.needsUpdate = true; if (M.instanceColor) M.instanceColor.needsUpdate = true;
+  S.count = k; S.instanceMatrix.needsUpdate = true;
+  F.near = near;                                           // the burner's roar sits at the nearest end of any flame (Hum, voice "fire")
+}
 function v5Housing(o, dir, mat, size = 0.34) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(size, size, 0.3), SENT.dark); m.position.copy(o).addScaledVector(dir, -0.1); m.lookAt(m.position.clone().add(dir)); levelGroup.add(m);
   const l = new THREE.Mesh(new THREE.CircleGeometry(size * 0.32, 20), mat); l.position.copy(o).addScaledVector(dir, 0.06); l.lookAt(o.clone().addScaledVector(dir, 1)); levelGroup.add(l);
@@ -7254,6 +7423,7 @@ function v5Build(W, lv) {
     W.sprayers.push({ o, dir, kind: d.kind, rate: d.rate || 0.55, speed: d.speed || 0.6, spread: d.spread || 0, t: 0.5, when: d.when });
   }
   waterBuild(W, lv);
+  fireBuild(W, lv);
   for (const d of (lv.sparkers || [])) {
     const o = new V3(...d.pos), dir = new V3(...d.dir).normalize(); v5Housing(o, dir, V5.hazard, 0.44);
     const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.6, 2.3, .7) }), mesh = new THREE.Mesh(V5.spark, mat); mesh.userData.ownMat = 1;
@@ -7416,6 +7586,7 @@ function v5Step(dt) {
     }
   } else if (!W.blobs.length) W.bAcc = 0;
   waterStep(dt);
+  fireStep(dt);
   // sparks: they bounce off everything except a socket (which keeps them) and you (which hurts)
   for (const sk of W.sparkers) {
     if (!sk.live) {
@@ -8132,7 +8303,7 @@ const sfx = {
 };
 // ---- things that hum from where they are. One voice per kind; it follows the nearest one of its kind (level and side), so the cost never grows with the room.
 const Hum = (() => {
-  const V = {}, R = { laser: 4.5, field: 5, portal0: 2.6, portal1: 2.6, acid: 6, pad: 4, sentry: 3, bridge: 4.5, stream: 6, fridge: 2.6, water: 5 };
+  const V = {}, R = { laser: 4.5, field: 5, portal0: 2.6, portal1: 2.6, acid: 6, pad: 4, sentry: 3, bridge: 4.5, stream: 6, fridge: 2.6, water: 5, fire: 5 };
   const BASE = { laser: 0.05, field: 0.045, portal0: 0.03, portal1: 0.03, acid: 0.06, pad: 0.045, sentry: 0.011, bridge: 0.028, stream: 0.06, fridge: 0.03, water: 0.085 };
   let acc = 0, quiet = true;
   const O = (type, f, dest, vol = 1) => { const o = actx.createOscillator(), g = actx.createGain(); o.type = type; o.frequency.value = f; g.gain.value = vol; o.connect(g); g.connect(dest); o.start(); return o; };
@@ -8149,6 +8320,7 @@ const Hum = (() => {
     bridge: d => { O("sine", 660, d, 0.4); O("sine", 991, d, 0.25); O("sine", 1323, d, 0.15); N(d, "highpass", 5200, 0.5, 0.12); },
     stream: d => { const n = N(d, "bandpass", 520, 0.5, 1); lfo(0.5, 180, n.fl.frequency); N(d, "highpass", 3000, 0.5, 0.08); },
     fridge: d => { const lp = actx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 170; lp.connect(d); O("sawtooth", 50, lp, 0.9); O("sine", 100, d, 0.3); },
+    fire: d => { const a = N(d, "lowpass", 820, 0.7, 0.95); lfo(7.3, 0.22, a.g.gain); lfo(0.6, 240, a.fl.frequency); const b = N(d, "bandpass", 2500, 0.8, 0.22); lfo(11.7, 0.1, b.g.gain); O("sine", 54, d, 0.22); },      // v8.47: a gas burner
     water: d => { const a = N(d, "bandpass", 1700, 0.45, 0.9); lfo(0.83, 500, a.fl.frequency); lfo(6.1, 0.18, a.g.gain); const b = N(d, "lowpass", 380, 0.7, 0.55); lfo(3.7, 0.2, b.g.gain); N(d, "highpass", 5200, 0.5, 0.1); }      // v8.46: pouring water
   };
   function voice(k) { if (V[k]) return V[k]; const g = actx.createGain(), f = actx.createBiquadFilter(), p = actx.createStereoPanner(); g.gain.value = 0; f.type = "lowpass"; f.frequency.value = 12000; g.connect(f); f.connect(p); p.connect(sfxIn || sfxBus); MAKE[k](g); return (V[k] = { g, f, p, lev: 0 }); }
@@ -8169,6 +8341,7 @@ const Hum = (() => {
     for (const w of (W.walks || [])) for (const g of (w.segs || [])) nearSeg(B.bridge, g);
     for (const w of (W.streams || [])) for (const g of (w.segs || [])) nearSeg(B.stream, g);
     if (W.water && W.water.near) near(B.water, W.water.near.x, W.water.near.y, W.water.near.z);
+    if (W.fire && W.fire.near) near(B.fire, W.fire.near.x, W.fire.near.y, W.fire.near.z);
     for (const f of (W.lv.furn || [])) if ((f.k === "fridge" || f.k === "vending" || f.k === "cooler") && f.at) near(B.fridge, f.at[0], f.at[1] + 1, f.at[2]);
     const now = actx.currentTime, cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw);
     for (const k in B) { const b = B[k]; let lev = b.d < R[k] * 5 ? 1 / (1 + Math.pow(b.d / R[k], 2)) : 0, cut = 12000;
@@ -11827,7 +12000,7 @@ function boot() {
   setTimeout(() => HoldMusic.render(), 2200);
   setTimeout(() => { try { HoldShow.ensure(); HoldShow.preload(); } catch (e) { console.error(e); } }, 3000);   // the TV show's picture and voices, ready before anyone reaches the office                                       // and its music, rendered once in the background
 }
-window.__tc = { version: VERSION, water: { WATER, poolPart, get state() { return world && world.water; } }, Lit, GLOW, probeAt, scene, Music, roomProgress, actOf, Snd, sfx, sndAt, floorKind, setSfxRoom, get actx() { return actx; }, get audioBus() { return { master, sfxBus, sfxIn, sfxWet, musicBus }; }, ensureAudio, kit: { shell, exitPort, refinish, stairs, pane, opening, nook, mergeBoxes }, findRefund, offTrack, kitAudit: lv => kitAudit(lv || world.lv), dbg: { wallHit, lvRay, rayBox, hallOf, camTarget, corner, I3 }, secretAudit, CAM_PLAN, Loose, camResolve, sadosPick, holdQuiet, get curPr() { return curPr; }, get subBusy() { return subBusy; }, Bonus, STAFF_DOORS, denAudit, LEVEL_FUNCS, bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, set sevenAt(i) { sevenHere = i; sevenSlotted = false; sevenSaid = false; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || []), ...(l.pools || []).flatMap(p => [{ line: p.line }, { line: p.dunk }])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get liftFloor() { return liftFloorTxt; }, liftSeq, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
+window.__tc = { version: VERSION, water: { WATER, poolPart, get state() { return world && world.water; } }, fire: { FIRE, get state() { return world && world.fire; } }, Lit, GLOW, probeAt, scene, Music, roomProgress, actOf, Snd, sfx, sndAt, floorKind, setSfxRoom, get actx() { return actx; }, get audioBus() { return { master, sfxBus, sfxIn, sfxWet, musicBus }; }, ensureAudio, kit: { shell, exitPort, refinish, stairs, pane, opening, nook, mergeBoxes }, findRefund, offTrack, kitAudit: lv => kitAudit(lv || world.lv), dbg: { wallHit, lvRay, rayBox, hallOf, camTarget, corner, I3 }, secretAudit, CAM_PLAN, Loose, camResolve, sadosPick, holdQuiet, get curPr() { return curPr; }, get subBusy() { return subBusy; }, Bonus, STAFF_DOORS, denAudit, LEVEL_FUNCS, bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, set sevenAt(i) { sevenHere = i; sevenSlotted = false; sevenSaid = false; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || []), ...(l.pools || []).flatMap(p => [{ line: p.line }, { line: p.dunk }])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get liftFloor() { return liftFloorTxt; }, liftSeq, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
 try { boot(); } catch (err) { console.error(err); $("loading").hidden = false; $("loading").innerHTML = '<div style="max-width:420px;text-align:center;line-height:1.6;font-size:13px;letter-spacing:.05em">Something went wrong starting the game.<br><small>' + String(err && err.message || err) + "</small></div>"; }
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>
