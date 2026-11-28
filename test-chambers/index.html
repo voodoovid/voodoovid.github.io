@@ -595,7 +595,7 @@ import { createFilm } from "./film.js";      // v8.49: the film lens and the fil
 import { GLYPHS as HAND_GLYPHS, handWrite, handBlock, handWidth } from "./hand.js";      // v8.19: hand-lettering                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.50";
+const VERSION = "v8.51";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const KT_TEST = /[?&]kittest\b/.test(location.search);      // v8.41: the room kit's test rooms
 const FT_TEST = /[?&]firetest\b/.test(location.search);     // v8.47: the fire engine's test room (its own saves)
@@ -9698,14 +9698,15 @@ const Cut = (() => {
     const c = S.sheet.image, g = c.getContext("2d"); g.drawImage(S.sheetBase, 0, 0); g.lineCap = g.lineJoin = "round"; g.strokeStyle = g.fillStyle = "#1b2a6b";
     const m = Math.floor((SIGPTS.length - 1) * f1) + 1; if (m > 1) { g.lineWidth = 3.4; g.beginPath(); g.moveTo(SIGPTS[0][0], SIGPTS[0][1]); for (let i = 1; i < m; i++) g.lineTo(SIGPTS[i][0], SIGPTS[i][1]); g.stroke(); }
     if (f2 > 0) { g.save(); g.beginPath(); g.rect(590, 860, 130 * f2, 64); g.clip(); handWrite(g, clockStr(), 596, 914, 30, { color: g.fillStyle, pen: .11, seed: 99, mess: .8 }); g.restore(); }
-    if (f3 > 0) {                                    // the next line down, in yellow crayon, pressed hard
+    if (f3 > 0) crayonLint(g, f3);
+    S.sheet.needsUpdate = true;
+  }
+  function crayonLint(g, f3) {                       // the next line down, in yellow crayon, pressed hard
       g.strokeStyle = "#d9960f"; g.lineWidth = 8; const segs = []; let x = 96;
       CRAYON.forEach((gl, k) => { const sz = 50, oy = 936 + [3, -2, 4, 0][k]; for (const st of gl) for (let i = 2; i < st.length; i += 2) segs.push([x + st[i - 2] * sz * .7, oy + st[i - 1] * sz, x + st[i] * sz * .7, oy + st[i + 1] * sz]); x += 52; });
       const n = f3 * segs.length; for (let i = 0; i < segs.length && i < n; i++) { const q = segs[i], u = Math.min(1, n - i); g.beginPath(); g.moveTo(q[0], q[1]); g.lineTo(q[0] + (q[2] - q[0]) * u, q[1] + (q[3] - q[1]) * u); g.stroke(); }
       g.strokeStyle = "rgba(255,214,110,.5)"; g.lineWidth = 2.5; for (let i = 0; i < segs.length && i < n - 1; i++) { const q = segs[i]; g.beginPath(); g.moveTo(q[0] + 1, q[1] + 1); g.lineTo(q[2] + 1, q[3] + 1); g.stroke(); }
-    }
-    S.sheet.needsUpdate = true;
-  }
+      }
   function pathAt(time, out, keys) {
     keys = keys || KEYS; let i = 0; while (i < keys.length - 2 && time >= keys[i + 1][0]) i++;
     const a = keys[i], b = keys[i + 1], dt = b[0] - a[0], u = clamp((time - a[0]) / dt, 0, 1), u2 = u * u, u3 = u2 * u;
@@ -10056,7 +10057,7 @@ const Cut = (() => {
   function nextLine() {
     if (talking || !queue.length) return;
     const it = queue.shift(), text = it.text || it, g = gen; talking = true; said++; lintSays = !!it.who;
-    subEl.innerHTML = (it.who ? '<i class="lint">' + it.who + "</i>" : "<i>" + (mode === "open" && said === 1 ? "UNKNOWN VOICE" : "SADOS") + "</i>") + text;      // v8.49: outside, before she has said who she is subEl.classList.add("on");
+    subEl.innerHTML = (it.who ? '<i class="lint">' + it.who + "</i>" : "<i>" + (mode === "open" ? "UNKNOWN VOICE" : "SADOS") + "</i>") + text; subEl.classList.add("on");      // v8.50: she has not said who she is anywhere in the opening, so all four lines are UNKNOWN VOICE (v8.49's comment had swallowed the line that shows the subtitle)
     const fin = () => { if (g !== gen || !talking) return; clearTimeout(vTimer); talking = false; lintSays = false; vsrc = null; subEl.classList.remove("on"); vTimer = setTimeout(() => { if (g === gen) nextLine(); }, 500); };
     const dur = Math.max(2.6, text.length * 0.065) * 1000; vTimer = setTimeout(fin, dur + 6000);
     if (opts.voice && actx) loadVoice(text).then(buf => {
@@ -10098,7 +10099,7 @@ const Cut = (() => {
     S.edoor[0].position.x = -0.65; S.edoor[1].position.x = 0.65; S.bar.color.setRGB(3.2, .45, .25); for (const m of S.bankM) m.color.setRGB(.05, .055, .06); for (const l of S.bankL) l.intensity = 0;
     if (nfOn) nfShow(false);
     if (mode === "end") setDay(); else setNight();
-    if (mode !== "end" && NF && !/[?&]oldfilm\b/.test(location.search)) { try { nfStart(); } catch (e) { nfFail(e); } }      // v8.49: the new opening
+    if (NF && !/[?&]oldfilm\b/.test(location.search)) { try { if (mode === "end") nfStartEnd(); else nfStart(); } catch (e) { nfFail(e); } }      // v8.49: the new opening; v8.50: the new closing film
     lintOn = mode === "end" && !!store.get("lintFound", 0); lintSays = false; S.lint.g.visible = lintOn; if (lintOn && actx && opts.voice) loadVoice(CUT_LINT_LINE);
     scenePass.scene = S.sc; camera.fov = 58; camera.updateProjectionMatrix(); cam.roll = 0;
     prBefore = QUAL.pr; QUAL.pr = Math.min(window.devicePixelRatio || 1, 2); resize();     // films get the full-resolution picture; the game's own setting comes back after
@@ -10208,7 +10209,7 @@ const Cut = (() => {
     grainTick(); gunPass.enabled = false; placeCamera(); composer.render();
   }
   function tick(dt, time) {
-    if (mode === "end") { tickEnd(dt, time); return; }
+    if (mode === "end") { if (nfOn) { try { tickEnd2(dt, time); return; } catch (e) { nfFail(e); } } tickEnd(dt, time); return; }
     if (nfOn) { try { tickNew(dt, time); } catch (e) { nfFail(e); } return; }
     t += dt; const s = S;
     // camera
@@ -10281,7 +10282,10 @@ const Cut = (() => {
      `build()` makes. If anything here fails, the old opening plays instead (`nfFail`). The closing film is still the old one. */
   let NF = null, nfOn = false, nfLast = 0, nfCue = 0, nfStepN = 0, nfSig = -1;
   const mix = (a, b, u) => a + (b - a) * u;
-  const NT = { cam: 7.6, walk: 10.8, door: 15.8, lobby: 18.8, sheet: 26.3, lift: 32.5, close: 33.2, swap: 34.8, ding: 42.4, open: 42.7, lights: 44.3, walkT: 44.2, minEnd: 50.5 };
+  const NT = { say: 8.4, cam: 11.6, walk: 14.8, door: 18.6, lobby: 21.4, sheet: 28.4, lift: 34.4, close: 35.1, swap: 36.7, ding: 44.3, open: 44.6, lights: 46.2, walkT: 46.1, minEnd: 52.4 };      // v8.50: a longer hold on the sign; the courier is on screen far less
+  const KEYS_L = [[0, 0.28, 1.62, -0.85, 0, 0, 1], [1.5, 0.28, 1.62, -1.0, 0.02, 0, 1], [3.0, 0.34, 1.62, -1.7, 0.62, -0.04, 0], [4.6, 0.95, 1.61, -3.1, -0.78, -0.02, 0], [6.1, 1.74, 1.6, -4.72, -1.25, -0.28, 0], [7.0, 1.95, 1.58, -5.2, -PI / 2, -0.62, 1], [9, 1.95, 1.58, -5.2, -PI / 2, -0.62, 1]];      // the lobby through your own eyes: in at the door, a look left, a look right, to the desk
+  const KEYS_O = [[0, 1.95, 1.58, -5.2, -PI / 2, -0.55, 1], [1.7, 1.86, 1.62, -5.0, -2.55, -0.06, 0], [3.5, 1.2, 1.62, -4.15, -PI + 0.13, 0.0, 0], [7.0, 0.3, 1.62, -2.3, -PI, 0.0, 1], [9, 0.3, 1.62, -2.3, -PI, 0.0, 1]];      // the closing film: from the desk round to the door
+  const ET = { t0: 2.4, t1: 3.6, l0: 4.3, l1: 5.7, lobby: 8.2, door: 15.2, out: 20.6, sign: 28.6, rise: 31.6, end: 38.6 }, P2 = [];      // the closing film's shot times (everything after the desk is 2 s later when Lint signs too)
   const cUP = new V3(0, 1, 0), cA = new V3(), cB = new V3(), cC = new V3(), cD = new V3(), cE = new V3(), cS = new V3(), cT = new V3(), cEl = new V3(), cP = new V3(), cM = new THREE.Matrix4(), cW = new V3(), cW2 = new V3(), cDir = new V3();
   function cBetween(m, A, B) { cD.subVectors(B, A); const l = cD.length() || 1e-4; m.position.copy(A).addScaledVector(cD, 0.5); m.quaternion.setFromUnitVectors(cUP, cD.multiplyScalar(1 / l)); m.scale.set(1, l, 1); }
   function cBend(S0, T0, l1, l2, pole, E) {      // two-bone reach, as `Self` does it
@@ -10299,7 +10303,7 @@ const Cut = (() => {
     const w = p.w || 0, ph = p.ph || 0, bobY = -0.018 * w * Math.abs(Math.sin(ph)) + Math.sin((p.time || 0) * 1.6) * 0.003, rx = -0.03 - 0.05 * w - (p.lean || 0);
     R.body.rotation.x = rx; R.body.position.set(0, bobY + 0.95 * (1 - Math.cos(rx)), -0.95 * Math.sin(rx));
     const shY = 0.95 + 0.47 * Math.cos(rx) + bobY, shZ = 0.47 * Math.sin(rx);
-    R.head.position.set(0, 0.95 + 0.61 * Math.cos(rx) + bobY, 0.61 * Math.sin(rx)); R.head.rotation.set((p.hp || 0) + rx * 0.5, p.hy || 0, 0, "YXZ");
+    R.head.visible = !p.noHead; R.body.visible = !p.noBody; R.head.position.set(0, 0.95 + 0.61 * Math.cos(rx) + bobY, 0.61 * Math.sin(rx)); R.head.rotation.set((p.hp || 0) + rx * 0.5, p.hy || 0, 0, "YXZ");
     for (const L of R.leg) {
       const q = ph + (L.sx > 0 ? PI : 0), sw = Math.sin(q), lift = Math.max(0, Math.cos(q));
       cS.set(L.sx * 0.105, 0.93 + bobY, 0); cT.set(L.sx * 0.12, 0.075 + lift * 0.13 * w, 0.02 - sw * 0.34 * w);
@@ -10340,7 +10344,7 @@ const Cut = (() => {
     root.traverse(o => { o.frustumCulled = false; if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } }); root.visible = false; S.sc.add(root);
     for (let i = S.nExt; i < S.gTop.children.length; i++) S.gTop.children[i].traverse(o => { if (o.isMesh && o.material && o.material.isMeshStandardMaterial && !o.material.transparent) { o.castShadow = true; o.receiveShadow = true; } });
     // only the lights of the place the camera is in throw shadows: outdoors the two lamps and the canopy tube, indoors the tube, the reception light and the desk lamp
-    const shadows = (out) => { const on = Film.QUALS[Film.quality].shadow > 0; for (const l of X.lampLights) l.castShadow = on && out; X.tubeL.castShadow = on; recS.castShadow = deskS.castShadow = on && !out; };
+    const shadows = (out, day) => { const on = Film.QUALS[Film.quality].shadow > 0; for (const l of X.lampLights) l.castShadow = on && out && !day; X.tubeL.castShadow = on && !day; recS.castShadow = on && !out && !day; deskS.castShadow = on && !out; X.sun.castShadow = on && out && !!day; X.sunIn.castShadow = on && !out && !!day; };
     NF = { Film, X, g, recS, deskS, dust, dp, ND, C, setShadowSize, shadows, cp: {}, flip: [S.gTop, S.gLift, S.gHall, X.world, root], hide: [X.still, S.lino, S.hallFloor] };
   }
   function nfQuality() {
@@ -10349,13 +10353,18 @@ const Cut = (() => {
   }
   function nfShow(on) {          // swap the old outdoor set for the new one, and back
     const kids = S.gTop.children; for (let i = 0; i < S.nExt; i++) kids[i].visible = !on;
-    NF.X.world.visible = NF.X.still.visible = on; NF.g.visible = on; NF.C.root.visible = false; S.sc.environment = on ? NF.X.env : null;
+    if (!on && NF.X.day) nfDay(false); NF.X.world.visible = NF.X.still.visible = on; NF.g.visible = on; NF.C.root.visible = false; S.sc.environment = on ? NF.X.env : null;
     el.classList.toggle("film2", on); nfOn = on;
   }
-  function nfStart() { nfShow(true); nfQuality(); nfLast = 0; nfCue = 0; nfStepN = 0; nfSig = -1; NF.X.leaf[0].rotation.y = NF.X.leaf[1].rotation.y = 0; }
+  function nfDay(on) {           // the film's own sets by day (the closing film) or back to the wet night
+    const X = NF.X; X.setDay(on); S.sc.environment = on ? X.envDay : X.env; const dm = NF.dust.material; dm.size = on ? 0.016 : 0.009; dm.opacity = on ? 0.5 : 0.22; dm.color.setRGB(on ? 1.5 : 0.55, on ? 1.3 : 0.62, on ? 0.95 : 0.58);
+    X.sunIn.intensity = on ? 170 : 0; X.fillIn.intensity = on ? 5 : 0; if (!on) { NF.recS.intensity = 110; }
+  }
+  function nfStart() { nfShow(true); nfDay(false); nfQuality(); nfLast = 0; nfCue = 0; nfStepN = 0; nfSig = -1; NF.tin = 0; NF.X.leaf[0].rotation.y = NF.X.leaf[1].rotation.y = 0; }
+  function nfStartEnd() { nfShow(true); nfDay(true); S.day.g.visible = false; nfQuality(); nfLast = 0; nfCue = 0; nfStepN = 0; nfSig = -1; sigOn = false; NF.X.leaf[0].rotation.y = NF.X.leaf[1].rotation.y = 0; }
   function nfFail(e) {           // something in the new film broke: put the old set back and play the old opening from its start
     console.error(e); try { nfShow(false); } catch (e2) {} NF = null; nfOn = false;
-    stopWalk(); t = 0; endT = skipT = -1; cue = 0; doorSaid = 0; floorNo = -1; banks = 0; hush(); S.gTop.visible = true; S.gHall.visible = false; setNight(); camera.fov = 58; camera.updateProjectionMatrix();
+    stopWalk(); t = 0; endT = skipT = -1; cue = 0; doorSaid = 0; floorNo = -1; banks = 0; hush(); S.gTop.visible = true; S.gHall.visible = false; if (mode === "end") { setDay(); sigLast = -1; } else setNight(); camera.fov = 58; camera.updateProjectionMatrix();
   }
   function nfWarm() {            // draw each part of the film once into a tiny picture, so its shaders are compiled before Play is pressed
     const F = NF.Film, was = [S.gTop.visible, S.gHall.visible, S.sc.environment]; nfQuality();
@@ -10365,6 +10374,8 @@ const Cut = (() => {
       NF.shadows(false); camera.position.set(0, 1.6, -9); camera.lookAt(0, 1.4, -3); camera.updateMatrixWorld(true); F.render(S.sc, camera, { t: 0, flip: NF.flip, hide: NF.hide, mirror: true, focus: 6, warm: true });
       S.gTop.visible = false; NF.X.world.visible = NF.X.still.visible = false; NF.C.root.visible = false; S.gHall.visible = true; camera.position.set(0, 1.6, -11); camera.lookAt(0, 1.4, 10); camera.updateMatrixWorld(true);
       F.render(S.sc, camera, { t: 0, flip: NF.flip, hide: NF.hide, mirror: true, focus: 6, warm: true }); F.render(S.sc, camera, { t: 0, flip: NF.flip, hide: NF.hide, mirror: false, focus: 6, warm: true });
+      S.gHall.visible = false; S.gTop.visible = true; NF.X.world.visible = NF.X.still.visible = true; nfDay(true); NF.shadows(true, true); camera.position.set(0, 1.6, 9); camera.lookAt(0, 1.5, 0); camera.updateMatrixWorld(true);      // v8.50: and the daylight of the closing film
+      F.render(S.sc, camera, { t: 0, flip: NF.flip, hide: NF.hide, mirror: false, focus: 6, warm: true }); NF.shadows(false, true); camera.position.set(0, 1.6, -9); camera.lookAt(0, 1.4, -3); camera.updateMatrixWorld(true); F.render(S.sc, camera, { t: 0, flip: NF.flip, hide: NF.hide, mirror: true, focus: 6, warm: true }); nfDay(false);
     } finally { nfShow(false); S.gTop.visible = was[0]; S.gHall.visible = was[1]; S.sc.environment = was[2]; el.classList.remove("film2"); }
   }
   function drawSigIn(f1, f2) {   // signing IN: your name on the next free line, and the time in its TIME IN box
@@ -10373,7 +10384,100 @@ const Cut = (() => {
     if (f2 > 0) { g.save(); g.beginPath(); g.rect(440, 860, 128 * f2, 64); g.clip(); handWrite(g, clockStr(), 452, 914, 30, { color: g.fillStyle, pen: .11, seed: 99, mess: .8 }); g.restore(); }
     S.sheet.needsUpdate = true;
   }
+  function drawSigOut(f2, f3) {  // signing OUT, years on: the name and the time in are already there (faded); the time goes in TIME OUT, and Lint prints his name underneath
+    const c = S.sheet.image, g = c.getContext("2d"); g.drawImage(S.sheetBase, 0, 0); g.lineCap = g.lineJoin = "round"; g.strokeStyle = g.fillStyle = "#56608c"; g.globalAlpha = 0.8;
+    g.lineWidth = 3.2; g.beginPath(); g.moveTo(SIGPTS[0][0], SIGPTS[0][1]); for (let i = 1; i < SIGPTS.length; i++) g.lineTo(SIGPTS[i][0], SIGPTS[i][1]); g.stroke();
+    handWrite(g, String(store.get("timeIn", "08:38")), 452, 914, 30, { color: g.fillStyle, pen: .11, seed: 99, mess: .8 }); g.globalAlpha = 1; g.strokeStyle = g.fillStyle = "#1b2a6b";
+    if (f2 > 0) { g.save(); g.beginPath(); g.rect(590, 860, 130 * f2, 64); g.clip(); handWrite(g, clockStr(), 596, 914, 30, { color: g.fillStyle, pen: .11, seed: 41, mess: .8 }); g.restore(); }
+    if (f3 > 0) crayonLint(g, f3);
+    S.sheet.needsUpdate = true;
+  }
   const lookAtCam = (px, py, pz, lx, ly, lz) => { cam.pos.set(px, py, pz); const dx = lx - px, dy = ly - py, dz = lz - pz, l = Math.hypot(dx, dy, dz) || 1; cam.yaw = Math.atan2(-dx, -dz); cam.pitch = Math.asin(dy / l); cam.roll = 0; return l; };
+  function nfPen(tx, tz, lift, cp) {      // the pen with its tip at a point on the sheet, the left fist round it, the right hand flat on the desk
+    const ty = 1.068 + lift; cDir.set(-0.4, 0.86, -0.3).normalize();                 // the pen leans back toward the writer, and a little to their left
+    S.pen.position.set(tx + cDir.x * 0.07, ty + cDir.y * 0.07, tz + cDir.z * 0.07); S.pen.quaternion.setFromUnitVectors(cUP, cDir);
+    cp.lg = { at: cW2.set(tx + cDir.x * 0.058, ty + cDir.y * 0.058, tz + cDir.z * 0.058).clone(), axis: [-0.3, 0.86, 0.4] };       // the courier's own axes (they face +x here): the same lean
+    cp.rh = cC.set(2.27, 1.085, -4.98).clone(); cp.rpalm = [0, -1, 0];
+  }
+  /* ---------- v8.50: the new closing film (the plan's step 4), on the same lens and the same sets, by day ----------
+     1 signing out (the sheet, the pen, the hand; Lint prints his name too if he was found), 2 the lobby by day through your own eyes,
+     3 the door, and the white of the daylight, 4 outside: what is left of the flyer, then the front of the building, the van where it was left,
+     the sign coming back on, 5 up and away. The same four lines (and Lint's). If anything here fails, the old closing film plays (`nfFail`). */
+  function tickEnd2(dt, time) {
+    t += dt; const s = S, X = NF.X, C = NF.C, F = NF.Film, cp = NF.cp, now = performance.now();
+    if (!NF.fixed && nfLast && F.perf(Math.min(200, now - nfLast))) { store.set("filmQ", F.quality); NF.setShadowSize(F.QUALS[F.quality]); } nfLast = now;
+    const L = lintOn ? 2 : 0, tLobby = ET.lobby + L, tDoor = ET.door + L, tOut = ET.out + L, tSign = ET.sign + L, tRise = ET.rise + L, tEnd = ET.end + L, inside = t < tOut;
+    s.gTop.visible = true; s.gHall.visible = false; X.world.visible = X.still.visible = true; s.day.g.visible = false; NF.shadows(!inside, true);
+    let focus = 6, blur = 1, expo = 1, fov = 38, show = false, sign = 0, dk = 0, white = 0, walk = 0, ph = 0;
+    cp.w = 0; cp.ph = 0; cp.lg = null; cp.lh = cp.rh = null; cp.lpalm = cp.rpalm = null; cp.strap = true; cp.lean = 0; cp.hy = cp.hp = 0; cp.time = time; cp.yaw = 0; cp.noHead = cp.noBody = false;
+    const hx = (Math.sin(time * 0.9) * 0.5 + Math.sin(time * 2.3) * 0.2) * 0.005, hy = (Math.sin(time * 0.8 + 1) * 0.5 + Math.sin(time * 2.1) * 0.2) * 0.004;
+    const f2 = clamp((t - ET.t0) / (ET.t1 - ET.t0), 0, 1), f3 = lintOn ? clamp((t - ET.l0) / (ET.l1 - ET.l0), 0, 1) : 0, fs = f2 + f3, fAll = lintOn ? 2 : 1;
+    if (t < tLobby + 0.5 && (nfSig < 0 || Math.abs(fs - nfSig) > 0.03 || (fs >= fAll && nfSig < fAll))) { nfSig = fs; drawSigOut(f2, f3); if (f2 > 0 && f2 < 1) fx.pen(); }
+    if (t < tLobby) {                              // 1: signing out
+      show = true; cp.x = DESK[0]; cp.z = DESK[1]; cp.yaw = -PI / 2; cp.lean = 0.3; cp.hp = -0.5; cp.strap = false; cp.noHead = cp.noBody = true;
+      const a = tipW(596, 902), b = tipW(696, 902); let tx, tz, lift = 0;
+      if (t < ET.t0) { tx = a[0]; tz = a[1]; lift = 0.03 * (1 - ss((t - (ET.t0 - 0.5)) / 0.45)); }
+      else if (f2 < 1) { const q = tipW(596 + f2 * 100, 902 + Math.sin(f2 * 30) * 5); tx = q[0]; tz = q[1]; }
+      else { tx = b[0]; tz = b[1]; lift = 0.03 * ss((t - ET.t1) / 0.5); }
+      nfPen(tx, tz, lift, cp);
+      const u = ss(t / tLobby), wide = lintOn ? 1 : 0; lookAtCam(mix(2.1, 2.13, u) + hx * 0.4 - 0.04 * wide, mix(1.58, 1.54, u) + hy * 0.4 + 0.05 * wide, mix(-5.36, -5.35, u) + 0.07 * wide, 2.37, 1.066, -5.36 + 0.13 * wide); fov = lintOn ? 50 : 40; blur = 0.6; expo = 0.34;
+      focus = Math.hypot(cam.pos.x - tx, cam.pos.y - 1.07, cam.pos.z - tz) * 0.9;
+    } else if (t < tDoor) {                        // 2: the lobby by day: round from the desk to the door, the sun lying in through the dirty glass
+      const q = t - tLobby; pathAt(q, P2, KEYS_O); walk = ss((q - 1.4) / 0.6) * (1 - ss((q - 6.4) / 0.6)); ph = q * 5.2;
+      cam.pos.set(P2[0] + Math.cos(ph) * 0.005 * walk + hx, P2[1] + Math.sin(ph * 2) * 0.008 * walk + hy, P2[2]); cam.yaw = P2[3]; cam.pitch = P2[4]; cam.roll = Math.cos(ph) * 0.0012 * walk;
+      fov = 46; focus = mix(1.2, 5, ss(q / 2)); blur = 0.75; expo = mix(0.95, 0.82, ss((q - 1.5) / 3));
+    } else if (t < tOut) {                         // 3: the door: it swings in, and the daylight is too much for eyes that have been underground
+      const q = t - tDoor, u = ss(q / 3.4); walk = ss(q / 0.5) * (1 - ss((q - 2.6) / 0.6)); ph = (tDoor - tLobby) * 5.2 + q * 5.2; dk = ss((q - 1.3) / 1.7);
+      cam.pos.set(mix(0.3, 0.2, u) + Math.cos(ph) * 0.005 * walk + hx, 1.62 + Math.sin(ph * 2) * 0.008 * walk + hy, mix(-2.3, -1.1, u) + 0.9 * ss((q - 3.4) / 2.0)); cam.yaw = -PI + 0.04 * u; cam.pitch = 0.02; cam.roll = 0;
+      fov = mix(46, 42, u); focus = 4; blur = 0.7; expo = mix(0.82, 7, Math.pow(ss((q - 1.6) / 3.2), 1.6)); white = ss((q - 3.7) / 1.5);
+      if (nfCue < 2 && q >= 1.3) { nfCue = 2; fx.creak(); }
+    } else {                                       // 4: outside, years on: the flyer, the front of the building, the sign; then 5: up and away
+      const q = t - tOut, u = ss((q - 2.6) / 4.2), v = ss((q - 6.6) / 5.2), r = ss((t - tRise) / 8.5), fl = X.flyerAt, d = q * 0.012;
+      const ex = mix(mix(-2.0 + d, -1.72, u), -1.05, v), ey = mix(mix(1.5, 1.56, u), 1.6, v) + r * r * 15, ez = mix(mix(11.8 - d, 11.25, u), 8.6, v) + r * 7;
+      lookAtCam(ex + hx, ey + hy, ez, mix(mix(-2.13, 0.3, u), 0.12, v) + hx * 2.5, mix(mix(1.6, 1.9, u), 2.9, v) + hy * 2.5 + Math.pow(r, 2.4) * 46, mix(11.1, 0, u));
+      const near = Math.hypot(ex - fl.x, ez - fl.z) - 0.02, far = Math.hypot(ex, ey - 3, ez) * 0.94; focus = 1 / mix(1 / near, 1 / far, ss((q - 2.9) / 2.2)); blur = mix(1, 0.6, v);
+      expo = mix(5, 1.25, ss(q / 2.6)); white = 1 - ss(q / 1.3);
+      if (t > tSign) { const z = t - tSign; sign = z < .12 ? 0 : z < .22 ? 1 : z < .4 ? 0 : z < .5 ? 1 : z < .66 ? 0 : 1; if (sign !== (sigOn ? 1 : 0)) { sigOn = !!sign; fx.flick(); } } else sigOn = false;
+    }
+    C.root.visible = show; if (show) poseCourier(C, cp);
+    X.leaf[1].rotation.y = -1.42 * dk; if (t >= tLobby) { s.pen.position.set(2.56, 1.062, -5.2); s.pen.rotation.set(PI / 2, 0, -0.5); }
+    if (walk > 0.5) { const n = Math.floor(ph / PI); if (n !== nfStepN) { nfStepN = n; fx.step(false); } }
+    if (lintOn) {                                  // Lint: on the desk while you sign (he signs too), then along for the walk to the door, at the corner of your eye
+      const Lp = s.lint, g = Lp.g, m = lintSays ? Math.abs(Math.sin(time * 11)) * (0.55 + 0.45 * Math.sin(time * 3.7 + 1)) : 0; g.visible = inside;
+      if (t < tLobby) { const hop = Math.sin(clamp((t - (tLobby - 0.6)) / 0.6, 0, 1) * PI) * 0.1, wr = f3 > 0 && f3 < 1;
+        g.position.set(LINT_AT[0], LINT_AT[1] + hop + (wr ? Math.abs(Math.sin(time * 9)) * 0.006 : 0), LINT_AT[2]); g.scale.setScalar(0.78); g.rotation.set(-0.62 + Math.sin(time * 1.3) * 0.03, -PI / 2 - 0.22 + Math.sin(time * 0.8) * 0.05, wr ? Math.sin(time * 9) * 0.04 : 0);
+        const dn = t > ET.t0 - 0.6 && t < ET.l1 + 0.3; Lp.set(m, dn ? 0.25 : -0.1, dn ? -0.8 : 0.75, time, wr ? 1.6 : 0.6);
+      } else if (inside) { g.scale.setScalar(1); const u = ss((t - tLobby - 1.9) / 1.3), k = lintSays ? 1 : 0, cy = Math.cos(cam.yaw), sy = Math.sin(cam.yaw), fxv = -sy, fzv = -cy, rx = cy, rz = -sy;
+        g.position.set(cam.pos.x + fxv * 0.56 + rx * 0.33, cam.pos.y - 0.66 + 0.33 * u + Math.sin(ph * 2 + 1) * 0.007 * walk, cam.pos.z + fzv * 0.56 + rz * 0.33);
+        const dx = -rx * (0.9 - 0.6 * k) - fxv * (0.45 + 0.5 * k), dz = -rz * (0.9 - 0.6 * k) - fzv * (0.45 + 0.5 * k); g.rotation.set(0, Math.atan2(dx, dz), Math.sin(ph) * 0.03 * walk); Lp.set(m, -0.5 + 0.3 * Math.sin(time * 0.6), 0.35, time, 0.7 + walk * 0.6); }
+    }
+    // light and air: dim and dusty indoors, the sun outside
+    X.update(t, { sign, shaft: inside ? 1 : 0 }); X.sunIn.intensity = inside ? 170 : 0; X.fillIn.intensity = inside ? 5 : 0;
+    if (inside) { s.hemi.color.set(0xbccbe2); s.hemi.groundColor.set(0x4a4436); s.hemi.intensity = 0.3; s.sc.fog.density = 0.012; s.sc.fog.color.set(0x2c2a24); s.sc.background.set(0x2c2a24);
+      s.tubeIn.color.setRGB(0.05, 0.05, 0.05); s.recL.intensity = 0; NF.recS.intensity = 0; s.deskL.intensity = 0.5; NF.deskS.intensity = t < tLobby ? 2.4 : 1.4;
+      const dp = NF.dp; for (let i = 0; i < NF.ND; i++) { const o = i * 3; dp[o] += Math.sin(time * .3 + i) * dt * .02; dp[o + 1] += (Math.sin(time * .5 + i * 1.7) * .02 - .004) * dt * 3; if (dp[o + 1] < .3) dp[o + 1] = 2.95; } NF.dust.geometry.attributes.position.needsUpdate = true;
+    } else { s.hemi.color.set(0xcfe0ff); s.hemi.groundColor.set(0x7a6f55); s.hemi.intensity = 1.1; s.sc.fog.density = 0.004; s.sc.fog.color.setRGB(0.72, 0.78, 0.84); s.sc.background.setRGB(0.72, 0.78, 0.84); }
+    // the lines
+    if (cue < 1 && t >= 0.8) { cue = 1; speak(0); }
+    if (cue < 2 && t >= tLobby + 0.3) { cue = 2; speak(1); }
+    if (cue < 3 && t >= tDoor - 1.2) { cue = 3; speak(2); }
+    if (cue < 4 && t >= tRise + 0.6) { cue = 4; speak(3); }
+    if (lintOn && cue === 4 && t >= tRise + 3.2 && !talking && !queue.length) { cue = 5; queue.push({ who: "LINT", text: CUT_LINT_LINE }); nextLine(); }
+    const out = inside ? ss((t - tDoor - 1.3) / 2.5) * 0.6 : 1;
+    if (windS) vol(windS, 0.012 + 0.03 * out + 0.008 * Math.sin(time * .4), 0.4);
+    if (out > 0.5 && time > nextChirp) { nextChirp = time + 0.7 + Math.random() * 2.4; fx.chirp(); }
+    const ledS = talking ? 1.6 + Math.sin(time * 31) * 0.8 : 0.12; for (const m of s.spkLed) m.color.setRGB(ledS, ledS * 0.5, ledS * 0.12);
+    // fades: in from black, through white at the door, out to black once she has finished and the camera is in the sky
+    let op = 1 - ss(t / 1.4), wh = false; if (white > 0.001) { op = white; wh = true; }
+    if (endT < 0 && t >= tEnd && cue >= (lintOn ? 5 : 4) && !talking && !queue.length) endT = t;
+    if (endT >= 0) { op = ss((t - endT) / 2.2); wh = false; if (t - endT > 2.6) { finish(); return; } }
+    if (skipT >= 0) { op = Math.max(wh ? 0 : op, ss((t - skipT) / 0.35)); wh = false; if (t - skipT > 0.4) { finish(); return; } }
+    fadeEl.style.background = wh ? "#fff" : "#000"; fadeEl.style.opacity = op.toFixed(3);
+    try { let down = false; for (const pd of navigator.getGamepads ? navigator.getGamepads() : []) if (pd) for (const b of [0, 1, 2, 3, 9]) if (pd.buttons[b] && pd.buttons[b].pressed) down = true; if (down && !padHeld) skip(); padHeld = down; } catch (e) {}
+    if (Math.abs(camera.fov - fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
+    gunPass.enabled = false; placeCamera();
+    F.render(s.sc, camera, { t, flip: NF.flip, hide: NF.hide, mirror: inside, focus, blur, expo, tint: inside ? [1, 1, 1] : [1.03, 1, 0.96] });
+  }
   const DESK = [1.97, -5.25], WAY = [[0.28, -1.7], [1.05, -3.6], [1.9, -5.05], DESK];
   function tickNew(dt, time) {
     t += dt; const s = S, X = NF.X, C = NF.C, F = NF.Film, cp = NF.cp, now = performance.now();
@@ -10383,47 +10487,48 @@ const Cut = (() => {
     NF.shadows(t < NT.door);
     s.gTop.visible = up; X.world.visible = X.still.visible = up; s.gHall.visible = !up;
     let focus = 6, blur = 1, expo = 1.0, mirror = true, fov = 38, see = null, turn = 0, led = 0, show = false, inside = 0, steps = false, wet = true;
-    cp.w = 0; cp.ph = 0; cp.lg = null; cp.lh = cp.rh = null; cp.lpalm = cp.rpalm = null; cp.strap = true; cp.lean = 0; cp.hy = cp.hp = 0; cp.time = time; cp.yaw = 0;
+    cp.w = 0; cp.ph = 0; cp.lg = null; cp.lh = cp.rh = null; cp.lpalm = cp.rpalm = null; cp.strap = true; cp.lean = 0; cp.hy = cp.hp = 0; cp.time = time; cp.yaw = 0; cp.noHead = cp.noBody = false;
     const hx = (Math.sin(time * 0.9) * 0.5 + Math.sin(time * 2.3) * 0.2) * 0.005, hy = (Math.sin(time * 0.8 + 1) * 0.5 + Math.sin(time * 2.1) * 0.2) * 0.004;      // a hand on the camera, barely
     let dk = 0;                                    // how far the front door has swung in
-    if (t < NT.cam) {                              // 1: the flyer on the lamp post, then the front of the building
-      const u = ss((t - 2.6) / 4.2), v = ss((t - 6.0) / 3.5), fl = X.flyerAt, d = t * 0.012;
-      const ex = mix(mix(-2.0 + d, -1.72, u), -1.66, v), ey = mix(mix(1.5, 1.56, u), 1.54, v), ez = mix(mix(11.8 - d, 11.25, u), 10.7, v);
-      lookAtCam(ex + hx, ey + hy, ez, mix(mix(-2.13, 0.3, u), 0.5, v) + hx * 2.5, mix(mix(1.56, 1.9, u), 1.8, v) + hy * 2.5, mix(11.1, 0, u));
-      const near = Math.hypot(ex - fl.x, ez - fl.z) - 0.02, far = Math.hypot(ex, ey - 2.2, ez) * 0.92; focus = 1 / mix(1 / near, 1 / far, ss((t - 2.9) / 2.2));
+    if (t < NT.cam) {                              // 1: the flyer on the lamp post, then the front of the building, and a long look at the sign over the door
+      const u = ss((t - 2.6) / 4.2), v = ss((t - 6.2) / (NT.cam - 6.6)), fl = X.flyerAt, d = t * 0.012;
+      const ex = mix(mix(-2.0 + d, -1.72, u), -1.5, v), ey = mix(mix(1.5, 1.56, u), 1.6, v), ez = mix(mix(11.8 - d, 11.25, u), 8.6, v);
+      lookAtCam(ex + hx, ey + hy, ez, mix(mix(-2.13, 0.3, u), 0.55, v) + hx * 2.5, mix(mix(1.56, 1.9, u), 2.9, v) + hy * 2.5, mix(11.1, 0, u));
+      const near = Math.hypot(ex - fl.x, ez - fl.z) - 0.02, far = Math.hypot(ex, ey - mix(2.2, 3.6, v), ez) * 0.94; focus = 1 / mix(1 / near, 1 / far, ss((t - 2.9) / 2.2)); blur = mix(1, 0.8, v);
       see = cW.set(-4, 0.4, 6);
     } else if (t < NT.walk) {                      // 1b: the camera by the door turns, and looks straight at you
       const q = t - NT.cam, u = ss(q / 3.2); const px = mix(0.5, 0.62, u), py = mix(1.62, 1.7, u), pz = mix(2.05, 1.8, u);
       focus = lookAtCam(px + hx, py + hy, pz, 1.42, 2.4, 0.36); fov = 27; blur = 1.3;
       see = cW.set(px, py, pz); turn = ss((q - 0.45) / 1.25) + 0.05 * Math.sin(Math.max(0, q - 1.7) * 10) * Math.exp(-Math.max(0, q - 1.7) * 3.5); led = q > 2.05 ? 1 : 0;
       if (nfCue < 2 && q >= 0.45) { nfCue = 2; fx.servo(); }
-    } else if (t < NT.door) {                      // 2: the walk to the door, from low behind
-      const q = t - NT.walk, u = q / (NT.door - NT.walk); cp.x = mix(-0.75, 0.28, u); cp.z = mix(9.4, 2.6, u); cp.yaw = -0.15; cp.w = 1; cp.ph = q * 6.1; show = steps = true;
-      focus = lookAtCam(cp.x - 1.3 + hx, 0.26 + hy, cp.z + 4.2 + 1.0 * u, cp.x + 0.2, 1.0, cp.z - 2.0) * 0.72; fov = 30; blur = 1.1; expo = 0.92;
+    } else if (t < NT.door) {                      // 2: the walk to the door, from low behind: a dark shape against the lit doorway (the one shot of the whole courier)
+      const q = t - NT.walk, u = q / (NT.door - NT.walk); cp.x = mix(-0.5, 0.28, u); cp.z = mix(7.8, 2.6, u); cp.yaw = -0.15; cp.w = 1; cp.ph = q * 6.1; show = steps = true;
+      focus = lookAtCam(cp.x - 1.3 + hx, 0.24 + hy, cp.z + 5.0 + 1.0 * u, cp.x + 0.2, 1.0, cp.z - 2.0) * 0.5; fov = 30; blur = 1.3; expo = 0.8;
       see = cW.set(cp.x, 1.5, cp.z); turn = 1; led = 1;
-    } else if (t < NT.lobby) {                     // 2b: a hand on the bar, and the door gives
-      const q = t - NT.door; cp.x = 0.28; cp.yaw = 0; show = true; dk = ss((q - 0.95) / 1.3);
+    } else if (t < NT.lobby) {                     // 2b: the door, through your own eyes: your left hand closes round the bar, and the door gives
+      const q = t - NT.door; cp.x = 0.28; cp.yaw = 0; show = true; cp.noHead = true; cp.strap = false; dk = ss((q - 0.95) / 1.3);
       cp.z = q < 0.9 ? mix(2.6, 0.36, ss(q / 0.9)) : q < 1.75 ? 0.36 - 0.14 * ss((q - 0.9) / 0.85) : mix(0.22, -1.0, ss((q - 1.75) / 1.25));
       cp.w = q < 0.9 ? 1 - ss((q - 0.55) / 0.35) : ss((q - 1.7) / 0.3); cp.ph = (NT.door - NT.walk) * 6.1 + (q < 0.9 ? q : q < 1.75 ? 0.9 : 0.9 + (q - 1.75)) * 5.2; steps = cp.w > 0.5; wet = cp.z > -0.2;
       const gr = ss((q - 0.4) / 0.45) * (1 - ss((q - 1.95) / 0.35));
-      if (gr > 0.01) { X.leaf[1].rotation.y = -1.42 * dk; X.leaf[1].updateMatrixWorld(true); cW2.copy(X.leaf[1].userData.bar); X.leaf[1].localToWorld(cW2); cp.lg = { at: cDir.set(cp.x - 0.2, 1.0, cp.z - 0.3).lerp(cW2, gr).clone(), axis: [0, 1, 0] }; }
-      const u = ss(q / 3.0); lookAtCam(mix(-0.5, -0.42, u) + hx, mix(1.3, 1.34, u) + hy, mix(-2.5, -2.3, u), 0.26, mix(1.3, 1.5, ss((q - 1.9) / 1.0)), 0.2); focus = Math.hypot(cam.pos.x - cp.x, cam.pos.z - cp.z); fov = 34; blur = 1.1;      // from inside the lobby, through the glass
-      see = cW.set(cp.x, 1.5, cp.z); turn = 1; led = 1; inside = ss((q - 1.9) / 1.0) * 0.4;
+      X.leaf[1].rotation.y = -1.42 * dk; X.leaf[1].updateMatrixWorld(true); cW2.copy(X.leaf[1].userData.bar); X.leaf[1].localToWorld(cW2);
+      if (gr > 0.01) cp.lg = { at: cDir.set(cp.x - 0.2, 1.0, cp.z - 0.3).lerp(cW2, gr).clone(), axis: [0, 1, 0] };
+      const dn = ss((q - 0.15) / 0.55) * (1 - ss((q - 1.5) / 0.9)); cam.pos.set(cp.x + hx, 1.62 + Math.sin(cp.ph * 2) * 0.008 * cp.w + hy, cp.z - 0.1); cam.yaw = 0.05 * dn; cam.pitch = -0.02 - 0.5 * dn; cam.roll = 0;
+      fov = 52; focus = mix(2.2, 0.75, dn); blur = 0.9; expo = 1.0; inside = ss((q - 1.9) / 0.9);
+      see = cW.set(cp.x, 1.5, cp.z); turn = 1; led = 1;
       if (nfCue < 3 && q >= 0.95) { nfCue = 3; fx.creak(); }
-    } else if (t < NT.sheet) {                     // 3: the lobby, and nobody in it
-      const q = t - NT.lobby; show = true; dk = 1 - ss((q - 0.15) / 1.25); inside = 0.4 + 0.6 * ss((q - 0.2) / 1.2); wet = false;
-      if (nfCue < 4 && q >= 1.38) { nfCue = 4; fx.thud(); }
-      const wq = clamp((q - 2.5) / 3.9, 0, 1), lens = [2.05, 1.68, 0.2], tot = lens[0] + lens[1] + lens[2]; let d = wq * tot, i = 0; while (i < 2 && d > lens[i]) { d -= lens[i]; i++; }
-      const a = WAY[i], b = WAY[i + 1], f = clamp(d / lens[i], 0, 1); cp.x = mix(a[0], b[0], f); cp.z = mix(a[1], b[1], f);
-      const wyw = Math.atan2(-(b[0] - a[0]), -(b[1] - a[1])), face = ss((q - 6.2) / 0.9);
-      cp.yaw = q < 2.5 ? mix(0, wyw, ss((q - 2.0) / 0.5)) : mix(wyw, -PI / 2, face); cp.w = ss((q - 2.5) / 0.3) * (1 - ss((q - 6.1) / 0.3)); cp.ph = Math.max(0, q - 2.5) * 5.0; steps = cp.w > 0.5;
-      cp.hy = q < 2.5 ? 0.55 * Math.sin(clamp((q - 0.5) / 1.9, 0, 1) * PI * 2) : 0; cp.lean = 0.3 * ss((q - 6.6) / 0.9); cp.hp = -0.5 * ss((q - 6.6) / 0.9);
-      const u = ss(q / 7.5); lookAtCam(mix(-0.7, -0.3, u) + hx, mix(1.2, 1.28, u) + hy, mix(-10.7, -9.9, u), mix(0.3, 0.7, u), 1.25, -2.8); focus = Math.hypot(cam.pos.x - cp.x, cam.pos.z - cp.z); fov = 46; blur = 0.9;
+    } else if (t < NT.sheet) {                     // 3: the lobby, and nobody in it, through your own eyes: a look round, then over to the desk
+      const q = t - NT.lobby; dk = 1 - ss((q - 0.1) / 1.0); inside = 1; wet = false;
+      if (nfCue < 4 && q >= 1.0) { nfCue = 4; fx.thud(); }
+      pathAt(q, P2, KEYS_L); const mv = ss((q - 1.5) / 0.5) * (1 - ss((q - 6.5) / 0.5)), ph = q * 5.4;
+      cam.pos.set(P2[0] + Math.cos(ph) * 0.005 * mv + hx, P2[1] + Math.sin(ph * 2) * 0.008 * mv + hy, P2[2]); cam.yaw = P2[3]; cam.pitch = P2[4]; cam.roll = Math.cos(ph) * 0.0012 * mv;
+      if (mv > 0.5) { const n = Math.floor(ph / PI); if (n !== nfStepN) { nfStepN = n; fx.step(false); } }
+      fov = 52; focus = mix(5.5, 0.75, ss((q - 5.6) / 1.4)); blur = mix(0.6, 1.0, ss((q - 5.6) / 1.4)); expo = 1.5;
       see = cW.set(0, 1.5, 1.2); turn = 1; led = 1;
-    } else if (t < NT.lift) {                      // 4: signing in
-      const q = t - NT.sheet; show = true; inside = 1; wet = false; cp.x = DESK[0]; cp.z = DESK[1]; cp.yaw = -PI / 2; cp.lean = 0.3; cp.hp = -0.5; cp.strap = false;
+    } else if (t < NT.lift) {                      // 4: signing in, from where the writer's own head is: the sheet, the pen, the hand
+      const q = t - NT.sheet; show = true; inside = 1; wet = false; cp.x = DESK[0]; cp.z = DESK[1]; cp.yaw = -PI / 2; cp.lean = 0.3; cp.hp = -0.5; cp.strap = false; cp.noHead = cp.noBody = true;
       const f1 = clamp((q - 0.9) / 2.3, 0, 1), f2 = clamp((q - 3.5) / 1.0, 0, 1), fs = f1 + f2;
       if (Math.abs(fs - nfSig) > 0.03 || (fs >= 2 && nfSig < 2)) { nfSig = fs; drawSigIn(f1, f2); if (fs > 0 && fs < 2 && (f1 < 1 || f2 > 0)) fx.pen(); }
+      if (f2 >= 1 && !NF.tin) { NF.tin = 1; store.set("timeIn", clockStr()); }      // the closing film finds this time on the sheet
       const m = Math.min(SIGPTS.length - 1, Math.floor((SIGPTS.length - 1) * f1)), p0 = tipW(SIGPTS[0][0], SIGPTS[0][1]), pe = tipW(SIGPTS[SIGPTS.length - 1][0], SIGPTS[SIGPTS.length - 1][1]), t0 = tipW(452, 902);
       let tx, tz, lift = 0;
       if (q < 0.9) { tx = p0[0]; tz = p0[1]; lift = 0.035 * (1 - ss((q - 0.5) / 0.4)); }
@@ -10431,12 +10536,9 @@ const Cut = (() => {
       else if (q < 3.5) { const u = ss((q - 3.2) / 0.3); tx = mix(pe[0], t0[0], u); tz = mix(pe[1], t0[1], u); lift = Math.sin(u * PI) * 0.02 + 0.004; }
       else if (f2 < 1) { const p = tipW(452 + f2 * 100, 902 + Math.sin(f2 * 30) * 5); tx = p[0]; tz = p[1]; }
       else { const p = tipW(552, 902); tx = p[0]; tz = p[1]; lift = 0.03 * ss((q - 4.5) / 0.5); }
-      const ty = 1.068 + lift; cDir.set(-0.4, 0.86, -0.3).normalize();                 // the pen leans back toward the writer, and a little to their left
-      s.pen.position.set(tx + cDir.x * 0.07, ty + cDir.y * 0.07, tz + cDir.z * 0.07); s.pen.quaternion.setFromUnitVectors(cUP, cDir);
-      cp.lg = { at: cW2.set(tx + cDir.x * 0.058, ty + cDir.y * 0.058, tz + cDir.z * 0.058).clone(), axis: [-0.3, 0.86, 0.4] };       // the courier's own axes (they face +x here): the same lean
-      cp.rh = cC.set(2.27, 1.085, -4.98).clone(); cp.rpalm = [0, -1, 0];
-      const u = ss(q / 6.2); lookAtCam(mix(2.84, 2.78, u) + hx * 0.5, mix(1.4, 1.44, u) + hy * 0.5, mix(-5.0, -5.06, u), 2.28, 1.08, -5.46); fov = 34; blur = 1.2;      // from the receptionist's side of the desk
-      focus = Math.hypot(cam.pos.x - tx, cam.pos.y - ty, cam.pos.z - tz);
+      nfPen(tx, tz, lift, cp);
+      const u = ss(q / 6.0); lookAtCam(mix(2.1, 2.13, u) + hx * 0.4, mix(1.6, 1.54, u) + hy * 0.4, mix(-5.4, -5.41, u), 2.37, 1.066, -5.43); fov = 40; blur = 0.6;
+      focus = Math.hypot(cam.pos.x - tx, cam.pos.y - 1.07, cam.pos.z - tz) * 0.9;
     } else {                                       // 5 and 6: the lift down, and the corridor, through your own eyes
       inside = 1; fov = 58; wet = false;
       const ride = t > NT.swap + 0.5 && t < NT.ding - 0.4;
@@ -10478,10 +10580,10 @@ const Cut = (() => {
       const f2 = Math.sin(time * 67) * Math.sin(time * 9.1) > 0.8 ? 0.2 : 1; s.tubeIn.color.setRGB(3 * f2, 3.3 * f2, 3.1 * f2); s.recL.intensity = 4 * f2; const atDesk = t >= NT.sheet && t < NT.lift; NF.recS.intensity = (atDesk ? 30 : 110) * f2; s.deskL.intensity = 0.3; NF.deskS.intensity = atDesk ? 2.6 : 1.0;      // at the desk the lamp does the lighting
       const dp = NF.dp; for (let i = 0; i < NF.ND; i++) { const o = i * 3; dp[o] += Math.sin(time * .3 + i) * dt * .02; dp[o + 1] += (Math.sin(time * .5 + i * 1.7) * .02 - .004) * dt * 3; if (dp[o + 1] < .3) dp[o + 1] = 2.95; } NF.dust.geometry.attributes.position.needsUpdate = true;
       s.hemi.color.set(inside > 0.5 ? 0x5a6a8c : 0x202b40); s.hemi.groundColor.set(inside > 0.5 ? 0x101216 : 0x0a0806); s.hemi.intensity = mix(0.3, 0.16, inside);
-      s.sc.fog.density = mix(0.027, 0.006, inside); s.sc.fog.color.set(0x05070b); s.sc.background.set(0x020306); expo = atDesk ? 0.8 : expo * mix(1.0, 1.12, inside);
-      if (rainS) { const closed = t >= NT.lobby + 1.35 ? 1 : 0; vol(rainS, t > NT.close ? 0.004 + 0.02 * (1 - ss((t - NT.close) / 1.4)) : mix(0.2, closed ? 0.03 : 0.09, inside), 0.15); try { rainS.lp.frequency.setTargetAtTime(mix(7500, closed ? 900 : 2600, inside), actx.currentTime, 0.12); } catch (e) {} }
-      if (cue < 1 && t >= NT.cam - 0.4) { cue = 1; speak(0); }
-      if (cue < 2 && t >= NT.lobby + 1.9) { cue = 2; speak(1); }
+      s.sc.fog.density = mix(0.027, 0.006, inside); s.sc.fog.color.set(0x05070b); s.sc.background.set(0x020306); expo = atDesk ? 0.5 : expo * mix(1.0, 1.12, inside);
+      if (rainS) { const closed = t >= NT.lobby + 1.0 ? 1 : 0; vol(rainS, t > NT.close ? 0.004 + 0.02 * (1 - ss((t - NT.close) / 1.4)) : mix(0.2, closed ? 0.03 : 0.09, inside), 0.15); try { rainS.lp.frequency.setTargetAtTime(mix(7500, closed ? 900 : 2600, inside), actx.currentTime, 0.12); } catch (e) {} }
+      if (cue < 1 && t >= NT.say) { cue = 1; speak(0); }      // over the long look at the sign, before the camera turns
+      if (cue < 2 && t >= NT.lobby + 1.6) { cue = 2; speak(1); }
     } else { s.sc.fog.density = 0.011; s.sc.fog.color.set(0x030405); s.sc.background.set(0x020304); s.hemi.color.set(0x5a6a8c); s.hemi.groundColor.set(0x101216); s.hemi.intensity = 0.03 + 0.2 * ss((t - NT.lights) / 4); expo = mix(1.08, 0.86, ss((t - NT.lights) / 3)); }
     const ledS = talking ? 1.6 + Math.sin(time * 31) * 0.8 : 0.12; for (const m of s.spkLed) m.color.setRGB(ledS, ledS * 0.5, ledS * 0.12);
     // fades, and the way out (as the old opening does them)
@@ -10497,7 +10599,7 @@ const Cut = (() => {
   }
   $("cutSkip").addEventListener("click", e => { e.stopPropagation(); skip(); });
   addEventListener("keydown", e => { if (state !== "cut" || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return; const k = e.key.toLowerCase(); if (k === "escape" || k === "enter" || k === " ") { e.preventDefault(); skip(); } });
-  return { prep, play, playEnding: then => play(then, "end"), tick, skip, get t() { return t; }, set t(v) { t = v; }, get S() { return S; }, get lint() { return lintOn; }, E, NT, get nf() { return nfOn; }, get NF() { return NF; },
+  return { prep, play, playEnding: then => play(then, "end"), tick, skip, get t() { return t; }, set t(v) { t = v; }, get S() { return S; }, get lint() { return lintOn; }, E, NT, ET, get nf() { return nfOn; }, get NF() { return NF; },
     get walking() { return walking; }, get walk() { return { x: wx, z: wz, yaw: wyaw, pitch: wpitch, door: endT >= 0 }; }, setWalk(x, z, yaw, pitch) { wx = x; wz = z; if (yaw != null) wyaw = yaw; if (pitch != null) wpitch = pitch; wvx = wvz = 0; } };
 })();
 
@@ -12379,7 +12481,7 @@ function boot() {
   setTimeout(() => HoldMusic.render(), 2200);
   setTimeout(() => { try { HoldShow.ensure(); HoldShow.preload(); } catch (e) { console.error(e); } }, 3000);   // the TV show's picture and voices, ready before anyone reaches the office                                       // and its music, rendered once in the background
 }
-window.__tc = { version: VERSION, water: { WATER, poolPart, get state() { return world && world.water; } }, fire: { FIRE, get state() { return world && world.fire; } }, Lit, GLOW, probeAt, scene, Music, roomProgress, actOf, Snd, sfx, sndAt, floorKind, setSfxRoom, get actx() { return actx; }, get audioBus() { return { master, sfxBus, sfxIn, sfxWet, musicBus }; }, ensureAudio, kit: { shell, exitPort, refinish, stairs, pane, opening, nook, mergeBoxes }, findRefund, offTrack, kitAudit: lv => kitAudit(lv || world.lv), dbg: { wallHit, lvRay, rayBox, hallOf, camTarget, corner, I3 }, secretAudit, CAM_PLAN, Loose, camResolve, sadosPick, holdQuiet, get curPr() { return curPr; }, get subBusy() { return subBusy; }, Bonus, STAFF_DOORS, denAudit, LEVEL_FUNCS, bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, set sevenAt(i) { sevenHere = i; sevenSlotted = false; sevenSaid = false; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || []), ...(l.pools || []).flatMap(p => [{ line: p.line }, { line: p.dunk }])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get liftFloor() { return liftFloorTxt; }, liftSeq, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
+window.__tc = { version: VERSION, get camera() { return camera; }, water: { WATER, poolPart, get state() { return world && world.water; } }, fire: { FIRE, get state() { return world && world.fire; } }, Lit, GLOW, probeAt, scene, Music, roomProgress, actOf, Snd, sfx, sndAt, floorKind, setSfxRoom, get actx() { return actx; }, get audioBus() { return { master, sfxBus, sfxIn, sfxWet, musicBus }; }, ensureAudio, kit: { shell, exitPort, refinish, stairs, pane, opening, nook, mergeBoxes }, findRefund, offTrack, kitAudit: lv => kitAudit(lv || world.lv), dbg: { wallHit, lvRay, rayBox, hallOf, camTarget, corner, I3 }, secretAudit, CAM_PLAN, Loose, camResolve, sadosPick, holdQuiet, get curPr() { return curPr; }, get subBusy() { return subBusy; }, Bonus, STAFF_DOORS, denAudit, LEVEL_FUNCS, bsSeen, bsTick, say, get subQ() { return subQ.slice(); }, BS_DEN, isBS, Items, GunSticker, STICKERS, FIND_CH, KEY_INFO, findsOf, store, Slot7, get seven() { return { here: sevenHere, slotted: sevenSlotted, bonus: sevenBonusCh }; }, set sevenAt(i) { sevenHere = i; sevenSlotted = false; sevenSaid = false; }, get levelIdx() { return levelIdx; }, Self, render: t => renderFrame(t), set showGun(v) { showGun = v; }, hazards: (dt, t) => { updateSentries(dt, t); updateBeams(dt, t); updateFields(dt); updateZones(dt, t); updateFx(dt); }, get pads() { return world.pads; }, setCube: (c, x, y, z) => { setCubeState(c, new V3(x, y, z), new QT()); c.pv.set(x, y, z); }, get phys() { return phys; }, names: ROOM_NAMES, chamberPar, opts, chambers: CH_NAMES, ROOM, FIRST, allLines: () => ({ LINES, story: Object.values(STORY).concat(PARCEL_LINES, Object.values(LINT_ASIDE), [LINT_LINES.sadosHello, LINT_LINES.sadosTake]), lint: [LINT_LINES.hello, LINT_LINES.take, CUT_LINT_LINE], reels: window.HoldShowArt ? [1, 2, 3, 4, 5].flatMap(n => HoldShowArt.tapeTexts(n)) : [], cut: CUT_LINES, levels: LEVEL_FUNCS.map(f => { const l = f(); return Object.assign({}, l.say, { extra: [...(l.trig || []), ...(l.evs || []), ...(l.sockets || []), ...(l.pools || []).flatMap(p => [{ line: p.line }, { line: p.dunk }])].map(z => z.line).filter(Boolean) }); }), quips: SENTRY_QUIPS, show: window.HoldShowArt ? HoldShowArt.TEXTS : [] }), lineHash, HoldShow, Parcel, LintRoom, lintPuppet, Log, STORY, LINT_DRESS, LINT_ASIDE, lintDress, lintCarSpec, paintSticker, paintNote, get state() { return state; }, Cut, get Lift() { return Lift; }, get liftFloor() { return liftFloorTxt; }, liftSeq, get Dock() { return Dock; }, HoldMusic, planDock, paintScrawl, sightVia, sentryEye, clearPortals, player, inp, portals, get world() { return world; }, cam, run, startLevel: beginLevel, firePortal, useAction, castRay, physicsStep, completeLevel, die, V3, keys, QUAL, tryPlacePortal, set state(v) { state = v; } };
 try { boot(); } catch (err) { console.error(err); $("loading").hidden = false; $("loading").innerHTML = '<div style="max-width:420px;text-align:center;line-height:1.6;font-size:13px;letter-spacing:.05em">Something went wrong starting the game.<br><small>' + String(err && err.message || err) + "</small></div>"; }
 </script>
 <script>if("serviceWorker" in navigator)navigator.serviceWorker.register("../sw.js",{scope:"../"}).catch(function(){});</script>
