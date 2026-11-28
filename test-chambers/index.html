@@ -595,7 +595,7 @@ import { createFilm } from "./film.js";      // v8.49: the film lens and the fil
 import { GLYPHS as HAND_GLYPHS, handWrite, handBlock, handWidth } from "./hand.js";      // v8.19: hand-lettering                                   // v8.6: the furniture kit for the dens (test page: showroom.html)
 await RAPIER.init();
 
-const VERSION = "v8.51";
+const VERSION = "v8.52";
 // v8.5: test-chambers/?itemtest runs the hidden Item Test room on its own, with its own saves (nothing found there counts in the real game)
 const KT_TEST = /[?&]kittest\b/.test(location.search);      // v8.41: the room kit's test rooms
 const FT_TEST = /[?&]firetest\b/.test(location.search);     // v8.47: the fire engine's test room (its own saves)
@@ -9794,7 +9794,7 @@ const Cut = (() => {
       g.fillStyle = "#17191b"; g.textAlign = "center"; g.textBaseline = "alphabetic";
       g.font = "900 96px Helvetica, Arial, sans-serif"; g.fillText("PAID", 256, 122); g.font = "900 70px Helvetica, Arial, sans-serif"; g.fillText("VOLUNTEERS", 256, 198); g.font = "900 96px Helvetica, Arial, sans-serif"; g.fillText("WANTED", 256, 292);
       g.fillRect(48, 316, 416, 6);
-      g.font = "600 30px Helvetica, Arial, sans-serif"; ["Help with a simple study.", "No experience needed.", "Light refreshments provided."].forEach((s, i) => g.fillText(s, 256, 372 + i * 44));
+      g.font = "600 30px Helvetica, Arial, sans-serif"; ["Help with a simple study.", "No experience needed.", "Light refreshments provided (cake)."].forEach((s, i) => g.fillText(s, 256, 372 + i * 44));
       g.font = "800 32px Helvetica, Arial, sans-serif"; g.fillText("ASK AT THE FRONT DOOR", 256, 530); g.font = "600 26px Helvetica, Arial, sans-serif"; g.fillText("Open all hours", 256, 568);
       g.strokeStyle = "#17191b"; g.lineWidth = 2; g.setLineDash([7, 6]); g.beginPath(); g.moveTo(0, 604); g.lineTo(512, 604); g.stroke();
       for (let i = 1; i < 8; i++) { g.beginPath(); g.moveTo(i * 64, 604); g.lineTo(i * 64, 724); g.stroke(); } g.setLineDash([]);
@@ -10106,7 +10106,7 @@ const Cut = (() => {
     document.body.classList.add("cutting"); el.hidden = false; el.classList.remove("out"); fadeEl.style.transition = "none"; fadeEl.style.background = "#000"; fadeEl.style.opacity = 1;
     if (actx) {
       if (opts.music) musicBus.gain.setTargetAtTime(0.14, actx.currentTime, 0.4); setVoiceRoom(mode === "end" ? 10 : 14); preloadVoice(lineSet);
-      if (mode === "end") { windS = windLoop(); vol(windS, 0.012, 0.6); rainS = humS = null; } else { rainS = rainLoop(); vol(rainS, 0.2, 0.6); humS = null; windS = null; }
+      if (mode === "end") { windS = windLoop(); vol(windS, 0.012, 0.6); rainS = humS = null; } else { rainS = rainLoop(); vol(rainS, NF ? 0.07 : 0.2, 0.6); humS = null; windS = null; }
     }
     const k = pathAt(0, [], mode === "end" ? KEYS_E : KEYS); lastP.set(k[0], k[1], k[2]);
   }
@@ -10282,7 +10282,7 @@ const Cut = (() => {
      `build()` makes. If anything here fails, the old opening plays instead (`nfFail`). The closing film is still the old one. */
   let NF = null, nfOn = false, nfLast = 0, nfCue = 0, nfStepN = 0, nfSig = -1;
   const mix = (a, b, u) => a + (b - a) * u;
-  const NT = { say: 8.4, cam: 11.6, walk: 14.8, door: 18.6, lobby: 21.4, sheet: 28.4, lift: 34.4, close: 35.1, swap: 36.7, ding: 44.3, open: 44.6, lights: 46.2, walkT: 46.1, minEnd: 52.4 };      // v8.50: a longer hold on the sign; the courier is on screen far less
+  const NT = { say: 8.4, cam: 11.6, walk: 14.8, door: 14.8, lobby: 17.6, sheet: 24.6, lift: 30.6, close: 31.3, swap: 32.9, ding: 40.5, open: 40.8, lights: 42.4, walkT: 42.3, minEnd: 48.6 };      // v8.52: the walk from behind is gone (walk = door, so shot 2 never plays); everything after it is 3.8 s earlier
   const KEYS_L = [[0, 0.28, 1.62, -0.85, 0, 0, 1], [1.5, 0.28, 1.62, -1.0, 0.02, 0, 1], [3.0, 0.34, 1.62, -1.7, 0.62, -0.04, 0], [4.6, 0.95, 1.61, -3.1, -0.78, -0.02, 0], [6.1, 1.74, 1.6, -4.72, -1.25, -0.28, 0], [7.0, 1.95, 1.58, -5.2, -PI / 2, -0.62, 1], [9, 1.95, 1.58, -5.2, -PI / 2, -0.62, 1]];      // the lobby through your own eyes: in at the door, a look left, a look right, to the desk
   const KEYS_O = [[0, 1.95, 1.58, -5.2, -PI / 2, -0.55, 1], [1.7, 1.86, 1.62, -5.0, -2.55, -0.06, 0], [3.5, 1.2, 1.62, -4.15, -PI + 0.13, 0.0, 0], [7.0, 0.3, 1.62, -2.3, -PI, 0.0, 1], [9, 0.3, 1.62, -2.3, -PI, 0.0, 1]];      // the closing film: from the desk round to the door
   const ET = { t0: 2.4, t1: 3.6, l0: 4.3, l1: 5.7, lobby: 8.2, door: 15.2, out: 20.6, sign: 28.6, rise: 31.6, end: 38.6 }, P2 = [];      // the closing film's shot times (everything after the desk is 2 s later when Lint signs too)
@@ -10335,9 +10335,9 @@ const Cut = (() => {
     const deskS = new THREE.SpotLight(0xffc88a, 22, 3.6, 0.95, 0.85, 1.4); deskS.position.set(2.77, 1.385, -4.885); deskS.target.position.set(2.4, 1.02, -5.5); deskS.castShadow = true; deskS.shadow.bias = -0.0012; deskS.shadow.camera.near = 0.05; deskS.shadow.camera.far = 3.6;
     const spill = new THREE.PointLight(0xbfe0d0, 1.4, 4.5, 1.6); spill.position.set(-0.3, 1.7, -1.1);      // the lobby's light on whoever stands at the door
     g.add(recS, recS.target, deskS, deskS.target, spill);
-    const ND = 260, dp = new Float32Array(ND * 3), dr = rng(771); for (let i = 0; i < ND; i++) { dp[i * 3] = -2.6 + dr() * 5.2; dp[i * 3 + 1] = 0.4 + dr() * 2.6; dp[i * 3 + 2] = -8 + dr() * 7.2; }
+    const ND = 90, dp = new Float32Array(ND * 3), dr = rng(771); for (let i = 0; i < ND; i++) { dp[i * 3] = -2.6 + dr() * 5.2; dp[i * 3 + 1] = 0.4 + dr() * 2.6; dp[i * 3 + 2] = -8 + dr() * 7.2; }
     const dG = new THREE.BufferGeometry(); dG.setAttribute("position", new THREE.BufferAttribute(dp, 3));
-    const dust = new THREE.Points(dG, new THREE.PointsMaterial({ color: new THREE.Color(0.55, 0.62, 0.58), size: 0.009, sizeAttenuation: true, transparent: true, opacity: 0.22, depthWrite: false, blending: THREE.AdditiveBlending })); dust.frustumCulled = false; g.add(dust);
+    const dust = new THREE.Points(dG, new THREE.PointsMaterial({ color: new THREE.Color(0.55, 0.62, 0.58), size: 0.009, sizeAttenuation: true, transparent: true, opacity: 0.1, depthWrite: false, blending: THREE.AdditiveBlending })); dust.frustumCulled = false; g.add(dust);
     const setShadowSize = (q) => { for (const [l, k] of [[recS, 0.5], [deskS, 0.5]]) { const sz = Math.max(256, q.shadow * k | 0); l.castShadow = q.shadow > 0; if (l.shadow.mapSize.x !== sz) { l.shadow.mapSize.set(sz, sz); if (l.shadow.map) { l.shadow.map.dispose(); l.shadow.map = null; } } } };
     // the courier: the same figure a portal shows you, here with its own materials, walking and reaching for things
     const root = new THREE.Group(), C = Object.assign({ root }, courierParts(o => new THREE.MeshStandardMaterial(o), root));
@@ -10357,7 +10357,7 @@ const Cut = (() => {
     el.classList.toggle("film2", on); nfOn = on;
   }
   function nfDay(on) {           // the film's own sets by day (the closing film) or back to the wet night
-    const X = NF.X; X.setDay(on); S.sc.environment = on ? X.envDay : X.env; const dm = NF.dust.material; dm.size = on ? 0.016 : 0.009; dm.opacity = on ? 0.5 : 0.22; dm.color.setRGB(on ? 1.5 : 0.55, on ? 1.3 : 0.62, on ? 0.95 : 0.58);
+    const X = NF.X; X.setDay(on); S.sc.environment = on ? X.envDay : X.env; const dm = NF.dust.material; dm.size = on ? 0.012 : 0.008; dm.opacity = on ? 0.2 : 0.1; dm.color.setRGB(on ? 1.5 : 0.55, on ? 1.3 : 0.62, on ? 0.95 : 0.58);
     X.sunIn.intensity = on ? 170 : 0; X.fillIn.intensity = on ? 5 : 0; if (!on) { NF.recS.intensity = 110; }
   }
   function nfStart() { nfShow(true); nfDay(false); nfQuality(); nfLast = 0; nfCue = 0; nfStepN = 0; nfSig = -1; NF.tin = 0; NF.X.leaf[0].rotation.y = NF.X.leaf[1].rotation.y = 0; }
@@ -10581,7 +10581,7 @@ const Cut = (() => {
       const dp = NF.dp; for (let i = 0; i < NF.ND; i++) { const o = i * 3; dp[o] += Math.sin(time * .3 + i) * dt * .02; dp[o + 1] += (Math.sin(time * .5 + i * 1.7) * .02 - .004) * dt * 3; if (dp[o + 1] < .3) dp[o + 1] = 2.95; } NF.dust.geometry.attributes.position.needsUpdate = true;
       s.hemi.color.set(inside > 0.5 ? 0x5a6a8c : 0x202b40); s.hemi.groundColor.set(inside > 0.5 ? 0x101216 : 0x0a0806); s.hemi.intensity = mix(0.3, 0.16, inside);
       s.sc.fog.density = mix(0.027, 0.006, inside); s.sc.fog.color.set(0x05070b); s.sc.background.set(0x020306); expo = atDesk ? 0.5 : expo * mix(1.0, 1.12, inside);
-      if (rainS) { const closed = t >= NT.lobby + 1.0 ? 1 : 0; vol(rainS, t > NT.close ? 0.004 + 0.02 * (1 - ss((t - NT.close) / 1.4)) : mix(0.2, closed ? 0.03 : 0.09, inside), 0.15); try { rainS.lp.frequency.setTargetAtTime(mix(7500, closed ? 900 : 2600, inside), actx.currentTime, 0.12); } catch (e) {} }
+      if (rainS) { const closed = t >= NT.lobby + 1.0 ? 1 : 0; vol(rainS, t > NT.close ? 0.002 + 0.01 * (1 - ss((t - NT.close) / 1.4)) : mix(0.07, closed ? 0.012 : 0.035, inside), 0.15); try { rainS.lp.frequency.setTargetAtTime(mix(7500, closed ? 900 : 2600, inside), actx.currentTime, 0.12); } catch (e) {} }
       if (cue < 1 && t >= NT.say) { cue = 1; speak(0); }      // over the long look at the sign, before the camera turns
       if (cue < 2 && t >= NT.lobby + 1.6) { cue = 2; speak(1); }
     } else { s.sc.fog.density = 0.011; s.sc.fog.color.set(0x030405); s.sc.background.set(0x020304); s.hemi.color.set(0x5a6a8c); s.hemi.groundColor.set(0x101216); s.hemi.intensity = 0.03 + 0.2 * ss((t - NT.lights) / 4); expo = mix(1.08, 0.86, ss((t - NT.lights) / 3)); }

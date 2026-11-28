@@ -331,7 +331,7 @@ export function createFilm(THREE, renderer) {
       g.fillStyle = "#17191b"; g.textAlign = "center"; g.textBaseline = "alphabetic";
       g.font = "900 96px Helvetica, Arial, sans-serif"; g.fillText("PAID", 256, 122); g.font = "900 70px Helvetica, Arial, sans-serif"; g.fillText("VOLUNTEERS", 256, 198); g.font = "900 96px Helvetica, Arial, sans-serif"; g.fillText("WANTED", 256, 292);
       g.fillRect(48, 316, 416, 6);
-      g.font = "600 30px Helvetica, Arial, sans-serif"; ["Help with a simple study.", "No experience needed.", "Light refreshments provided."].forEach((s, i) => g.fillText(s, 256, 372 + i * 44));
+      g.font = "600 30px Helvetica, Arial, sans-serif"; ["Help with a simple study.", "No experience needed.", "Light refreshments provided (cake)."].forEach((s, i) => g.fillText(s, 256, 372 + i * 44));
       g.font = "800 32px Helvetica, Arial, sans-serif"; g.fillText("ASK AT THE FRONT DOOR", 256, 530); g.font = "600 26px Helvetica, Arial, sans-serif"; g.fillText("Open all hours", 256, 568);
       g.strokeStyle = "#17191b"; g.lineWidth = 2; g.setLineDash([7, 6]); g.beginPath(); g.moveTo(0, 604); g.lineTo(512, 604); g.stroke(); g.setLineDash([]);
       g.font = "700 17px Helvetica, Arial, sans-serif"; for (let i = 0; i < 8; i++) { g.save(); g.translate(i * 64 + 38, 664); g.rotate(-PI / 2); g.fillText("FRONT DOOR", 0, 0); g.restore(); }
@@ -368,7 +368,7 @@ export function createFilm(THREE, renderer) {
       vanLogoM = std({ map: canvasTex(1024, 502, (g) => paintMaybeMail(g, 1024, 502, "side")), transparent: true, roughness: 0.42, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }); vanLogoM.map.wrapS = vanLogoM.map.wrapT = THREE.ClampToEdgeWrapping;
       const wordM = std({ map: canvasTex(512, 128, (g) => paintMaybeMail(g, 512, 128, "word")), transparent: true, roughness: 0.42, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }), bvM = std({ map: canvasTex(256, 256, (g) => paintMaybeMail(g, 256, 256, "beaver")), transparent: true, roughness: 0.42, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 });
       for (const sd of [-1, 1]) { const q = quad(van, vanLogoM, 2.0, 0.98, sd * 0.992, 1.89, -1.72, 0, sd * PI / 2); q.receiveShadow = true; }
-      quad(van, wordM, 0.68, 0.17, -0.44, 1.33, 0.046); quad(van, bvM, 0.44, 0.44, 0.44, 1.13, 0.046); vanLogoM.userData.more = [wordM, bvM];
+      quad(van, wordM, 0.68, 0.17, -0.46, 1.38, 0.046); quad(van, bvM, 0.5, 0.5, -0.47, 1.03, 0.046); vanLogoM.userData.more = [wordM, bvM];      // v8.52: the beaver right under the name (it was on the other door, out of shot)
       // years later (the closing film): rust creeping up the panels, grime on the glass
       const rustT = (seed, w, h) => canvasTex(w, h, (g) => { const r = rng(seed); g.clearRect(0, 0, w, h);
         for (let i = 0; i < 70; i++) { const x = r() * w, y = h - Math.pow(r(), 3.2) * h * .6, rad = 14 + r() * 60; const rg = g.createRadialGradient(x, y, 1, x, y, rad); const c = r() < .5 ? "122,62,24" : r() < .5 ? "92,44,18" : "150,84,34"; rg.addColorStop(0, `rgba(${c},${.3 + r() * .3})`); rg.addColorStop(.6, `rgba(${c},.18)`); rg.addColorStop(1, `rgba(${c},0)`); g.fillStyle = rg; g.fillRect(x - rad, y - rad, rad * 2, rad * 2); }
